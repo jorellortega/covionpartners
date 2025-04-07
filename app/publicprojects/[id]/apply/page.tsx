@@ -23,7 +23,7 @@ export default function ApplyForRolePage() {
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const projectId = params.id as string
   const roleId = searchParams.get('role')
   const roleName = searchParams.get('roleName')
@@ -39,10 +39,14 @@ export default function ApplyForRolePage() {
   })
 
   useEffect(() => {
-    if (!user) {
+    // Only redirect if we're sure the user is not authenticated
+    if (!authLoading && !user) {
       router.push(`/login?redirect=/publicprojects/${projectId}/apply?role=${roleId}&roleName=${roleName}`)
       return
     }
+
+    // Don't fetch project data until we confirm user is authenticated
+    if (authLoading || !user) return
 
     const fetchProject = async () => {
       try {
@@ -63,7 +67,7 @@ export default function ApplyForRolePage() {
     }
 
     fetchProject()
-  }, [projectId, user, router, roleId, roleName])
+  }, [projectId, user, router, roleId, roleName, authLoading])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -116,7 +120,8 @@ export default function ApplyForRolePage() {
     }
   }
 
-  if (loading) {
+  // Show loading spinner while auth is being checked
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner />
@@ -124,6 +129,7 @@ export default function ApplyForRolePage() {
     )
   }
 
+  // Show not found state if no project is found
   if (!project) {
     return (
       <div className="min-h-screen flex items-center justify-center">
