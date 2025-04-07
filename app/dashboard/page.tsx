@@ -40,6 +40,8 @@ import {
   Search,
   Filter,
   SortAsc,
+  Handshake,
+  Star,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -215,18 +217,18 @@ export default function PartnerDashboard() {
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center">
-            <h1 className="text-3xl font-bold">Partner Dashboard</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Partner Dashboard</h1>
           </div>
-          <div className="flex space-x-4">
+          <div className="flex flex-wrap gap-2 sm:gap-4 w-full sm:w-auto">
             {user.role !== 'viewer' && (
               <>
-                <Button className="gradient-button" onClick={() => router.push("/projects/new")}>
+                <Button className="gradient-button w-full sm:w-auto" onClick={() => router.push("/projects/new")}>
                   <Plus className="w-5 h-5 mr-2" />
                   New Project
                 </Button>
-                <Button className="gradient-button" onClick={() => router.push("/team")}>
+                <Button className="gradient-button w-full sm:w-auto" onClick={() => router.push("/team")}>
                   <Users className="w-5 h-5 mr-2" />
                   Manage Team
                 </Button>
@@ -234,9 +236,8 @@ export default function PartnerDashboard() {
             )}
             <Button 
               variant="outline" 
-              className="border-gray-700 bg-gray-800/30 text-white hover:bg-red-900/20 hover:text-red-400"
+              className="border-gray-700 bg-gray-800/30 text-white hover:bg-red-900/20 hover:text-red-400 w-full sm:w-auto"
               onClick={() => {
-                // Add logout logic here
                 router.push("/login")
               }}
             >
@@ -246,8 +247,8 @@ export default function PartnerDashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <div className="leonardo-card p-6 mb-6">
+      <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
+        <div className="leonardo-card p-4 sm:p-6 mb-4 sm:mb-6">
           <h2 className="text-xl font-bold mb-4">Welcome back, {user.name}</h2>
           <p className="text-gray-300">
             Here's an overview of your projects, revenue, and team performance.
@@ -593,6 +594,68 @@ export default function PartnerDashboard() {
               </Card>
             </div>
           )}
+        </div>
+
+        {/* Opportunities Section */}
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-white">Get Involved</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <DisabledCard 
+              title="Become an Investor"
+              icon={<TrendingUp className="w-5 h-5 text-blue-400" />}
+            >
+              <p className="text-sm text-white/60 mb-4">
+                Join our network of investors and get access to exclusive investment opportunities in innovative projects.
+              </p>
+            </DisabledCard>
+
+            <DisabledCard 
+              title="Join as Team Member"
+              icon={<Users className="w-5 h-5 text-purple-400" />}
+            >
+              <p className="text-sm text-white/60 mb-4">
+                Work with talented professionals on exciting projects and grow your career.
+              </p>
+            </DisabledCard>
+
+            <DisabledCard 
+              title="Join an Organization"
+              icon={<Building2 className="w-5 h-5 text-green-400" />}
+            >
+              <p className="text-sm text-white/60 mb-4">
+                Connect with established organizations and collaborate on projects.
+              </p>
+            </DisabledCard>
+
+            <DisabledCard 
+              title="Partnership"
+              icon={<Handshake className="w-5 h-5 text-yellow-400" />}
+            >
+              <p className="text-sm text-white/60 mb-4">
+                Form strategic partnerships to grow your business and expand your network.
+              </p>
+            </DisabledCard>
+
+            <DisabledCard 
+              title="Create Organization"
+              icon={<PlusCircle className="w-5 h-5 text-red-400" />}
+            >
+              <p className="text-sm text-white/60 mb-4">
+                Launch your own organization and manage projects under your brand.
+              </p>
+            </DisabledCard>
+
+            <DisabledCard 
+              title="Project Actions"
+              icon={<Briefcase className="w-5 h-5 text-indigo-400" />}
+            >
+              <div className="space-y-3">
+                <p className="text-sm text-white/60">
+                  Create, manage, or fund projects
+                </p>
+              </div>
+            </DisabledCard>
+          </div>
         </div>
       </main>
     </div>
