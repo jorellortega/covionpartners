@@ -1,22 +1,34 @@
-'use client'
+"use client"
 
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
-import { createClient } from '@/utils/supabase/client'
-import { Project, ProjectRole } from '@/types'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { ArrowLeft, Mail, Phone, User } from 'lucide-react'
-import Link from 'next/link'
+import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, Mail, Phone } from "lucide-react"
+import { Project } from "@/types"
+import supabase from "@/utils/supabase/client"
 
-interface TeamMember extends ProjectRole {
+interface TeamMember {
+  id: string
+  project_id: string
+  user_id: string
+  role_name: string
+  description: string
+  status: string
   user: {
     id: string
     email: string
     full_name: string
-    avatar_url?: string
+    avatar_url: string | null
   }
 }
 
@@ -26,7 +38,6 @@ export default function ViewTeamPage() {
   const [project, setProject] = useState<Project | null>(null)
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
     async function fetchProjectAndTeam() {
@@ -65,7 +76,7 @@ export default function ViewTeamPage() {
     }
 
     fetchProjectAndTeam()
-  }, [projectId, supabase])
+  }, [projectId])
 
   if (loading) {
     return (
@@ -90,76 +101,67 @@ export default function ViewTeamPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">{project.name}</h1>
-          <p className="text-muted-foreground">Project Team Members</p>
+    <div className="min-h-screen bg-gray-950">
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center mb-6">
+          <Link href={`/projects/${projectId}`}>
+            <Button variant="ghost" className="text-gray-400 hover:text-white">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Project
+            </Button>
+          </Link>
         </div>
-        <Link href={`/projects/${projectId}`}>
-          <Button variant="outline">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Project
-          </Button>
-        </Link>
-      </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {teamMembers.map((member) => (
-          <Card key={member.user.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={member.user.avatar_url || ''} />
-                <AvatarFallback>
-                  {member.user.full_name
-                    ? member.user.full_name
-                        .split(' ')
-                        .map((n) => n[0])
-                        .join('')
-                    : member.user.email[0].toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <CardTitle className="text-xl">
-                  {member.user.full_name || member.user.email}
-                </CardTitle>
-                <Badge variant="secondary" className="mt-1">
-                  {member.role_name}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  {member.description}
-                </p>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Mail className="h-4 w-4" />
-                  <a
-                    href={`mailto:${member.user.email}`}
-                    className="hover:text-primary"
-                  >
-                    {member.user.email}
-                  </a>
+        <Card className="leonardo-card border-gray-800">
+          <CardHeader>
+            <CardTitle className="text-2xl">{project.name} - Team</CardTitle>
+            <CardDescription>
+              View all team members and their roles
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {teamMembers.length === 0 ? (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-gray-400">No team members assigned yet</p>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <User className="h-4 w-4" />
-                  <span>Status: {member.status}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {teamMembers.length === 0 && (
-        <div className="text-center py-12">
-          <h3 className="text-lg font-medium">No team members yet</h3>
-          <p className="text-muted-foreground">
-            This project doesn't have any team members assigned yet.
-          </p>
-        </div>
-      )}
+              ) : (
+                teamMembers.map((member) => (
+                  <Card key={member.id} className="bg-gray-800/30 border-gray-700">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start space-x-4">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={member.user.avatar_url || '/placeholder-user.jpg'} />
+                          <AvatarFallback>
+                            {member.user.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">
+                            {member.user.full_name}
+                          </p>
+                          <Badge variant="outline" className="mt-1">
+                            {member.role_name}
+                          </Badge>
+                          <div className="mt-2 flex flex-col space-y-1">
+                            <a
+                              href={`mailto:${member.user.email}`}
+                              className="flex items-center text-sm text-gray-400 hover:text-white"
+                            >
+                              <Mail className="h-4 w-4 mr-2" />
+                              {member.user.email}
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </main>
     </div>
   )
 } 
