@@ -113,25 +113,22 @@ export default function ProjectDetails() {
     if (!projectsLoading && Array.isArray(projects)) {
       const foundProject = projects.find(p => p?.id === projectId)
       if (foundProject && typeof foundProject === 'object') {
-        // Validate that all required fields exist
-        if (
-          foundProject.name &&
-          foundProject.type &&
-          foundProject.status &&
-          typeof foundProject.progress === 'number' &&
-          foundProject.deadline &&
-          typeof foundProject.budget === 'number' &&
-          typeof foundProject.invested === 'number' &&
-          typeof foundProject.roi === 'number' &&
-          foundProject.created_at &&
-          foundProject.updated_at &&
-          foundProject.owner_id
-        ) {
-        setProject(foundProject)
-      } else {
-          console.error('Project is missing required fields')
-          router.push('/projects')
+        // Validate essential fields and provide defaults for optional ones
+        const validatedProject = {
+          ...foundProject,
+          name: foundProject.name || 'Unnamed Project',
+          type: foundProject.type || 'General',
+          status: foundProject.status || 'active',
+          progress: typeof foundProject.progress === 'number' ? foundProject.progress : 0,
+          deadline: foundProject.deadline || new Date().toISOString(),
+          budget: typeof foundProject.budget === 'number' ? foundProject.budget : 0,
+          invested: typeof foundProject.invested === 'number' ? foundProject.invested : 0,
+          roi: typeof foundProject.roi === 'number' ? foundProject.roi : 0,
+          created_at: foundProject.created_at || new Date().toISOString(),
+          updated_at: foundProject.updated_at || new Date().toISOString(),
+          owner_id: foundProject.owner_id || user?.id || 'unknown'
         }
+        setProject(validatedProject)
       } else if (!projectsLoading) {
         router.push('/projects')
       }
@@ -296,24 +293,24 @@ export default function ProjectDetails() {
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
           <Button 
             variant="ghost" 
-            className="text-gray-400 hover:text-white mb-4"
+            className="text-gray-400 hover:text-white mb-2 sm:mb-4"
             onClick={() => router.push('/projects')}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Projects
+            Back to Projects
           </Button>
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold text-white">{project.name}</h1>
-              <p className="text-gray-400 mt-2">{project.description || 'No description available'}</p>
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="w-full sm:w-auto">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white">{project.name}</h1>
+              <p className="text-gray-400 mt-1 sm:mt-2 text-sm sm:text-base">{project.description || 'No description available'}</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
               <Button
                 variant="outline"
-                className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800 hover:text-blue-400"
+                className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800 hover:text-blue-400 text-sm sm:text-base"
                 onClick={(e) => {
                   e.stopPropagation();
                   router.push(`/projects/edit/${projectId}`);
@@ -328,53 +325,53 @@ export default function ProjectDetails() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Main Project Info */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             {/* Project Description */}
             <Card className="leonardo-card border-gray-800">
-          <CardHeader>
-                <CardTitle>Project Description</CardTitle>
-                <CardDescription className="text-gray-400">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl">Project Description</CardTitle>
+                <CardDescription className="text-gray-400 text-sm sm:text-base">
                   Detailed overview of the project
                 </CardDescription>
-          </CardHeader>
-          <CardContent>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6">
                 <div className="prose prose-invert max-w-none">
-                  <p className="text-gray-300 leading-relaxed">
+                  <p className="text-gray-300 leading-relaxed text-sm sm:text-base">
                     {project.description || 'No description available.'}
                   </p>
-            </div>
-          </CardContent>
-        </Card>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Project Overview */}
             <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle>Project Overview</CardTitle>
-                <CardDescription className="text-gray-400">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl">Project Overview</CardTitle>
+                <CardDescription className="text-gray-400 text-sm sm:text-base">
                   Key details and progress of the project
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-800/30 rounded-lg">
-                      <div className="flex items-center text-gray-400 mb-2">
+              <CardContent className="p-4 sm:p-6">
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-3 sm:p-4 bg-gray-800/30 rounded-lg">
+                      <div className="flex items-center text-gray-400 mb-2 text-sm sm:text-base">
                         <Calendar className="w-4 h-4 mr-2" />
                         <span>Created</span>
                       </div>
-                      <div className="text-white font-medium">
+                      <div className="text-white font-medium text-sm sm:text-base">
                         {formatDate(project.created_at)}
                       </div>
                     </div>
-                    <div className="p-4 bg-gray-800/30 rounded-lg">
-                      <div className="flex items-center text-gray-400 mb-2">
+                    <div className="p-3 sm:p-4 bg-gray-800/30 rounded-lg">
+                      <div className="flex items-center text-gray-400 mb-2 text-sm sm:text-base">
                         <Clock className="w-4 h-4 mr-2" />
                         <span>Deadline</span>
                       </div>
-                      <div className="text-white font-medium">
+                      <div className="text-white font-medium text-sm sm:text-base">
                         {formatDate(project.deadline)}
                       </div>
                     </div>
@@ -391,20 +388,20 @@ export default function ProjectDetails() {
                       ></div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-800/30 rounded-lg">
-                      <div className="flex items-center text-gray-400 mb-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-3 sm:p-4 bg-gray-800/30 rounded-lg">
+                      <div className="flex items-center text-gray-400 mb-2 text-sm sm:text-base">
                         <DollarSign className="w-4 h-4 mr-2" />
                         <span>Budget</span>
                       </div>
-                      <div className="text-white font-medium">${formatNumber(project.budget)}</div>
+                      <div className="text-white font-medium text-sm sm:text-base">${formatNumber(project.budget)}</div>
                     </div>
-                    <div className="p-4 bg-gray-800/30 rounded-lg">
-                      <div className="flex items-center text-gray-400 mb-2">
+                    <div className="p-3 sm:p-4 bg-gray-800/30 rounded-lg">
+                      <div className="flex items-center text-gray-400 mb-2 text-sm sm:text-base">
                         <Building2 className="w-4 h-4 mr-2" />
                         <span>Type</span>
                       </div>
-                      <div className="text-white font-medium">{project.type || 'Unknown'}</div>
+                      <div className="text-white font-medium text-sm sm:text-base">{project.type || 'Unknown'}</div>
                     </div>
                   </div>
                 </div>
@@ -413,27 +410,27 @@ export default function ProjectDetails() {
 
             {/* Project Details */}
             <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle>Project Details</CardTitle>
-                <CardDescription className="text-gray-400">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl">Project Details</CardTitle>
+                <CardDescription className="text-gray-400 text-sm sm:text-base">
                   Additional project information
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-6">
                 <div className="space-y-4">
-                  <div className="p-4 bg-gray-800/30 rounded-lg">
-                    <div className="flex items-center text-gray-400 mb-2">
+                  <div className="p-3 sm:p-4 bg-gray-800/30 rounded-lg">
+                    <div className="flex items-center text-gray-400 mb-2 text-sm sm:text-base">
                       <DollarSign className="w-4 h-4 mr-2" />
                       <span>Investment</span>
-                          </div>
-                    <div className="text-white font-medium">${formatNumber(project.invested)}</div>
-                        </div>
-                  <div className="p-4 bg-gray-800/30 rounded-lg">
-                    <div className="flex items-center text-gray-400 mb-2">
+                    </div>
+                    <div className="text-white font-medium text-sm sm:text-base">${formatNumber(project.invested)}</div>
+                  </div>
+                  <div className="p-3 sm:p-4 bg-gray-800/30 rounded-lg">
+                    <div className="flex items-center text-gray-400 mb-2 text-sm sm:text-base">
                       <BarChart2 className="w-4 h-4 mr-2" />
                       <span>ROI</span>
-                      </div>
-                    <div className="text-white font-medium">{project.roi || 0}%</div>
+                    </div>
+                    <div className="text-white font-medium text-sm sm:text-base">{project.roi || 0}%</div>
                   </div>
                 </div>
               </CardContent>
@@ -441,30 +438,30 @@ export default function ProjectDetails() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Project Stats */}
             <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle>Project Stats</CardTitle>
-                <CardDescription className="text-gray-400">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl">Project Stats</CardTitle>
+                <CardDescription className="text-gray-400 text-sm sm:text-base">
                   Key metrics and statistics
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-6">
                 <div className="space-y-4">
-                  <div className="p-4 bg-gray-800/30 rounded-lg">
-                    <div className="flex items-center text-gray-400 mb-2">
+                  <div className="p-3 sm:p-4 bg-gray-800/30 rounded-lg">
+                    <div className="flex items-center text-gray-400 mb-2 text-sm sm:text-base">
                       <Users className="w-4 h-4 mr-2" />
                       <span>Owner</span>
                     </div>
-                    <div className="text-white font-medium">{project.owner_id || 'Unknown'}</div>
+                    <div className="text-white font-medium text-sm sm:text-base">{project.owner_id || 'Unknown'}</div>
                   </div>
-                  <div className="p-4 bg-gray-800/30 rounded-lg">
-                    <div className="flex items-center text-gray-400 mb-2">
+                  <div className="p-3 sm:p-4 bg-gray-800/30 rounded-lg">
+                    <div className="flex items-center text-gray-400 mb-2 text-sm sm:text-base">
                       <Calendar className="w-4 h-4 mr-2" />
                       <span>Last Updated</span>
                     </div>
-                    <div className="text-white font-medium">
+                    <div className="text-white font-medium text-sm sm:text-base">
                       {formatDate(project.updated_at)}
                     </div>
                   </div>
@@ -474,17 +471,17 @@ export default function ProjectDetails() {
 
             {/* Team Members */}
             <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <div className="flex justify-between items-center">
+              <CardHeader className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
                   <div>
-                    <CardTitle>Team Members</CardTitle>
-                    <CardDescription className="text-gray-400">
+                    <CardTitle className="text-lg sm:text-xl">Team Members</CardTitle>
+                    <CardDescription className="text-gray-400 text-sm sm:text-base">
                       Project team and collaborators
                     </CardDescription>
                   </div>
                   <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button className="gradient-button">
+                      <Button className="gradient-button w-full sm:w-auto">
                         <Users className="w-4 h-4 mr-2" />
                         Add Member
                       </Button>
@@ -617,7 +614,7 @@ export default function ProjectDetails() {
                   </Dialog>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-6">
                 <div className="space-y-4">
                   {teamMembers.map((member) => (
                     <div
@@ -674,19 +671,19 @@ export default function ProjectDetails() {
 
             {/* Quick Actions */}
             <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription className="text-gray-400">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl">Quick Actions</CardTitle>
+                <CardDescription className="text-gray-400 text-sm sm:text-base">
                   Common project actions
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-6">
                 <div className="space-y-2">
-                  <Button className="w-full gradient-button">
+                  <Button className="w-full gradient-button text-sm sm:text-base">
                     <CheckCircle className="w-4 h-4 mr-2" />
                     Update Progress
                   </Button>
-                  <Button className="w-full gradient-button">
+                  <Button className="w-full gradient-button text-sm sm:text-base">
                     <AlertCircle className="w-4 h-4 mr-2" />
                     Report Issue
                   </Button>

@@ -222,14 +222,14 @@ export default function PartnerDashboard() {
           <div className="flex space-x-4">
             {user.role !== 'viewer' && (
               <>
-                <DisabledButton>
+                <Button className="gradient-button" onClick={() => router.push("/projects/new")}>
                   <Plus className="w-5 h-5 mr-2" />
                   New Project
-                </DisabledButton>
-                <DisabledButton>
+                </Button>
+                <Button className="gradient-button" onClick={() => router.push("/team")}>
                   <Users className="w-5 h-5 mr-2" />
                   Manage Team
-                </DisabledButton>
+                </Button>
               </>
             )}
             <Button 
