@@ -279,21 +279,21 @@ export default function PublicProjectDetails() {
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8 space-y-4">
           <Button 
             variant="ghost" 
-            className="text-gray-400 hover:text-white mb-4"
+            className="text-gray-400 hover:text-white"
             onClick={() => router.push('/publicprojects')}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Public Projects
           </Button>
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold text-white">{project.name}</h1>
-              <p className="text-gray-400 mt-2">{project.description || 'No description available'}</p>
+          <div className="flex flex-col gap-4">
+            <div className="space-y-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white break-words">{project.name}</h1>
+              <p className="text-gray-400 text-sm sm:text-base">{project.description || 'No description available'}</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap gap-2 sm:gap-4">
               <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50">
                 <Globe className="w-4 h-4 mr-2" />
                 Public Project
