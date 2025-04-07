@@ -65,7 +65,8 @@ body {
   background: linear-gradient(to right, hsl(230, 76%, 59%), hsl(267, 83%, 60%));
   color: white;
   font-weight: 500;
-  padding: 0.75rem 1.5rem;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
   border-radius: 0.5rem;
   transition: all 0.2s ease-in-out;
   display: inline-flex;
@@ -73,12 +74,20 @@ body {
   justify-content: center;
   border: none;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  touch-action: manipulation;
 }
 
-.gradient-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-  filter: brightness(1.1);
+@media (min-width: 640px) {
+  .gradient-button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+  }
+  
+  .gradient-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    filter: brightness(1.1);
+  }
 }
 
 .gradient-button:active {
@@ -102,9 +111,11 @@ body {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.leonardo-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+@media (min-width: 640px) {
+  .leonardo-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  }
 }
 
 /* Input styling */
@@ -113,8 +124,16 @@ body {
   border: 1px solid #2a2a3a;
   border-radius: 0.375rem;
   color: white;
-  padding: 0.75rem 1rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
   transition: all 0.2s ease;
+}
+
+@media (min-width: 640px) {
+  .leonardo-input {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+  }
 }
 
 .leonardo-input:focus {
@@ -127,6 +146,13 @@ body {
 .leonardo-header {
   background: #13131a;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.75rem 1rem;
+}
+
+@media (min-width: 640px) {
+  .leonardo-header {
+    padding: 1rem 1.5rem;
+  }
 }
 
 /* Custom scrollbar */

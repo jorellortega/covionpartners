@@ -132,18 +132,18 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <main className="flex-grow flex items-center justify-center p-4">
-        <div className="leonardo-card w-full max-w-md p-8">
+      <main className="flex-grow flex items-center justify-center px-4 py-8 sm:p-4">
+        <div className="leonardo-card w-full max-w-md p-4 sm:p-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className="grid w-full grid-cols-2 mb-4 sm:mb-6">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
-              <div className="space-y-1 text-center mb-6">
-                <h1 className="text-2xl font-bold gradient-text">Login</h1>
-                <p className="text-white/70">Enter your credentials to access your dashboard</p>
+              <div className="space-y-1 text-center mb-4 sm:mb-6">
+                <h1 className="text-xl sm:text-2xl font-bold gradient-text">Login</h1>
+                <p className="text-sm sm:text-base text-white/70">Enter your credentials to access your dashboard</p>
               </div>
 
               {error && activeTab === "login" && (
@@ -208,9 +208,9 @@ export default function LoginPage() {
             </TabsContent>
 
             <TabsContent value="signup">
-              <div className="space-y-1 text-center mb-6">
-                <h1 className="text-2xl font-bold gradient-text">Create Account</h1>
-                <p className="text-white/70">Fill out the form below to create your account</p>
+              <div className="space-y-1 text-center mb-4 sm:mb-6">
+                <h1 className="text-xl sm:text-2xl font-bold gradient-text">Create Account</h1>
+                <p className="text-sm sm:text-base text-white/70">Fill out the form below to create your account</p>
               </div>
 
               {error && activeTab === "signup" && (

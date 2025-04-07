@@ -18,6 +18,8 @@ import {
   Wallet,
   ExternalLink,
   Briefcase,
+  TrendingUp,
+  BarChart2
 } from "lucide-react"
 import Link from "next/link"
 import { StatusBadge } from "@/components/status-badge"
@@ -58,24 +60,24 @@ export default function PartnerDashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <div className="space-y-8">
+      <main className="max-w-7xl mx-auto py-4 sm:py-6 px-3 sm:px-6 lg:px-8">
+        <div className="space-y-6 sm:space-y-8">
           {/* Withdraw Card */}
           <Card className="leonardo-card border-gray-800">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center">
-                <Wallet className="w-5 h-5 mr-2 text-red-400" />
+              <CardTitle className="flex items-center text-lg sm:text-xl">
+                <Wallet className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-red-400" />
                 Withdraw
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0">
                 <div>
-                  <p className="text-3xl font-bold">${availableBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  <p className="text-sm text-gray-400">Available Balance</p>
+                  <p className="text-2xl sm:text-3xl font-bold">${availableBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-xs sm:text-sm text-gray-400">Available Balance</p>
                 </div>
                 <Link href="/payments">
-                  <Button variant="ghost" className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/20">
+                  <Button variant="ghost" className="w-full sm:w-auto text-blue-400 hover:text-blue-300 hover:bg-blue-900/20">
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Withdraw Funds
                   </Button>
@@ -85,7 +87,7 @@ export default function PartnerDashboard() {
           </Card>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <div className="leonardo-card p-6">
               <div className="flex justify-between items-start">
                 <div>
@@ -151,8 +153,8 @@ export default function PartnerDashboard() {
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Recent Activity */}
             <Card className="leonardo-card border-gray-800 lg:col-span-2">
               <CardHeader>
@@ -282,36 +284,36 @@ export default function PartnerDashboard() {
             </Card>
           </div>
 
-          {/* Project Overview */}
-          <div className="mt-8">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold">Active Projects</h2>
-              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white">
+          {/* Active Projects */}
+          <div className="mt-6 sm:mt-8">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-6 mb-4 sm:mb-6">
+              <h2 className="text-lg sm:text-xl font-bold">Active Projects</h2>
+              <Button variant="outline" className="w-full sm:w-auto border-gray-700 bg-gray-800/30 text-white">
                 View All
               </Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {[1, 2, 3].map((i) => (
                 <Card key={i} className="leonardo-card border-gray-800">
                   <CardHeader>
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">Project {i}</CardTitle>
+                      <CardTitle className="text-base sm:text-lg">Project {i}</CardTitle>
                       <StatusBadge status="Active" />
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex justify-between text-sm">
+                    <div className="space-y-3 sm:space-y-4">
+                      <div className="flex justify-between text-xs sm:text-sm">
                         <span className="text-gray-400">Progress</span>
                         <span className="text-white">65%</span>
                       </div>
-                      <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div className="w-full bg-gray-700 rounded-full h-1.5 sm:h-2">
                         <div
-                          className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full"
+                          className="bg-gradient-to-r from-blue-500 to-purple-500 h-1.5 sm:h-2 rounded-full"
                           style={{ width: "65%" }}
                         ></div>
                       </div>
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-xs sm:text-sm">
                         <span className="text-gray-400">Deadline</span>
                         <span className="text-white">Jun 15, 2025</span>
                       </div>
