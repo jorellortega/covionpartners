@@ -108,8 +108,20 @@ export function useAuth() {
 
         if (userError) {
           console.log('Error fetching user data:', userError.message)
-          // If we can't get the user data, still return the auth data
-          return { data, error: null }
+          // If we can't get the user data, set default role as viewer
+          return {
+            data: {
+              user: {
+                ...data.user,
+                role: 'viewer',
+                user_metadata: {
+                  ...data.user.user_metadata,
+                  role: 'viewer'
+                }
+              }
+            },
+            error: null
+          }
         }
 
         console.log('User data fetched successfully, role:', userData.role)
@@ -122,10 +134,10 @@ export function useAuth() {
           data: {
             user: {
               ...data.user,
-              role: userData.role,
+              role: userData.role || 'viewer',
               user_metadata: {
                 ...data.user.user_metadata,
-                role: userData.role
+                role: userData.role || 'viewer'
               }
             }
           },
@@ -157,7 +169,7 @@ export function useAuth() {
         options: {
           data: {
             name,
-            role: 'partner'
+            role: 'viewer'
           }
         }
       })
@@ -183,7 +195,7 @@ export function useAuth() {
           id: authData.user.id,
           email: email,
           name: name,
-          role: 'partner'
+          role: 'viewer'
         })
 
       if (profileError) {

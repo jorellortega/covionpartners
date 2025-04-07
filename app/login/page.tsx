@@ -32,7 +32,6 @@ export default function LoginPage() {
     phone: "",
     password: "",
     confirmPassword: "",
-    role: "partner",
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -48,10 +47,6 @@ export default function LoginPage() {
   const handleSignupChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setSignupData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleSignupRoleChange = (value: string) => {
-    setSignupData((prev) => ({ ...prev, role: value }))
   }
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -147,8 +142,8 @@ export default function LoginPage() {
 
             <TabsContent value="login">
               <div className="space-y-1 text-center mb-6">
-                <h1 className="text-2xl font-bold gradient-text">Partner Login</h1>
-                <p className="text-white/70">Enter your credentials to access your partner dashboard</p>
+                <h1 className="text-2xl font-bold gradient-text">Login</h1>
+                <p className="text-white/70">Enter your credentials to access your dashboard</p>
               </div>
 
               {error && activeTab === "login" && (
@@ -170,7 +165,7 @@ export default function LoginPage() {
                     id="login-email"
                     name="email"
                     type="email"
-                    placeholder="partner@example.com"
+                    placeholder="your@email.com"
                     value={loginData.email}
                     onChange={handleLoginChange}
                     className="leonardo-input"
@@ -214,8 +209,8 @@ export default function LoginPage() {
 
             <TabsContent value="signup">
               <div className="space-y-1 text-center mb-6">
-                <h1 className="text-2xl font-bold gradient-text">Create Partner Account</h1>
-                <p className="text-white/70">Fill out the form below to join our partner network</p>
+                <h1 className="text-2xl font-bold gradient-text">Create Account</h1>
+                <p className="text-white/70">Fill out the form below to create your account</p>
               </div>
 
               {error && activeTab === "signup" && (
@@ -246,7 +241,7 @@ export default function LoginPage() {
                     id="signup-email"
                     name="email"
                     type="email"
-                    placeholder="partner@example.com"
+                    placeholder="your@email.com"
                     value={signupData.email}
                     onChange={handleSignupChange}
                     className="leonardo-input"
@@ -269,24 +264,6 @@ export default function LoginPage() {
                     required
                     disabled={isLoading}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-role" className="text-white/90">
-                    Register as
-                  </Label>
-                  <Select value={signupData.role} onValueChange={handleSignupRoleChange} disabled={isLoading}>
-                    <SelectTrigger id="signup-role" className="leonardo-input">
-                      <SelectValue placeholder="Select your role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="partner">Partner</SelectItem>
-                      <SelectItem value="investor">Investor</SelectItem>
-                      <SelectItem value="viewer">Viewer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-white/50 mt-1">
-                    Note: Admin accounts can only be created by existing admins
-                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password" className="text-white/90">
