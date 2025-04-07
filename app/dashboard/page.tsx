@@ -222,7 +222,7 @@ export default function PartnerDashboard() {
             <h1 className="text-2xl sm:text-3xl font-bold">Partner Dashboard</h1>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-4 w-full sm:w-auto">
-            {user.role !== 'viewer' && (
+            {user.role !== 'viewer' && user.role !== 'investor' && (
               <>
                 <Button className="gradient-button w-full sm:w-auto" onClick={() => router.push("/projects/new")}>
                   <Plus className="w-5 h-5 mr-2" />

@@ -249,6 +249,24 @@ export default function ProjectDetails() {
     }
   }
 
+  const handleDeleteProject = async () => {
+    if (confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
+      try {
+        const { error } = await supabase
+          .from('projects')
+          .delete()
+          .eq('id', projectId)
+
+        if (error) throw error
+
+        router.push('/projects')
+      } catch (error) {
+        console.error('Error deleting project:', error)
+        alert('Failed to delete project. Please try again.')
+      }
+    }
+  }
+
   // Show loading state while authentication or projects are loading
   if (authLoading || projectsLoading || !project) {
     return (
@@ -293,38 +311,35 @@ export default function ProjectDetails() {
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header">
-        <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col space-y-4">
-            <Button 
-              variant="ghost" 
-              className="text-gray-400 hover:text-white w-fit"
-              onClick={() => router.push('/projects')}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Projects
-            </Button>
-            
-            <div className="flex flex-col space-y-4">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-white break-words">{project.name}</h1>
-                <p className="text-gray-400 text-sm sm:text-base mt-1">{project.description || 'No description available'}</p>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold">{project.name}</h1>
+                <StatusBadge status={project.status} />
               </div>
-              
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 sm:items-center">
-                <Button
-                  variant="outline"
-                  className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800 hover:text-blue-400 text-sm sm:text-base"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    router.push(`/projects/edit/${projectId}`);
-                  }}
-                >
-                  <Pencil className="w-4 h-4 mr-2" />
-                  Edit Project
-                </Button>
-                <StatusBadge status={project.status || 'Unknown'} />
-              </div>
+              {user && user.role !== 'investor' && (
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800/50"
+                    onClick={() => setIsEditDialogOpen(true)}
+                  >
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Edit Project
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-gray-700 bg-gray-800/30 text-white hover:bg-red-900/20 hover:text-red-400"
+                    onClick={handleDeleteProject}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </Button>
+                </div>
+              )}
             </div>
+            <p className="text-gray-400 text-sm sm:text-base mt-1">{project.description || 'No description available'}</p>
           </div>
         </div>
       </header>

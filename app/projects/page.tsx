@@ -83,12 +83,14 @@ export default function ProjectsPage() {
             <DisabledButton icon={<DollarSign className="w-5 h-5 mr-2" />}>
               Financial Dashboard
             </DisabledButton>
-            <Link href="/projects/new">
-              <Button className="gradient-button">
-                <PlusCircle className="w-5 h-5 mr-2" />
-                New Project
-              </Button>
-            </Link>
+            {user && user.role !== 'investor' && (
+              <Link href="/projects/new">
+                <Button className="gradient-button">
+                  <PlusCircle className="w-5 h-5 mr-2" />
+                  New Project
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </header>
