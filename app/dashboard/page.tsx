@@ -44,6 +44,7 @@ import {
   Star,
   Zap,
   FolderKanban,
+  UserPlus,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -54,6 +55,15 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
 import { Project, ProjectRole } from "@/types"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { toast } from "sonner"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -80,13 +90,14 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 // Add a new component for disabled buttons
-function DisabledButton({ children, className = "" }: { children: React.ReactNode, className?: string }) {
+function DisabledButton({ children, className = "", icon }: { children: React.ReactNode, className?: string, icon?: React.ReactNode }) {
   return (
     <div className="relative pt-3">
       <Button 
         className={`w-full gradient-button opacity-50 cursor-not-allowed ${className}`}
         disabled={true}
       >
+        {icon && <span className="mr-2">{icon}</span>}
         {children}
       </Button>
       <div className="absolute -top-1 right-0 bg-yellow-500 text-black text-xs px-2 py-1 rounded-full z-[100]">
@@ -134,6 +145,9 @@ export default function PartnerDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [myProjects, setMyProjects] = useState<ProjectWithRole[]>([])
   const [loadingMyProjects, setLoadingMyProjects] = useState(true)
+  const [projectKey, setProjectKey] = useState("")
+  const [joinError, setJoinError] = useState("")
+  const [isJoining, setIsJoining] = useState(false)
 
   // Mock data for demonstration
   const [totalRevenue] = useState(0)
@@ -175,18 +189,21 @@ export default function PartnerDashboard() {
         if (rolesError) throw rolesError
 
         // Transform the data to match our interface
-        const projectsWithRoles = roles.map(role => ({
-          ...role.project,
-          role: {
-            name: role.role_name,
-            description: role.description,
-            status: role.status
-          }
-        }))
+        const projectsWithRoles = roles
+          .filter(r => r.project) // Ensure project data is not null
+          .map(role => ({
+            ...(role.project as unknown as Project),
+            role: {
+              name: role.role_name,
+              description: role.description,
+              status: role.status
+            }
+          }))
 
         setMyProjects(projectsWithRoles)
       } catch (err) {
         console.error('Error fetching my projects:', err)
+        // Optionally add a toast error here
       } finally {
         setLoadingMyProjects(false)
       }
@@ -212,8 +229,60 @@ export default function PartnerDashboard() {
   }
 
   const handleWithdraw = () => {
-    // Implement withdraw logic here
+    // Implement withdrawal logic here
     console.log("Withdrawing", amount, paymentMethod)
+  }
+
+  const handleJoinProject = async () => {
+    if (!projectKey.trim() || !user?.id) return;
+    
+    setIsJoining(true)
+    setJoinError("")
+    
+    try {
+      // Find the project with this key
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('project_key', projectKey.trim())
+        .single()
+
+      if (projectError || !projectData) {
+        throw new Error('Invalid project key')
+      }
+
+      // Add user as team member
+      const { error: joinError } = await supabase
+        .from('team_members')
+        .insert([{
+          project_id: projectData.id,
+          user_id: user.id,
+          role: 'member',
+          status: 'pending',
+          joined_at: new Date().toISOString()
+        }])
+
+      if (joinError) throw joinError
+
+      // Clear the input and close dialog
+      setProjectKey("")
+      const dialog = document.querySelector('[data-state="open"]')
+      if (dialog) {
+        const closeButton = dialog.querySelector('button[aria-label="Close"]') as HTMLButtonElement
+        if (closeButton) {
+          closeButton.click()
+        }
+      }
+
+      // Show success message
+      toast.success('Join request sent successfully!')
+    } catch (error: any) {
+      console.error('Error joining project:', error)
+      setJoinError(error.message || 'Failed to join project')
+      toast.error('Failed to join project')
+    } finally {
+      setIsJoining(false)
+    }
   }
 
   return (
@@ -224,18 +293,6 @@ export default function PartnerDashboard() {
             <h1 className="text-2xl sm:text-3xl font-bold">Partner Dashboard</h1>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-4 w-full sm:w-auto">
-            {user.role !== 'viewer' && user.role !== 'investor' && (
-              <>
-                <Button className="gradient-button w-full sm:w-auto" onClick={() => router.push("/projects/new")}>
-                  <Plus className="w-5 h-5 mr-2" />
-                  New Project
-                </Button>
-                <Button className="gradient-button w-full sm:w-auto" onClick={() => router.push("/team")}>
-                  <Users className="w-5 h-5 mr-2" />
-                  Manage Team
-                </Button>
-              </>
-            )}
             <Button 
               variant="outline" 
               className="border-gray-700 bg-gray-800/30 text-white hover:bg-red-900/20 hover:text-red-400 w-full sm:w-auto"
@@ -251,7 +308,7 @@ export default function PartnerDashboard() {
 
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
         <div className="leonardo-card p-4 sm:p-6 mb-4 sm:mb-6">
-          <h2 className="text-xl font-bold mb-4">Welcome back, {user.name}</h2>
+          <h2 className="text-xl font-bold mb-4">Welcome, {user?.name || user?.email}!</h2>
           <p className="text-gray-300">
             Here's an overview of your projects, revenue, and team performance.
           </p>
@@ -483,14 +540,16 @@ export default function PartnerDashboard() {
                         <Wallet className="w-4 h-4 mr-2" />
                         Withdraw Funds
                       </Button>
-                      {/* Add Schedule button */}
-                      <Button
+                      <Button 
                         className="w-full gradient-button"
                         onClick={() => router.push('/schedule')}
                       >
                         <Calendar className="w-4 h-4 mr-2" />
                         Schedule & Tasks
                       </Button>
+                      <DisabledButton icon={<DollarSign className="w-5 h-5 mr-2" />}>
+                        Financial Dashboard
+                      </DisabledButton>
                     </>
                   )}
                 </div>
@@ -498,36 +557,7 @@ export default function PartnerDashboard() {
             </Card>
           </div>
 
-          {/* Project Overview - Already disabled */}
-          {user.role !== 'viewer' && (
-            <div className="mt-8">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">Active Projects</h2>
-                <div className="relative pt-3">
-                  <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white opacity-50 cursor-not-allowed" disabled>
-                    View All
-                  </Button>
-                  <div className="absolute -top-1 right-0 bg-yellow-500 text-black text-xs px-2 py-1 rounded-full z-[100]">
-                    Under Development
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="relative pt-3">
-                  <Card className="leonardo-card border-gray-800 p-8 text-center">
-                    <div className="absolute -top-1 right-2 bg-yellow-500 text-black text-xs px-2 py-1 rounded-full z-[100]">
-                      Under Development
-                    </div>
-                    <CardContent className="opacity-50">
-                      <p className="text-gray-400">Project management features are currently under development.</p>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* My Projects Section */}
+          {/* My Projects Section - RESTORED */}
           {user.role !== 'viewer' && (
             <div className="col-span-full">
               <Card className="leonardo-card border-gray-800">
@@ -554,8 +584,8 @@ export default function PartnerDashboard() {
                     <div className="space-y-4">
                       {myProjects.map((project) => (
                         <div key={project.id} className="p-4 bg-gray-800/30 rounded-lg">
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-2">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
+                            <div className="space-y-2 mb-4 sm:mb-0">
                               <div className="flex items-center gap-2">
                                 <h3 className="text-lg font-medium text-white">{project.name}</h3>
                                 <StatusBadge status={project.status} />
@@ -564,35 +594,28 @@ export default function PartnerDashboard() {
                                 <Briefcase className="w-4 h-4 mr-2" />
                                 <span>Your Role: {project.role.name}</span>
                               </div>
-                              <p className="text-sm text-gray-400">{project.description}</p>
-                              <div className="flex items-center gap-4 text-sm">
-                                <div className="flex items-center text-gray-400">
-                                  <DollarSign className="w-4 h-4 mr-2" />
-                                  <span>Investment: ${project.invested?.toLocaleString() || '0'}</span>
-                                </div>
-                                <div className="flex items-center text-gray-400">
-                                  <Clock className="w-4 h-4 mr-2" />
-                                  <span>Deadline: {new Date(project.deadline).toLocaleDateString()}</span>
-                                </div>
-                              </div>
+                              <p className="text-sm text-gray-400 line-clamp-2">
+                                {project.description || 'No description available'}
+                              </p>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                className="w-full"
-                                onClick={() => router.push(`/projects/${project.id}/team`)}
-                              >
-                                View Team
-                              </Button>
+                            <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0 mt-4 sm:mt-0 sm:ml-4">
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="border-gray-700"
+                                className="text-xs border-gray-700 w-full sm:w-auto"
+                                onClick={() => router.push(`/projects/${project.id}/team`)}
+                              >
+                                <Users className="w-3 h-3 mr-1" />
+                                View Team
+                              </Button>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="text-xs w-full sm:w-auto"
                                 onClick={() => router.push(`/projects/${project.id}`)}
                               >
-                                <FileText className="w-4 h-4 mr-2" />
+                                <FileText className="w-3 h-3 mr-1" />
                                 View Details
-                                <ArrowRight className="w-4 h-4 ml-2" />
                               </Button>
                             </div>
                           </div>
@@ -604,67 +627,165 @@ export default function PartnerDashboard() {
               </Card>
             </div>
           )}
-        </div>
+          {/* END OF RESTORED My Projects Section */}
 
-        {/* Opportunities Section */}
-        <div className="mb-6 sm:mb-8">
-          <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-white">Get Involved</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            <DisabledCard 
-              title="Become an Investor"
-              icon={<TrendingUp className="w-5 h-5 text-blue-400" />}
-            >
-              <p className="text-sm text-white/60 mb-4">
-                Join our network of investors and get access to exclusive investment opportunities in innovative projects.
-              </p>
-            </DisabledCard>
-
-            <DisabledCard 
-              title="Join as Team Member"
-              icon={<Users className="w-5 h-5 text-purple-400" />}
-            >
-              <p className="text-sm text-white/60 mb-4">
-                Work with talented professionals on exciting projects and grow your career.
-              </p>
-            </DisabledCard>
-
-            <DisabledCard 
-              title="Join an Organization"
-              icon={<Building2 className="w-5 h-5 text-green-400" />}
-            >
-              <p className="text-sm text-white/60 mb-4">
-                Connect with established organizations and collaborate on projects.
-              </p>
-            </DisabledCard>
-
-            <DisabledCard 
-              title="Partnership"
-              icon={<Handshake className="w-5 h-5 text-yellow-400" />}
-            >
-              <p className="text-sm text-white/60 mb-4">
-                Form strategic partnerships to grow your business and expand your network.
-              </p>
-            </DisabledCard>
-
-            <DisabledCard 
-              title="Create Organization"
-              icon={<PlusCircle className="w-5 h-5 text-red-400" />}
-            >
-              <p className="text-sm text-white/60 mb-4">
-                Launch your own organization and manage projects under your brand.
-              </p>
-            </DisabledCard>
-
-            <DisabledCard 
-              title="Project Actions"
-              icon={<Briefcase className="w-5 h-5 text-indigo-400" />}
-            >
-              <div className="space-y-3">
-                <p className="text-sm text-white/60">
-                  Create, manage, or fund projects
+          {/* Opportunities Section */}
+          <div className="mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-white">Get Involved</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <DisabledCard 
+                title="Become an Investor"
+                icon={<TrendingUp className="w-5 h-5 text-blue-400" />}
+              >
+                <p className="text-sm text-white/60 mb-4">
+                  Join our network of investors and get access to exclusive investment opportunities in innovative projects.
                 </p>
-              </div>
-            </DisabledCard>
+              </DisabledCard>
+
+              <Card className="leonardo-card border-gray-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center">
+                    <UserPlus className="w-5 h-5 text-green-400 mr-2" />
+                    Join a Project
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-white/60 mb-4">
+                    Have a project key? Enter it below to request access and join the team.
+                  </p>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Enter project key (e.g., COV-ABC12)"
+                        value={projectKey}
+                        onChange={(e) => setProjectKey(e.target.value)}
+                      />
+                    </div>
+                    {joinError && (
+                      <div className="text-sm text-red-500">{joinError}</div>
+                    )}
+                    <Button 
+                      className="w-full gradient-button" 
+                      onClick={handleJoinProject}
+                      disabled={isJoining || !projectKey.trim()}
+                    >
+                      {isJoining ? 'Requesting Access...' : 'Request to Join'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <DisabledCard 
+                title="Join as Team Member"
+                icon={<Users className="w-5 h-5 text-purple-400" />}
+              >
+                <p className="text-sm text-white/60 mb-4">
+                  Work with talented professionals on exciting projects and grow your career.
+                </p>
+              </DisabledCard>
+
+              <DisabledCard 
+                title="Join an Organization"
+                icon={<Building2 className="w-5 h-5 text-green-400" />}
+              >
+                <p className="text-sm text-white/60 mb-4">
+                  Connect with established organizations and collaborate on projects.
+                </p>
+              </DisabledCard>
+
+              <DisabledCard 
+                title="Partnership"
+                icon={<Handshake className="w-5 h-5 text-yellow-400" />}
+              >
+                <p className="text-sm text-white/60 mb-4">
+                  Form strategic partnerships to grow your business and expand your network.
+                </p>
+              </DisabledCard>
+
+              <DisabledCard 
+                title="Create Organization"
+                icon={<PlusCircle className="w-5 h-5 text-red-400" />}
+              >
+                <p className="text-sm text-white/60 mb-4">
+                  Launch your own organization and manage projects under your brand.
+                </p>
+              </DisabledCard>
+
+              <Card className="leonardo-card border-gray-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Briefcase className="w-5 h-5 mr-2" />
+                    Project Actions
+                  </CardTitle>
+                  <CardDescription className="text-gray-400">
+                    Create, manage, or view projects
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {user && user.role !== 'investor' && user.role !== 'viewer' && (
+                    <Link href="/projects/new" className="block">
+                      <Button className="w-full gradient-button">
+                        <PlusCircle className="w-4 h-4 mr-2" />
+                        New Project
+                      </Button>
+                    </Link>
+                  )}
+                  <Link href="/projects" className="block">
+                     <Button variant="outline" className="w-full border-gray-700">
+                      <FolderKanban className="w-4 h-4 mr-2" />
+                      View All Projects
+                    </Button>
+                  </Link>
+
+                  {/* Join a Project Button & Dialog */}
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full border-gray-700">
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Join a Project
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Join a Project</DialogTitle>
+                        <DialogDescription>
+                          Enter the project key to request access.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label>Project Key</Label>
+                          <Input
+                            placeholder="Enter project key (e.g., COV-ABC12)"
+                            value={projectKey}
+                            onChange={(e) => setProjectKey(e.target.value)}
+                          />
+                        </div>
+                        {joinError && (
+                          <div className="text-sm text-red-500">{joinError}</div>
+                        )}
+                        <Button 
+                          className="w-full gradient-button" 
+                          onClick={handleJoinProject}
+                          disabled={isJoining || !projectKey.trim()}
+                        >
+                          {isJoining ? 'Requesting Access...' : 'Request to Join'}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Manage Team Button */}
+                  {user && user.role !== 'investor' && user.role !== 'viewer' && (
+                    <Button className="w-full gradient-button" onClick={() => router.push("/team")}>
+                      <Users className="w-5 h-5 mr-2" />
+                      Manage Team
+                    </Button>
+                  )}
+                  {/* Add other relevant actions here if needed */}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </main>

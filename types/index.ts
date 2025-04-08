@@ -34,11 +34,12 @@ export interface Project {
     name: string
     email: string
   }
-  invested: number
-  roi: number
-  progress: number
-  budget?: number
-  media_files?: MediaFile[]
+  invested?: number | null
+  roi?: number | null
+  progress?: number | null
+  budget?: number | null
+  media_files?: MediaFile[] | null
+  project_key?: string | null
 }
 
 export interface ProjectRole {

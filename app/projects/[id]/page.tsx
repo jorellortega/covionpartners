@@ -50,6 +50,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import { toast } from "sonner"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -72,6 +73,97 @@ function StatusBadge({ status }: { status: string }) {
     <Badge className={`${getStatusStyles()} border`} variant="outline">
       {status}
     </Badge>
+  )
+}
+
+// Helper component for displaying project status and progress
+function StatusCard({ project }: { project: Project | null }) {
+  if (!project) return <LoadingSpinner />
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Status & Progress</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Current Status</span>
+          <StatusBadge status={project.status || 'N/A'} />
+        </div>
+        <div className="space-y-1">
+          <div className="flex justify-between text-sm">
+            <span>Progress</span>
+            <span>{Number(project.progress ?? 0).toFixed(0)}%</span>
+          </div>
+          <Progress value={Number(project.progress ?? 0)} className="w-full" />
+        </div>
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center">
+            <Calendar className="mr-1 h-4 w-4" />
+            <span>Deadline</span>
+          </div>
+          <span>{project.deadline ? new Date(project.deadline).toLocaleDateString() : 'N/A'}</span>
+        </div>
+         <div className="flex items-center justify-between text-sm text-muted-foreground">
+           <div className="flex items-center">
+            <Clock className="mr-1 h-4 w-4" />
+            <span>Created</span>
+          </div>
+          <span>{project.created_at ? new Date(project.created_at).toLocaleDateString() : 'N/A'}</span>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Helper component for displaying detailed project information
+function ProjectInfoCard({ project }: { project: Project | null }) {
+  if (!project) return <LoadingSpinner />
+
+  // Function to format currency, handling null/undefined
+  const formatCurrency = (amount: number | null | undefined) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount ?? 0))
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Project Information</CardTitle>
+         <CardDescription>Detailed overview of the project.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div className="flex items-center">
+          <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
+          <span className="text-muted-foreground mr-2">Type:</span>
+          <span>{project.type || 'N/A'}</span>
+        </div>
+         <div className="flex items-center">
+           <Target className="mr-2 h-4 w-4 text-muted-foreground" />
+           <span className="text-muted-foreground mr-2">ROI:</span>
+           <span>{Number(project.roi ?? 0).toFixed(0)}%</span>
+         </div>
+        <div className="flex items-center">
+          <DollarSign className="mr-2 h-4 w-4 text-muted-foreground" />
+          <span className="text-muted-foreground mr-2">Budget:</span>
+          <span>{formatCurrency(project.budget)}</span>
+        </div>
+        <div className="flex items-center">
+           <DollarSign className="mr-2 h-4 w-4 text-muted-foreground" />
+          <span className="text-muted-foreground mr-2">Invested:</span>
+          <span>{formatCurrency(project.invested)}</span>
+        </div>
+         <div className="flex items-center">
+           <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+           <span className="text-muted-foreground mr-2">Owner:</span>
+           <span>{project.owner_name || project.owner_id || 'N/A'}</span>
+         </div>
+         <div className="flex items-center col-span-1 md:col-span-2">
+           <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
+           <span className="text-muted-foreground mr-2">Description:</span>
+           <span className="whitespace-pre-wrap">{project.description || 'No description provided.'}</span>
+         </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -305,20 +397,111 @@ export default function ProjectDetails() {
   }
 
   const handleDeleteProject = async () => {
-    if (confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
-      try {
-        const { error } = await supabase
-          .from('projects')
-          .delete()
-          .eq('id', projectId)
+    if (!project || !user) return
 
-        if (error) throw error
+    // Add confirmation dialog
+    if (!confirm('Are you sure you want to delete this project? This will also delete associated team members, roles, resources, and media files. This action cannot be undone.')) {
+      return;
+    }
 
-        router.push('/projects')
-      } catch (error) {
-        console.error('Error deleting project:', error)
-        alert('Failed to delete project. Please try again.')
+    setIsLoading(true)
+    try {
+      // --- Start Deleting Dependencies --- 
+      
+      // 1. Delete Team Members associated with the project
+      console.log(`Deleting team members for project ${project.id}...`);
+      const { error: teamError } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('project_id', project.id)
+      if (teamError) {
+           console.warn(`Could not delete some team members: ${teamError.message}`)
       }
+
+      // 2. Delete Project Roles associated with the project
+      console.log(`Deleting project roles for project ${project.id}...`);
+      const { error: roleError } = await supabase
+        .from('project_roles')
+        .delete()
+        .eq('project_id', project.id)
+      if (roleError) {
+        console.warn(`Could not delete project roles: ${roleError.message}`)
+      }
+      
+      // 3. Delete Project Resources associated with the project
+      console.log(`Deleting project resources for project ${project.id}...`);
+      const { error: resourceError } = await supabase
+        .from('project_resources')
+        .delete()
+        .eq('project_id', project.id)
+      if (resourceError) {
+        console.warn(`Could not delete project resources: ${resourceError.message}`);
+      }
+
+      // Add other potential dependencies here if needed (e.g., transactions, events)
+      // Example: Delete Transactions
+      // console.log(`Deleting transactions for project ${project.id}...`);
+      // const { error: transactionError } = await supabase
+      //   .from('transactions')
+      //   .delete()
+      //   .eq('project_id', project.id);
+      // if (transactionError) {
+      //   console.warn(`Could not delete transactions: ${transactionError.message}`);
+      // }
+
+      // --- Finished Deleting Table Dependencies --- 
+
+      // 4. Delete Media Files from Storage
+      if (project.media_files && project.media_files.length > 0) {
+        const filePaths = project.media_files
+                                .map(f => f.name ? `projects/${project.id}/${f.name}` : null)
+                                .filter(Boolean) as string[];
+
+        if (filePaths.length > 0) {
+            console.log(`Attempting to delete ${filePaths.length} files from storage bucket 'partnerfiles'...`);
+          const { error: storageError } = await supabase.storage
+            .from('partnerfiles')
+            .remove(filePaths)
+
+          if (storageError) {
+             console.warn(`Could not delete some files from storage: ${storageError.message}`)
+          }
+        }
+      }
+
+      // 5. Log IDs before attempting project deletion
+      console.log(`Attempting final project delete. User ID: ${user.id}, Project Owner ID: ${project.owner_id}`)
+
+      // --- Delete Project Itself --- 
+      const { data: deletedData, error: projectError } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', project.id)
+        .eq('owner_id', user.id)
+        .select()
+
+      // Check if the deletion actually happened or if it failed due to RLS/ownership/FK
+      if (projectError || !deletedData || deletedData.length === 0) {
+        let errorMessage = projectError?.message || 'Deletion failed. The project might not exist or you might not be the owner.';
+        if (projectError?.message.includes('violates row-level security policy') || projectError?.code === 'PGRST116') {
+          errorMessage = `Deletion failed. You might not be the project owner or a security policy prevented it. Specific error: ${projectError?.message}`;
+        } else if (projectError?.message.includes('violates foreign key constraint')) {
+           // Add more context to the foreign key error message
+           errorMessage = `Deletion failed due to data dependencies. Ensure related items (like resources, roles, transactions, etc.) are removed first. Specific error: ${projectError.message}`;
+        } else if (projectError) {
+          errorMessage = `Failed to delete project: ${projectError.message}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      toast.success("Project deleted successfully!")
+      router.push('/projects')
+    } catch (error: any) {
+      console.error('Error deleting project:', error)
+      alert(`Error deleting project: ${error.message}`)
+      toast.error(`Error deleting project: ${error.message}`)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -885,6 +1068,7 @@ export default function ProjectDetails() {
                   </CardContent>
                 </Card>
 
+                {/* Project Access */}
                 <Card className="mb-6">
                   <CardHeader>
                     <div className="flex items-center justify-between">

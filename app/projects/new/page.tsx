@@ -73,6 +73,7 @@ export default function NewProjectPage() {
           budget: projectData.budget ? parseFloat(projectData.budget) : null,
           invested: projectData.invested,
           roi: projectData.roi,
+          visibility: projectData.visibility,
           owner_id: user.id
         }])
         .select()

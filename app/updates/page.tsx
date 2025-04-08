@@ -17,6 +17,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 
@@ -26,6 +37,8 @@ export default function UpdatesPage() {
   const { updates, loading, error, refreshUpdates, createUpdate, deleteUpdate } = useUpdates()
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [updateToDeleteId, setUpdateToDeleteId] = useState<number | null>(null)
   const [newUpdate, setNewUpdate] = useState({
     title: '',
     description: '',
@@ -59,16 +72,23 @@ export default function UpdatesPage() {
     }
   }
 
-  const handleDeleteUpdate = async (id: number) => {
-    if (confirm('Are you sure you want to delete this update?')) {
-      const { error } = await deleteUpdate(id)
-      if (error) {
-        toast.error(error)
-      } else {
-        toast.success('Update deleted successfully')
-      }
+  const confirmDeleteUpdate = async () => {
+    if (updateToDeleteId === null) return; 
+    
+    const { error } = await deleteUpdate(updateToDeleteId);
+    if (error) {
+      toast.error(error);
+    } else {
+      toast.success('Update deleted successfully');
     }
-  }
+    setUpdateToDeleteId(null);
+    setShowDeleteConfirm(false);
+  };
+
+  const handleDeleteClick = (id: number) => {
+    setUpdateToDeleteId(id);
+    setShowDeleteConfirm(true);
+  };
 
   const canManageUpdates = user?.role === 'partner' || user?.role === 'admin'
 
@@ -108,73 +128,75 @@ export default function UpdatesPage() {
               </Button>
               <h1 className="text-3xl font-bold">Updates</h1>
             </div>
-            <div className="flex gap-2">
-              {canManageUpdates && (
-                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
+          </div>
+
+          <div className="flex justify-end gap-2 mb-4">
+            {canManageUpdates && (
+              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Update
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Update</DialogTitle>
+                    <DialogDescription>
+                      Create a new update to share with your team.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div>
+                      <label className="text-sm font-medium">Title</label>
+                      <Input
+                        value={newUpdate.title}
+                        onChange={(e) => setNewUpdate(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder="Enter update title"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Description</label>
+                      <Input
+                        value={newUpdate.description}
+                        onChange={(e) => setNewUpdate(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Enter update description"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Category</label>
+                      <Input
+                        value={newUpdate.category}
+                        onChange={(e) => setNewUpdate(prev => ({ ...prev, category: e.target.value }))}
+                        placeholder="Enter update category"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Full Content</label>
+                      <Input
+                        value={newUpdate.full_content}
+                        onChange={(e) => setNewUpdate(prev => ({ ...prev, full_content: e.target.value }))}
+                        placeholder="Enter full content"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateUpdate}>
                       Create Update
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Create New Update</DialogTitle>
-                      <DialogDescription>
-                        Create a new update to share with your team.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div>
-                        <label className="text-sm font-medium">Title</label>
-                        <Input
-                          value={newUpdate.title}
-                          onChange={(e) => setNewUpdate(prev => ({ ...prev, title: e.target.value }))}
-                          placeholder="Enter update title"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Description</label>
-                        <Input
-                          value={newUpdate.description}
-                          onChange={(e) => setNewUpdate(prev => ({ ...prev, description: e.target.value }))}
-                          placeholder="Enter update description"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Category</label>
-                        <Input
-                          value={newUpdate.category}
-                          onChange={(e) => setNewUpdate(prev => ({ ...prev, category: e.target.value }))}
-                          placeholder="Enter update category"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Full Content</label>
-                        <Input
-                          value={newUpdate.full_content}
-                          onChange={(e) => setNewUpdate(prev => ({ ...prev, full_content: e.target.value }))}
-                          placeholder="Enter full content"
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleCreateUpdate}>
-                        Create Update
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
-              <Button onClick={refreshUpdates}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Refresh
-              </Button>
-            </div>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+            <Button onClick={refreshUpdates} disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
           </div>
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
@@ -226,13 +248,34 @@ export default function UpdatesPage() {
                     </Button>
                     {canManageUpdates && (
                       <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteUpdate(update.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="hover:bg-red-900/20 hover:text-red-400"
+                              onClick={() => handleDeleteClick(update.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the update.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={() => setUpdateToDeleteId(null)}>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={confirmDeleteUpdate} 
+                                className="bg-red-600 hover:bg-red-700">
+                                  Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     )}
                   </div>

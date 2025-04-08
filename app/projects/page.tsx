@@ -154,8 +154,8 @@ export default function ProjectsPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      <header className="leonardo-header">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+      <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div className="flex items-center">
             <Link
               href="/dashboard"
@@ -164,144 +164,120 @@ export default function ProjectsPage() {
               <Home className="w-6 h-6 mr-2" />
               Dashboard
             </Link>
-            <h1 className="text-3xl font-bold">Projects</h1>
+            <h1 className="text-3xl font-bold text-white">Projects</h1>
           </div>
-          <div className="flex space-x-3">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white">
-                  <Key className="w-5 h-5 mr-2" />
-                  Join Project
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Join a Project</DialogTitle>
-                  <DialogDescription>
-                    Enter the project key to request access.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Project Key</Label>
-                    <Input
-                      placeholder="Enter project key (e.g., COV-ABC12)"
-                      value={projectKey}
-                      onChange={(e) => setProjectKey(e.target.value)}
-                    />
-                  </div>
-                  {joinError && (
-                    <div className="text-sm text-red-500">{joinError}</div>
-                  )}
-                  <Button 
-                    className="w-full gradient-button" 
-                    onClick={handleJoinProject}
-                    disabled={isJoining || !projectKey.trim()}
-                  >
-                    {isJoining ? 'Requesting Access...' : 'Request to Join'}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-            <DisabledButton icon={<DollarSign className="w-5 h-5 mr-2" />}>
-              Financial Dashboard
-            </DisabledButton>
-            {user && user.role !== 'investor' && (
-              <Link href="/projects/new">
-                <Button className="gradient-button">
-                  <PlusCircle className="w-5 h-5 mr-2" />
-                  New Project
-                </Button>
-              </Link>
-            )}
-          </div>
+          {/* Buttons removed from header */}
         </div>
       </header>
 
+      {/* Main content area */}
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {/* Project Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="leonardo-card p-4 flex items-center">
-            <div className="p-3 rounded-full bg-blue-500/20 mr-4">
-              <Briefcase className="w-6 h-6 text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-400">Total Projects</p>
-              <h3 className="text-2xl font-bold">{projects.length}</h3>
-            </div>
-          </div>
-
-          <div className="leonardo-card p-4 flex items-center">
-            <div className="p-3 rounded-full bg-green-500/20 mr-4">
-              <Clock className="w-6 h-6 text-green-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-400">Active Projects</p>
-              <h3 className="text-2xl font-bold">
-                {projects.filter((p) => p.status.toLowerCase() === "active").length}
-              </h3>
-            </div>
-          </div>
-
-          <div className="leonardo-card p-4 flex items-center">
-            <div className="p-3 rounded-full bg-yellow-500/20 mr-4">
-              <AlertCircle className="w-6 h-6 text-yellow-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-400">Pending</p>
-              <h3 className="text-2xl font-bold">
-                {projects.filter((p) => p.status.toLowerCase() === "pending").length}
-              </h3>
-            </div>
-          </div>
-
-          <div className="leonardo-card p-4 flex items-center">
-            <div className="p-3 rounded-full bg-purple-500/20 mr-4">
-              <CheckCircle className="w-6 h-6 text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-400">Completed</p>
-              <h3 className="text-2xl font-bold">
-                {projects.filter((p) => p.status.toLowerCase() === "completed").length}
-              </h3>
-            </div>
-          </div>
+        {/* Buttons MOVED to here, inside main */}
+        <div className="flex justify-end items-center gap-3 mb-6">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white">
+                <Key className="w-5 h-5 mr-2" />
+                Join Project
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Join a Project</DialogTitle>
+                <DialogDescription>
+                  Enter the project key to request access.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Project Key</Label>
+                  <Input
+                    placeholder="Enter project key (e.g., COV-ABC12)"
+                    value={projectKey}
+                    onChange={(e) => setProjectKey(e.target.value)}
+                  />
+                </div>
+                {joinError && (
+                  <div className="text-sm text-red-500">{joinError}</div>
+                )}
+                <Button 
+                  className="w-full gradient-button" 
+                  onClick={handleJoinProject}
+                  disabled={isJoining || !projectKey.trim()}
+                >
+                  {isJoining ? 'Requesting Access...' : 'Request to Join'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <DisabledButton icon={<DollarSign className="w-5 h-5 mr-2" />}>
+            Financial Dashboard
+          </DisabledButton>
+          {user && user.role !== 'investor' && (
+            <Link href="/projects/new">
+              <Button className="gradient-button">
+                <PlusCircle className="w-5 h-5 mr-2" />
+                New Project
+              </Button>
+            </Link>
+          )}
         </div>
 
-        {/* Join Project Card */}
-        <Card className="mb-8 leonardo-card border-gray-800">
-          <CardHeader>
-            <CardTitle>Join a Project</CardTitle>
-            <CardDescription>Enter a project key to request access to an existing project</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4">
-              <div className="flex-grow">
-                <Input
-                  placeholder="Enter project key (e.g., COV-ABC12)"
-                  value={projectKey}
-                  onChange={(e) => setProjectKey(e.target.value)}
-                  className="bg-gray-800/30 border-gray-700"
-                />
+        {/* Project Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+           {/* Stats cards remain here */}
+             <div className="leonardo-card p-4 flex items-center">
+              <div className="p-3 rounded-full bg-blue-500/20 mr-4">
+                <Briefcase className="w-6 h-6 text-blue-400" />
               </div>
-              <Button 
-                className="gradient-button" 
-                onClick={handleJoinProject}
-                disabled={isJoining || !projectKey.trim()}
-              >
-                {isJoining ? 'Requesting Access...' : 'Request to Join'}
-              </Button>
+              <div>
+                <p className="text-sm text-gray-400">Total Projects</p>
+                <h3 className="text-2xl font-bold text-white">{projects.length}</h3>
+              </div>
             </div>
-            {joinError && (
-              <div className="mt-2 text-sm text-red-500">{joinError}</div>
-            )}
-          </CardContent>
-        </Card>
+
+            <div className="leonardo-card p-4 flex items-center">
+              <div className="p-3 rounded-full bg-green-500/20 mr-4">
+                <Clock className="w-6 h-6 text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Active Projects</p>
+                <h3 className="text-2xl font-bold text-white">
+                  {projects.filter((p) => p.status.toLowerCase() === "active").length}
+                </h3>
+              </div>
+            </div>
+
+            <div className="leonardo-card p-4 flex items-center">
+              <div className="p-3 rounded-full bg-yellow-500/20 mr-4">
+                <AlertCircle className="w-6 h-6 text-yellow-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Pending</p>
+                <h3 className="text-2xl font-bold text-white">
+                  {projects.filter((p) => p.status.toLowerCase() === "pending").length}
+                </h3>
+              </div>
+            </div>
+
+            <div className="leonardo-card p-4 flex items-center">
+              <div className="p-3 rounded-full bg-purple-500/20 mr-4">
+                <CheckCircle className="w-6 h-6 text-purple-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Completed</p>
+                <h3 className="text-2xl font-bold text-white">
+                  {projects.filter((p) => p.status.toLowerCase() === "completed").length}
+                </h3>
+              </div>
+            </div>
+        </div>
 
         {/* Projects List */}
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold">All Projects</h2>
+           {/* List rendering remains here */}
+           <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-white">All Projects</h2>
             <div className="flex space-x-2">
               <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white">
                 Filter
