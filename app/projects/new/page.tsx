@@ -83,6 +83,22 @@ export default function NewProjectPage() {
         throw error
       }
 
+      // Create project role entry for the owner
+      const { error: roleError } = await supabase
+        .from('project_roles')
+        .insert([{
+          project_id: data.id,
+          user_id: user.id,
+          role_name: 'owner',
+          status: 'active',
+          description: 'Project Owner'
+        }])
+
+      if (roleError) {
+        console.error('Error creating project role:', roleError)
+        throw roleError
+      }
+
       router.push("/projects")
     } catch (error: any) {
       console.error("Error creating project:", error)

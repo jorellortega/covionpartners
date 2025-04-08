@@ -15,6 +15,8 @@ import {
   ExternalLink,
   MoreHorizontal,
   DollarSign,
+  UserPlus,
+  Key,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -29,11 +31,96 @@ import { Badge } from "@/components/ui/badge"
 import { StatusBadge } from "@/components/status-badge"
 import { useProjects } from "@/hooks/useProjects"
 import { useAuth } from "@/hooks/useAuth"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { supabase } from "@/lib/supabase"
 
 export default function ProjectsPage() {
   const router = useRouter()
   const { user } = useAuth()
   const { projects, loading, error } = useProjects(user?.id || '')
+  const [projectKey, setProjectKey] = useState("")
+  const [isJoining, setIsJoining] = useState(false)
+  const [joinError, setJoinError] = useState("")
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId)
+
+      if (error) throw error;
+
+      // Refresh the page to update the projects list
+      router.refresh();
+      
+    } catch (error: any) {
+      console.error('Error deleting project:', error);
+      alert('Failed to delete project. Please try again.');
+    }
+  }
+
+  const handleJoinProject = async () => {
+    if (!projectKey.trim()) return;
+    
+    setIsJoining(true)
+    setJoinError("")
+    
+    try {
+      // Find the project with this key
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('project_key', projectKey.trim())
+        .single()
+
+      if (projectError || !projectData) {
+        throw new Error('Invalid project key')
+      }
+
+      // Add user as team member
+      const { error: joinError } = await supabase
+        .from('team_members')
+        .insert([{
+          project_id: projectData.id,
+          user_id: user?.id,
+          role: 'member',
+          status: 'pending',
+          joined_at: new Date().toISOString()
+        }])
+
+      if (joinError) throw joinError
+
+      // Clear the input and close dialog
+      setProjectKey("")
+      const dialog = document.querySelector('[data-state="open"]')
+      if (dialog) {
+        const closeButton = dialog.querySelector('button[aria-label="Close"]')
+        closeButton?.click()
+      }
+
+      // Show success message
+      alert('Join request sent successfully!')
+    } catch (error: any) {
+      console.error('Error joining project:', error)
+      setJoinError(error.message || 'Failed to join project')
+    } finally {
+      setIsJoining(false)
+    }
+  }
 
   // Function to navigate to financials page
   const navigateToFinancials = (projectId?: string) => {
@@ -80,6 +167,42 @@ export default function ProjectsPage() {
             <h1 className="text-3xl font-bold">Projects</h1>
           </div>
           <div className="flex space-x-3">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white">
+                  <Key className="w-5 h-5 mr-2" />
+                  Join Project
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Join a Project</DialogTitle>
+                  <DialogDescription>
+                    Enter the project key to request access.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Project Key</Label>
+                    <Input
+                      placeholder="Enter project key (e.g., COV-ABC12)"
+                      value={projectKey}
+                      onChange={(e) => setProjectKey(e.target.value)}
+                    />
+                  </div>
+                  {joinError && (
+                    <div className="text-sm text-red-500">{joinError}</div>
+                  )}
+                  <Button 
+                    className="w-full gradient-button" 
+                    onClick={handleJoinProject}
+                    disabled={isJoining || !projectKey.trim()}
+                  >
+                    {isJoining ? 'Requesting Access...' : 'Request to Join'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
             <DisabledButton icon={<DollarSign className="w-5 h-5 mr-2" />}>
               Financial Dashboard
             </DisabledButton>
@@ -145,6 +268,36 @@ export default function ProjectsPage() {
           </div>
         </div>
 
+        {/* Join Project Card */}
+        <Card className="mb-8 leonardo-card border-gray-800">
+          <CardHeader>
+            <CardTitle>Join a Project</CardTitle>
+            <CardDescription>Enter a project key to request access to an existing project</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4">
+              <div className="flex-grow">
+                <Input
+                  placeholder="Enter project key (e.g., COV-ABC12)"
+                  value={projectKey}
+                  onChange={(e) => setProjectKey(e.target.value)}
+                  className="bg-gray-800/30 border-gray-700"
+                />
+              </div>
+              <Button 
+                className="gradient-button" 
+                onClick={handleJoinProject}
+                disabled={isJoining || !projectKey.trim()}
+              >
+                {isJoining ? 'Requesting Access...' : 'Request to Join'}
+              </Button>
+            </div>
+            {joinError && (
+              <div className="mt-2 text-sm text-red-500">{joinError}</div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Projects List */}
         <div className="space-y-6">
           <div className="flex justify-between items-center">
@@ -178,17 +331,34 @@ export default function ProjectsPage() {
                       <DropdownMenuContent className="w-56 bg-gray-900 border-gray-700">
                         <DropdownMenuLabel>Project Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator className="bg-gray-700" />
-                        <DropdownMenuItem className="text-white hover:bg-gray-800">View Details</DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-white hover:bg-gray-800"
+                          onClick={() => router.push(`/projects/${project.id}`)}
+                        >
+                          View Details
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-white hover:bg-gray-800"
                           onClick={() => navigateToFinancials(project.id)}
                         >
                           Financial Breakdown
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-white hover:bg-gray-800">Edit Project</DropdownMenuItem>
-                        <DropdownMenuItem className="text-white hover:bg-gray-800">Generate Report</DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-white hover:bg-gray-800"
+                          onClick={() => router.push(`/projects/${project.id}?edit=true`)}
+                        >
+                          Edit Project
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-white hover:bg-gray-800">
+                          Generate Report
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator className="bg-gray-700" />
-                        <DropdownMenuItem className="text-red-400 hover:bg-gray-800">Archive Project</DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-red-400 hover:bg-gray-800 cursor-pointer"
+                          onClick={() => handleDeleteProject(project.id)}
+                        >
+                          Delete Project
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

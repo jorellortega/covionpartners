@@ -86,13 +86,23 @@ export default function PublicProjectDetails() {
   const [uploading, setUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [resourceName, setResourceName] = useState("")
+  const [projectKey, setProjectKey] = useState("")
+  const [isJoining, setIsJoining] = useState(false)
+  const [joinError, setJoinError] = useState("")
 
   useEffect(() => {
     const fetchProject = async () => {
       try {
         const { data, error } = await supabase
           .from('projects')
-          .select('*')
+          .select(`
+            *,
+            owner:owner_id (
+              id,
+              name,
+              email
+            )
+          `)
           .eq('id', projectId)
           .single()
 
@@ -254,10 +264,55 @@ export default function PublicProjectDetails() {
     }
   }
 
+  const handleJoinProject = async () => {
+    if (!projectKey.trim() || !user?.id) return;
+    
+    setIsJoining(true)
+    setJoinError("")
+    
+    try {
+      // Find the project with this key
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('project_key', projectKey.trim())
+        .single()
+
+      if (projectError || !projectData) {
+        throw new Error('Invalid project key')
+      }
+
+      // Add user as team member
+      const { error: joinError } = await supabase
+        .from('team_members')
+        .insert([{
+          project_id: projectData.id,
+          user_id: user.id,
+          role: 'member',
+          status: 'pending',
+          joined_at: new Date().toISOString()
+        }])
+
+      if (joinError) throw joinError
+
+      // Show success message
+      toast.success('Join request sent successfully!')
+      
+      // Clear the input
+      setProjectKey("")
+    } catch (error: any) {
+      console.error('Error joining project:', error)
+      setJoinError(error.message || 'Failed to join project')
+      toast.error('Failed to join project')
+    } finally {
+      setIsJoining(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner />
+        <LoadingSpinner size={40} />
       </div>
     )
   }
@@ -266,10 +321,10 @@ export default function PublicProjectDetails() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-4">Project not found</h2>
-          <p className="text-gray-400 mb-4">{error || "The project you're looking for doesn't exist or isn't public."}</p>
-          <Button onClick={() => router.push('/publicprojects')} className="gradient-button">
-            Back to Public Projects
+          <p className="text-red-500 mb-4">{error || "Project not found"}</p>
+          <Button onClick={() => router.back()}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Go Back
           </Button>
         </div>
       </div>
@@ -312,6 +367,41 @@ export default function PublicProjectDetails() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Project Info */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Join Project Card */}
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle>Join this Project</CardTitle>
+                <CardDescription>Enter the project key to request access</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-4">
+                  <div className="flex-grow">
+                    <Input
+                      placeholder="Enter project key (e.g., COV-ABC12)"
+                      value={projectKey}
+                      onChange={(e) => setProjectKey(e.target.value)}
+                      className="bg-gray-800/30 border-gray-700"
+                    />
+                  </div>
+                  <Button 
+                    className="gradient-button" 
+                    onClick={handleJoinProject}
+                    disabled={isJoining || !projectKey.trim() || !user}
+                  >
+                    {isJoining ? 'Requesting Access...' : 'Request to Join'}
+                  </Button>
+                </div>
+                {!user && (
+                  <div className="mt-2 text-sm text-yellow-500">
+                    Please log in to join this project
+                  </div>
+                )}
+                {joinError && (
+                  <div className="mt-2 text-sm text-red-500">{joinError}</div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Project Description */}
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
@@ -481,6 +571,34 @@ export default function PublicProjectDetails() {
               </CardContent>
             </Card>
 
+            {/* Project Media */}
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle>Project Media</CardTitle>
+                <CardDescription>Images, videos, and other media files</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {project.media && project.media.length > 0 ? (
+                    project.media.map((media: any, index: number) => (
+                      <div key={index} className="relative aspect-video rounded-lg overflow-hidden bg-gray-800/30">
+                        <img
+                          src={media.url}
+                          alt={media.name || `Project media ${index + 1}`}
+                          className="object-cover w-full h-full"
+                        />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-full text-center py-8">
+                      <FileImage className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-400">No media available yet</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Upload Modal */}
             <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
               <DialogContent>
@@ -637,7 +755,9 @@ export default function PublicProjectDetails() {
                       <Users className="w-4 h-4 mr-2" />
                       <span>Owner</span>
                     </div>
-                    <div className="text-white font-medium">{project.owner_id || 'Unknown'}</div>
+                    <div className="text-white font-medium">
+                      {project.owner?.name || 'Unknown'}
+                    </div>
                   </div>
                   <div className="p-4 bg-gray-800/30 rounded-lg">
                     <div className="flex items-center text-gray-400 mb-2">

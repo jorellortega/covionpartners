@@ -28,10 +28,12 @@ export interface Project {
   created_at: string
   updated_at: string
   owner_id: string
+  owner_name?: string
   invested: number
   roi: number
   progress: number
   budget?: number
+  media_files?: MediaFile[]
 }
 
 export interface ProjectRole {
@@ -55,4 +57,13 @@ export interface DashboardStats {
   activeProjects: number
   totalInvestments: number
   averageROI: number
+}
+
+export interface MediaFile {
+  name: string
+  type: string
+  size: number
+  url: string
+  aspect_ratio?: '16:9' | '9:16' | 'square'
+  created_at: string
 } 
