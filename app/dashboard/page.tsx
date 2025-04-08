@@ -42,6 +42,8 @@ import {
   SortAsc,
   Handshake,
   Star,
+  Zap,
+  FolderKanban,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -402,7 +404,7 @@ export default function PartnerDashboard() {
               <CardContent>
                 <div className="space-y-4">
                   {user.role === 'viewer' ? (
-                    <Button 
+                    <Button
                       className="w-full gradient-button"
                       onClick={() => router.push('/publicprojects')}
                     >
@@ -411,14 +413,14 @@ export default function PartnerDashboard() {
                     </Button>
                   ) : (
                     <>
-                      <Button 
+                      <Button
                         className="w-full gradient-button"
                         onClick={() => router.push('/projects')}
                       >
                         <Briefcase className="w-4 h-4 mr-2" />
                         Projects
                       </Button>
-                      <Button 
+                      <Button
                         className="w-full gradient-button"
                         onClick={() => router.push('/publicprojects')}
                       >
@@ -466,7 +468,7 @@ export default function PartnerDashboard() {
                         Submit Project Request
                       </DisabledButton>
                       {/* Keep Updates enabled */}
-                      <Button 
+                      <Button
                         className="w-full gradient-button"
                         onClick={() => router.push('/updates')}
                       >
@@ -480,6 +482,14 @@ export default function PartnerDashboard() {
                       >
                         <Wallet className="w-4 h-4 mr-2" />
                         Withdraw Funds
+                      </Button>
+                      {/* Add Schedule button */}
+                      <Button
+                        className="w-full gradient-button"
+                        onClick={() => router.push('/schedule')}
+                      >
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Schedule & Tasks
                       </Button>
                     </>
                   )}

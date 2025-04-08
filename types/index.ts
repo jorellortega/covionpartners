@@ -29,6 +29,11 @@ export interface Project {
   updated_at: string
   owner_id: string
   owner_name?: string
+  owner?: {
+    id: string
+    name: string
+    email: string
+  }
   invested: number
   roi: number
   progress: number

@@ -101,7 +101,8 @@ export default function PublicProjectDetails() {
               id,
               name,
               email
-            )
+            ),
+            media_files
           `)
           .eq('id', projectId)
           .single()
@@ -571,28 +572,40 @@ export default function PublicProjectDetails() {
               </CardContent>
             </Card>
 
-            {/* Project Media */}
-            <Card className="leonardo-card border-gray-800">
+            {/* Media Files Section */}
+            <Card className="mt-6">
               <CardHeader>
-                <CardTitle>Project Media</CardTitle>
-                <CardDescription>Images, videos, and other media files</CardDescription>
+                <CardTitle className="text-xl font-semibold">Media Files</CardTitle>
+                <CardDescription>Project media and documentation</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {project.media && project.media.length > 0 ? (
-                    project.media.map((media: any, index: number) => (
-                      <div key={index} className="relative aspect-video rounded-lg overflow-hidden bg-gray-800/30">
-                        <img
-                          src={media.url}
-                          alt={media.name || `Project media ${index + 1}`}
-                          className="object-cover w-full h-full"
-                        />
-                      </div>
-                    ))
-                  ) : (
-                    <div className="col-span-full text-center py-8">
-                      <FileImage className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-400">No media available yet</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {project?.media_files?.map((file, index) => (
+                    <Card key={index} className="overflow-hidden">
+                      {file.type.startsWith('image/') ? (
+                        <div className="relative aspect-video">
+                          <img
+                            src={file.url}
+                            alt={file.name}
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="aspect-video bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                          <FileType className="w-12 h-12 text-gray-400" />
+                        </div>
+                      )}
+                      <CardContent className="p-4">
+                        <h3 className="font-medium truncate">{file.name}</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  {(!project?.media_files || project.media_files.length === 0) && (
+                    <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
+                      No media files available
                     </div>
                   )}
                 </div>
