@@ -113,7 +113,7 @@ export default function UpdatesPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col gap-8">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -223,7 +223,7 @@ export default function UpdatesPage() {
             {filteredUpdates.map((update) => (
               <Card 
                 key={update.id} 
-                className="hover:shadow-lg transition-shadow"
+                className="hover:shadow-lg transition-shadow p-4"
               >
                 <CardHeader>
                   <div className="flex justify-between items-start">
@@ -242,7 +242,11 @@ export default function UpdatesPage() {
                 <CardContent>
                   <p className="text-gray-600 mb-4">{update.description}</p>
                   <div className="flex justify-between items-center">
-                    <Button variant="ghost" onClick={() => router.push(`/updates/${update.id}`)}>
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => router.push(`/updates/${update.id}`)}
+                      className="hover:bg-purple-500"
+                    >
                       View Details
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>

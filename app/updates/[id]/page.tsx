@@ -365,10 +365,10 @@ export default function UpdateDetailsPage() {
   const canEdit = user && ['partner', 'admin'].includes(user.role)
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col gap-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap">
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => router.push('/updates')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -384,7 +384,7 @@ export default function UpdateDetailsPage() {
               <h1 className="text-3xl font-bold">{update.title}</h1>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-4 md:mt-0">
             {isEditing ? (
               <>
                 <Button variant="outline" onClick={handleCancel}>

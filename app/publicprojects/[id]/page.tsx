@@ -484,34 +484,6 @@ export default function PublicProjectDetails() {
               </CardContent>
             </Card>
 
-            {/* Project Details */}
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle>Project Details</CardTitle>
-                <CardDescription className="text-gray-400">
-                  Additional project information
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 bg-gray-800/30 rounded-lg">
-                    <div className="flex items-center text-gray-400 mb-2">
-                      <DollarSign className="w-4 h-4 mr-2" />
-                      <span>Investment</span>
-                    </div>
-                    <div className="text-white font-medium">${formatNumber(project.invested)}</div>
-                  </div>
-                  <div className="p-4 bg-gray-800/30 rounded-lg">
-                    <div className="flex items-center text-gray-400 mb-2">
-                      <BarChart2 className="w-4 h-4 mr-2" />
-                      <span>ROI</span>
-                    </div>
-                    <div className="text-white font-medium">{project.roi || 0}%</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Project Resources */}
             <Card className="leonardo-card border-gray-800">
               <CardHeader>

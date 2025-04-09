@@ -90,16 +90,25 @@ export default function PublicProjectsPage() {
               Explore our collection of public investment opportunities
             </p>
           </div>
-          {user && (
+          <div className="flex gap-4">
             <Button 
               variant="outline" 
               className="border-gray-700 bg-gray-800/30 text-white hover:bg-blue-900/20 hover:text-blue-400"
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push('/')}
             >
-              <Home className="w-4 h-4 mr-2" />
-              Back to Dashboard
+              Home
             </Button>
-          )}
+            {user && (
+              <Button 
+                variant="outline" 
+                className="border-gray-700 bg-gray-800/30 text-white hover:bg-blue-900/20 hover:text-blue-400"
+                onClick={() => router.push('/dashboard')}
+              >
+                <Home className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Search and Filters */}
