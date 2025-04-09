@@ -11,9 +11,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Home, ArrowLeft, Save, Calendar, Users, DollarSign } from "lucide-react"
+import { Home, ArrowLeft, Save, Calendar, Users, DollarSign, Copy } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/hooks/useUser"
+import { toast } from "sonner"
 
 export default function NewProjectPage() {
   const router = useRouter()
@@ -22,7 +23,8 @@ export default function NewProjectPage() {
   const [projectData, setProjectData] = useState({
     name: "",
     description: "",
-    type: "Investment" as const,
+    type: "custom" as "custom" | "other" | "investment" | "collaboration" | "development" | "research" | "consulting" | "marketing" | "education" | "nonprofit" | "startup",
+    customType: "",
     status: "pending" as const,
     progress: 0,
     deadline: "",
@@ -31,6 +33,12 @@ export default function NewProjectPage() {
     roi: 0,
     visibility: "private" as const
   })
+  const [projectKey, setProjectKey] = useState('')
+
+  // Generate project key when component mounts
+  useEffect(() => {
+    setProjectKey('COV-' + Math.random().toString(36).substring(2, 7).toUpperCase())
+  }, [])
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -57,55 +65,83 @@ export default function NewProjectPage() {
         throw new Error("Please sign in to create a project")
       }
 
-      // Convert deadline to timestamptz
-      const deadlineDate = new Date(projectData.deadline)
-      deadlineDate.setHours(23, 59, 59, 999)
+      // Get project type - make sure it's a valid enum value
+      let projectType = "investment";
+      
+      // Check if the type selected is one of the valid enum types
+      if (["investment", "collaboration", "development", "research", "consulting"].includes(projectData.type)) {
+        projectType = projectData.type;
+      }
+      
+      // Modify name if custom type was provided
+      let projectName = projectData.name;
+      if ((projectData.type === "custom" || projectData.type === "other") && projectData.customType.trim()) {
+        projectName = `${projectData.name} (${projectData.customType.trim()})`;
+      }
 
+      // Prepare project data
+      const insertData: Record<string, any> = {
+        name: projectName,
+        description: projectData.description || "",
+        type: projectType,
+        status: "pending",
+        progress: 0,
+        visibility: projectData.visibility,
+        owner_id: user.id,
+        project_key: projectKey,
+        invested: 0,
+        roi: 0
+      };
+
+      // Add deadline if it exists
+      if (projectData.deadline) {
+        const deadlineDate = new Date(projectData.deadline);
+        deadlineDate.setHours(23, 59, 59, 999);
+        insertData.deadline = deadlineDate.toISOString();
+      }
+
+      // Add budget if it exists
+      if (projectData.budget) {
+        insertData.budget = parseFloat(projectData.budget);
+      }
+
+      // Create the project
       const { data, error } = await supabase
         .from('projects')
-        .insert([{
-          name: projectData.name,
-          description: projectData.description,
-          type: projectData.type.toLowerCase(),
-          status: projectData.status,
-          progress: projectData.progress,
-          deadline: deadlineDate.toISOString(),
-          budget: projectData.budget ? parseFloat(projectData.budget) : null,
-          invested: projectData.invested,
-          roi: projectData.roi,
-          visibility: projectData.visibility,
-          owner_id: user.id
-        }])
+        .insert([insertData])
         .select()
-        .single()
+        .single();
 
       if (error) {
-        console.error('Detailed error:', error)
-        throw error
+        console.error('Error creating project:', error);
+        throw error;
       }
 
-      // Create project role entry for the owner
-      const { error: roleError } = await supabase
-        .from('project_roles')
-        .insert([{
-          project_id: data.id,
-          user_id: user.id,
-          role_name: 'owner',
-          status: 'active',
-          description: 'Project Owner'
-        }])
+      // Create team member entry for the owner
+      if (data && data.id) {
+        const { error: roleError } = await supabase
+          .from('team_members')
+          .insert([{
+            project_id: data.id,
+            user_id: user.id,
+            role: 'owner',
+            status: 'approved',
+            joined_at: new Date().toISOString()
+          }]);
 
-      if (roleError) {
-        console.error('Error creating project role:', roleError)
-        throw roleError
+        if (roleError) {
+          console.error('Error creating team member entry:', roleError);
+          // Don't throw this error, continue anyway
+        }
       }
 
-      router.push("/projects")
+      toast.success('Project created successfully!');
+      router.push("/projects");
     } catch (error: any) {
-      console.error("Error creating project:", error)
-      alert(error.message || "Failed to create project. Please try again.")
+      console.error("Error creating project:", error);
+      toast.error(error.message || "Failed to create project. Please try again.");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 
@@ -194,11 +230,58 @@ export default function NewProjectPage() {
                     <SelectTrigger className="leonardo-input">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="investment">Investment</SelectItem>
-                      <SelectItem value="collaboration">Collaboration</SelectItem>
+                    <SelectContent className="bg-gray-800 border-gray-700">
+                      <SelectItem value="custom" className="focus:bg-purple-500/20 focus:text-purple-400">Custom Type</SelectItem>
+                      <SelectItem value="other" className="focus:bg-purple-500/20 focus:text-purple-400">Other</SelectItem>
+                      <SelectItem value="investment" className="focus:bg-purple-500/20 focus:text-purple-400">Investment</SelectItem>
+                      <SelectItem value="collaboration" className="focus:bg-purple-500/20 focus:text-purple-400">Collaboration</SelectItem>
+                      <SelectItem value="development" className="focus:bg-purple-500/20 focus:text-purple-400">Development</SelectItem>
+                      <SelectItem value="research" className="focus:bg-purple-500/20 focus:text-purple-400">Research</SelectItem>
+                      <SelectItem value="consulting" className="focus:bg-purple-500/20 focus:text-purple-400">Consulting</SelectItem>
+                      <SelectItem value="marketing" className="focus:bg-purple-500/20 focus:text-purple-400">Marketing</SelectItem>
+                      <SelectItem value="education" className="focus:bg-purple-500/20 focus:text-purple-400">Education</SelectItem>
+                      <SelectItem value="nonprofit" className="focus:bg-purple-500/20 focus:text-purple-400">Nonprofit</SelectItem>
+                      <SelectItem value="startup" className="focus:bg-purple-500/20 focus:text-purple-400">Startup</SelectItem>
                     </SelectContent>
                   </Select>
+                  {(projectData.type === "custom" || projectData.type === "other") && (
+                    <div className="mt-2">
+                      <Input
+                        id="customType"
+                        name="customType"
+                        value={projectData.customType}
+                        onChange={handleChange}
+                        className="leonardo-input"
+                        placeholder={projectData.type === "custom" ? "Enter custom project type" : "Specify project type"}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="projectKey">Project Key</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="projectKey"
+                      value={projectKey}
+                      readOnly
+                      className="leonardo-input font-mono"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(projectKey);
+                        toast.success('Project key copied to clipboard!');
+                      }}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Share this key with team members to allow them to join the project
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -214,8 +297,8 @@ export default function NewProjectPage() {
                     type="date"
                     value={projectData.deadline}
                     onChange={handleChange}
-                    required
                     className="leonardo-input"
+                    placeholder="Optional"
                   />
                 </div>
 
