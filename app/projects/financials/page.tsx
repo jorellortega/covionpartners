@@ -230,8 +230,8 @@ export default function ProjectFinancialsPage() {
               <Card className="leonardo-card border-gray-800">
                 <CardContent className="pt-6">
                   <div className="flex items-center">
-                    <div className="p-3 rounded-full bg-pink-500/20 mr-4">
-                      <TrendingUp className="w-6 h-6 text-pink-400" />
+                    <div className="p-3 rounded-full bg-purple-500/20 mr-4">
+                      <TrendingUp className="w-6 h-6 text-purple-400" />
                     </div>
                     <div>
                       <p className="text-sm text-gray-400">Projected ROI</p>

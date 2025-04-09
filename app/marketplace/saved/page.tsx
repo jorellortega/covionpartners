@@ -52,7 +52,7 @@ function InvestmentLevel({ level }: { level: string }) {
       case "series b":
         return "bg-purple-500/20 text-purple-400 border-purple-500/50"
       case "series c":
-        return "bg-pink-500/20 text-pink-400 border-pink-500/50"
+        return "bg-purple-500/20 text-purple-400 border-purple-500/50"
       case "growth":
         return "bg-yellow-500/20 text-yellow-400 border-yellow-500/50"
       default:

@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -11,15 +11,27 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Home, ArrowLeft, Save, Calendar, Users, DollarSign, Copy } from "lucide-react"
+import { Home, ArrowLeft, Save, Calendar, Users, DollarSign, Copy, Upload, FileText, Trash2, Loader2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/hooks/useUser"
 import { toast } from "sonner"
+
+interface MediaFile {
+  name: string
+  type: string
+  size: number
+  url: string
+  aspect_ratio: '16:9' | '9:16' | 'square'
+  created_at: string
+}
 
 export default function NewProjectPage() {
   const router = useRouter()
   const { user, loading } = useUser()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false)
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [projectData, setProjectData] = useState({
     name: "",
     description: "",
@@ -56,6 +68,82 @@ export default function NewProjectPage() {
     setProjectData((prev) => ({ ...prev, [name]: value }))
   }
 
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files.length) return
+
+    setIsUploadingMedia(true)
+    const files = Array.from(e.target.files)
+
+    try {
+      const uploadPromises = files.map(async (file) => {
+        // Create a unique filename
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+        const filePath = `projects/temp/${fileName}`
+
+        // Upload file to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('partnerfiles')
+          .upload(filePath, file)
+
+        if (uploadError) {
+          console.error('Storage upload error:', uploadError)
+          throw uploadError
+        }
+
+        // Get aspect ratio for images
+        let aspectRatio: MediaFile['aspect_ratio'] = '16:9'
+        if (file.type.startsWith('image/')) {
+          const img = new Image()
+          img.src = URL.createObjectURL(file)
+          await new Promise((resolve) => {
+            img.onload = () => {
+              const ratio = img.width / img.height
+              if (ratio > 1.7) aspectRatio = '16:9'
+              else if (ratio < 0.6) aspectRatio = '9:16'
+              else aspectRatio = 'square'
+              resolve(null)
+            }
+          })
+        }
+
+        // Get the public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('partnerfiles')
+          .getPublicUrl(filePath)
+
+        // Create media file record
+        const mediaFile: MediaFile = {
+          name: fileName,
+          type: file.type,
+          size: file.size,
+          url: publicUrl,
+          aspect_ratio: aspectRatio,
+          created_at: new Date().toISOString()
+        }
+
+        return mediaFile
+      })
+
+      const newMediaFiles = await Promise.all(uploadPromises)
+      setMediaFiles(prev => [...prev, ...newMediaFiles])
+      toast.success('Media files uploaded successfully')
+
+    } catch (error) {
+      console.error('Error uploading media:', error)
+      toast.error('Failed to upload media files')
+    } finally {
+      setIsUploadingMedia(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const handleDeleteMedia = (fileName: string) => {
+    setMediaFiles(prev => prev.filter(f => f.name !== fileName))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -86,22 +174,23 @@ export default function NewProjectPage() {
         type: projectType,
         status: "pending",
         progress: 0,
-        visibility: projectData.visibility,
+        visibility: projectData.visibility === "private" ? "private" : "public",
         owner_id: user.id,
         project_key: projectKey,
         invested: 0,
-        roi: 0
+        roi: 0,
+        media_files: mediaFiles
       };
 
       // Add deadline if it exists
-      if (projectData.deadline) {
+      if (projectData.deadline && projectData.deadline.trim()) {
         const deadlineDate = new Date(projectData.deadline);
         deadlineDate.setHours(23, 59, 59, 999);
         insertData.deadline = deadlineDate.toISOString();
       }
 
       // Add budget if it exists
-      if (projectData.budget) {
+      if (projectData.budget && projectData.budget.trim()) {
         insertData.budget = parseFloat(projectData.budget);
       }
 
@@ -124,7 +213,7 @@ export default function NewProjectPage() {
           .insert([{
             project_id: data.id,
             user_id: user.id,
-            role: 'owner',
+            role: 'lead',
             status: 'approved',
             joined_at: new Date().toISOString()
           }]);
@@ -298,8 +387,9 @@ export default function NewProjectPage() {
                     value={projectData.deadline}
                     onChange={handleChange}
                     className="leonardo-input"
-                    placeholder="Optional"
+                    required
                   />
+                  <p className="text-sm text-gray-400 mt-1">Required for project creation. You can update this later.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -336,6 +426,90 @@ export default function NewProjectPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Media Section */}
+              <div className="space-y-4">
+                <Label>Project Media</Label>
+                <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center">
+                  <Upload className="w-12 h-12 mx-auto text-gray-400" />
+                  <p className="mt-2 text-sm text-gray-400">Drag and drop files here, or click to select files</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Supported formats: Images, Videos (Max 10MB each)
+                  </p>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="mt-4 border-gray-700 hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingMedia}
+                  >
+                    {isUploadingMedia ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="w-4 h-4 mr-2" />
+                        Add Media
+                      </>
+                    )}
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*,video/*"
+                    multiple
+                    onChange={handleMediaUpload}
+                  />
+                </div>
+
+                {/* Media Preview Grid */}
+                {mediaFiles.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {mediaFiles.map((file, index) => (
+                      <div key={index} className="relative group">
+                        {file.type.startsWith('image/') ? (
+                          <div className={`relative overflow-hidden rounded-lg ${
+                            file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
+                            file.aspect_ratio === 'square' ? 'aspect-square' :
+                            'aspect-[16/9]'
+                          }`}>
+                            <img
+                              src={file.url}
+                              alt={file.name}
+                              className="object-cover w-full h-full"
+                            />
+                          </div>
+                        ) : file.type.startsWith('video/') ? (
+                          <div className={`relative overflow-hidden rounded-lg ${
+                            file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
+                            file.aspect_ratio === 'square' ? 'aspect-square' :
+                            'aspect-[16/9]'
+                          }`}>
+                            <video
+                              src={file.url}
+                              controls
+                              className="object-cover w-full h-full"
+                            />
+                          </div>
+                        ) : null}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-white hover:text-red-400"
+                            onClick={() => handleDeleteMedia(file.name)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
 

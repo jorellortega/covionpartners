@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -24,6 +24,7 @@ import {
   RefreshCw,
   UserPlus,
   Home,
+  Loader2,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -38,6 +39,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -196,6 +198,8 @@ export default function ProjectDetails() {
   })
   const [isCreatingUser, setIsCreatingUser] = useState(false)
   const [isUploadingMedia, setIsUploadingMedia] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [editProjectData, setEditProjectData] = useState<{
     name: string;
     description: string;
@@ -398,11 +402,11 @@ export default function ProjectDetails() {
 
   const handleDeleteProject = async () => {
     if (!project || !user) return
-
-    // Add confirmation dialog
-    if (!confirm('Are you sure you want to delete this project? This will also delete associated team members, roles, resources, and media files. This action cannot be undone.')) {
-      return;
-    }
+    setIsDeleteDialogOpen(true)
+  }
+  
+  const confirmDeleteProject = async () => {
+    if (!project || !user) return
 
     setIsLoading(true)
     try {
@@ -498,10 +502,10 @@ export default function ProjectDetails() {
       router.push('/projects')
     } catch (error: any) {
       console.error('Error deleting project:', error)
-      alert(`Error deleting project: ${error.message}`)
       toast.error(`Error deleting project: ${error.message}`)
     } finally {
       setIsLoading(false)
+      setIsDeleteDialogOpen(false)
     }
   }
 
@@ -752,7 +756,7 @@ export default function ProjectDetails() {
         </div>
 
         <div className="space-y-6">
-          <header className="leonardo-header">
+          <header className="leonardo-card border-gray-800 p-4 sm:p-6">
             <div className="flex flex-col space-y-4">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
@@ -1410,6 +1414,41 @@ export default function ProjectDetails() {
           </main>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="leonardo-card border-gray-800">
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Are you sure you want to delete this project? This will also delete associated team members, roles, resources, and media files. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-4">
+            <Button
+              variant="outline"
+              className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800/50"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+              onClick={confirmDeleteProject}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Project"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

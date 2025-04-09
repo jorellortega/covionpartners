@@ -339,7 +339,7 @@ export default function PublicProjectDetails() {
           <div className="flex flex-col space-y-4">
             <Button 
               variant="ghost" 
-              className="text-gray-400 hover:text-white w-fit"
+              className="text-gray-400 hover:text-purple-400 w-fit"
               onClick={() => router.push('/publicprojects')}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />

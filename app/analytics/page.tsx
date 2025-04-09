@@ -90,8 +90,8 @@ export default function AnalyticsPage() {
                 <p className="text-sm text-gray-400">New Partners</p>
                 <h3 className="text-3xl font-bold mt-1">{analyticsData.newPartners}</h3>
               </div>
-              <div className="p-3 rounded-full bg-pink-500/20">
-                <Users className="w-6 h-6 text-pink-400" />
+              <div className="p-3 rounded-full bg-purple-500/20">
+                <Users className="w-6 h-6 text-purple-400" />
               </div>
             </div>
             <div className="mt-4 flex items-center">
@@ -166,7 +166,7 @@ export default function AnalyticsPage() {
                   <span>Increase marketing partnerships</span>
                 </li>
                 <li className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-pink-500 mr-2"></div>
+                  <div className="w-2 h-2 rounded-full bg-purple-500 mr-2"></div>
                   <span>Develop recurring revenue streams</span>
                 </li>
               </ul>

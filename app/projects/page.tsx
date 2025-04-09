@@ -38,10 +38,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
 
 export default function ProjectsPage() {
   const router = useRouter()
@@ -50,26 +52,35 @@ export default function ProjectsPage() {
   const [projectKey, setProjectKey] = useState("")
   const [isJoining, setIsJoining] = useState(false)
   const [joinError, setJoinError] = useState("")
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null)
 
   const handleDeleteProject = async (projectId: string) => {
-    if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
-      return;
-    }
+    setProjectToDelete(projectId)
+    setIsDeleteDialogOpen(true)
+  }
+  
+  const confirmDelete = async () => {
+    if (!projectToDelete) return
     
     try {
       const { error } = await supabase
         .from('projects')
         .delete()
-        .eq('id', projectId)
+        .eq('id', projectToDelete)
 
       if (error) throw error;
 
       // Refresh the page to update the projects list
       router.refresh();
+      toast.success("Project deleted successfully")
       
     } catch (error: any) {
       console.error('Error deleting project:', error);
-      alert('Failed to delete project. Please try again.');
+      toast.error('Failed to delete project. Please try again.');
+    } finally {
+      setIsDeleteDialogOpen(false)
+      setProjectToDelete(null)
     }
   }
 
@@ -210,9 +221,6 @@ export default function ProjectsPage() {
               </div>
             </DialogContent>
           </Dialog>
-          <DisabledButton icon={<DollarSign className="w-5 h-5 mr-2" />}>
-            Financial Dashboard
-          </DisabledButton>
           {user && user.role !== 'investor' && (
             <Link href="/projects/new">
               <Button className="gradient-button">
@@ -388,6 +396,33 @@ export default function ProjectsPage() {
             ))}
           </div>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent className="leonardo-card border-gray-800">
+            <DialogHeader>
+              <DialogTitle>Confirm Deletion</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Are you sure you want to delete this project? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="pt-4">
+              <Button
+                variant="outline"
+                className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800/50"
+                onClick={() => setIsDeleteDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={confirmDelete}
+              >
+                Delete Project
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   )

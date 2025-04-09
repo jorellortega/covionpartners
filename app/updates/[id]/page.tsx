@@ -354,7 +354,11 @@ export default function UpdateDetailsPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <p className="text-red-500">{error || 'Update not found'}</p>
-        <Button onClick={() => router.push('/updates')}>
+        <Button 
+          variant="ghost" 
+          onClick={() => router.push('/updates')}
+          className="hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+        >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Updates
         </Button>
@@ -368,9 +372,13 @@ export default function UpdateDetailsPage() {
     <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col gap-8">
         {/* Header */}
-        <div className="flex items-center justify-between flex-wrap">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => router.push('/updates')}>
+            <Button 
+              variant="ghost" 
+              onClick={() => router.push('/updates')}
+              className="hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+            >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Updates
             </Button>
@@ -378,26 +386,26 @@ export default function UpdateDetailsPage() {
               <Input
                 value={editForm?.title || ''}
                 onChange={(e) => setEditForm(prev => prev ? { ...prev, title: e.target.value } : null)}
-                className="text-3xl font-bold h-auto py-1 px-2"
+                className="text-3xl font-bold h-auto py-1 px-2 w-full sm:w-auto"
               />
             ) : (
-              <h1 className="text-3xl font-bold">{update.title}</h1>
+              <h1 className="text-3xl font-bold break-words">{update.title}</h1>
             )}
           </div>
-          <div className="flex items-center gap-2 mt-4 md:mt-0">
+          <div className="flex items-center gap-2 flex-wrap">
             {isEditing ? (
               <>
-                <Button variant="outline" onClick={handleCancel}>
+                <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
                   Cancel
                 </Button>
-                <Button onClick={handleSave}>
+                <Button onClick={handleSave} className="w-full sm:w-auto">
                   <Save className="mr-2 h-4 w-4" />
                   Save Changes
                 </Button>
               </>
             ) : (
               canEdit && (
-                <Button onClick={handleEdit}>
+                <Button onClick={handleEdit} className="w-full sm:w-auto">
                   <Edit className="mr-2 h-4 w-4" />
                   Edit
                 </Button>

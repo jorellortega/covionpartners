@@ -177,7 +177,15 @@ export default function PartnerDashboard() {
       if (!user) return
 
       try {
-        // First get the user's roles
+        // Get both owned projects and projects where user has a role
+        const { data: ownedProjects, error: ownedError } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('owner_id', user.id)
+
+        if (ownedError) throw ownedError
+
+        // Get projects where user has a role
         const { data: roles, error: rolesError } = await supabase
           .from('project_roles')
           .select(`
@@ -200,10 +208,28 @@ export default function PartnerDashboard() {
             }
           }))
 
-        setMyProjects(projectsWithRoles)
+        // Combine owned projects and projects with roles
+        const allProjects = [
+          ...(ownedProjects || []).map(project => ({
+            ...project,
+            role: {
+              name: 'Owner',
+              description: 'Project Owner',
+              status: 'active'
+            }
+          })),
+          ...projectsWithRoles
+        ]
+
+        // Remove duplicates based on project ID
+        const uniqueProjects = allProjects.filter((project, index, self) =>
+          index === self.findIndex(p => p.id === project.id)
+        )
+
+        setMyProjects(uniqueProjects)
       } catch (err) {
         console.error('Error fetching my projects:', err)
-        // Optionally add a toast error here
+        toast.error('Failed to load your projects')
       } finally {
         setLoadingMyProjects(false)
       }

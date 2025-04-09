@@ -101,7 +101,7 @@ export default function Home() {
       </main>
       <footer className="py-8 text-center text-white/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-sm">© 2025 Covion Studio</p>
+          <p className="text-sm">Developed by JOR. Powered by Covion Studio © 2025</p>
         </div>
       </footer>
     </div>
