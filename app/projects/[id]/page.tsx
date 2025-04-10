@@ -807,53 +807,53 @@ export default function ProjectDetails() {
 
         <div className="space-y-6">
           <header className="leonardo-card border-gray-800 p-4 sm:p-6">
-            <div className="flex flex-col space-y-4">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl font-bold">{project.name}</h1>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex-grow">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <h1 className="text-2xl font-bold text-white mr-2">{project.name}</h1>
                   <StatusBadge status={project.status} />
                 </div>
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800/50"
-                    onClick={() => {
-                      const key = project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase();
-                      navigator.clipboard.writeText(key);
-                      toast.success("Project key copied to clipboard!");
-                    }}
-                  >
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Join Project
-                  </Button>
-                  {user && user.role !== 'investor' && (
-                    <>
-                      <Button
-                        variant="outline"
-                        className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800/50"
-                        onClick={() => setIsEditDialogOpen(true)}
-                      >
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Edit Project
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setIsDeleteDialogOpen(true);
-                        }}
-                        className="text-red-500 hover:text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </Button>
-                    </>
-                  )}
-                </div>
+                <p className="text-sm text-muted-foreground">{project.description}</p>
               </div>
-              <p className="text-gray-400 text-sm sm:text-base mt-1">{project.description || 'No description available'}</p>
+              <div className="flex flex-shrink-0 items-center gap-2 flex-wrap justify-end">
+                <Button
+                  variant="outline"
+                  className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800/50"
+                  onClick={() => {
+                    const key = project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+                    navigator.clipboard.writeText(key);
+                    toast.success("Project key copied to clipboard!");
+                  }}
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Join Project
+                </Button>
+                {user && user.role !== 'investor' && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800/50"
+                      onClick={() => setIsEditDialogOpen(true)}
+                    >
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Edit Project
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDeleteDialogOpen(true);
+                      }}
+                      className="text-red-500 hover:text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </header>
 
