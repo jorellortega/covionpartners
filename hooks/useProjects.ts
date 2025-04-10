@@ -8,28 +8,60 @@ export function useProjects(userId?: string) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchProjects()
+    if (userId) {
+      fetchProjects()
+    }
   }, [userId])
 
   const fetchProjects = async () => {
+    if (!userId) {
+      setLoading(false)
+      return
+    }
+    
     try {
-      let query = supabase
+      // First get projects where user is the owner
+      const { data: ownedProjects, error: ownedError } = await supabase
         .from('projects')
         .select('*')
+        .eq('owner_id', userId)
         .order('created_at', { ascending: false })
-
-      // If userId is provided, filter by owner_id
-      if (userId) {
-        query = query.eq('owner_id', userId)
+      
+      if (ownedError) throw ownedError
+      
+      // Then get projects where user is a team member
+      const { data: teamMemberships, error: teamError } = await supabase
+        .from('team_members')
+        .select('project_id')
+        .eq('user_id', userId)
+      
+      if (teamError) throw teamError
+      
+      let memberProjects: any[] = []
+      
+      if (teamMemberships && teamMemberships.length > 0) {
+        const projectIds = teamMemberships.map(tm => tm.project_id)
+        
+        const { data: joinedProjects, error: joinedError } = await supabase
+          .from('projects')
+          .select('*')
+          .in('id', projectIds)
+          .order('created_at', { ascending: false })
+        
+        if (joinedError) throw joinedError
+        memberProjects = joinedProjects || []
       }
-
-      const { data, error } = await query
-
-      if (error) throw error
-      setProjects(data || [])
-    } catch (error) {
+      
+      // Combine the two sets of projects and remove duplicates
+      const allProjects = [...(ownedProjects || []), ...memberProjects]
+      const uniqueProjects = allProjects.filter((project, index, self) => 
+        index === self.findIndex(p => p.id === project.id)
+      )
+      
+      setProjects(uniqueProjects)
+    } catch (error: any) {
       console.error('Error fetching projects:', error)
-      setError('Failed to fetch projects')
+      setError('Failed to fetch projects: ' + error.message)
     } finally {
       setLoading(false)
     }
