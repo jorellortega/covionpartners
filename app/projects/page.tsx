@@ -54,6 +54,8 @@ export default function ProjectsPage() {
   const [joinError, setJoinError] = useState("")
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null)
+  const [searchStatus, setSearchStatus] = useState<"idle" | "searching" | "found" | "not_found">("idle")
+  const [foundProject, setFoundProject] = useState<any>(null)
 
   const handleDeleteProject = async (projectId: string) => {
     setProjectToDelete(projectId)
@@ -87,19 +89,180 @@ export default function ProjectsPage() {
   const handleJoinProject = async () => {
     if (!projectKey.trim()) return;
     
+    const trimmedKey = projectKey.trim();
+    console.log('Attempting to join project with key:', trimmedKey);
     setIsJoining(true)
     setJoinError("")
+    setSearchStatus("searching")
+    setFoundProject(null)
     
     try {
-      // Find the project with this key
+      // Get all projects to check for direct string comparison
+      const { data: allProjects, error: listError } = await supabase
+        .from('projects')
+        .select('id, project_key, name, owner_id')
+        .limit(50)
+      
+      console.log('Available project keys:', allProjects?.map(p => ({ 
+        id: p.id, 
+        key: p.project_key,
+        keyType: typeof p.project_key,
+        keyLength: p.project_key?.length,
+        // Compare keys character by character
+        matches: p.project_key === trimmedKey,
+        // Compare lowercase
+        matchesLower: p.project_key?.toLowerCase() === trimmedKey.toLowerCase()
+      })));
+      
+      if (listError) {
+        console.error('Error listing projects:', listError);
+      }
+      
+      // Try to find the project by direct comparison in the returned data
+      const matchedProject = allProjects?.find(p => 
+        p.project_key?.toLowerCase() === trimmedKey.toLowerCase()
+      );
+      
+      if (matchedProject) {
+        console.log('Found project by direct comparison:', matchedProject);
+        setSearchStatus("found")
+        setFoundProject(matchedProject)
+        
+        // Check if user is already a team member
+        const { data: existingMember, error: checkError } = await supabase
+          .from('team_members')
+          .select('id, status')
+          .eq('project_id', matchedProject.id)
+          .eq('user_id', user?.id)
+          .single()
+
+        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+          console.error('Check member error:', checkError);
+          throw checkError
+        }
+
+        if (existingMember) {
+          if (existingMember.status === 'pending') {
+            throw new Error('Your join request is still pending approval')
+          } else {
+            throw new Error('You are already a member of this project')
+          }
+        }
+
+        // Add user as team member
+        const { data: newMember, error: joinError } = await supabase
+          .from('team_members')
+          .insert([{
+            project_id: matchedProject.id,
+            user_id: user?.id,
+            role: 'member',
+            status: 'pending',
+            joined_at: new Date().toISOString()
+          }])
+          .select()
+
+        if (joinError) {
+          console.error('Join error:', joinError);
+          throw joinError
+        }
+        
+        // Get user details for the notification
+        const { data: userData, error: userError } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', user?.id)
+          .single()
+          
+        if (userError) {
+          console.error('Error getting user profile:', userError);
+        }
+        
+        // Create notification for project owner
+        await supabase
+          .from('notifications')
+          .insert([{
+            user_id: matchedProject.owner_id,
+            type: 'join_request',
+            title: 'New Join Request',
+            content: `${userData?.full_name || 'Someone'} has requested to join your project: ${matchedProject.name}`,
+            metadata: JSON.stringify({
+              project_id: matchedProject.id,
+              project_name: matchedProject.name,
+              user_id: user?.id,
+              user_name: userData?.full_name,
+              user_email: userData?.email,
+              team_member_id: newMember?.[0]?.id
+            }),
+            read: false,
+            created_at: new Date().toISOString()
+          }])
+          .select()
+          .then(({ data, error }) => {
+            if (error) console.error('Error creating notification:', error);
+            console.log('Notification created:', data);
+          });
+
+        // Clear the input and close dialog
+        setProjectKey("")
+        const dialog = document.querySelector('[data-state="open"]')
+        if (dialog) {
+          const closeButton = dialog.querySelector('button[aria-label="Close"]')
+          closeButton?.click()
+        }
+
+        // Show success message using toast
+        toast.success('Join request sent successfully! Project owner will be notified.')
+        
+        // Refresh the page to update the projects list
+        router.refresh()
+        return;
+      }
+      
+      // If not found by direct comparison, try the regular way
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
-        .select('id')
-        .eq('project_key', projectKey.trim())
+        .select('id, project_key, name')
+        .or(`project_key.eq.${trimmedKey},project_key.ilike.${trimmedKey}`)
         .single()
 
-      if (projectError || !projectData) {
+      console.log('Query response:', { data: projectData, error: projectError });
+
+      if (projectError) {
+        console.error('Project key error:', projectError);
+        console.log('Project query details:', {
+          key: trimmedKey,
+          query: 'eq or ilike',
+          error: projectError
+        });
+        setSearchStatus("not_found")
         throw new Error('Invalid project key')
+      }
+      
+      if (!projectData) {
+        console.log('No project found with key:', trimmedKey);
+        setSearchStatus("not_found")
+        throw new Error('Invalid project key')
+      }
+      
+      setSearchStatus("found")
+      setFoundProject(projectData)
+      console.log('Found project:', projectData);
+
+      // Check if user is already a team member
+      const { data: existingMember, error: checkError } = await supabase
+        .from('team_members')
+        .select('id')
+        .eq('project_id', projectData.id)
+        .eq('user_id', user?.id)
+        .single()
+
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        console.error('Check member error:', checkError);
+        throw checkError
+      }
+
+      if (existingMember) {
+        throw new Error('You are already a member of this project')
       }
 
       // Add user as team member
@@ -113,7 +276,10 @@ export default function ProjectsPage() {
           joined_at: new Date().toISOString()
         }])
 
-      if (joinError) throw joinError
+      if (joinError) {
+        console.error('Join error:', joinError);
+        throw joinError
+      }
 
       // Clear the input and close dialog
       setProjectKey("")
@@ -123,11 +289,15 @@ export default function ProjectsPage() {
         closeButton?.click()
       }
 
-      // Show success message
-      alert('Join request sent successfully!')
+      // Show success message using toast
+      toast.success('Join request sent successfully!')
+      
+      // Refresh the page to update the projects list
+      router.refresh()
     } catch (error: any) {
       console.error('Error joining project:', error)
       setJoinError(error.message || 'Failed to join project')
+      toast.error(error.message || 'Failed to join project')
     } finally {
       setIsJoining(false)
     }
@@ -208,6 +378,58 @@ export default function ProjectsPage() {
                     onChange={(e) => setProjectKey(e.target.value)}
                   />
                 </div>
+                
+                {/* Debug button */}
+                <div className="text-xs text-gray-500 mt-1">
+                  <Button
+                    variant="link"
+                    className="h-auto p-0 text-xs text-gray-500"
+                    onClick={async () => {
+                      try {
+                        console.log('Testing Supabase connection...');
+                        const { data, error } = await supabase
+                          .from('projects')
+                          .select('count()')
+                        console.log('Connection result:', { data, error });
+                        toast.info('Check browser console for connection details');
+                      } catch (err) {
+                        console.error('Connection test error:', err);
+                        toast.error('Connection test failed - see console');
+                      }
+                    }}
+                  >
+                    Test DB Connection
+                  </Button>
+                </div>
+                
+                {/* Search Status Indicator */}
+                {searchStatus === "searching" && (
+                  <div className="p-3 border border-gray-700 rounded-md bg-gray-800/50">
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 border-2 border-t-blue-500 border-b-blue-500 border-l-transparent border-r-transparent rounded-full animate-spin mr-2"></div>
+                      <p className="text-sm text-gray-300">Searching for project...</p>
+                    </div>
+                  </div>
+                )}
+                
+                {searchStatus === "found" && foundProject && (
+                  <div className="p-3 border border-green-800 rounded-md bg-green-900/20">
+                    <div className="flex items-center">
+                      <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+                      <p className="text-sm text-green-400">Project found: {foundProject.name}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {searchStatus === "not_found" && (
+                  <div className="p-3 border border-red-800 rounded-md bg-red-900/20">
+                    <div className="flex items-center">
+                      <AlertCircle className="w-4 h-4 text-red-500 mr-2" />
+                      <p className="text-sm text-red-400">Project not found. Check the key and try again.</p>
+                    </div>
+                  </div>
+                )}
+                
                 {joinError && (
                   <div className="text-sm text-red-500">{joinError}</div>
                 )}

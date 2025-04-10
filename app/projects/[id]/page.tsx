@@ -23,8 +23,9 @@ import {
   Copy,
   RefreshCw,
   UserPlus,
-  Home,
   Loader2,
+  Check,
+  Home,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -406,7 +407,7 @@ export default function ProjectDetails() {
   const handleDeleteProject = async () => {
     if (!project || !user) return
     setIsDeleteDialogOpen(true)
-  }
+    }
   
   const confirmDeleteProject = async () => {
     if (!project || !user) return
@@ -695,6 +696,46 @@ export default function ProjectDetails() {
     }
   }
 
+  const handleApproveRequest = async (memberId: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('team_members')
+        .update({ status: 'active' })
+        .eq('id', memberId);
+
+      if (error) throw error;
+      
+      toast.success('Team member approved successfully!');
+      refreshTeamMembers();
+    } catch (error: any) {
+      console.error('Error approving team member:', error);
+      toast.error('Failed to approve team member');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRejectRequest = async (memberId: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('id', memberId);
+
+      if (error) throw error;
+      
+      toast.success('Join request rejected');
+      refreshTeamMembers();
+    } catch (error: any) {
+      console.error('Error rejecting team member:', error);
+      toast.error('Failed to reject join request');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Show loading state while authentication or projects are loading
   if (authLoading || projectsLoading || !project) {
     return (
@@ -773,7 +814,7 @@ export default function ProjectDetails() {
                     onClick={() => {
                       const key = project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase();
                       navigator.clipboard.writeText(key);
-                      alert('Project key copied to clipboard: ' + key);
+                      toast.success("Project key copied to clipboard!");
                     }}
                   >
                     <UserPlus className="w-4 h-4 mr-2" />
@@ -991,14 +1032,14 @@ export default function ProjectDetails() {
 
                 {/* Project Overview */}
                 <Card className="mb-6">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
+                  <CardHeader className="p-4">
+                    <div className="flex flex-col space-y-2 md:space-y-0 md:flex-row items-start md:items-center justify-between w-full">
                       <div>
                         <CardTitle>Project Overview</CardTitle>
                         <CardDescription>Key details and progress of the project</CardDescription>
                       </div>
                       {user?.role !== 'investor' && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 w-full md:w-auto justify-end">
                           <Button
                             variant="outline"
                             size="sm"
@@ -1095,6 +1136,7 @@ export default function ProjectDetails() {
                             size="sm" 
                             onClick={() => {
                               navigator.clipboard.writeText(project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase());
+                              toast.success("Project key copied to clipboard!");
                             }}
                           >
                             <Copy className="w-4 h-4 mr-2" />
@@ -1112,233 +1154,19 @@ export default function ProjectDetails() {
                       <div>
                         <div className="flex items-center justify-between mb-4">
                           <div className="text-sm font-medium">Pending Join Requests</div>
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={refreshTeamMembers}
+                          >
                             <RefreshCw className="w-4 h-4 mr-2" />
                             Refresh
                           </Button>
                         </div>
                         <div className="space-y-3">
-                          {/* TODO: Add pending requests list */}
-                          <div className="text-sm text-gray-400 text-center py-4">
-                            No pending join requests
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Project Details */}
-                <Card className="leonardo-card border-gray-800">
-                  <CardHeader className="p-4 sm:p-6">
-                    <CardTitle className="text-lg sm:text-xl">Project Details</CardTitle>
-                    <CardDescription className="text-gray-400 text-sm sm:text-base">
-                      Additional project information
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="space-y-4">
-                      <div className="p-3 sm:p-4 bg-gray-800/30 rounded-lg">
-                        <div className="flex items-center text-gray-400 mb-2 text-sm sm:text-base">
-                          <DollarSign className="w-4 h-4 mr-2" />
-                          <span>Investment</span>
-                        </div>
-                        <div className="text-white font-medium text-sm sm:text-base">${formatNumber(project.invested)}</div>
-                      </div>
-                      <div className="p-3 sm:p-4 bg-gray-800/30 rounded-lg">
-                        <div className="flex items-center text-gray-400 mb-2 text-sm sm:text-base">
-                          <BarChart2 className="w-4 h-4 mr-2" />
-                          <span>ROI</span>
-                        </div>
-                        <div className="text-white font-medium text-sm sm:text-base">{project.roi || 0}%</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Sidebar */}
-              <div className="space-y-4 sm:space-y-6">
-                {/* Project Stats */}
-                <Card className="leonardo-card border-gray-800">
-                  <CardHeader className="p-4 sm:p-6">
-                    <CardTitle className="text-lg sm:text-xl">Project Stats</CardTitle>
-                    <CardDescription className="text-gray-400 text-sm sm:text-base">
-                      Key metrics and statistics
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="space-y-4">
-                      <div className="p-3 sm:p-4 bg-gray-800/30 rounded-lg">
-                        <div className="flex items-center text-gray-400 mb-2 text-sm sm:text-base">
-                          <Users className="w-4 h-4 mr-2" />
-                          <span>Owner</span>
-                        </div>
-                        <div className="text-white font-medium text-sm sm:text-base">
-                          {project.owner_name || 'Unknown'}
-                        </div>
-                      </div>
-                      <div className="p-3 sm:p-4 bg-gray-800/30 rounded-lg">
-                        <div className="flex items-center text-gray-400 mb-2 text-sm sm:text-base">
-                          <Calendar className="w-4 h-4 mr-2" />
-                          <span>Last Updated</span>
-                        </div>
-                        <div className="text-white font-medium text-sm sm:text-base">
-                          {formatDate(project.updated_at)}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Team Members */}
-                <Card className="leonardo-card border-gray-800">
-                  <CardHeader className="p-4 sm:p-6">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
-                      <div>
-                        <CardTitle className="text-lg sm:text-xl">Team Members</CardTitle>
-                        <CardDescription className="text-gray-400 text-sm sm:text-base">
-                          Project team and collaborators
-                        </CardDescription>
-                      </div>
-                      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                        <DialogTrigger asChild>
-                          <Button className="gradient-button w-full sm:w-auto">
-                            <Users className="w-4 h-4 mr-2" />
-                            Add Member
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Add Team Member</DialogTitle>
-                            <DialogDescription>
-                              Add an existing user or create a new one.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <Tabs defaultValue="existing">
-                            <TabsList className="grid w-full grid-cols-2">
-                              <TabsTrigger value="existing">Existing User</TabsTrigger>
-                              <TabsTrigger value="new">Create New</TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="existing" className="space-y-4 py-4">
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-200">
-                                  Team Member
-                                </label>
-                                <Select
-                                  value={selectedUserId}
-                                  onValueChange={setSelectedUserId}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select team member" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {availableUsers.map((member) => (
-                                      <SelectItem key={member.id} value={member.id}>
-                                        {member.email || member.user_id || 'Unknown Member'}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-200">
-                                  Role
-                                </label>
-                                <Select
-                                  value={selectedRole}
-                                  onValueChange={setSelectedRole}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select role" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="lead">Team Lead</SelectItem>
-                                    <SelectItem value="member">Team Member</SelectItem>
-                                    <SelectItem value="advisor">Advisor</SelectItem>
-                                    <SelectItem value="consultant">Consultant</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <Button 
-                                className="w-full gradient-button" 
-                                onClick={handleAddMember}
-                                disabled={isLoading || !selectedUserId || !selectedRole}
-                              >
-                                {isLoading ? (
-                                  <>
-                                    <LoadingSpinner className="w-4 h-4 mr-2" />
-                                    Adding...
-                                  </>
-                                ) : (
-                                  <>Add Member</>
-                                )}
-                              </Button>
-                            </TabsContent>
-                            <TabsContent value="new" className="space-y-4 py-4">
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-200">
-                                  Name
-                                </label>
-                                <Input
-                                  placeholder="Enter name"
-                                  value={newUserData.name}
-                                  onChange={(e) => setNewUserData(prev => ({ ...prev, name: e.target.value }))}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-200">
-                                  Email
-                                </label>
-                                <Input
-                                  type="email"
-                                  placeholder="Enter email"
-                                  value={newUserData.email}
-                                  onChange={(e) => setNewUserData(prev => ({ ...prev, email: e.target.value }))}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-200">
-                                  Role
-                                </label>
-                                <Select
-                                  value={selectedRole}
-                                  onValueChange={setSelectedRole}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select role" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="lead">Team Lead</SelectItem>
-                                    <SelectItem value="member">Team Member</SelectItem>
-                                    <SelectItem value="advisor">Advisor</SelectItem>
-                                    <SelectItem value="consultant">Consultant</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <Button 
-                                className="w-full gradient-button" 
-                                onClick={handleCreateUser}
-                                disabled={isCreatingUser || !newUserData.email || !newUserData.name || !selectedRole}
-                              >
-                                {isCreatingUser ? (
-                                  <>
-                                    <LoadingSpinner className="w-4 h-4 mr-2" />
-                                    Creating...
-                                  </>
-                                ) : (
-                                  <>Create & Add Member</>
-                                )}
-                              </Button>
-                            </TabsContent>
-                          </Tabs>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="space-y-4">
-                      {teamMembers.map((member) => (
+                          {teamMembers
+                            .filter(member => member.status === 'pending')
+                            .map((member) => (
                         <div
                           key={member.id}
                           className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg"
@@ -1346,72 +1174,56 @@ export default function ProjectDetails() {
                           <div className="flex items-center">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
                               <span className="text-white font-medium">
-                                {member.user.name.charAt(0)}
+                                      {member.user.name?.charAt(0) || member.user.email?.charAt(0) || '?'}
                               </span>
                             </div>
                             <div className="ml-3">
                               <div className="text-white font-medium">
-                                {member.user.name}
+                                      {member.user.name || member.user.email}
                               </div>
                             <div className="text-sm text-gray-400">
-                                {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                                      Requested {new Date(member.joined_at).toLocaleDateString()}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
+                                <div className="flex items-center gap-2">
                             <Button
-                              variant="ghost"
+                                    variant="outline"
                               size="sm"
-                              onClick={() => handleEditMember(member)}
+                                    className="text-green-400 hover:text-green-300 hover:bg-green-900/20"
+                                    onClick={() => handleApproveRequest(member.id)}
                             >
-                              <Pencil className="w-4 h-4" />
+                                    <Check className="w-4 h-4" />
                             </Button>
                             <Button
-                              variant="ghost"
+                                    variant="outline"
                               size="sm"
-                              onClick={() => handleRemoveMember(member.id)}
+                                    className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                                    onClick={() => handleRejectRequest(member.id)}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </div>
                       ))}
-                      {!loading && teamMembers.length === 0 && (
+                          {!loading && teamMembers.filter(member => member.status === 'pending').length === 0 && (
                         <div className="text-center py-6">
                           <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                           <h3 className="text-lg font-medium text-gray-400">
-                            No team members yet
+                                No pending requests
                           </h3>
                           <p className="text-gray-500 mt-1">
-                            Add team members to collaborate on this project
+                                Share your project key to invite team members
                           </p>
                         </div>
                       )}
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Quick Actions */}
-                <Card className="leonardo-card border-gray-800">
-                  <CardHeader className="p-4 sm:p-6">
-                    <CardTitle className="text-lg sm:text-xl">Quick Actions</CardTitle>
-                    <CardDescription className="text-gray-400 text-sm sm:text-base">
-                      Common project actions
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="space-y-2">
-                      <Button className="w-full gradient-button text-sm sm:text-base">
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Update Progress
-                      </Button>
-                      <Button className="w-full gradient-button text-sm sm:text-base">
-                        <AlertCircle className="w-4 h-4 mr-2" />
-                        Report Issue
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Project Details */}
               </div>
             </div>
           </main>
