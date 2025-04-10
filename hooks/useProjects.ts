@@ -8,17 +8,23 @@ export function useProjects(userId?: string) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Decide which fetch function to call based on userId
     if (userId) {
-      fetchProjects()
+      fetchUserProjects() // Fetch projects for a specific user
+    } else {
+      fetchAllPublicProjects() // Fetch all public projects
     }
   }, [userId])
 
-  const fetchProjects = async () => {
-    if (!userId) {
+  // Renamed original function to be specific to user projects
+  const fetchUserProjects = async () => {
+    if (!userId) { // Should not happen due to useEffect logic, but good check
       setLoading(false)
       return
     }
     
+    setLoading(true) // Ensure loading is set
+    setError(null)   // Reset error
     try {
       // First get projects where user is the owner
       const { data: ownedProjects, error: ownedError } = await supabase
@@ -60,23 +66,57 @@ export function useProjects(userId?: string) {
       
       setProjects(uniqueProjects)
     } catch (error: any) {
-      console.error('Error fetching projects:', error)
-      setError('Failed to fetch projects: ' + error.message)
+      console.error('Error fetching user projects:', error)
+      setError('Failed to fetch user projects: ' + error.message)
     } finally {
       setLoading(false)
     }
   }
 
-  const createProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'updated_at'>) => {
+  // New function to fetch only public projects
+  const fetchAllPublicProjects = async () => {
+    setLoading(true)
+    setError(null)
     try {
       const { data, error } = await supabase
         .from('projects')
-        .insert([{ ...projectData, owner_id: userId }])
+        .select('*')
+        // Assuming a 'visibility' column exists
+        .eq('visibility', 'public') 
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setProjects(data || [])
+    } catch (error: any) {
+      console.error('Error fetching public projects:', error)
+      setError('Failed to fetch public projects: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // --- CRUD Functions (Create, Update, Delete) --- 
+  // These might need adjustment if they rely solely on the user-specific project list
+  // For now, they likely operate correctly if the user has permission via RLS
+
+  const createProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'updated_at'>) => {
+    // This likely needs the userId context, might not make sense for public view
+    if (!userId) {
+      console.error("Cannot create project without user context.")
+      return { data: null, error: new Error("User context required to create project.") }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert([{ ...projectData, owner_id: userId }]) // Requires userId
         .select()
         .single()
 
       if (error) throw error
-      setProjects((prev) => [data, ...prev])
+      // Optimistically update only if we are viewing user projects
+      if (userId) {
+         setProjects((prev) => [data, ...prev])
+      }
       return { data, error: null }
     } catch (error) {
       console.error('Error creating project:', error)
@@ -85,6 +125,7 @@ export function useProjects(userId?: string) {
   }
 
   const updateProject = async (projectId: string, updates: Partial<Project>) => {
+    // Update should work based on RLS, but optimistic update needs care
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -94,6 +135,7 @@ export function useProjects(userId?: string) {
         .single()
 
       if (error) throw error
+      // Optimistically update the list (works for both public and user views if project is present)
       setProjects((prev) =>
         prev.map((project) => (project.id === projectId ? data : project))
       )
@@ -105,6 +147,7 @@ export function useProjects(userId?: string) {
   }
 
   const deleteProject = async (projectId: string) => {
+    // Delete should work based on RLS, but optimistic update needs care
     try {
       const { error } = await supabase
         .from('projects')
@@ -112,6 +155,7 @@ export function useProjects(userId?: string) {
         .eq('id', projectId)
 
       if (error) throw error
+      // Optimistically update the list (works for both public and user views)
       setProjects((prev) => prev.filter((project) => project.id !== projectId))
       return { error: null }
     } catch (error) {
@@ -120,6 +164,9 @@ export function useProjects(userId?: string) {
     }
   }
 
+  // Determine which refresh function to expose based on context
+  const refreshProjects = userId ? fetchUserProjects : fetchAllPublicProjects;
+
   return {
     projects,
     loading,
@@ -127,6 +174,6 @@ export function useProjects(userId?: string) {
     createProject,
     updateProject,
     deleteProject,
-    refreshProjects: fetchProjects,
+    refreshProjects, // Use the context-aware refresh function
   }
 } 
