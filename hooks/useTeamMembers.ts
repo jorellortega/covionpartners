@@ -23,16 +23,28 @@ export function useTeamMembers(projectId: string) {
         .from('team_members')
         .select(`
           *,
-          user:users(*)
+          user:team_members_user_id_fkey(id, email, name)
         `)
         .eq('project_id', projectId)
         .order('created_at', { ascending: false })
 
       if (error) throw error
       setTeamMembers(data || [])
-    } catch (error) {
-      console.error('Error fetching team members:', error)
-      setError('Failed to fetch team members')
+    } catch (error: any) {
+      let errorMessage = 'Failed to fetch team members';
+      if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage += `: ${error.message}`;
+        console.error('Error fetching team members:', error.message, '\nFull Error:', error); 
+      } else {
+        try {
+          const errorString = JSON.stringify(error);
+          errorMessage += `: ${errorString}`;
+          console.error('Error fetching team members (stringified):', errorString);
+        } catch (stringifyError) {
+          console.error('Error fetching team members (raw object):', error);
+        }
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false)
     }
@@ -51,7 +63,7 @@ export function useTeamMembers(projectId: string) {
         }])
         .select(`
           *,
-          user:users(*)
+          user:team_members_user_id_fkey(id, email, name)
         `)
         .single()
 
@@ -72,7 +84,7 @@ export function useTeamMembers(projectId: string) {
         .eq('id', memberId)
         .select(`
           *,
-          user:users(*)
+          user:team_members_user_id_fkey(id, email, name)
         `)
         .single()
 
