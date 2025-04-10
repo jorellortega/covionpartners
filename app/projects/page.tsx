@@ -167,40 +167,79 @@ export default function ProjectsPage() {
         }
         
         // Get user details for the notification
-        const { data: userData, error: userError } = await supabase
-          .from('profiles')
-          .select('full_name, email')
-          .eq('id', user?.id)
-          .single()
-          
-        if (userError) {
-          console.error('Error getting user profile:', userError);
+        let joiningUserName = 'Someone';
+        let joiningUserEmail = 'unknown';
+        try {
+          console.log('Fetching profile for user ID:', user?.id); // Log the ID being used
+          const { data: userData, error: userError } = await supabase
+            .from('profiles')
+            .select('full_name, email')
+            .eq('id', user?.id)
+            .single()
+
+          if (userError) {
+            // Log the detailed error if it exists
+            console.error('Error getting user profile:', userError?.message || userError);
+            toast.warning("Could not fetch your profile details, using default name in notification.");
+          } else if (userData) {
+            joiningUserName = userData.full_name || joiningUserName;
+            joiningUserEmail = userData.email || joiningUserEmail;
+            console.log('Successfully fetched joining user profile:', { joiningUserName, joiningUserEmail });
+          } else {
+             console.warn('No profile data found for user ID:', user?.id);
+             toast.warning("No profile data found, using default name in notification.");
+          }
+        } catch (profileFetchError) {
+            console.error('Exception during profile fetch:', profileFetchError);
+            toast.warning("Error fetching profile, using default name in notification.");
         }
         
         // Create notification for project owner
-        await supabase
-          .from('notifications')
-          .insert([{
-            user_id: matchedProject.owner_id,
-            type: 'join_request',
-            title: 'New Join Request',
-            content: `${userData?.full_name || 'Someone'} has requested to join your project: ${matchedProject.name}`,
-            metadata: JSON.stringify({
-              project_id: matchedProject.id,
-              project_name: matchedProject.name,
-              user_id: user?.id,
-              user_name: userData?.full_name,
-              user_email: userData?.email,
-              team_member_id: newMember?.[0]?.id
-            }),
-            read: false,
-            created_at: new Date().toISOString()
-          }])
-          .select()
-          .then(({ data, error }) => {
-            if (error) console.error('Error creating notification:', error);
-            console.log('Notification created:', data);
-          });
+        try {
+          const { data: notificationData, error: notificationError } = await supabase
+            .from('notifications')
+            .insert([{
+              user_id: matchedProject.owner_id,
+              type: 'join_request',
+              title: 'New Join Request',
+              content: `${joiningUserName} has requested to join your project: ${matchedProject.name}`,
+              metadata: JSON.stringify({
+                project_id: matchedProject.id,
+                project_name: matchedProject.name,
+                user_id: user?.id,
+                user_name: joiningUserName, // Use variable
+                user_email: joiningUserEmail, // Use variable
+                team_member_id: newMember?.[0]?.id
+              }),
+              read: false,
+              created_at: new Date().toISOString()
+            }])
+            .select()
+          
+          if (notificationError) {
+            console.error('Error creating notification:', notificationError);
+            console.error('Notification details:', {
+              user_id: matchedProject.owner_id,
+              type: 'join_request',
+              title: 'New Join Request',
+              content: `${joiningUserName} has requested to join your project: ${matchedProject.name}`,
+              metadata: {
+                project_id: matchedProject.id,
+                project_name: matchedProject.name,
+                user_id: user?.id,
+                user_name: joiningUserName,
+                user_email: joiningUserEmail,
+                team_member_id: newMember?.[0]?.id
+              }
+            });
+          } else {
+            console.log('Notification created successfully:', notificationData);
+          }
+        } catch (notifyError) {
+          console.error('Exception during notification creation:', notifyError);
+          // Don't fail the whole join process if notification fails
+          toast.error('Note: Join request notification could not be sent to project owner, but you have been added to the pending members list.');
+        }
 
         // Clear the input and close dialog
         setProjectKey("")
@@ -588,7 +627,7 @@ export default function ProjectsPage() {
                       </div>
                     </div>
 
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-sm items-center">
                       <div>
                         <span className="text-gray-400">Deadline:</span>
                         <span className="ml-1 text-white">
@@ -599,8 +638,13 @@ export default function ProjectsPage() {
                           })}
                         </span>
                       </div>
+                      {user?.id && project.owner_id !== user.id && (
+                        <Badge variant="outline" className="text-xs font-normal text-gray-400 border-gray-600 px-1.5 py-0.5">
+                          Joined
+                        </Badge>
+                      )}
                       {project.team_members && project.team_members.length > 0 && (
-                        <div>
+                        <div className="ml-auto pl-2">
                           <span className="text-gray-400">Team:</span>
                           <span className="ml-1 text-white">{project.team_members.length} members</span>
                         </div>
