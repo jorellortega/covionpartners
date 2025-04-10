@@ -407,7 +407,7 @@ export default function ProjectDetails() {
   const handleDeleteProject = async () => {
     if (!project || !user) return
     setIsDeleteDialogOpen(true)
-    }
+  }
   
   const confirmDeleteProject = async () => {
     if (!project || !user) return
@@ -832,8 +832,13 @@ export default function ProjectDetails() {
                       </Button>
                       <Button
                         variant="outline"
-                        className="border-gray-700 bg-gray-800/30 text-white hover:bg-red-900/20 hover:text-red-400"
-                        onClick={handleDeleteProject}
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsDeleteDialogOpen(true);
+                        }}
+                        className="text-red-500 hover:text-red-600"
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
                         Delete
@@ -1051,7 +1056,11 @@ export default function ProjectDetails() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={handleDeleteProject}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setIsDeleteDialogOpen(true);
+                            }}
                             className="text-red-500 hover:text-red-600"
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
