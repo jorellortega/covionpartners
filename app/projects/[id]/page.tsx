@@ -226,57 +226,63 @@ export default function ProjectDetails() {
       router.push('/login')
       return
     }
-  }, [user, authLoading, router])
 
-  useEffect(() => {
-    if (!projectsLoading && Array.isArray(projects)) {
-      const foundProject = projects.find(p => p?.id === projectId)
-      if (foundProject && typeof foundProject === 'object') {
-        // Validate essential fields and provide defaults for optional ones
-        const validatedProject = {
-          ...foundProject,
-          name: foundProject.name || 'Unnamed Project',
-          type: foundProject.type || 'General',
-          status: foundProject.status || 'active',
-          progress: typeof foundProject.progress === 'number' ? foundProject.progress : 0,
-          deadline: foundProject.deadline || new Date().toISOString(),
-          budget: typeof foundProject.budget === 'number' ? foundProject.budget : 0,
-          invested: typeof foundProject.invested === 'number' ? foundProject.invested : 0,
-          roi: typeof foundProject.roi === 'number' ? foundProject.roi : 0,
-          created_at: foundProject.created_at || new Date().toISOString(),
-          updated_at: foundProject.updated_at || new Date().toISOString(),
-          owner_id: foundProject.owner_id || user?.id || 'unknown'
-        }
-        setProject(validatedProject)
+    if (!projectId) {
+      router.push('/projects')
+      return
+    }
 
-        // Fetch owner's information
-        const fetchOwner = async () => {
-          try {
-            const { data: ownerData, error } = await supabase
-              .from('users')
-              .select('name, email')
-              .eq('id', validatedProject.owner_id)
-              .single()
+    const fetchProject = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('id', projectId)
+          .single()
 
-            if (error) throw error
+        if (error) throw error
 
-            if (ownerData) {
-              setProject(prev => ({
-                ...prev!,
-                owner_name: ownerData.name || ownerData.email
-              }))
-            }
-          } catch (error) {
-            console.error('Error fetching owner details:', error)
+        if (data) {
+          const validatedProject = {
+            ...data,
+            name: data.name || 'Unnamed Project',
+            type: data.type || 'General',
+            status: data.status || 'active',
+            progress: typeof data.progress === 'number' ? data.progress : 0,
+            deadline: data.deadline || new Date().toISOString(),
+            budget: typeof data.budget === 'number' ? data.budget : 0,
+            invested: typeof data.invested === 'number' ? data.invested : 0,
+            roi: typeof data.roi === 'number' ? data.roi : 0,
+            created_at: data.created_at || new Date().toISOString(),
+            updated_at: data.updated_at || new Date().toISOString(),
+            owner_id: data.owner_id || user?.id || 'unknown'
           }
-        }
+          setProject(validatedProject)
 
-        fetchOwner()
-      } else if (!projectsLoading) {
+          // Fetch owner's information
+          const { data: ownerData, error: ownerError } = await supabase
+            .from('users')
+            .select('name, email')
+            .eq('id', validatedProject.owner_id)
+            .single()
+
+          if (!ownerError && ownerData) {
+            setProject(prev => ({
+              ...prev!,
+              owner_name: ownerData.name || ownerData.email
+            }))
+          }
+        } else {
+          router.push('/projects')
+        }
+      } catch (error) {
+        console.error('Error fetching project:', error)
         router.push('/projects')
       }
     }
-  }, [projects, projectId, router, projectsLoading])
+
+    fetchProject()
+  }, [projectId, user, authLoading, router])
 
   // Fetch available users that can be added to the project
   useEffect(() => {
