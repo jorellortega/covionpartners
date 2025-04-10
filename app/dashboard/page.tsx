@@ -89,6 +89,22 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+// Add this function after the StatusBadge component
+function getTierName(role: string) {
+  switch (role.toLowerCase()) {
+    case "admin":
+      return "Enterprise Account"
+    case "partner":
+      return "Partner Account"
+    case "investor":
+      return "Investor Account"
+    case "viewer":
+      return "Public Account"
+    default:
+      return role
+  }
+}
+
 // Add a new component for disabled buttons
 function DisabledButton({ children, className = "", icon }: { children: React.ReactNode, className?: string, icon?: React.ReactNode }) {
   return (
@@ -317,6 +333,9 @@ export default function PartnerDashboard() {
         <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center">
             <h1 className="text-2xl sm:text-3xl font-bold">Partner Dashboard</h1>
+            <Badge className="ml-3 bg-gray-800/30 text-gray-300 border-gray-700">
+              {getTierName(user?.role || '')}
+            </Badge>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-4 w-full sm:w-auto">
             <Button 

@@ -73,7 +73,7 @@ export default function ProjectsPage() {
 
       if (error) throw error;
 
-      // Refresh the page to update the projects list
+      // Refresh the projects list immediately
       router.refresh();
       toast.success("Project deleted successfully")
       

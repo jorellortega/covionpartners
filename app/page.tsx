@@ -23,7 +23,7 @@ export default function Home() {
           break
         case "investor":
         case "viewer":
-          router.push("/clientdashboard")
+          router.push("/publicprojects")
           break
       }
     }
@@ -85,6 +85,13 @@ export default function Home() {
               <p className="text-gray-300">
                 Access our robust payment system with multiple withdrawal options including bank transfers, PayPal, and
                 debit cards for seamless fund management.
+              </p>
+            </div>
+            <div className="leonardo-card p-6">
+              <Briefcase className="h-12 w-12 text-purple-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Project Actions</h3>
+              <p className="text-gray-300">
+                Create, manage, or view projects with ease.
               </p>
             </div>
           </div>

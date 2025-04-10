@@ -54,6 +54,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
+import { TaskList } from '@/components/task-list'
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -1077,7 +1078,7 @@ export default function ProjectDetails() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4 sm:space-y-6">
+                    <div className="space-y-6">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="p-3 sm:p-4 bg-gray-800/30 rounded-lg">
                           <div className="flex items-center text-gray-400 mb-2 text-sm sm:text-base">
@@ -1239,6 +1240,30 @@ export default function ProjectDetails() {
                 </Card>
 
                 {/* Project Details */}
+                <div className="space-y-6">
+                  <div className="bg-card p-6 rounded-lg border">
+                    <h2 className="text-2xl font-bold mb-4">Project Overview</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="text-lg font-semibold mb-2">Description</h3>
+                        <p className="text-muted-foreground">{project.description}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold mb-2">Status</h3>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${
+                            project.status === 'active' ? 'bg-green-500' :
+                            project.status === 'pending' ? 'bg-yellow-500' :
+                            'bg-red-500'
+                          }`} />
+                          <span className="capitalize">{project.status}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <TaskList projectId={project.id} />
+                </div>
               </div>
             </div>
           </main>

@@ -83,17 +83,17 @@ export default function PublicProjectsPage() {
     <div className="min-h-screen">
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Public Projects</h1>
-            <p className="text-gray-400">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Public Projects</h1>
+            <p className="text-gray-400 text-sm sm:text-base">
               Explore our collection of public investment opportunities
             </p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-4 w-full sm:w-auto">
             <Button 
               variant="outline" 
-              className="border-gray-700 bg-gray-800/30 text-white hover:bg-blue-900/20 hover:text-blue-400"
+              className="border-gray-700 bg-gray-800/30 text-white hover:bg-blue-900/20 hover:text-blue-400 flex-1 sm:flex-none"
               onClick={() => router.push('/')}
             >
               Home
