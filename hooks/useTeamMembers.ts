@@ -18,37 +18,79 @@ export function useTeamMembers(projectId: string) {
   }, [projectId])
 
   const fetchTeamMembers = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const { data, error } = await supabase
+      // 1. Fetch basic team member data
+      const { data: membersData, error: membersError } = await supabase
         .from('team_members')
-        .select(`
-          *,
-          user:team_members_user_id_fkey(id, email, name)
-        `)
+        .select('*') // Select all columns from team_members
         .eq('project_id', projectId)
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false });
 
-      if (error) throw error
-      setTeamMembers(data || [])
+      if (membersError) throw membersError;
+      if (!membersData) {
+        setTeamMembers([]);
+        setLoading(false);
+        return;
+      }
+
+      // Extract user IDs, filtering out any null/undefined IDs
+      const userIds = membersData
+        .map((member) => member.user_id)
+        .filter((id): id is string => id !== null && id !== undefined);
+
+      let usersData: User[] = [];
+      if (userIds.length > 0) {
+        // 2. Fetch corresponding users from auth.users
+        const { data: fetchedUsers, error: usersError } = await supabase
+          .from('users') // Explicitly target the public.users table IF it exists and is intended
+          // If you mean auth.users, adjust this line:
+          // .schema('auth') 
+          // .from('users')
+          .select('id, name, email') // Adjust columns as needed from your users table
+          .in('id', userIds);
+
+        if (usersError) {
+           console.warn("Could not fetch user details:", usersError.message);
+           // Proceed without user details if fetch fails, or throw error if essential
+           // throw usersError; 
+        } else {
+          usersData = fetchedUsers || [];
+        }
+      }
+
+      // 3. Combine the data
+      const combinedData = membersData.map((member) => {
+        const userDetail = usersData.find((user) => user.id === member.user_id);
+        return {
+          ...member,
+          // Ensure the user property matches the TeamMemberWithUser interface
+          user: userDetail || { id: member.user_id, name: 'N/A', email: 'N/A' } // Provide default user structure if not found
+        };
+      });
+
+      setTeamMembers(combinedData);
+
     } catch (error: any) {
-      let errorMessage = 'Failed to fetch team members';
+      let errorMessage = 'Failed to fetch team members or user details';
       if (error && typeof error === 'object' && 'message' in error) {
         errorMessage += `: ${error.message}`;
-        console.error('Error fetching team members:', error.message, '\nFull Error:', error); 
+        console.error('Error fetching team members/users:', error.message, '\nFull Error:', error);
       } else {
         try {
           const errorString = JSON.stringify(error);
           errorMessage += `: ${errorString}`;
-          console.error('Error fetching team members (stringified):', errorString);
+          console.error('Error fetching team members/users (stringified):', errorString);
         } catch (stringifyError) {
-          console.error('Error fetching team members (raw object):', error);
+          console.error('Error fetching team members/users (raw object):', error);
         }
       }
       setError(errorMessage);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const addTeamMember = async (userId: string, role: TeamMember['role']) => {
     try {
@@ -63,7 +105,7 @@ export function useTeamMembers(projectId: string) {
         }])
         .select(`
           *,
-          user:team_members_user_id_fkey(id, email, name)
+          user:users(*)
         `)
         .single()
 
@@ -84,7 +126,7 @@ export function useTeamMembers(projectId: string) {
         .eq('id', memberId)
         .select(`
           *,
-          user:team_members_user_id_fkey(id, email, name)
+          user:users(*)
         `)
         .single()
 

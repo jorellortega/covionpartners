@@ -590,10 +590,11 @@ export default function ProjectsPage() {
                         </DropdownMenuItem>
                         <DropdownMenuSeparator className="bg-gray-700" />
                         <DropdownMenuItem 
-                          className="text-red-400 hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400 cursor-pointer"
-                          onClick={() => {
-                            setProjectToDelete(project.id);
-                            setIsDeleteDialogOpen(true);
+                          className="text-red-400 hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400 cursor-pointer focus:bg-purple-900/20 focus:text-purple-400"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            handleDeleteProject(project.id);
                           }}
                         >
                           Delete Project
