@@ -187,7 +187,7 @@ export default function ProjectsPage() {
         <div className="flex justify-end items-center gap-3 mb-6">
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white">
+              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400">
                 <Key className="w-5 h-5 mr-2" />
                 Join Project
               </Button>
@@ -287,10 +287,10 @@ export default function ProjectsPage() {
            <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold text-white">All Projects</h2>
             <div className="flex space-x-2">
-              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white">
+              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400">
                 Filter
               </Button>
-              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white">
+              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400">
                 Sort
               </Button>
             </div>
@@ -308,7 +308,7 @@ export default function ProjectsPage() {
                     <CardTitle className="text-lg">{project.name}</CardTitle>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
+                        <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -316,30 +316,24 @@ export default function ProjectsPage() {
                         <DropdownMenuLabel>Project Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator className="bg-gray-700" />
                         <DropdownMenuItem 
-                          className="text-white hover:bg-gray-800"
+                          className="text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
                           onClick={() => router.push(`/projects/${project.id}`)}
                         >
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-white hover:bg-gray-800"
-                          onClick={() => navigateToFinancials(project.id)}
-                        >
-                          Financial Breakdown
-                        </DropdownMenuItem>
                         <DropdownMenuItem 
-                          className="text-white hover:bg-gray-800"
+                          className="text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
                           onClick={() => router.push(`/projects/${project.id}?edit=true`)}
                         >
                           Edit Project
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-white hover:bg-gray-800">
-                          Generate Report
-                        </DropdownMenuItem>
                         <DropdownMenuSeparator className="bg-gray-700" />
                         <DropdownMenuItem 
-                          className="text-red-400 hover:bg-gray-800 cursor-pointer"
-                          onClick={() => handleDeleteProject(project.id)}
+                          className="text-red-400 hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400 cursor-pointer"
+                          onClick={() => {
+                            setProjectToDelete(project.id);
+                            setIsDeleteDialogOpen(true);
+                          }}
                         >
                           Delete Project
                         </DropdownMenuItem>

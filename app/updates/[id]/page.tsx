@@ -373,11 +373,19 @@ export default function UpdateDetailsPage() {
       <div className="flex flex-col gap-8">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
+            <Button
+              variant="ghost"
+              className="hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+              onClick={() => router.push('/dashboard')}
+            >
+              <Home className="w-4 h-4 mr-2" />
+              Home
+            </Button>
             <Button 
               variant="ghost" 
               onClick={() => router.push('/updates')}
-              className="hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+              className="hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400 w-full sm:w-auto"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Updates
@@ -389,13 +397,17 @@ export default function UpdateDetailsPage() {
                 className="text-3xl font-bold h-auto py-1 px-2 w-full sm:w-auto"
               />
             ) : (
-              <h1 className="text-3xl font-bold break-words">{update.title}</h1>
+              <h1 className="text-3xl font-bold break-words w-full sm:w-auto">{update.title}</h1>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
             {isEditing ? (
               <>
-                <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
+                <Button 
+                  variant="outline" 
+                  onClick={handleCancel} 
+                  className="w-full sm:w-auto hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+                >
                   Cancel
                 </Button>
                 <Button onClick={handleSave} className="w-full sm:w-auto">
@@ -416,41 +428,41 @@ export default function UpdateDetailsPage() {
         </div>
 
         {/* Main Content */}
-        <Card>
+        <Card className="leonardo-card border-gray-800 max-w-3xl mx-auto">
           <CardHeader>
-            <div className="flex gap-4 text-sm text-gray-500">
-              <div className="flex items-center">
+            <div className="flex flex-col sm:flex-row gap-4 text-sm text-gray-500">
+              <div className="flex items-center w-full sm:w-auto">
                 <Calendar className="w-4 h-4 mr-2" />
                 {isEditing ? (
                   <Input
                     type="date"
                     value={editForm?.date || ''}
                     onChange={(e) => setEditForm(prev => prev ? { ...prev, date: e.target.value } : null)}
-                    className="w-40"
+                    className="w-full sm:w-40"
                   />
                 ) : (
                   new Date(update.date).toLocaleDateString()
                 )}
               </div>
-              <div className="flex items-center">
+              <div className="flex items-center w-full sm:w-auto">
                 <Tag className="w-4 h-4 mr-2" />
                 {isEditing ? (
                   <Input
                     value={editForm?.category || ''}
                     onChange={(e) => setEditForm(prev => prev ? { ...prev, category: e.target.value } : null)}
-                    className="w-40"
+                    className="w-full sm:w-40"
                   />
                 ) : (
                   update.category
                 )}
               </div>
               {isEditing && (
-                <div className="flex items-center">
+                <div className="flex items-center w-full sm:w-auto">
                   <Select
                     value={editForm?.status || ''}
                     onValueChange={(value) => setEditForm(prev => prev ? { ...prev, status: value } : null)}
                   >
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger className="w-full sm:w-40">
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -470,7 +482,7 @@ export default function UpdateDetailsPage() {
                   <Input
                     value={editForm?.description || ''}
                     onChange={(e) => setEditForm(prev => prev ? { ...prev, description: e.target.value } : null)}
-                    className="text-lg mb-6"
+                    className="text-lg mb-6 w-full"
                   />
                   {editForm?.full_content !== undefined && (
                     <div className="mt-6">
@@ -478,6 +490,7 @@ export default function UpdateDetailsPage() {
                       <Input
                         value={editForm.full_content || ''}
                         onChange={(e) => setEditForm(prev => prev ? { ...prev, full_content: e.target.value } : null)}
+                        className="w-full"
                       />
                     </div>
                   )}

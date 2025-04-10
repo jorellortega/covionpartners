@@ -169,6 +169,9 @@ function ProjectInfoCard({ project }: { project: Project | null }) {
   )
 }
 
+// Fixing linter errors by providing default values
+const safeNumber = (value: number | null | undefined) => value ?? 0;
+
 export default function ProjectDetails() {
   const params = useParams()
   const projectId = params.id as string
@@ -1046,7 +1049,7 @@ export default function ProjectDetails() {
                             <div className="w-full bg-gray-700 rounded-full h-2">
                               <div
                                 className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${project.progress || 0}%` }}
+                                style={{ width: `${safeNumber(project.progress)}%` }}
                               ></div>
                             </div>
                           </div>
@@ -1417,36 +1420,38 @@ export default function ProjectDetails() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="leonardo-card border-gray-800">
-          <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
-            <DialogDescription className="text-gray-400">
-              Are you sure you want to delete this project? This will also delete associated team members, roles, resources, and media files. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="pt-4">
-            <Button
-              variant="outline"
-              className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800/50"
-              onClick={() => setIsDeleteDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button 
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-              onClick={confirmDeleteProject}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete Project"
-              )}
-            </Button>
-          </DialogFooter>
+        <DialogContent className="fixed inset-0 flex items-center justify-center bg-black/50">
+          <div className="bg-gray-900 p-6 rounded-lg shadow-lg max-w-md w-full mx-auto">
+            <DialogHeader>
+              <DialogTitle className="text-white text-lg font-bold">Confirm Deletion</DialogTitle>
+              <DialogDescription className="text-gray-400 mt-2">
+                Are you sure you want to delete this project? This will also delete associated team members, roles, resources, and media files. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex justify-end mt-4 space-x-2">
+              <Button
+                variant="outline"
+                className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800/50"
+                onClick={() => setIsDeleteDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={confirmDeleteProject}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Project"
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
