@@ -27,6 +27,7 @@ export interface Project {
   deadline: string
   created_at: string
   updated_at: string
+  is_private: boolean
   owner_id: string
   owner_name?: string
   owner?: {
@@ -40,6 +41,7 @@ export interface Project {
   budget?: number | null
   media_files?: MediaFile[] | null
   project_key?: string | null
+  visibility: 'private' | 'public'
 }
 
 export interface ProjectRole {

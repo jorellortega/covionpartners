@@ -28,6 +28,8 @@ import {
   Home,
   CheckSquare,
   Plus,
+  Lock,
+  Unlock,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -210,18 +212,14 @@ export default function ProjectDetails() {
   const [isUploadingMedia, setIsUploadingMedia] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [editProjectData, setEditProjectData] = useState<{
-    name: string;
-    description: string;
-    status: string;
-    progress: number;
-  }>({
+  const [isEditing, setIsEditing] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [editProjectData, setEditProjectData] = useState({
     name: project?.name || '',
     description: project?.description || '',
-    status: project?.status || 'Not Started',
+    status: project?.status || '',
     progress: project?.progress || 0,
   })
-  const [isUpdating, setIsUpdating] = useState(false)
   const [isAddingTask, setIsAddingTask] = useState(false)
   const [tasks, setTasks] = useState<any[]>([])
   const [newTask, setNewTask] = useState({
@@ -332,15 +330,15 @@ export default function ProjectDetails() {
 
   // Initialize edit form when dialog opens
   useEffect(() => {
-    if (isEditDialogOpen && project) {
+    if (isEditing && project) {
       setEditProjectData({
         name: project.name,
         description: project.description,
         status: project.status,
-        progress: project.progress || 0
+        progress: project.progress || 0,
       })
     }
-  }, [isEditDialogOpen, project])
+  }, [isEditing, project])
 
   // Fetch tasks
   useEffect(() => {
@@ -479,111 +477,21 @@ export default function ProjectDetails() {
   }
 
   const handleDeleteProject = async () => {
-    if (!project || !user) return
-    setIsDeleteDialogOpen(true)
-  }
-  
-  const confirmDeleteProject = async () => {
-    if (!project || !user) return
-
-    setIsLoading(true)
+    if (!project) return;
+    
     try {
-      // --- Start Deleting Dependencies --- 
-      
-      // 1. Delete Team Members associated with the project
-      console.log(`Deleting team members for project ${project.id}...`);
-      const { error: teamError } = await supabase
-        .from('team_members')
-        .delete()
-        .eq('project_id', project.id)
-      if (teamError) {
-           console.warn(`Could not delete some team members: ${teamError.message}`)
-      }
-
-      // 2. Delete Project Roles associated with the project
-      console.log(`Deleting project roles for project ${project.id}...`);
-      const { error: roleError } = await supabase
-        .from('project_roles')
-        .delete()
-        .eq('project_id', project.id)
-      if (roleError) {
-        console.warn(`Could not delete project roles: ${roleError.message}`)
-      }
-      
-      // 3. Delete Project Resources associated with the project
-      console.log(`Deleting project resources for project ${project.id}...`);
-      const { error: resourceError } = await supabase
-        .from('project_resources')
-        .delete()
-        .eq('project_id', project.id)
-      if (resourceError) {
-        console.warn(`Could not delete project resources: ${resourceError.message}`);
-      }
-
-      // Add other potential dependencies here if needed (e.g., transactions, events)
-      // Example: Delete Transactions
-      // console.log(`Deleting transactions for project ${project.id}...`);
-      // const { error: transactionError } = await supabase
-      //   .from('transactions')
-      //   .delete()
-      //   .eq('project_id', project.id);
-      // if (transactionError) {
-      //   console.warn(`Could not delete transactions: ${transactionError.message}`);
-      // }
-
-      // --- Finished Deleting Table Dependencies --- 
-
-      // 4. Delete Media Files from Storage
-      if (project.media_files && project.media_files.length > 0) {
-        const filePaths = project.media_files
-                                .map(f => f.name ? `projects/${project.id}/${f.name}` : null)
-                                .filter(Boolean) as string[];
-
-        if (filePaths.length > 0) {
-            console.log(`Attempting to delete ${filePaths.length} files from storage bucket 'partnerfiles'...`);
-          const { error: storageError } = await supabase.storage
-            .from('partnerfiles')
-            .remove(filePaths)
-
-          if (storageError) {
-             console.warn(`Could not delete some files from storage: ${storageError.message}`)
-          }
-        }
-      }
-
-      // 5. Log IDs before attempting project deletion
-      console.log(`Attempting final project delete. User ID: ${user.id}, Project Owner ID: ${project.owner_id}`)
-
-      // --- Delete Project Itself --- 
-      const { data: deletedData, error: projectError } = await supabase
+      const { error } = await supabase
         .from('projects')
         .delete()
         .eq('id', project.id)
-        .eq('owner_id', user.id)
-        .select()
 
-      // Check if the deletion actually happened or if it failed due to RLS/ownership/FK
-      if (projectError || !deletedData || deletedData.length === 0) {
-        let errorMessage = projectError?.message || 'Deletion failed. The project might not exist or you might not be the owner.';
-        if (projectError?.message.includes('violates row-level security policy') || projectError?.code === 'PGRST116') {
-          errorMessage = `Deletion failed. You might not be the project owner or a security policy prevented it. Specific error: ${projectError?.message}`;
-        } else if (projectError?.message.includes('violates foreign key constraint')) {
-           // Add more context to the foreign key error message
-           errorMessage = `Deletion failed due to data dependencies. Ensure related items (like resources, roles, transactions, etc.) are removed first. Specific error: ${projectError.message}`;
-        } else if (projectError) {
-          errorMessage = `Failed to delete project: ${projectError.message}`;
-        }
-        throw new Error(errorMessage);
-      }
+      if (error) throw error;
 
-      toast.success("Project deleted successfully!")
+      toast.success('Project deleted successfully')
       router.push('/projects')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting project:', error)
-      toast.error(`Error deleting project: ${error.message}`)
-    } finally {
-      setIsLoading(false)
-      setIsDeleteDialogOpen(false)
+      toast.error('Failed to delete project')
     }
   }
 
@@ -737,14 +645,13 @@ export default function ProjectDetails() {
     if (!project) return;
     
     try {
-      setIsUpdating(true)
       const { error } = await supabase
         .from('projects')
         .update({
           name: editProjectData.name,
           description: editProjectData.description,
           status: editProjectData.status,
-          progress: typeof editProjectData.progress === 'number' ? editProjectData.progress : 0,
+          progress: editProjectData.progress,
           updated_at: new Date().toISOString()
         })
         .eq('id', project.id)
@@ -761,12 +668,11 @@ export default function ProjectDetails() {
         updated_at: new Date().toISOString()
       })
 
-      setIsEditDialogOpen(false)
+      setIsEditing(false)
+      toast.success('Project updated successfully')
     } catch (error) {
       console.error('Error updating project:', error)
-      alert('Failed to update project. Please try again.')
-    } finally {
-      setIsUpdating(false)
+      toast.error('Failed to update project')
     }
   }
 
@@ -1025,262 +931,262 @@ export default function ProjectDetails() {
       <header className="leonardo-header">
         <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col space-y-4">
-            <Button 
-              variant="ghost" 
+          <Button
+            variant="ghost"
               className="text-gray-400 hover:text-purple-400 w-fit"
-              onClick={() => router.push('/projects')}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Projects
-            </Button>
+            onClick={() => router.push('/projects')}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Projects
+          </Button>
             
             <div className="flex flex-col space-y-4">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-white break-words">{project?.name}</h1>
                 <p className="text-gray-400 text-sm sm:text-base mt-1">{project?.description || 'No description available'}</p>
-              </div>
-              
+        </div>
+
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 sm:items-center">
                 <StatusBadge status={project?.status || 'Unknown'} />
+                </div>
+              </div>
               </div>
             </div>
-          </div>
-        </div>
-      </header>
+          </header>
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Project Info */}
+              {/* Main Project Info */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Project Description */}
-            <Card className="leonardo-card border-gray-800">
+                {/* Project Description */}
+                <Card className="leonardo-card border-gray-800">
               <CardHeader>
                 <CardTitle>Project Description</CardTitle>
                 <CardDescription className="text-gray-400">
-                  Detailed overview of the project
-                </CardDescription>
-              </CardHeader>
+                      Detailed overview of the project
+                    </CardDescription>
+                  </CardHeader>
               <CardContent>
-                <div className="prose prose-invert max-w-none">
+                    <div className="prose prose-invert max-w-none">
                   <p className="text-gray-300 leading-relaxed">
                     {project?.description || 'No description available.'}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            {/* Project Media */}
-            <Card className="leonardo-card border-gray-800">
+                {/* Project Media */}
+                <Card className="leonardo-card border-gray-800">
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
+                    <div className="flex justify-between items-center">
+                      <div>
                     <CardTitle>Project Media</CardTitle>
                     <CardDescription className="text-gray-400">
-                      Images, videos, and other media files
-                    </CardDescription>
-                  </div>
+                          Images, videos, and other media files
+                        </CardDescription>
+                      </div>
                   {user?.role !== 'investor' && (
-                    <Button 
-                      onClick={() => document.getElementById('media-upload')?.click()} 
-                      className="gradient-button"
-                      disabled={isUploadingMedia}
-                    >
-                      {isUploadingMedia ? (
-                        <>
-                          <LoadingSpinner className="w-4 h-4 mr-2" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <FileText className="w-4 h-4 mr-2" />
-                          Add Media
-                        </>
-                      )}
-                    </Button>
+                      <Button 
+                        onClick={() => document.getElementById('media-upload')?.click()} 
+                        className="gradient-button"
+                        disabled={isUploadingMedia}
+                      >
+                        {isUploadingMedia ? (
+                          <>
+                            <LoadingSpinner className="w-4 h-4 mr-2" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="w-4 h-4 mr-2" />
+                            Add Media
+                          </>
+                        )}
+                      </Button>
                   )}
-                  <input
-                    type="file"
-                    id="media-upload"
-                    className="hidden"
-                    accept="image/*,video/*"
-                    multiple
-                    onChange={handleMediaUpload}
-                  />
-                </div>
-              </CardHeader>
+                      <input
+                        type="file"
+                        id="media-upload"
+                        className="hidden"
+                        accept="image/*,video/*"
+                        multiple
+                        onChange={handleMediaUpload}
+                      />
+                    </div>
+                  </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {project?.media_files?.map((file, index) => (
-                    <div key={index} className="relative group">
-                      {file.type.startsWith('image/') ? (
-                        <div className={`relative overflow-hidden rounded-lg ${
-                          file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
-                          file.aspect_ratio === 'square' ? 'aspect-square' :
-                          'aspect-[16/9]'
-                        }`}>
-                          <img
-                            src={file.url}
-                            alt={file.name}
-                            className="object-cover w-full h-full"
-                          />
-                        </div>
-                      ) : file.type.startsWith('video/') ? (
-                        <div className={`relative overflow-hidden rounded-lg ${
-                          file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
-                          file.aspect_ratio === 'square' ? 'aspect-square' :
-                          'aspect-[16/9]'
-                        }`}>
-                          <video
-                            src={file.url}
-                            controls
-                            className="object-cover w-full h-full"
-                          />
-                        </div>
-                      ) : null}
+                        <div key={index} className="relative group">
+                          {file.type.startsWith('image/') ? (
+                            <div className={`relative overflow-hidden rounded-lg ${
+                              file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
+                              file.aspect_ratio === 'square' ? 'aspect-square' :
+                              'aspect-[16/9]'
+                            }`}>
+                              <img
+                                src={file.url}
+                                alt={file.name}
+                                className="object-cover w-full h-full"
+                              />
+                            </div>
+                          ) : file.type.startsWith('video/') ? (
+                            <div className={`relative overflow-hidden rounded-lg ${
+                              file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
+                              file.aspect_ratio === 'square' ? 'aspect-square' :
+                              'aspect-[16/9]'
+                            }`}>
+                              <video
+                                src={file.url}
+                                controls
+                                className="object-cover w-full h-full"
+                              />
+                            </div>
+                          ) : null}
                       {user?.role !== 'investor' && (
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-white hover:text-red-400"
-                            onClick={() => handleDeleteMedia(file.name)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-white hover:text-red-400"
+                              onClick={() => handleDeleteMedia(file.name)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                      )}
+                        </div>
+                      ))}
+                  {(!project?.media_files || project.media_files.length === 0) && (
+                        <div className="col-span-full text-center py-8">
+                          <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-gray-400">No media files</h3>
+                          <p className="text-gray-500 mt-1">Upload images or videos to showcase your project</p>
                         </div>
                       )}
                     </div>
-                  ))}
-                  {(!project?.media_files || project.media_files.length === 0) && (
-                    <div className="col-span-full text-center py-8">
-                      <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-400">No media files</h3>
-                      <p className="text-gray-500 mt-1">Upload images or videos to showcase your project</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
-            {/* Project Access */}
+                {/* Project Access */}
             <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Project Access</CardTitle>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>Project Access</CardTitle>
                     <CardDescription className="text-gray-400">
                       Share access to this project with team members
                     </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="bg-gray-800/30 p-4 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm font-medium">Project Key</div>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => {
-                          navigator.clipboard.writeText(project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase());
-                          toast.success("Project key copied to clipboard!");
-                        }}
-                      >
-                        <Copy className="w-4 h-4 mr-2" />
-                        Copy Key
-                      </Button>
+                      </div>
                     </div>
-                    <div className="font-mono text-xl bg-gray-900/50 p-3 rounded flex items-center justify-center">
-                      {project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase()}
-                    </div>
-                    <p className="text-sm text-gray-400 mt-2">
-                      Share this key with users you want to invite to the project. They can use it to request access.
-                    </p>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="text-sm font-medium">Pending Join Requests</div>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={refreshTeamMembers}
-                      >
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Refresh
-                      </Button>
-                    </div>
-                    <div className="space-y-3">
-                      {teamMembers
-                        .filter(member => member.status === 'pending')
-                        .map((member) => (
-                          <div
-                            key={member.id}
-                            className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg"
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      <div className="bg-gray-800/30 p-4 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-sm font-medium">Project Key</div>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              navigator.clipboard.writeText(project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase());
+                              toast.success("Project key copied to clipboard!");
+                            }}
                           >
-                            <div className="flex items-center">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
-                                <span className="text-white font-medium">
-                                  {member.user.name?.charAt(0) || member.user.email?.charAt(0) || '?'}
-                                </span>
-                              </div>
-                              <div className="ml-3">
-                                <div className="text-white font-medium">
-                                  {member.user.name || member.user.email}
-                                </div>
-                                <div className="text-sm text-gray-400">
-                                  Requested {new Date(member.joined_at).toLocaleDateString()}
-                                </div>
-                              </div>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copy Key
+                          </Button>
+                        </div>
+                        <div className="font-mono text-xl bg-gray-900/50 p-3 rounded flex items-center justify-center">
+                          {project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase()}
+                        </div>
+                        <p className="text-sm text-gray-400 mt-2">
+                          Share this key with users you want to invite to the project. They can use it to request access.
+                        </p>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="text-sm font-medium">Pending Join Requests</div>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={refreshTeamMembers}
+                          >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Refresh
+                          </Button>
+                        </div>
+                        <div className="space-y-3">
+                          {teamMembers
+                            .filter(member => member.status === 'pending')
+                            .map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg"
+                        >
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
+                              <span className="text-white font-medium">
+                                      {member.user.name?.charAt(0) || member.user.email?.charAt(0) || '?'}
+                              </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-green-400 hover:text-green-300 hover:bg-green-900/20"
-                                onClick={() => handleApproveRequest(member.id)}
-                              >
-                                <Check className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                                onClick={() => handleRejectRequest(member.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
+                            <div className="ml-3">
+                              <div className="text-white font-medium">
+                                      {member.user.name || member.user.email}
+                              </div>
+                            <div className="text-sm text-gray-400">
+                                      Requested {new Date(member.joined_at).toLocaleDateString()}
+                              </div>
                             </div>
                           </div>
-                        ))}
-                      {!loading && teamMembers.filter(member => member.status === 'pending').length === 0 && (
+                                <div className="flex items-center gap-2">
+                            <Button
+                                    variant="outline"
+                              size="sm"
+                                    className="text-green-400 hover:text-green-300 hover:bg-green-900/20"
+                                    onClick={() => handleApproveRequest(member.id)}
+                            >
+                                    <Check className="w-4 h-4" />
+                            </Button>
+                            <Button
+                                    variant="outline"
+                              size="sm"
+                                    className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                                    onClick={() => handleRejectRequest(member.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                          {!loading && teamMembers.filter(member => member.status === 'pending').length === 0 && (
                         <div className="text-center py-6">
                           <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                           <h3 className="text-lg font-medium text-gray-400">
-                            No pending requests
+                                No pending requests
                           </h3>
                           <p className="text-gray-500 mt-1">
-                            Share your project key to invite team members
+                                Share your project key to invite team members
                           </p>
                         </div>
                       )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
             {/* Schedule Section */}
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <div>
+                      <div>
                     <CardTitle>Project Schedule</CardTitle>
                     <CardDescription className="text-gray-400">
                       View and manage project schedule
                     </CardDescription>
-                  </div>
+                      </div>
                   <Button onClick={() => setIsEditingSchedule(true)} className="gradient-button">
                     <Plus className="w-4 h-4 mr-2" />
                     Add Schedule Item
@@ -1292,7 +1198,7 @@ export default function ProjectDetails() {
                   {schedule.map((item) => (
                     <div key={item.id} className="p-3 bg-gray-800/50 rounded-lg">
                       <div className="flex justify-between items-start">
-                        <div>
+                      <div>
                           <h4 className="font-medium text-white">
                             {new Date(item.start_time).toLocaleDateString()}
                           </h4>
@@ -1496,7 +1402,7 @@ export default function ProjectDetails() {
                           </div>
                         </div>
                         {user?.role !== 'investor' && (
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1511,7 +1417,7 @@ export default function ProjectDetails() {
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
-                          </div>
+                        </div>
                         )}
                       </div>
                     </div>
@@ -1525,7 +1431,7 @@ export default function ProjectDetails() {
                       Add Team Member
                     </Button>
                   )}
-                </div>
+                  </div>
               </CardContent>
             </Card>
 
@@ -1540,30 +1446,84 @@ export default function ProjectDetails() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <Button
-                      className="w-full gradient-button"
-                      onClick={() => setIsEditDialogOpen(true)}
-                    >
-                      <Pencil className="w-4 h-4 mr-2" />
-                      Edit Project
-                    </Button>
-                    <Button
-                      className="w-full gradient-button"
-                      onClick={() => confirmDeleteProject()}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete Project
-                    </Button>
-                  </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        className="text-blue-400 border-blue-500/50 hover:bg-blue-500/20"
+                        onClick={() => setIsEditing(true)}
+                      >
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Edit Project
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className={`${
+                          project?.visibility === 'private'
+                            ? 'text-purple-400 border-purple-500/50 hover:bg-purple-500/20'
+                            : 'text-green-400 border-green-500/50 hover:bg-green-500/20'
+                        }`}
+                        onClick={async () => {
+                          if (!project) return;
+                          try {
+                            const newVisibility = project.visibility === 'private' ? 'public' : 'private';
+                            const { error } = await supabase
+                              .from('projects')
+                              .update({ visibility: newVisibility })
+                              .eq('id', project.id);
+
+                            if (error) {
+                              console.error('Database error:', error);
+                              throw new Error(error.message || 'Failed to update project visibility');
+                            }
+
+                            // Update local state
+                            setProject(prev => {
+                              if (!prev) return null;
+                              return {
+                                ...prev,
+                                visibility: newVisibility,
+                                updated_at: new Date().toISOString()
+                              };
+                            });
+
+                            toast.success(`Project is now ${newVisibility}`);
+                          } catch (error: any) {
+                            console.error('Error updating project visibility:', error);
+                            toast.error(error.message || 'Failed to update project visibility');
+                          }
+                        }}
+                      >
+                        {project?.visibility === 'private' ? (
+                          <>
+                            <Lock className="w-4 h-4 mr-2" />
+                            Make Public
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="w-4 h-4 mr-2" />
+                            Make Private
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="text-red-400 border-red-500/50 hover:bg-red-500/20"
+                        onClick={() => setIsDeleting(true)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Project
+                      </Button>
+                    </div>
+                </div>
                 </CardContent>
               </Card>
             )}
-          </div>
-        </div>
-      </main>
+              </div>
+            </div>
+          </main>
 
       {/* Edit Project Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
@@ -1579,7 +1539,7 @@ export default function ProjectDetails() {
                 onChange={(e) => setEditProjectData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Enter project name"
               />
-            </div>
+        </div>
             <div className="space-y-2">
               <Label>Description</Label>
               <Input
@@ -1587,7 +1547,7 @@ export default function ProjectDetails() {
                 onChange={(e) => setEditProjectData(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Project description"
               />
-            </div>
+      </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Status</Label>
@@ -1613,22 +1573,16 @@ export default function ProjectDetails() {
                 type="range"
                 min="0"
                 max="100"
-                value={editProjectData.progress || 0}
+                value={editProjectData.progress}
                 onChange={(e) => setEditProjectData(prev => ({ ...prev, progress: parseInt(e.target.value) }))}
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gradient-to-r [&::-webkit-slider-thumb]:from-blue-500 [&::-webkit-slider-thumb]:to-purple-500"
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
               />
-              <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
-                <div
-                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${editProjectData.progress || 0}%` }}
-                ></div>
-              </div>
             </div>
             <div className="flex justify-end gap-4">
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsEditing(false)}>
                 Cancel
               </Button>
-              <Button className="gradient-button" onClick={handleUpdateProject}>
+              <Button onClick={handleUpdateProject} className="gradient-button">
                 Save Changes
               </Button>
             </div>
@@ -1637,38 +1591,21 @@ export default function ProjectDetails() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="fixed inset-0 flex items-center justify-center bg-black/50">
-          <div className="bg-gray-900 p-6 rounded-lg shadow-lg max-w-md w-full mx-auto">
-            <DialogHeader>
-              <DialogTitle className="text-white text-lg font-bold">Confirm Deletion</DialogTitle>
-              <DialogDescription className="text-gray-400 mt-2">
-                Are you sure you want to delete this project? This will also delete associated team members, roles, resources, and media files. This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="flex justify-end mt-4 space-x-2">
-              <Button
-                variant="outline"
-                className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800/50"
-                onClick={() => setIsDeleteDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button 
-                className="bg-purple-600 hover:bg-purple-700 text-white"
-                onClick={confirmDeleteProject}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  "Delete Project"
-                )}
-              </Button>
-            </DialogFooter>
+      <Dialog open={isDeleting} onOpenChange={setIsDeleting}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this project? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-4">
+            <Button variant="outline" onClick={() => setIsDeleting(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleDeleteProject} className="bg-red-500 hover:bg-red-600">
+              Delete Project
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1688,7 +1625,7 @@ export default function ProjectDetails() {
                 onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                 placeholder="Enter task title"
               />
-            </div>
+    </div>
             <div>
               <Label>Description</Label>
               <Input
