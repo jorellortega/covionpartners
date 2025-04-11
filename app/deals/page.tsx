@@ -121,13 +121,15 @@ export default function DealsPage() {
         <div className="space-y-8">
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold text-white">Deals</h1>
-            <Button 
-              className="gradient-button"
-              onClick={() => router.push('/makedeal')}
-            >
-              <Handshake className="w-4 h-4 mr-2" />
-              Create New Deal
-            </Button>
+            {user?.role !== 'viewer' && (
+              <Button 
+                className="gradient-button"
+                onClick={() => router.push('/makedeal')}
+              >
+                <Handshake className="w-4 h-4 mr-2" />
+                Create New Deal
+              </Button>
+            )}
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

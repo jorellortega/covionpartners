@@ -930,127 +930,127 @@ export default function PartnerDashboard() {
           </div>
 
           {/* Deal Actions Section */}
-          <div className="col-span-full">
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Handshake className="w-5 h-5 mr-2" />
-                  Deal Actions
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Manage your deals and negotiations
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {user.role !== 'viewer' && (
-                    <>
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/makedeal')}
-                      >
-                        <Handshake className="w-4 h-4 mr-2" />
-                        Make Deal
-                      </Button>
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/deals')}
-                      >
-                        <Globe className="w-4 h-4 mr-2" />
-                        View All Deals
-                      </Button>
-                      <DisabledButton icon={<DollarSign className="w-5 h-5 mr-2" />}>
-                        Financial Dashboard
-                      </DisabledButton>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {user?.role !== 'viewer' && (
+            <div className="col-span-full">
+              <Card className="leonardo-card border-gray-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Handshake className="w-5 h-5 mr-2" />
+                    Deal Actions
+                  </CardTitle>
+                  <CardDescription className="text-gray-400">
+                    Manage your deals and negotiations
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Button 
+                      className="w-full gradient-button"
+                      onClick={() => router.push('/makedeal')}
+                    >
+                      <Handshake className="w-4 h-4 mr-2" />
+                      Make Deal
+                    </Button>
+                    <Button 
+                      className="w-full gradient-button"
+                      onClick={() => router.push('/deals')}
+                    >
+                      <Globe className="w-4 h-4 mr-2" />
+                      View All Deals
+                    </Button>
+                    <DisabledButton icon={<DollarSign className="w-5 h-5 mr-2" />}>
+                      Financial Dashboard
+                    </DisabledButton>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* Recent Deals Section */}
-          <div className="col-span-full">
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center">
-                    <Handshake className="w-5 h-5 mr-2" />
-                    <CardTitle>Recent Deals</CardTitle>
+          {user?.role !== 'viewer' && (
+            <div className="col-span-full">
+              <Card className="leonardo-card border-gray-800">
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center">
+                      <Handshake className="w-5 h-5 mr-2" />
+                      <CardTitle>Recent Deals</CardTitle>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      className="text-gray-400 hover:text-white"
+                      onClick={() => router.push('/deals')}
+                    >
+                      View All <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    className="text-gray-400 hover:text-white"
-                    onClick={() => router.push('/deals')}
-                  >
-                    View All <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
-                <CardDescription className="text-gray-400">
-                  Your recent deals and their status
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {loading ? (
-                    <div className="text-center py-4">
-                      <p className="text-gray-400">Loading deals...</p>
-                    </div>
-                  ) : deals.length === 0 ? (
-                    <div className="text-center py-4">
-                      <p className="text-gray-400">No deals found</p>
-                      <Button 
-                        variant="outline" 
-                        className="mt-2 border-gray-700"
-                        onClick={() => router.push('/makedeal')}
-                      >
-                        <Handshake className="w-4 h-4 mr-2" />
-                        Create Your First Deal
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {deals.slice(0, 5).map((deal) => (
-                        <div 
-                          key={deal.id}
-                          className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors cursor-pointer"
-                          onClick={() => router.push(`/deals/${deal.id}`)}
+                  <CardDescription className="text-gray-400">
+                    Your recent deals and their status
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {loading ? (
+                      <div className="text-center py-4">
+                        <p className="text-gray-400">Loading deals...</p>
+                      </div>
+                    ) : deals.length === 0 ? (
+                      <div className="text-center py-4">
+                        <p className="text-gray-400">No deals found</p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-2 border-gray-700"
+                          onClick={() => router.push('/makedeal')}
                         >
-                          <div className="flex items-center gap-3">
-                            {deal.confidentiality_level === 'public' ? (
-                              <Globe className="w-4 h-4 text-blue-500" />
-                            ) : deal.confidentiality_level === 'private' ? (
-                              <Lock className="w-4 h-4 text-gray-500" />
-                            ) : (
-                              <Shield className="w-4 h-4 text-purple-500" />
-                            )}
-                            <div>
-                              <p className="font-medium">{deal.title}</p>
-                              <p className="text-sm text-gray-400">
-                                {deal.participants.length} participants
-                              </p>
+                          <Handshake className="w-4 h-4 mr-2" />
+                          Create Your First Deal
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {deals.slice(0, 5).map((deal) => (
+                          <div 
+                            key={deal.id}
+                            className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors cursor-pointer"
+                            onClick={() => router.push(`/deals/${deal.id}`)}
+                          >
+                            <div className="flex items-center gap-3">
+                              {deal.confidentiality_level === 'public' ? (
+                                <Globe className="w-4 h-4 text-blue-500" />
+                              ) : deal.confidentiality_level === 'private' ? (
+                                <Lock className="w-4 h-4 text-gray-500" />
+                              ) : (
+                                <Shield className="w-4 h-4 text-purple-500" />
+                              )}
+                              <div>
+                                <p className="font-medium">{deal.title}</p>
+                                <p className="text-sm text-gray-400">
+                                  {deal.participants.length} participants
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {deal.status === 'pending' ? (
+                                <Clock className="w-4 h-4 text-yellow-500" />
+                              ) : deal.status === 'accepted' ? (
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <XCircle className="w-4 h-4 text-red-500" />
+                              )}
+                              <Badge variant="outline" className="capitalize">
+                                {deal.status}
+                              </Badge>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {deal.status === 'pending' ? (
-                              <Clock className="w-4 h-4 text-yellow-500" />
-                            ) : deal.status === 'accepted' ? (
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-red-500" />
-                            )}
-                            <Badge variant="outline" className="capitalize">
-                              {deal.status}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </main>
     </div>

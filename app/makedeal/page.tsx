@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { Button } from "@/components/ui/button"
@@ -114,6 +114,16 @@ export default function MakeDealPage() {
     milestones: [{ title: "", description: "", due_date: "", status: "pending" as const }],
     attachments: [] as File[]
   })
+
+  useEffect(() => {
+    if (user?.role === 'viewer') {
+      router.push('/')
+    }
+  }, [user, router])
+
+  if (user?.role === 'viewer') {
+    return null
+  }
 
   const handleCreateDeal = async (e: React.FormEvent) => {
     e.preventDefault()

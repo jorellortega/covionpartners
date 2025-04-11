@@ -6,6 +6,8 @@ import { useAuth } from "@/hooks/useAuth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, BarChart2, Briefcase, Zap, FolderKanban, Handshake } from "lucide-react"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import { toast } from "sonner"
 
 export default function Home() {
   const { user, loading } = useAuth()
@@ -94,19 +96,33 @@ export default function Home() {
                 Create, manage, or view projects with ease.
               </p>
             </div>
-            <div className="leonardo-card p-6">
-              <Handshake className="h-12 w-12 text-purple-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Make a Deal</h3>
-              <p className="text-gray-300">
-                Create and manage business deals, partnerships, and collaborations with other members of the platform.
-              </p>
-              <Button asChild className="mt-4 w-full gradient-button">
-                <Link href="/makedeal">
-                  Start a Deal
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
+            {/* Make a Deal Section */}
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Handshake className="w-5 h-5 mr-2" />
+                  Make a Deal
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Start a new deal or negotiation
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  className="w-full gradient-button"
+                  onClick={() => {
+                    if (user?.role === 'viewer') {
+                      toast.error('You must have a higher account to access this feature.')
+                    } else {
+                      router.push('/makedeal')
+                    }
+                  }}
+                >
+                  <Handshake className="w-4 h-4 mr-2" />
+                  Make Deal
+                </Button>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="mt-12 space-y-6">

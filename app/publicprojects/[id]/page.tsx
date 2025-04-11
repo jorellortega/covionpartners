@@ -568,7 +568,8 @@ export default function PublicProjectDetails() {
                         </div>
                       )}
                       <CardContent className="p-4">
-                        <h3 className="font-medium truncate">{file.name}</h3>
+                        {/* Hide the file name */}
+                        {/* <h3 className="font-medium truncate">{file.name}</h3> */}
                         <p className="text-sm text-gray-500 dark:text-gray-400">
                           {formatFileSize(file.size)}
                         </p>
