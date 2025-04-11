@@ -45,6 +45,10 @@ import {
   Zap,
   FolderKanban,
   UserPlus,
+  CheckCircle,
+  XCircle,
+  Lock,
+  Shield
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -63,7 +67,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { toast } from "sonner"
+import { useToast } from "@/components/ui/use-toast"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -154,9 +158,28 @@ interface ProjectWithRole extends Project {
   role: ProjectRole
 }
 
+interface Deal {
+  id: string
+  title: string
+  description: string
+  status: 'pending' | 'accepted' | 'rejected' | 'completed'
+  confidentiality_level: 'public' | 'private' | 'confidential'
+  participants: {
+    id: string
+    user_id: string
+    status: 'pending' | 'accepted' | 'rejected'
+    role: string
+    user: {
+      name: string
+      avatar_url: string
+    }
+  }[]
+}
+
 export default function PartnerDashboard() {
-  const { user, loading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
   const { projects } = useProjects(user?.id || '')
   const [searchQuery, setSearchQuery] = useState("")
   const [myProjects, setMyProjects] = useState<ProjectWithRole[]>([])
@@ -164,6 +187,8 @@ export default function PartnerDashboard() {
   const [projectKey, setProjectKey] = useState("")
   const [joinError, setJoinError] = useState("")
   const [isJoining, setIsJoining] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [deals, setDeals] = useState<Deal[]>([])
 
   // Mock data for demonstration
   const [totalRevenue] = useState(0)
@@ -175,7 +200,7 @@ export default function PartnerDashboard() {
   const [paymentMethod, setPaymentMethod] = useState("bank")
 
   useEffect(() => {
-    if (!loading) {
+    if (!authLoading) {
       if (!user) {
          console.log('Dashboard: Auth check complete, no user found. Redirecting to login.')
          router.push('/login')
@@ -185,7 +210,7 @@ export default function PartnerDashboard() {
     } else {
       console.log('Dashboard: Auth check in progress...')
     }
-  }, [user, loading, router])
+  }, [user, authLoading, router])
 
   // Fetch projects where user has a role
   useEffect(() => {
@@ -245,16 +270,73 @@ export default function PartnerDashboard() {
         setMyProjects(uniqueProjects)
       } catch (err) {
         console.error('Error fetching my projects:', err)
-        toast.error('Failed to load your projects')
+        toast({
+          title: "Error",
+          description: "Failed to load your projects",
+          variant: "destructive"
+        })
       } finally {
         setLoadingMyProjects(false)
       }
     }
 
     fetchMyProjects()
-  }, [user])
+  }, [user, toast])
 
-  if (loading) {
+  useEffect(() => {
+    if (!user) {
+      console.log('No user found, skipping deals fetch')
+      return
+    }
+
+    const fetchDeals = async () => {
+      try {
+        console.log('Fetching deals for user:', user.id)
+        const { data, error } = await supabase
+          .from('deals')
+          .select(`
+            *,
+            participants:deal_participants(
+              id,
+              user_id,
+              status,
+              role,
+              user:users(
+                name,
+                avatar_url
+              )
+            )
+          `)
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          console.error('Supabase error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          })
+          throw error
+        }
+        
+        console.log('Fetched deals:', data)
+        setDeals(data || [])
+      } catch (error) {
+        console.error('Error fetching deals:', error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch deals. Please try again later.",
+          variant: "destructive"
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDeals()
+  }, [user, toast])
+
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -317,11 +399,18 @@ export default function PartnerDashboard() {
       }
 
       // Show success message
-      toast.success('Join request sent successfully!')
+      toast({
+        title: "Success",
+        description: "Join request sent successfully!"
+      })
     } catch (error: any) {
       console.error('Error joining project:', error)
       setJoinError(error.message || 'Failed to join project')
-      toast.error('Failed to join project')
+      toast({
+        title: "Error",
+        description: "Failed to join project",
+        variant: "destructive"
+      })
     } finally {
       setIsJoining(false)
     }
@@ -592,6 +681,13 @@ export default function PartnerDashboard() {
                         <Calendar className="w-4 h-4 mr-2" />
                         Schedule & Tasks
                       </Button>
+                      <Button 
+                        className="w-full gradient-button"
+                        onClick={() => router.push('/makedeal')}
+                      >
+                        <Handshake className="w-4 h-4 mr-2" />
+                        Make Deal
+                      </Button>
                       <DisabledButton icon={<DollarSign className="w-5 h-5 mr-2" />}>
                         Financial Dashboard
                       </DisabledButton>
@@ -831,6 +927,129 @@ export default function PartnerDashboard() {
                 </CardContent>
               </Card>
             </div>
+          </div>
+
+          {/* Deal Actions Section */}
+          <div className="col-span-full">
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Handshake className="w-5 h-5 mr-2" />
+                  Deal Actions
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Manage your deals and negotiations
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {user.role !== 'viewer' && (
+                    <>
+                      <Button 
+                        className="w-full gradient-button"
+                        onClick={() => router.push('/makedeal')}
+                      >
+                        <Handshake className="w-4 h-4 mr-2" />
+                        Make Deal
+                      </Button>
+                      <Button 
+                        className="w-full gradient-button"
+                        onClick={() => router.push('/deals')}
+                      >
+                        <Globe className="w-4 h-4 mr-2" />
+                        View All Deals
+                      </Button>
+                      <DisabledButton icon={<DollarSign className="w-5 h-5 mr-2" />}>
+                        Financial Dashboard
+                      </DisabledButton>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recent Deals Section */}
+          <div className="col-span-full">
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <Handshake className="w-5 h-5 mr-2" />
+                    <CardTitle>Recent Deals</CardTitle>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    className="text-gray-400 hover:text-white"
+                    onClick={() => router.push('/deals')}
+                  >
+                    View All <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+                <CardDescription className="text-gray-400">
+                  Your recent deals and their status
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {loading ? (
+                    <div className="text-center py-4">
+                      <p className="text-gray-400">Loading deals...</p>
+                    </div>
+                  ) : deals.length === 0 ? (
+                    <div className="text-center py-4">
+                      <p className="text-gray-400">No deals found</p>
+                      <Button 
+                        variant="outline" 
+                        className="mt-2 border-gray-700"
+                        onClick={() => router.push('/makedeal')}
+                      >
+                        <Handshake className="w-4 h-4 mr-2" />
+                        Create Your First Deal
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {deals.slice(0, 5).map((deal) => (
+                        <div 
+                          key={deal.id}
+                          className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors cursor-pointer"
+                          onClick={() => router.push(`/deals/${deal.id}`)}
+                        >
+                          <div className="flex items-center gap-3">
+                            {deal.confidentiality_level === 'public' ? (
+                              <Globe className="w-4 h-4 text-blue-500" />
+                            ) : deal.confidentiality_level === 'private' ? (
+                              <Lock className="w-4 h-4 text-gray-500" />
+                            ) : (
+                              <Shield className="w-4 h-4 text-purple-500" />
+                            )}
+                            <div>
+                              <p className="font-medium">{deal.title}</p>
+                              <p className="text-sm text-gray-400">
+                                {deal.participants.length} participants
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {deal.status === 'pending' ? (
+                              <Clock className="w-4 h-4 text-yellow-500" />
+                            ) : deal.status === 'accepted' ? (
+                              <CheckCircle className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-red-500" />
+                            )}
+                            <Badge variant="outline" className="capitalize">
+                              {deal.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </main>

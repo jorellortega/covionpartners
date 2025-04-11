@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, BarChart2, Briefcase, Zap, FolderKanban } from "lucide-react"
+import { ArrowRight, BarChart2, Briefcase, Zap, FolderKanban, Handshake } from "lucide-react"
 
 export default function Home() {
   const { user, loading } = useAuth()
@@ -13,7 +13,7 @@ export default function Home() {
 
   useEffect(() => {
     // Only redirect if user is authenticated and not in the process of logging out
-    if (!loading && user && window.location.pathname === '/') {
+    if (!loading && user && window.location.pathname === '/' && window.location.search.includes('redirect=true')) {
       switch (user.role) {
         case "partner":
           router.push("/dashboard")
@@ -93,6 +93,19 @@ export default function Home() {
               <p className="text-gray-300">
                 Create, manage, or view projects with ease.
               </p>
+            </div>
+            <div className="leonardo-card p-6">
+              <Handshake className="h-12 w-12 text-pink-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Make a Deal</h3>
+              <p className="text-gray-300">
+                Create and manage business deals, partnerships, and collaborations with other members of the platform.
+              </p>
+              <Button asChild className="mt-4 w-full gradient-button">
+                <Link href="/makedeal">
+                  Start a Deal
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
             </div>
           </div>
 

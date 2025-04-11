@@ -67,11 +67,11 @@ const features = [
 const tiers = [
   {
     name: "Public Account",
-    description: "Perfect for exploring investment opportunities",
+    description: "Perfect for exploring investment opportunities and supporting projects",
     icon: Users,
     features: features.filter(f => f.public),
     cta: "Get Started",
-    href: "/register",
+    href: "/login?tab=signup",
     popular: false
   },
   {
@@ -81,16 +81,18 @@ const tiers = [
     features: features.filter(f => f.investor),
     cta: "Upgrade Now",
     href: "/contact",
-    popular: false
+    popular: false,
+    comingSoon: true
   },
   {
     name: "Partner Account",
     description: "Complete project and team management",
     icon: Star,
     features: features.filter(f => f.partner),
-    cta: "Contact Sales",
+    cta: "Upgrade Now",
     href: "/contact",
-    popular: true
+    popular: true,
+    comingSoon: true
   },
   {
     name: "Enterprise Account",
@@ -99,7 +101,8 @@ const tiers = [
     features: features.filter(f => f.enterprise),
     cta: "Contact Sales",
     href: "/contact",
-    popular: false
+    popular: false,
+    comingSoon: true
   }
 ]
 
@@ -118,7 +121,7 @@ export default function AccountTypesPage() {
           {tiers.map((tier) => (
             <Card 
               key={tier.name}
-              className="leonardo-card border-gray-800"
+              className={`leonardo-card border-gray-800 ${tier.comingSoon ? 'opacity-50' : ''}`}
             >
               <CardHeader className="pb-4 pt-6">
                 <div className="flex items-center gap-3">
@@ -128,6 +131,11 @@ export default function AccountTypesPage() {
                 <CardDescription className="text-gray-400 mt-2">
                   {tier.description}
                 </CardDescription>
+                {tier.comingSoon && (
+                  <div className="mt-2 text-yellow-500 font-bold">
+                    Coming Soon
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 <ul className="space-y-3">
