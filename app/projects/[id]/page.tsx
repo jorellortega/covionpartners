@@ -371,8 +371,8 @@ export default function ProjectDetails() {
 
       try {
         const { data, error } = await supabase
-          .from('schedule_invites')
-          .select('*')
+          .from('schedule')
+          .select('start_time, description')
           .eq('project_id', projectId)
 
         if (error) throw error
@@ -903,11 +903,12 @@ export default function ProjectDetails() {
 
     try {
       const { data, error } = await supabase
-        .from('schedule_invites')
+        .from('schedule')
         .insert([{
-          date: newScheduleItem.date,
-          notes: newScheduleItem.notes,
+          start_time: newScheduleItem.date,
+          description: newScheduleItem.notes,
           project_id: projectId,
+          created_by: user.id,
         }])
         .select()
         .single()
@@ -919,7 +920,7 @@ export default function ProjectDetails() {
       toast.success('Schedule item added successfully')
     } catch (error) {
       console.error('Error adding schedule item:', error)
-      toast.error('Failed to add schedule item')
+      toast.error(`Failed to add schedule item: ${error.message || 'Unknown error'}`)
     }
   }
 
@@ -928,10 +929,10 @@ export default function ProjectDetails() {
 
     try {
       const { error } = await supabase
-        .from('schedule_invites')
+        .from('schedule')
         .update({
-          date: editingScheduleItem.date,
-          notes: editingScheduleItem.notes,
+          start_time: editingScheduleItem.date,
+          description: editingScheduleItem.notes,
         })
         .eq('id', editingScheduleItem.id)
 
@@ -954,7 +955,7 @@ export default function ProjectDetails() {
 
     try {
       const { error } = await supabase
-        .from('schedule_invites')
+        .from('schedule')
         .delete()
         .eq('id', itemId)
 
@@ -1288,12 +1289,14 @@ export default function ProjectDetails() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {schedule.map(item => (
+                  {schedule.map((item) => (
                     <div key={item.id} className="p-3 bg-gray-800/50 rounded-lg">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-medium text-white">{item.date}</h4>
-                          <p className="text-sm text-gray-400">{item.notes}</p>
+                          <h4 className="font-medium text-white">
+                            {new Date(item.start_time).toLocaleDateString()}
+                          </h4>
+                          <p className="text-sm text-gray-400">{item.description}</p>
                         </div>
                       </div>
                     </div>
@@ -1320,6 +1323,29 @@ export default function ProjectDetails() {
                 </div>
               </CardHeader>
               <CardContent>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <Button
+                    variant="outline"
+                    className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50 hover:bg-yellow-500/30"
+                  >
+                    <Clock className="w-4 h-4 mr-2" />
+                    Pending ({tasks.filter(task => task.status === 'pending').length})
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    In Progress ({tasks.filter(task => task.status === 'in_progress').length})
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Completed ({tasks.filter(task => task.status === 'completed').length})
+                  </Button>
+                </div>
                 <div className="space-y-3">
                   {tasks.map(task => (
                     <div key={task.id} className="p-3 bg-gray-800/50 rounded-lg">
@@ -1347,6 +1373,74 @@ export default function ProjectDetails() {
                           </div>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
+                          <div className="flex gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={`${
+                                task.status === 'pending'
+                                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                                  : 'text-yellow-400/50 hover:text-yellow-400 hover:bg-yellow-500/20'
+                              }`}
+                              onClick={async () => {
+                                const { error } = await supabase
+                                  .from('tasks')
+                                  .update({ status: 'pending' })
+                                  .eq('id', task.id);
+                                if (!error) {
+                                  setTasks(prev => prev.map(t => 
+                                    t.id === task.id ? { ...t, status: 'pending' } : t
+                                  ));
+                                }
+                              }}
+                            >
+                              <Clock className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={`${
+                                task.status === 'in_progress'
+                                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/50'
+                                  : 'text-blue-400/50 hover:text-blue-400 hover:bg-blue-500/20'
+                              }`}
+                              onClick={async () => {
+                                const { error } = await supabase
+                                  .from('tasks')
+                                  .update({ status: 'in_progress' })
+                                  .eq('id', task.id);
+                                if (!error) {
+                                  setTasks(prev => prev.map(t => 
+                                    t.id === task.id ? { ...t, status: 'in_progress' } : t
+                                  ));
+                                }
+                              }}
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={`${
+                                task.status === 'completed'
+                                  ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                                  : 'text-green-400/50 hover:text-green-400 hover:bg-green-500/20'
+                              }`}
+                              onClick={async () => {
+                                const { error } = await supabase
+                                  .from('tasks')
+                                  .update({ status: 'completed' })
+                                  .eq('id', task.id);
+                                if (!error) {
+                                  setTasks(prev => prev.map(t => 
+                                    t.id === task.id ? { ...t, status: 'completed' } : t
+                                  ));
+                                }
+                              }}
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </Button>
+                          </div>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -1363,18 +1457,6 @@ export default function ProjectDetails() {
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
-                          <Badge
-                            variant="outline"
-                            className={
-                              task.status === 'completed'
-                                ? 'bg-green-500/20 text-green-400 border-green-500/50'
-                                : task.status === 'in_progress'
-                                ? 'bg-blue-500/20 text-blue-400 border-blue-500/50'
-                                : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
-                            }
-                          >
-                            {task.status}
-                          </Badge>
                         </div>
                       </div>
                     </div>
