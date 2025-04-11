@@ -365,24 +365,25 @@ export default function ProjectDetails() {
 
   useEffect(() => {
     const fetchSchedule = async () => {
-      if (!projectId) return
+      if (!projectId) return;
 
       try {
         const { data, error } = await supabase
           .from('schedule')
-          .select('start_time, description')
+          .select('*')
           .eq('project_id', projectId)
+          .order('start_time', { ascending: true });
 
-        if (error) throw error
-        setSchedule(data || [])
+        if (error) throw error;
+        setSchedule(data || []);
       } catch (error) {
-        console.error('Error fetching schedule:', error)
-        toast.error('Failed to load schedule')
+        console.error('Error fetching schedule:', error);
+        toast.error('Failed to load schedule');
       }
-    }
+    };
 
-    fetchSchedule()
-  }, [projectId])
+    fetchSchedule();
+  }, [projectId]);
 
   const handleEditMember = (member: TeamMemberWithUser) => {
     setSelectedMember(member)
@@ -805,75 +806,79 @@ export default function ProjectDetails() {
   }
 
   const handleAddScheduleItem = async () => {
-    if (!projectId) return
+    if (!projectId || !user) return;
 
     try {
       const { data, error } = await supabase
         .from('schedule')
         .insert([{
-          start_time: newScheduleItem.date,
-          description: newScheduleItem.notes,
           project_id: projectId,
+          description: editingScheduleItem?.description || '',
+          notes: editingScheduleItem?.notes || '',
+          start_time: editingScheduleItem?.start_time,
           created_by: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         }])
         .select()
-        .single()
+        .single();
 
-      if (error) throw error
+      if (error) throw error;
 
-      setSchedule(prev => [...prev, data])
-      setNewScheduleItem({ date: '', notes: '' })
-      toast.success('Schedule item added successfully')
+      setSchedule(prev => [...prev, data]);
+      setIsEditingSchedule(false);
+      setEditingScheduleItem(null);
+      toast.success('Schedule item added successfully');
     } catch (error) {
-      console.error('Error adding schedule item:', error)
-      toast.error(`Failed to add schedule item: ${error.message || 'Unknown error'}`)
+      console.error('Error adding schedule item:', error);
+      toast.error('Failed to add schedule item');
     }
-  }
+  };
 
   const handleEditScheduleItem = async () => {
-    if (!editingScheduleItem || !projectId) return
+    if (!editingScheduleItem?.id || !projectId) return;
 
     try {
       const { error } = await supabase
         .from('schedule')
         .update({
-          start_time: editingScheduleItem.date,
-          description: editingScheduleItem.notes,
+          description: editingScheduleItem.description,
+          notes: editingScheduleItem.notes,
+          start_time: editingScheduleItem.start_time,
+          updated_at: new Date().toISOString()
         })
-        .eq('id', editingScheduleItem.id)
+        .eq('id', editingScheduleItem.id);
 
-      if (error) throw error
+      if (error) throw error;
 
-      setSchedule(prev => prev.map(item => 
+      setSchedule(prev => prev.map(item =>
         item.id === editingScheduleItem.id ? editingScheduleItem : item
-      ))
-      setIsEditingSchedule(false)
-      setEditingScheduleItem(null)
-      toast.success('Schedule item updated successfully')
+      ));
+      setIsEditingSchedule(false);
+      setEditingScheduleItem(null);
+      toast.success('Schedule item updated successfully');
     } catch (error) {
-      console.error('Error updating schedule item:', error)
-      toast.error('Failed to update schedule item')
+      console.error('Error updating schedule item:', error);
+      toast.error('Failed to update schedule item');
     }
-  }
+  };
 
   const handleDeleteScheduleItem = async (itemId: string) => {
-    if (!confirm('Are you sure you want to delete this schedule item?')) return
-
     try {
       const { error } = await supabase
         .from('schedule')
         .delete()
-        .eq('id', itemId)
+        .eq('id', itemId);
 
-      if (error) throw error
+      if (error) throw error;
 
-      setSchedule(prev => prev.filter(item => item.id !== itemId))
-      toast.success('Schedule item deleted successfully')
+      setSchedule(prev => prev.filter(item => item.id !== itemId));
+      toast.success('Schedule item deleted successfully');
     } catch (error) {
-      console.error('Error deleting schedule item:', error)
-      toast.error('Failed to delete schedule item')
+      console.error('Error deleting schedule item:', error);
+      toast.error('Failed to delete schedule item');
     }
-  }
+  };
 
   const startEditingScheduleItem = (item: any) => {
     setEditingScheduleItem({ ...item })
@@ -1194,16 +1199,43 @@ export default function ProjectDetails() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {schedule.map((item) => (
-                    <div key={item.id} className="p-3 bg-gray-800/50 rounded-lg">
-                      <div className="flex justify-between items-start">
-                      <div>
-                          <h4 className="font-medium text-white">
-                            {new Date(item.start_time).toLocaleDateString()}
-                          </h4>
-                          <p className="text-sm text-gray-400">{item.description}</p>
+                    <div
+                      key={item.id}
+                      className="flex items-start justify-between p-4 rounded-lg border border-gray-800 bg-gray-900/50 hover:bg-gray-900/80 transition-colors"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="min-w-[100px] text-sm text-gray-400">
+                          {new Date(item.start_time).toLocaleDateString()}
                         </div>
+                        <div>
+                          <h4 className="text-lg font-medium text-white">{item.description}</h4>
+                          {item.notes && (
+                            <p className="mt-1 text-sm text-gray-400">{item.notes}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-400 hover:text-blue-400"
+                          onClick={() => {
+                            setEditingScheduleItem(item);
+                            setIsEditingSchedule(true);
+                          }}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-400 hover:text-red-400"
+                          onClick={() => handleDeleteScheduleItem(item.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -1768,34 +1800,59 @@ export default function ProjectDetails() {
       <Dialog open={isEditingSchedule} onOpenChange={setIsEditingSchedule}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingScheduleItem ? 'Edit Schedule Item' : 'Add Schedule Item'}</DialogTitle>
-            <DialogDescription>{editingScheduleItem ? 'Update schedule item details' : 'Enter new schedule item details'}</DialogDescription>
+            <DialogTitle>{editingScheduleItem?.id ? 'Edit Schedule Item' : 'Add Schedule Item'}</DialogTitle>
+            <DialogDescription>
+              {editingScheduleItem?.id ? 'Update the schedule item details' : 'Add a new schedule item'}
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input
+                value={editingScheduleItem?.description || ''}
+                onChange={(e) => setEditingScheduleItem(prev => ({
+                  ...prev,
+                  description: e.target.value
+                }))}
+                placeholder="Enter description"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes (optional)</Label>
+              <Input
+                value={editingScheduleItem?.notes || ''}
+                onChange={(e) => setEditingScheduleItem(prev => ({
+                  ...prev,
+                  notes: e.target.value
+                }))}
+                placeholder="Add any additional notes"
+              />
+            </div>
+            <div className="space-y-2">
               <Label>Date</Label>
               <Input
                 type="date"
-                value={editingScheduleItem?.date || newScheduleItem.date}
-                onChange={(e) => handleChange(editingScheduleItem ? setEditingScheduleItem : setNewScheduleItem, 'date', e.target.value)}
+                value={editingScheduleItem?.start_time ? new Date(editingScheduleItem.start_time).toISOString().split('T')[0] : ''}
+                onChange={(e) => setEditingScheduleItem(prev => ({
+                  ...prev,
+                  start_time: e.target.value
+                }))}
               />
             </div>
-            <div>
-              <Label>Notes</Label>
-              <Input
-                value={editingScheduleItem?.notes || newScheduleItem.notes}
-                onChange={(e) => handleChange(editingScheduleItem ? setEditingScheduleItem : setNewScheduleItem, 'notes', e.target.value)}
-                placeholder="Enter notes"
-              />
+            <div className="flex justify-end gap-4">
+              <Button variant="outline" onClick={() => {
+                setIsEditingSchedule(false);
+                setEditingScheduleItem(null);
+              }}>
+                Cancel
+              </Button>
+              <Button
+                onClick={editingScheduleItem?.id ? handleEditScheduleItem : handleAddScheduleItem}
+                className="gradient-button"
+              >
+                {editingScheduleItem?.id ? 'Save Changes' : 'Add Item'}
+              </Button>
             </div>
-          </div>
-          <div className="flex justify-end gap-4 mt-4">
-            <Button variant="outline" onClick={() => setIsEditingSchedule(false)}>
-              Cancel
-            </Button>
-            <Button onClick={editingScheduleItem ? handleEditScheduleItem : handleAddScheduleItem} className="gradient-button">
-              {editingScheduleItem ? 'Save Changes' : 'Add Item'}
-            </Button>
           </div>
         </DialogContent>
       </Dialog>
