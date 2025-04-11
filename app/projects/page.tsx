@@ -582,23 +582,26 @@ export default function ProjectsPage() {
                         >
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          className="text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
-                          onClick={() => router.push(`/projects/${project.id}?edit=true`)}
-                        >
-                          Edit Project
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator className="bg-gray-700" />
-                        <DropdownMenuItem 
-                          className="text-red-400 hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400 cursor-pointer focus:bg-purple-900/20 focus:text-purple-400"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            handleDeleteProject(project.id);
-                          }}
-                        >
-                          Delete Project
-                        </DropdownMenuItem>
+                        {user?.role !== 'investor' && (
+                          <DropdownMenuItem 
+                            className="text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+                            onClick={() => router.push(`/projects/${project.id}?edit=true`)}
+                          >
+                            Edit Project
+                          </DropdownMenuItem>
+                        )}
+                        {user?.role !== 'investor' && (
+                          <DropdownMenuItem 
+                            className="text-red-400 hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400 cursor-pointer focus:bg-purple-900/20 focus:text-purple-400"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              handleDeleteProject(project.id);
+                            }}
+                          >
+                            Delete Project
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
