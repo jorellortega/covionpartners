@@ -1323,11 +1323,11 @@ export default function ProjectDetails() {
                 <div className="space-y-3">
                   {tasks.map(task => (
                     <div key={task.id} className="p-3 bg-gray-800/50 rounded-lg">
-                      <div className="flex justify-between items-start">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
                           <h4 className="font-medium text-white">{task.title}</h4>
                           <p className="text-sm text-gray-400">{task.description}</p>
-                          <div className="flex items-center mt-2 space-x-4">
+                          <div className="flex flex-wrap items-center mt-2 gap-2">
                             <span className="text-sm text-gray-400">
                               <Calendar className="w-4 h-4 inline mr-1" />
                               Due: {new Date(task.due_date).toLocaleDateString()}
@@ -1346,60 +1346,7 @@ export default function ProjectDetails() {
                             </Badge>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={
-                              task.status === 'completed'
-                                ? 'bg-green-500/20 text-green-400 border-green-500/50'
-                                : task.status === 'in_progress'
-                                ? 'bg-blue-500/20 text-blue-400 border-blue-500/50'
-                                : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
-                            }
-                          >
-                            {task.status}
-                          </Badge>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className={`text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/20 ${
-                                task.status === 'pending' ? 'text-yellow-400 bg-yellow-500/20' : ''
-                              }`}
-                              onClick={() => {
-                                setEditingTask({ ...task, status: 'pending' });
-                                handleEditTask();
-                              }}
-                            >
-                              <Clock className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className={`text-gray-400 hover:text-blue-400 hover:bg-blue-500/20 ${
-                                task.status === 'in_progress' ? 'text-blue-400 bg-blue-500/20' : ''
-                              }`}
-                              onClick={() => {
-                                setEditingTask({ ...task, status: 'in_progress' });
-                                handleEditTask();
-                              }}
-                            >
-                              <Loader2 className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className={`text-gray-400 hover:text-green-400 hover:bg-green-500/20 ${
-                                task.status === 'completed' ? 'text-green-400 bg-green-500/20' : ''
-                              }`}
-                              onClick={() => {
-                                setEditingTask({ ...task, status: 'completed' });
-                                handleEditTask();
-                              }}
-                            >
-                              <Check className="w-4 h-4" />
-                            </Button>
-                          </div>
+                        <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -1416,6 +1363,18 @@ export default function ProjectDetails() {
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
+                          <Badge
+                            variant="outline"
+                            className={
+                              task.status === 'completed'
+                                ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                                : task.status === 'in_progress'
+                                ? 'bg-blue-500/20 text-blue-400 border-blue-500/50'
+                                : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                            }
+                          >
+                            {task.status}
+                          </Badge>
                         </div>
                       </div>
                     </div>
