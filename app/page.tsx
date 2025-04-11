@@ -95,7 +95,7 @@ export default function Home() {
               </p>
             </div>
             <div className="leonardo-card p-6">
-              <Handshake className="h-12 w-12 text-pink-400 mx-auto mb-4" />
+              <Handshake className="h-12 w-12 text-purple-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">Make a Deal</h3>
               <p className="text-gray-300">
                 Create and manage business deals, partnerships, and collaborations with other members of the platform.
