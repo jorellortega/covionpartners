@@ -6,8 +6,8 @@ import { MainNav } from "@/components/main-nav"
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center">
-        <div className="mr-4 hidden md:flex">
+      <div className="container flex h-14 items-center justify-center">
+        <div className="flex items-center justify-center w-full">
           <Link href="/" className="mr-6 flex items-center space-x-2 hover:text-blue-300 transition-colors">
             <span className="hidden font-bold sm:inline-block">
               COVION STUDIO
