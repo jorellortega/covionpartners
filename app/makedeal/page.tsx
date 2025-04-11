@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabase"
 import { MessageCircle, Send, UserPlus, CheckCircle, XCircle } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import Link from "next/link"
 
 interface DealComment {
   id: string
@@ -121,8 +122,24 @@ export default function MakeDealPage() {
     }
   }, [user, router])
 
-  if (user?.role === 'viewer') {
-    return null
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-white mb-4">Please Sign In</h2>
+          <p className="text-lg text-gray-300 mb-6">You need to be signed in to access this page.</p>
+          <Link href="/login" className="gradient-button px-4 py-2">
+            Sign In
+          </Link>
+          <p className="mt-4 text-sm text-gray-400">
+            New to COVION STUDIO?{' '}
+            <Link href="/login?tab=signup" className="text-blue-300 hover:text-blue-200">
+              Create an account
+            </Link>
+          </p>
+        </div>
+      </div>
+    )
   }
 
   const handleCreateDeal = async (e: React.FormEvent) => {
@@ -1123,6 +1140,26 @@ export default function MakeDealPage() {
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        @media (max-width: 640px) {
+          .leonardo-card {
+            padding: 1rem;
+          }
+
+          .leonardo-card .CardTitle {
+            font-size: 1.25rem;
+          }
+
+          .leonardo-card .CardDescription {
+            font-size: 1rem;
+          }
+
+          .leonardo-card .TabsList {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+      `}</style>
     </div>
   )
 } 

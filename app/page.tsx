@@ -99,12 +99,10 @@ export default function Home() {
             {/* Make a Deal Section */}
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Handshake className="w-5 h-5 mr-2" />
-                  Make a Deal
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Start a new deal or negotiation
+                <Handshake className="h-12 w-12 text-purple-400 mx-auto mb-4" />
+                <CardTitle className="text-xl font-semibold mb-2">Make a Deal</CardTitle>
+                <CardDescription className="text-gray-300">
+                  Create and manage business deals, partnerships, and collaborations with other members of the platform.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -118,8 +116,7 @@ export default function Home() {
                     }
                   }}
                 >
-                  <Handshake className="w-4 h-4 mr-2" />
-                  Make Deal
+                  Start a Deal
                 </Button>
               </CardContent>
             </Card>

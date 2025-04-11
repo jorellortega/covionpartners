@@ -109,8 +109,9 @@ function getTierName(role: string) {
   }
 }
 
-// Add a new component for disabled buttons
-function DisabledButton({ children, className = "", icon }: { children: React.ReactNode, className?: string, icon?: React.ReactNode }) {
+// Add role check for DisabledButton
+function DisabledButton({ children, className = "", icon, userRole }: { children: React.ReactNode, className?: string, icon?: React.ReactNode, userRole: string }) {
+  if (userRole !== 'admin') return null;
   return (
     <div className="relative pt-3">
       <Button 
@@ -127,13 +128,15 @@ function DisabledButton({ children, className = "", icon }: { children: React.Re
   )
 }
 
-// Add a new component for disabled cards
-function DisabledCard({ title, icon, children, className = "" }: { 
+// Add role check for DisabledCard
+function DisabledCard({ title, icon, children, className = "", userRole }: { 
   title: string, 
   icon: React.ReactNode, 
   children: React.ReactNode,
-  className?: string 
+  className?: string,
+  userRole: string
 }) {
+  if (userRole !== 'admin') return null;
   return (
     <div className="relative pt-3">
       <Card className={`leonardo-card border-gray-800 ${className}`}>
@@ -479,226 +482,7 @@ export default function PartnerDashboard() {
             </Card>
           )}
 
-          {/* Withdraw Card - Keep this enabled */}
-          {user.role !== 'viewer' && (
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center">
-                  <Wallet className="w-5 h-5 mr-2 text-red-400" />
-                  Withdraw
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-3xl font-bold">${availableBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    <p className="text-sm text-gray-400">Available Balance</p>
-                  </div>
-                  <Link href="/payments">
-                    <Button variant="ghost" className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/20">
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Withdraw Funds
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Partner Type & Ownership Card - Disabled */}
-          {user.role !== 'viewer' && (
-            <DisabledCard 
-              title="Partnership Details" 
-              icon={<Building2 className="w-5 h-5 mr-2 text-purple-400" />}
-            >
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <div className="text-center">
-                  <div className="text-lg font-medium text-gray-400">Current Role</div>
-                  <div className="text-2xl font-bold text-white">Managing Partner</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-medium text-gray-400">Ownership Stake</div>
-                  <div className="text-4xl font-bold text-blue-400">0%</div>
-                </div>
-              </div>
-            </DisabledCard>
-          )}
-
-          {/* Quick Stats - Disabled */}
-          {user.role !== 'viewer' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {[
-                {
-                  title: "Active Projects",
-                  value: "0",
-                  change: "+0 this month",
-                  icon: <Building2 className="w-6 h-6 text-blue-400" />
-                },
-                {
-                  title: "Total Revenue",
-                  value: "$0.00",
-                  change: "+0% from last month",
-                  icon: <DollarSign className="w-6 h-6 text-green-400" />
-                },
-                {
-                  title: "Team Members",
-                  value: "0",
-                  change: "+0 this month",
-                  icon: <Users className="w-6 h-6 text-purple-400" />
-                },
-                {
-                  title: "Growth Rate",
-                  value: "+0%",
-                  change: "+0% from last month",
-                  icon: <BarChart3 className="w-6 h-6 text-yellow-400" />
-                }
-              ].map((stat, index) => (
-                <DisabledCard
-                  key={index}
-                  title={stat.title}
-                  icon={stat.icon}
-                >
-                  <div>
-                    <h3 className="text-3xl font-bold mt-1">{stat.value}</h3>
-                    <div className="mt-4 flex items-center">
-                      <TrendingUp className="w-4 h-4 text-green-400 mr-1" />
-                      <span className="text-green-400 text-sm">{stat.change}</span>
-                    </div>
-                  </div>
-                </DisabledCard>
-              ))}
-            </div>
-          )}
-
-          {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Recent Activity - Disabled */}
-            {user.role !== 'viewer' && (
-              <DisabledCard 
-                title="Recent Activity"
-                icon={<Clock className="w-5 h-5 mr-2 text-blue-400" />}
-                className="lg:col-span-2"
-              >
-                <div className="space-y-4">
-                  <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
-                    <p className="text-gray-400">Activity feed is under development</p>
-                  </div>
-                </div>
-              </DisabledCard>
-            )}
-
-            {/* Quick Actions */}
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-xl font-bold">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {user.role === 'viewer' ? (
-                    <Button
-                      className="w-full gradient-button"
-                      onClick={() => router.push('/publicprojects')}
-                    >
-                      <Globe className="w-4 h-4 mr-2" />
-                      Public Projects
-                    </Button>
-                  ) : (
-                    <>
-                      <Button
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/projects')}
-                      >
-                        <Briefcase className="w-4 h-4 mr-2" />
-                        Projects
-                      </Button>
-                      <Button
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/publicprojects')}
-                      >
-                        <Globe className="w-4 h-4 mr-2" />
-                        Public Projects
-                      </Button>
-                      <DisabledButton>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create New Project
-                      </DisabledButton>
-                      <DisabledButton>
-                        <Building2 className="w-4 h-4 mr-2" />
-                        Create Organization
-                      </DisabledButton>
-                      <DisabledButton>
-                        <Users className="w-4 h-4 mr-2" />
-                        Manage Team
-                      </DisabledButton>
-                      <DisabledButton>
-                        <DollarSign className="w-4 h-4 mr-2" />
-                        View Revenue
-                      </DisabledButton>
-                      <DisabledButton>
-                        <BarChart2 className="w-4 h-4 mr-2" />
-                        View Analytics
-                      </DisabledButton>
-                      <DisabledButton>
-                        <Globe className="w-4 h-4 mr-2" />
-                        Browse Opportunities
-                      </DisabledButton>
-                      <DisabledButton>
-                        <FileText className="w-4 h-4 mr-2" />
-                        View Documents
-                      </DisabledButton>
-                      {/* Keep Payments enabled */}
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/payments')}
-                      >
-                        <Calculator className="w-4 h-4 mr-2" />
-                        Manage Payments
-                      </Button>
-                      <DisabledButton>
-                        <Lightbulb className="w-4 h-4 mr-2" />
-                        Submit Project Request
-                      </DisabledButton>
-                      {/* Keep Updates enabled */}
-                      <Button
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/updates')}
-                      >
-                        <Bell className="w-4 h-4 mr-2" />
-                        Updates
-                      </Button>
-                      {/* Keep Withdraw enabled */}
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/payments')}
-                      >
-                        <Wallet className="w-4 h-4 mr-2" />
-                        Withdraw Funds
-                      </Button>
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/schedule')}
-                      >
-                        <Calendar className="w-4 h-4 mr-2" />
-                        Schedule & Tasks
-                      </Button>
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/makedeal')}
-                      >
-                        <Handshake className="w-4 h-4 mr-2" />
-                        Make Deal
-                      </Button>
-                      <DisabledButton icon={<DollarSign className="w-5 h-5 mr-2" />}>
-                        Financial Dashboard
-                      </DisabledButton>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* My Projects Section - RESTORED */}
+          {/* My Projects Section - Moved Below Updates */}
           {user.role !== 'viewer' && (
             <div className="col-span-full">
               <Card className="leonardo-card border-gray-800">
@@ -768,13 +552,281 @@ export default function PartnerDashboard() {
               </Card>
             </div>
           )}
-          {/* END OF RESTORED My Projects Section */}
+
+          {/* Withdraw Card */}
+          {user?.role === 'admin' && (
+            <DisabledCard 
+              userRole={user.role}
+              title="Withdraw"
+              icon={<DollarSign className="w-5 h-5 mr-2" />}
+            >
+              <p className="text-sm text-white/60 mb-4">
+                Manage your funds and transactions securely.
+              </p>
+            </DisabledCard>
+          )}
+
+          {/* Quick Action: Withdraw Funds Button */}
+          {user?.role === 'admin' && (
+            <DisabledButton 
+              userRole={user.role}
+              icon={<DollarSign className="w-4 h-4 mr-2" />}
+            >
+              Withdraw Funds
+            </DisabledButton>
+          )}
+
+          {/* Quick Action: Manage Payments Button */}
+          {user?.role === 'admin' && (
+            <DisabledButton 
+              userRole={user.role}
+              icon={<CreditCard className="w-4 h-4 mr-2" />}
+            >
+              Manage Payments
+            </DisabledButton>
+          )}
+
+          {/* Make a Deal Button */}
+          {user?.role === 'admin' && (
+            <DisabledButton 
+              userRole={user.role}
+              icon={<Handshake className="w-4 h-4 mr-2" />}
+            >
+              Make a Deal
+            </DisabledButton>
+          )}
+
+          {/* Schedule & Tasks */}
+          {user?.role === 'admin' && (
+            <DisabledCard 
+              userRole={user.role}
+              title="Schedule & Tasks"
+              icon={<Calendar className="w-5 h-5 mr-2" />}
+            >
+              <p className="text-sm text-white/60 mb-4">
+                Plan and manage your tasks efficiently.
+              </p>
+            </DisabledCard>
+          )}
+
+          {/* Partner Type & Ownership Card - Disabled */}
+          {user.role === 'admin' && (
+            <DisabledCard 
+              userRole={user.role}
+              title="Partnership Details" 
+              icon={<Building2 className="w-5 h-5 mr-2 text-purple-400" />}
+            >
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <div className="text-center">
+                  <div className="text-lg font-medium text-gray-400">Current Role</div>
+                  <div className="text-2xl font-bold text-white">Managing Partner</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-medium text-gray-400">Ownership Stake</div>
+                  <div className="text-4xl font-bold text-blue-400">0%</div>
+                </div>
+              </div>
+            </DisabledCard>
+          )}
+
+          {/* Quick Stats - Disabled */}
+          {user.role === 'admin' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {[
+                {
+                  title: "Active Projects",
+                  value: "0",
+                  change: "+0 this month",
+                  icon: <Building2 className="w-6 h-6 text-blue-400" />
+                },
+                {
+                  title: "Total Revenue",
+                  value: "$0.00",
+                  change: "+0% from last month",
+                  icon: <DollarSign className="w-6 h-6 text-green-400" />
+                },
+                {
+                  title: "Team Members",
+                  value: "0",
+                  change: "+0 this month",
+                  icon: <Users className="w-6 h-6 text-purple-400" />
+                },
+                {
+                  title: "Growth Rate",
+                  value: "+0%",
+                  change: "+0% from last month",
+                  icon: <BarChart3 className="w-6 h-6 text-yellow-400" />
+                }
+              ].map((stat, index) => (
+                <DisabledCard
+                  key={index}
+                  userRole={user.role}
+                  title={stat.title}
+                  icon={stat.icon}
+                >
+                  <div>
+                    <h3 className="text-3xl font-bold mt-1">{stat.value}</h3>
+                    <div className="mt-4 flex items-center">
+                      <TrendingUp className="w-4 h-4 text-green-400 mr-1" />
+                      <span className="text-green-400 text-sm">{stat.change}</span>
+                    </div>
+                  </div>
+                </DisabledCard>
+              ))}
+            </div>
+          )}
+
+          {/* Main Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Recent Activity - Disabled */}
+            {user.role === 'admin' && (
+              <DisabledCard 
+                userRole={user.role}
+                title="Recent Activity"
+                icon={<Clock className="w-5 h-5 mr-2 text-blue-400" />}
+                className="lg:col-span-2"
+              >
+                <div className="space-y-4">
+                  <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                    <p className="text-gray-400">Activity feed is under development</p>
+                  </div>
+                </div>
+              </DisabledCard>
+            )}
+
+            {/* Quick Actions */}
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {user.role === 'viewer' ? (
+                    <Button
+                      className="w-full gradient-button"
+                      onClick={() => router.push('/publicprojects')}
+                    >
+                      <Globe className="w-4 h-4 mr-2" />
+                      Public Projects
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        className="w-full gradient-button hover:bg-purple-500"
+                        onClick={() => router.push('/projects')}
+                      >
+                        <Briefcase className="w-4 h-4 mr-2" />
+                        Projects
+                      </Button>
+                      <Button
+                        className="w-full gradient-button hover:bg-purple-500"
+                        onClick={() => router.push('/publicprojects')}
+                      >
+                        <Globe className="w-4 h-4 mr-2" />
+                        Public Projects
+                      </Button>
+                      {user.role === 'admin' && (
+                        <DisabledButton userRole={user.role}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create New Project
+                        </DisabledButton>
+                      )}
+                      {user.role === 'admin' && (
+                        <DisabledButton userRole={user.role}>
+                          <Building2 className="w-4 h-4 mr-2" />
+                          Create Organization
+                        </DisabledButton>
+                      )}
+                      {user.role === 'admin' && (
+                        <DisabledButton userRole={user.role}>
+                          <Users className="w-4 h-4 mr-2" />
+                          Manage Team
+                        </DisabledButton>
+                      )}
+                      {user.role === 'admin' && (
+                        <DisabledButton userRole={user.role}>
+                          <DollarSign className="w-4 h-4 mr-2" />
+                          View Revenue
+                        </DisabledButton>
+                      )}
+                      {user.role === 'admin' && (
+                        <DisabledButton userRole={user.role}>
+                          <BarChart2 className="w-4 h-4 mr-2" />
+                          View Analytics
+                        </DisabledButton>
+                      )}
+                      {user.role === 'admin' && (
+                        <DisabledButton userRole={user.role}>
+                          <Globe className="w-4 h-4 mr-2" />
+                          Browse Opportunities
+                        </DisabledButton>
+                      )}
+                      {user.role === 'admin' && (
+                        <DisabledButton userRole={user.role}>
+                          <FileText className="w-4 h-4 mr-2" />
+                          View Documents
+                        </DisabledButton>
+                      )}
+                      {user.role === 'admin' && (
+                        <DisabledButton userRole={user.role} icon={<DollarSign className="w-5 h-5 mr-2" />}>
+                          Financial Dashboard
+                        </DisabledButton>
+                      )}
+                      {/* Keep Payments enabled */}
+                      <Button 
+                        className="w-full gradient-button"
+                        onClick={() => router.push('/payments')}
+                      >
+                        <Calculator className="w-4 h-4 mr-2" />
+                        Manage Payments
+                      </Button>
+                      <DisabledButton userRole={user.role}>
+                        <Lightbulb className="w-4 h-4 mr-2" />
+                        Submit Project Request
+                      </DisabledButton>
+                      {/* Keep Updates enabled */}
+                      <Button
+                        className="w-full gradient-button"
+                        onClick={() => router.push('/updates')}
+                      >
+                        <Bell className="w-4 h-4 mr-2" />
+                        Updates
+                      </Button>
+                      {/* Keep Withdraw enabled */}
+                      <Button 
+                        className="w-full gradient-button"
+                        onClick={() => router.push('/payments')}
+                      >
+                        <Wallet className="w-4 h-4 mr-2" />
+                        Withdraw Funds
+                      </Button>
+                      <Button 
+                        className="w-full gradient-button"
+                        onClick={() => router.push('/schedule')}
+                      >
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Schedule & Tasks
+                      </Button>
+                      <Button 
+                        className="w-full gradient-button"
+                        onClick={() => router.push('/makedeal')}
+                      >
+                        <Handshake className="w-4 h-4 mr-2" />
+                        Make Deal
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Opportunities Section */}
           <div className="mb-6 sm:mb-8">
             <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-white">Get Involved</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               <DisabledCard 
+                userRole={user.role}
                 title="Become an Investor"
                 icon={<TrendingUp className="w-5 h-5 text-blue-400" />}
               >
@@ -817,6 +869,7 @@ export default function PartnerDashboard() {
               </Card>
 
               <DisabledCard 
+                userRole={user.role}
                 title="Join as Team Member"
                 icon={<Users className="w-5 h-5 text-purple-400" />}
               >
@@ -826,6 +879,7 @@ export default function PartnerDashboard() {
               </DisabledCard>
 
               <DisabledCard 
+                userRole={user.role}
                 title="Join an Organization"
                 icon={<Building2 className="w-5 h-5 text-green-400" />}
               >
@@ -835,6 +889,7 @@ export default function PartnerDashboard() {
               </DisabledCard>
 
               <DisabledCard 
+                userRole={user.role}
                 title="Partnership"
                 icon={<Handshake className="w-5 h-5 text-yellow-400" />}
               >
@@ -844,6 +899,7 @@ export default function PartnerDashboard() {
               </DisabledCard>
 
               <DisabledCard 
+                userRole={user.role}
                 title="Create Organization"
                 icon={<PlusCircle className="w-5 h-5 text-red-400" />}
               >
@@ -930,125 +986,102 @@ export default function PartnerDashboard() {
           </div>
 
           {/* Deal Actions Section */}
-          {user?.role !== 'viewer' && (
+          {user?.role === 'admin' && (
             <div className="col-span-full">
-              <Card className="leonardo-card border-gray-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Handshake className="w-5 h-5 mr-2" />
-                    Deal Actions
-                  </CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Manage your deals and negotiations
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Button 
-                      className="w-full gradient-button"
-                      onClick={() => router.push('/makedeal')}
-                    >
-                      <Handshake className="w-4 h-4 mr-2" />
-                      Make Deal
-                    </Button>
-                    <Button 
-                      className="w-full gradient-button"
-                      onClick={() => router.push('/deals')}
-                    >
-                      <Globe className="w-4 h-4 mr-2" />
-                      View All Deals
-                    </Button>
-                    <DisabledButton icon={<DollarSign className="w-5 h-5 mr-2" />}>
-                      Financial Dashboard
-                    </DisabledButton>
-                  </div>
-                </CardContent>
-              </Card>
+              <DisabledCard 
+                userRole={user.role}
+                title="Deal Actions"
+                icon={<Handshake className="w-5 h-5 mr-2" />}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Button 
+                    className="w-full gradient-button"
+                    onClick={() => router.push('/makedeal')}
+                  >
+                    <Handshake className="w-4 h-4 mr-2" />
+                    Make Deal
+                  </Button>
+                  <Button 
+                    className="w-full gradient-button"
+                    onClick={() => router.push('/deals')}
+                  >
+                    <Globe className="w-4 h-4 mr-2" />
+                    View All Deals
+                  </Button>
+                  <DisabledButton userRole={user.role} icon={<DollarSign className="w-5 h-5 mr-2" />}>
+                    Financial Dashboard
+                  </DisabledButton>
+                </div>
+              </DisabledCard>
             </div>
           )}
 
           {/* Recent Deals Section */}
-          {user?.role !== 'viewer' && (
+          {user?.role === 'admin' && (
             <div className="col-span-full">
-              <Card className="leonardo-card border-gray-800">
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center">
-                      <Handshake className="w-5 h-5 mr-2" />
-                      <CardTitle>Recent Deals</CardTitle>
+              <DisabledCard 
+                userRole={user.role}
+                title="Recent Deals"
+                icon={<Handshake className="w-5 h-5 mr-2" />}
+              >
+                <div className="space-y-4">
+                  {loading ? (
+                    <div className="text-center py-4">
+                      <p className="text-gray-400">Loading deals...</p>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      className="text-gray-400 hover:text-white"
-                      onClick={() => router.push('/deals')}
-                    >
-                      View All <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </div>
-                  <CardDescription className="text-gray-400">
-                    Your recent deals and their status
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {loading ? (
-                      <div className="text-center py-4">
-                        <p className="text-gray-400">Loading deals...</p>
-                      </div>
-                    ) : deals.length === 0 ? (
-                      <div className="text-center py-4">
-                        <p className="text-gray-400">No deals found</p>
-                        <Button 
-                          variant="outline" 
-                          className="mt-2 border-gray-700"
-                          onClick={() => router.push('/makedeal')}
+                  ) : deals.length === 0 ? (
+                    <div className="text-center py-4">
+                      <p className="text-gray-400">No deals found</p>
+                      <Button 
+                        variant="outline" 
+                        className="mt-2 border-gray-700"
+                        onClick={() => router.push('/makedeal')}
+                      >
+                        <Handshake className="w-4 h-4 mr-2" />
+                        Create Your First Deal
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {deals.slice(0, 5).map((deal) => (
+                        <div 
+                          key={deal.id}
+                          className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors cursor-pointer"
+                          onClick={() => router.push(`/deals/${deal.id}`)}
                         >
-                          <Handshake className="w-4 h-4 mr-2" />
-                          Create Your First Deal
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {deals.slice(0, 5).map((deal) => (
-                          <div 
-                            key={deal.id}
-                            className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors cursor-pointer"
-                            onClick={() => router.push(`/deals/${deal.id}`)}
-                          >
-                            <div className="flex items-center gap-3">
-                              {deal.confidentiality_level === 'public' ? (
-                                <Globe className="w-4 h-4 text-blue-500" />
-                              ) : deal.confidentiality_level === 'private' ? (
-                                <Lock className="w-4 h-4 text-gray-500" />
-                              ) : (
-                                <Shield className="w-4 h-4 text-purple-500" />
-                              )}
-                              <div>
-                                <p className="font-medium">{deal.title}</p>
-                                <p className="text-sm text-gray-400">
-                                  {deal.participants.length} participants
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {deal.status === 'pending' ? (
-                                <Clock className="w-4 h-4 text-yellow-500" />
-                              ) : deal.status === 'accepted' ? (
-                                <CheckCircle className="w-4 h-4 text-green-500" />
-                              ) : (
-                                <XCircle className="w-4 h-4 text-red-500" />
-                              )}
-                              <Badge variant="outline" className="capitalize">
-                                {deal.status}
-                              </Badge>
+                          <div className="flex items-center gap-3">
+                            {deal.confidentiality_level === 'public' ? (
+                              <Globe className="w-4 h-4 text-blue-500" />
+                            ) : deal.confidentiality_level === 'private' ? (
+                              <Lock className="w-4 h-4 text-gray-500" />
+                            ) : (
+                              <Shield className="w-4 h-4 text-purple-500" />
+                            )}
+                            <div>
+                              <p className="font-medium">{deal.title}</p>
+                              <p className="text-sm text-gray-400">
+                                {deal.participants.length} participants
+                              </p>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                          <div className="flex items-center gap-2">
+                            {deal.status === 'pending' ? (
+                              <Clock className="w-4 h-4 text-yellow-500" />
+                            ) : deal.status === 'accepted' ? (
+                              <CheckCircle className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-red-500" />
+                            )}
+                            <Badge variant="outline" className="capitalize">
+                              {deal.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </DisabledCard>
             </div>
           )}
         </div>
