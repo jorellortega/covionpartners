@@ -26,6 +26,8 @@ import {
   Loader2,
   Check,
   Home,
+  CheckSquare,
+  Plus,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -96,7 +98,10 @@ function StatusCard({ project }: { project: Project | null }) {
         </div>
         <div className="space-y-1">
           <div className="flex justify-between text-sm">
-            <span>Progress</span>
+            <span className="text-gray-400 flex items-center">
+              <BarChart2 className="w-4 h-4 mr-2" />
+              Progress
+            </span>
             <span>{Number(project.progress ?? 0).toFixed(0)}%</span>
           </div>
           <Progress value={Number(project.progress ?? 0)} className="w-full" />
@@ -217,6 +222,24 @@ export default function ProjectDetails() {
     progress: project?.progress || 0,
   })
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isAddingTask, setIsAddingTask] = useState(false)
+  const [tasks, setTasks] = useState<any[]>([])
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    assigned_to: '',
+    due_date: '',
+    priority: 'medium',
+  })
+  const [editingTask, setEditingTask] = useState<any>(null)
+  const [isEditingTask, setIsEditingTask] = useState(false)
+  const [schedule, setSchedule] = useState<any[]>([])
+  const [newScheduleItem, setNewScheduleItem] = useState({
+    date: '',
+    notes: '',
+  })
+  const [editingScheduleItem, setEditingScheduleItem] = useState<any>(null)
+  const [isEditingSchedule, setIsEditingSchedule] = useState(false)
 
   useEffect(() => {
     refreshTeamMembers()
@@ -318,6 +341,50 @@ export default function ProjectDetails() {
       })
     }
   }, [isEditDialogOpen, project])
+
+  // Fetch tasks
+  useEffect(() => {
+    const fetchTasks = async () => {
+      if (!projectId) return
+      
+      try {
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('due_date', { ascending: true })
+
+        if (error) throw error
+        setTasks(data || [])
+      } catch (error) {
+        console.error('Error fetching tasks:', error)
+        toast.error('Failed to load tasks')
+      }
+    }
+
+    fetchTasks()
+  }, [projectId])
+
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      if (!projectId) return
+
+      try {
+        const { data, error } = await supabase
+          .from('schedule_invites')
+          .select('*')
+          .eq('project_id', projectId)
+
+        if (error) throw error
+        setSchedule(data || [])
+      } catch (error) {
+        console.error('Error fetching schedule:', error)
+        toast.error('Failed to load schedule')
+      }
+    }
+
+    fetchSchedule()
+  }, [projectId])
 
   const handleEditMember = (member: TeamMemberWithUser) => {
     setSelectedMember(member)
@@ -743,6 +810,174 @@ export default function ProjectDetails() {
     }
   };
 
+  const handleAddTask = async () => {
+    if (!user || !projectId) return
+
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert([{
+          ...newTask,
+          project_id: projectId,
+          created_by: user.id,
+          status: 'pending',
+          assigned_to: newTask.assigned_to || null,
+        }])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setTasks(prev => [...prev, data])
+      setIsAddingTask(false)
+      setNewTask({
+        title: '',
+        description: '',
+        assigned_to: '',
+        due_date: '',
+        priority: 'medium',
+      })
+      toast.success('Task added successfully')
+    } catch (error) {
+      console.error('Error adding task:', error)
+      toast.error('Failed to add task')
+    }
+  }
+
+  const handleEditTask = async () => {
+    if (!editingTask || !projectId) return
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: editingTask.title,
+          description: editingTask.description,
+          due_date: editingTask.due_date,
+          priority: editingTask.priority,
+          status: editingTask.status,
+          assigned_to: editingTask.assigned_to || null,
+        })
+        .eq('id', editingTask.id)
+
+      if (error) throw error
+
+      setTasks(prev => prev.map(task => 
+        task.id === editingTask.id ? editingTask : task
+      ))
+      setIsEditingTask(false)
+      setEditingTask(null)
+      toast.success('Task updated successfully')
+    } catch (error) {
+      console.error('Error updating task:', error)
+      toast.error('Failed to update task')
+    }
+  }
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm('Are you sure you want to delete this task?')) return
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId)
+
+      if (error) throw error
+
+      setTasks(prev => prev.filter(task => task.id !== taskId))
+      toast.success('Task deleted successfully')
+    } catch (error) {
+      console.error('Error deleting task:', error)
+      toast.error('Failed to delete task')
+    }
+  }
+
+  const startEditingTask = (task: any) => {
+    setEditingTask({ ...task })
+    setIsEditingTask(true)
+  }
+
+  const handleAddScheduleItem = async () => {
+    if (!projectId) return
+
+    try {
+      const { data, error } = await supabase
+        .from('schedule_invites')
+        .insert([{
+          date: newScheduleItem.date,
+          notes: newScheduleItem.notes,
+          project_id: projectId,
+        }])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setSchedule(prev => [...prev, data])
+      setNewScheduleItem({ date: '', notes: '' })
+      toast.success('Schedule item added successfully')
+    } catch (error) {
+      console.error('Error adding schedule item:', error)
+      toast.error('Failed to add schedule item')
+    }
+  }
+
+  const handleEditScheduleItem = async () => {
+    if (!editingScheduleItem || !projectId) return
+
+    try {
+      const { error } = await supabase
+        .from('schedule_invites')
+        .update({
+          date: editingScheduleItem.date,
+          notes: editingScheduleItem.notes,
+        })
+        .eq('id', editingScheduleItem.id)
+
+      if (error) throw error
+
+      setSchedule(prev => prev.map(item => 
+        item.id === editingScheduleItem.id ? editingScheduleItem : item
+      ))
+      setIsEditingSchedule(false)
+      setEditingScheduleItem(null)
+      toast.success('Schedule item updated successfully')
+    } catch (error) {
+      console.error('Error updating schedule item:', error)
+      toast.error('Failed to update schedule item')
+    }
+  }
+
+  const handleDeleteScheduleItem = async (itemId: string) => {
+    if (!confirm('Are you sure you want to delete this schedule item?')) return
+
+    try {
+      const { error } = await supabase
+        .from('schedule_invites')
+        .delete()
+        .eq('id', itemId)
+
+      if (error) throw error
+
+      setSchedule(prev => prev.filter(item => item.id !== itemId))
+      toast.success('Schedule item deleted successfully')
+    } catch (error) {
+      console.error('Error deleting schedule item:', error)
+      toast.error('Failed to delete schedule item')
+    }
+  }
+
+  const startEditingScheduleItem = (item: any) => {
+    setEditingScheduleItem({ ...item })
+    setIsEditingSchedule(true)
+  }
+
+  // Explicitly type 'prev' in functions
+  const handleChange = <T extends object>(setter: React.Dispatch<React.SetStateAction<T>>, field: keyof T, value: any) => {
+    setter((prev: T) => ({ ...prev, [field]: value }))
+  }
+
   // Show loading state while authentication or projects are loading
   if (authLoading || projectsLoading || !project) {
     return (
@@ -816,70 +1051,6 @@ export default function ProjectDetails() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Project Info */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Project Overview */}
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle>Project Overview</CardTitle>
-                <CardDescription className="text-gray-400">
-                  Key details and progress of the project
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-800/30 rounded-lg">
-                      <div className="flex items-center text-gray-400 mb-2">
-                        <Calendar className="w-4 h-4 mr-2" />
-                        <span>Created</span>
-                      </div>
-                      <div className="text-white font-medium">
-                        {project?.created_at ? new Date(project.created_at).toLocaleDateString() : 'N/A'}
-                      </div>
-                    </div>
-                    <div className="p-4 bg-gray-800/30 rounded-lg">
-                      <div className="flex items-center text-gray-400 mb-2">
-                        <Clock className="w-4 h-4 mr-2" />
-                        <span>Deadline</span>
-                      </div>
-                      <div className="text-white font-medium">
-                        {project?.deadline ? new Date(project.deadline).toLocaleDateString() : 'N/A'}
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-400">Progress</span>
-                      <span className="text-white">{project?.progress || 0}%</span>
-                    </div>
-                    <div className="w-full bg-gray-700 rounded-full h-2">
-                      <div
-                        className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full"
-                        style={{ width: `${project?.progress || 0}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-800/30 rounded-lg">
-                      <div className="flex items-center text-gray-400 mb-2">
-                        <DollarSign className="w-4 h-4 mr-2" />
-                        <span>Budget</span>
-                      </div>
-                      <div className="text-white font-medium">
-                        {project?.budget ? `$${formatNumber(project.budget)}` : 'Not set'}
-                      </div>
-                    </div>
-                    <div className="p-4 bg-gray-800/30 rounded-lg">
-                      <div className="flex items-center text-gray-400 mb-2">
-                        <Building2 className="w-4 h-4 mr-2" />
-                        <span>Type</span>
-                      </div>
-                      <div className="text-white font-medium">{project?.type || 'Unknown'}</div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Project Description */}
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
@@ -1099,10 +1270,159 @@ export default function ProjectDetails() {
               </CardContent>
             </Card>
 
+            {/* Schedule Section */}
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Project Schedule</CardTitle>
+                    <CardDescription className="text-gray-400">
+                      View and manage project schedule
+                    </CardDescription>
+                  </div>
+                  <Button onClick={() => setIsEditingSchedule(true)} className="gradient-button">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Schedule Item
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {schedule.map(item => (
+                    <div key={item.id} className="p-3 bg-gray-800/50 rounded-lg">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-medium text-white">{item.date}</h4>
+                          <p className="text-sm text-gray-400">{item.notes}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Tasks Section */}
-            <div className="space-y-6">
-              <TaskList projectId={projectId} />
-            </div>
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle className="flex items-center">
+                      <CheckSquare className="w-5 h-5 mr-2" />
+                      Project Tasks
+                    </CardTitle>
+                    <CardDescription>Manage project tasks and assignments</CardDescription>
+                  </div>
+                  <Button onClick={() => setIsAddingTask(true)} className="gradient-button">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Task
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {tasks.map(task => (
+                    <div key={task.id} className="p-3 bg-gray-800/50 rounded-lg">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-medium text-white">{task.title}</h4>
+                          <p className="text-sm text-gray-400">{task.description}</p>
+                          <div className="flex items-center mt-2 space-x-4">
+                            <span className="text-sm text-gray-400">
+                              <Calendar className="w-4 h-4 inline mr-1" />
+                              Due: {new Date(task.due_date).toLocaleDateString()}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={
+                                task.priority === 'high'
+                                  ? 'bg-red-500/20 text-red-400 border-red-500/50'
+                                  : task.priority === 'medium'
+                                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                                  : 'bg-green-500/20 text-green-400 border-green-500/50'
+                              }
+                            >
+                              {task.priority}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={
+                              task.status === 'completed'
+                                ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                                : task.status === 'in_progress'
+                                ? 'bg-blue-500/20 text-blue-400 border-blue-500/50'
+                                : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                            }
+                          >
+                            {task.status}
+                          </Badge>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/20 ${
+                                task.status === 'pending' ? 'text-yellow-400 bg-yellow-500/20' : ''
+                              }`}
+                              onClick={() => {
+                                setEditingTask({ ...task, status: 'pending' });
+                                handleEditTask();
+                              }}
+                            >
+                              <Clock className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`text-gray-400 hover:text-blue-400 hover:bg-blue-500/20 ${
+                                task.status === 'in_progress' ? 'text-blue-400 bg-blue-500/20' : ''
+                              }`}
+                              onClick={() => {
+                                setEditingTask({ ...task, status: 'in_progress' });
+                                handleEditTask();
+                              }}
+                            >
+                              <Loader2 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`text-gray-400 hover:text-green-400 hover:bg-green-500/20 ${
+                                task.status === 'completed' ? 'text-green-400 bg-green-500/20' : ''
+                              }`}
+                              onClick={() => {
+                                setEditingTask({ ...task, status: 'completed' });
+                                handleEditTask();
+                              }}
+                            >
+                              <Check className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-400 hover:text-blue-400"
+                            onClick={() => startEditingTask(task)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-400 hover:text-red-400"
+                            onClick={() => handleDeleteTask(task.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Sidebar */}
@@ -1263,14 +1583,14 @@ export default function ProjectDetails() {
                 ></div>
               </div>
             </div>
-          </div>
-          <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button className="gradient-button" onClick={handleUpdateProject}>
-              Save Changes
-            </Button>
+            <div className="flex justify-end gap-4">
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button className="gradient-button" onClick={handleUpdateProject}>
+                Save Changes
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -1311,7 +1631,196 @@ export default function ProjectDetails() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Add Task Dialog */}
+      <Dialog open={isAddingTask} onOpenChange={setIsAddingTask}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Task</DialogTitle>
+            <DialogDescription>Create a new task for your project</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Title</Label>
+              <Input
+                value={newTask.title}
+                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                placeholder="Enter task title"
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Input
+                value={newTask.description}
+                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                placeholder="Enter task description"
+              />
+            </div>
+            <div>
+              <Label>Assigned To</Label>
+              <Select
+                value={newTask.assigned_to}
+                onValueChange={(value) => setNewTask({ ...newTask, assigned_to: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map(member => (
+                    <SelectItem key={member.user_id} value={member.user_id}>
+                      {member.user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Due Date</Label>
+              <Input
+                type="datetime-local"
+                value={newTask.due_date}
+                onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Priority</Label>
+              <Select
+                value={newTask.priority}
+                onValueChange={(value: 'low' | 'medium' | 'high') => setNewTask({ ...newTask, priority: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-4 mt-4">
+            <Button variant="outline" onClick={() => setIsAddingTask(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddTask} className="gradient-button">
+              Add Task
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Task Dialog */}
+      <Dialog open={isEditingTask} onOpenChange={setIsEditingTask}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+            <DialogDescription>Update task details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Title</Label>
+              <Input
+                value={editingTask?.title || ''}
+                onChange={(e) => setEditingTask(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Enter task title"
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Input
+                value={editingTask?.description || ''}
+                onChange={(e) => setEditingTask(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter task description"
+              />
+            </div>
+            <div>
+              <Label>Due Date</Label>
+              <Input
+                type="datetime-local"
+                value={editingTask?.due_date || ''}
+                onChange={(e) => setEditingTask(prev => ({ ...prev, due_date: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Priority</Label>
+              <Select
+                value={editingTask?.priority || 'medium'}
+                onValueChange={(value) => setEditingTask(prev => ({ ...prev, priority: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select
+                value={editingTask?.status || 'pending'}
+                onValueChange={(value) => setEditingTask(prev => ({ ...prev, status: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-4 mt-4">
+            <Button variant="outline" onClick={() => setIsEditingTask(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditTask} className="gradient-button">
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Schedule Dialog */}
+      <Dialog open={isEditingSchedule} onOpenChange={setIsEditingSchedule}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingScheduleItem ? 'Edit Schedule Item' : 'Add Schedule Item'}</DialogTitle>
+            <DialogDescription>{editingScheduleItem ? 'Update schedule item details' : 'Enter new schedule item details'}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={editingScheduleItem?.date || newScheduleItem.date}
+                onChange={(e) => handleChange(editingScheduleItem ? setEditingScheduleItem : setNewScheduleItem, 'date', e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Notes</Label>
+              <Input
+                value={editingScheduleItem?.notes || newScheduleItem.notes}
+                onChange={(e) => handleChange(editingScheduleItem ? setEditingScheduleItem : setNewScheduleItem, 'notes', e.target.value)}
+                placeholder="Enter notes"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-4 mt-4">
+            <Button variant="outline" onClick={() => setIsEditingSchedule(false)}>
+              Cancel
+            </Button>
+            <Button onClick={editingScheduleItem ? handleEditScheduleItem : handleAddScheduleItem} className="gradient-button">
+              {editingScheduleItem ? 'Save Changes' : 'Add Item'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
-
