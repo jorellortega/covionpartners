@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   ArrowLeft,
   Building2,
@@ -30,6 +31,8 @@ import {
   Plus,
   Lock,
   Unlock,
+  MessageCircle,
+  Send,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -59,6 +62,7 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
 import { TaskList } from '@/components/task-list'
+import { Textarea } from "@/components/ui/textarea"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -234,6 +238,23 @@ export default function ProjectDetails() {
   const [schedule, setSchedule] = useState<any[]>([])
   const [isEditingSchedule, setIsEditingSchedule] = useState(false)
   const [editingScheduleItem, setEditingScheduleItem] = useState<any>(null)
+  const [isDeletingTask, setIsDeletingTask] = useState(false)
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null)
+  const [isDeletingSchedule, setIsDeletingSchedule] = useState(false)
+  const [scheduleToDelete, setScheduleToDelete] = useState<string | null>(null)
+  const [comments, setComments] = useState<Array<{
+    id: string;
+    content: string;
+    user_id: string;
+    created_at: string;
+    user?: {
+      name: string;
+      email: string;
+    };
+  }>>([])
+  const [newComment, setNewComment] = useState('')
+  const [isDeletingComment, setIsDeletingComment] = useState(false)
+  const [commentToDelete, setCommentToDelete] = useState<string | null>(null)
 
   useEffect(() => {
     refreshTeamMembers()
@@ -379,6 +400,35 @@ export default function ProjectDetails() {
     };
 
     fetchSchedule();
+  }, [projectId]);
+
+  // Fetch comments
+  useEffect(() => {
+    const fetchComments = async () => {
+      if (!projectId) return;
+      
+      try {
+        const { data: commentsData, error: commentsError } = await supabase
+          .from('project_comments')
+          .select(`
+            *,
+            user:user_id (
+              name,
+              email
+            )
+          `)
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false });
+
+        if (commentsError) throw commentsError;
+        setComments(commentsData || []);
+      } catch (error) {
+        console.error('Error fetching comments:', error);
+        toast.error('Failed to load comments');
+      }
+    };
+
+    fetchComments();
   }, [projectId]);
 
   const handleEditMember = (member: TeamMemberWithUser) => {
@@ -778,8 +828,6 @@ export default function ProjectDetails() {
   }
 
   const handleDeleteTask = async (taskId: string) => {
-    if (!confirm('Are you sure you want to delete this task?')) return
-
     try {
       const { error } = await supabase
         .from('tasks')
@@ -789,6 +837,8 @@ export default function ProjectDetails() {
       if (error) throw error
 
       setTasks(prev => prev.filter(task => task.id !== taskId))
+      setIsDeletingTask(false)
+      setTaskToDelete(null)
       toast.success('Task deleted successfully')
     } catch (error) {
       console.error('Error deleting task:', error)
@@ -888,6 +938,8 @@ export default function ProjectDetails() {
       if (error) throw error;
 
       setSchedule(prev => prev.filter(item => item.id !== itemId));
+      setIsDeletingSchedule(false);
+      setScheduleToDelete(null);
       toast.success('Schedule item deleted successfully');
     } catch (error) {
       console.error('Error deleting schedule item:', error);
@@ -905,6 +957,118 @@ export default function ProjectDetails() {
   const handleChange = <T extends object>(setter: React.Dispatch<React.SetStateAction<T>>, field: keyof T, value: any) => {
     setter((prev: T) => ({ ...prev, [field]: value }))
   }
+
+  const checkTeamMembership = async () => {
+    if (!user || !projectId) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error checking team membership:', error);
+        return false;
+      }
+
+      console.log('Team membership check result:', data);
+      return !!data;
+    } catch (error) {
+      console.error('Error in team membership check:', error);
+      return false;
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!user || !projectId || !newComment.trim()) {
+      console.log('Missing required data:', { user, projectId, newComment });
+      return;
+    }
+
+    try {
+      console.log('Adding comment with:', {
+        projectId,
+        userId: user.id,
+        content: newComment.trim()
+      });
+
+      // First check if user is a team member
+      const { data: teamMember, error: teamError } = await supabase
+        .from('team_members')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (teamError) {
+        console.error('Error checking team membership:', teamError);
+        toast.error('Error verifying team membership');
+        return;
+      }
+
+      if (!teamMember) {
+        console.log('User is not a team member');
+        toast.error('You must be a team member to add comments');
+        return;
+      }
+
+      // Now try to add the comment
+      const { data, error } = await supabase
+        .from('project_comments')
+        .insert([{
+          project_id: projectId,
+          user_id: user.id,
+          content: newComment.trim()
+        }])
+        .select(`
+          *,
+          user:user_id (
+            name,
+            email
+          )
+        `)
+        .single();
+
+      if (error) {
+        console.error('Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
+
+      setComments(prev => [data, ...prev]);
+      setNewComment('');
+      toast.success('Comment added successfully');
+    } catch (error: any) {
+      console.error('Full error object:', error);
+      toast.error(error.message || 'Failed to add comment');
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('project_comments')
+        .delete()
+        .eq('id', commentId);
+
+      if (error) throw error;
+
+      setComments(prev => prev.filter(comment => comment.id !== commentId));
+      setIsDeletingComment(false);
+      setCommentToDelete(null);
+      toast.success('Comment deleted successfully');
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      toast.error('Failed to delete comment');
+    }
+  };
 
   // Show loading state while authentication or projects are loading
   if (authLoading || projectsLoading || !project) {
@@ -1252,7 +1416,10 @@ export default function ProjectDetails() {
                           variant="ghost"
                           size="sm"
                           className="text-gray-400 hover:text-red-400"
-                          onClick={() => handleDeleteScheduleItem(item.id)}
+                          onClick={() => {
+                            setScheduleToDelete(item.id)
+                            setIsDeletingSchedule(true)
+                          }}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -1314,7 +1481,7 @@ export default function ProjectDetails() {
                           <div className="flex flex-wrap items-center mt-2 gap-2">
                             <span className="text-sm text-gray-400">
                               <Calendar className="w-4 h-4 inline mr-1" />
-                              Due: {new Date(task.due_date).toLocaleDateString()}
+                              Due: {new Date(task.due_date).toLocaleDateString()} at {new Date(task.due_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                             <Badge
                               variant="outline"
@@ -1411,7 +1578,10 @@ export default function ProjectDetails() {
                             variant="ghost"
                             size="sm"
                             className="text-gray-400 hover:text-red-400"
-                            onClick={() => handleDeleteTask(task.id)}
+                            onClick={() => {
+                              setTaskToDelete(task.id)
+                              setIsDeletingTask(true)
+                            }}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -1419,6 +1589,87 @@ export default function ProjectDetails() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Comments Section */}
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle className="flex items-center">
+                      <MessageCircle className="w-5 h-5 mr-2" />
+                      Project Comments
+                    </CardTitle>
+                    <CardDescription>Discuss project details and updates</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Add Comment */}
+                  <div className="flex gap-2">
+                    <Textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Add a comment..."
+                      className="flex-1 min-h-[80px] bg-gray-800/30"
+                    />
+                    <Button
+                      onClick={handleAddComment}
+                      disabled={!newComment.trim()}
+                      className="gradient-button self-end"
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {/* Comments List */}
+                  <div className="space-y-4">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="flex gap-4 p-4 bg-gray-800/30 rounded-lg">
+                        <Avatar>
+                          <AvatarFallback>
+                            {comment.user?.name?.[0] || comment.user?.email?.[0] || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-white">
+                                {comment.user?.name || comment.user?.email || 'Unknown User'}
+                              </span>
+                              <span className="text-sm text-gray-400">
+                                {new Date(comment.created_at).toLocaleString()}
+                              </span>
+                            </div>
+                            {comment.user_id === user?.id && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-400 hover:text-red-400"
+                                onClick={() => {
+                                  setCommentToDelete(comment.id);
+                                  setIsDeletingComment(true);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                          <p className="mt-2 text-gray-300">{comment.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {comments.length === 0 && (
+                      <div className="text-center py-6">
+                        <MessageCircle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-400">No comments yet</h3>
+                        <p className="text-gray-500 mt-1">Be the first to comment on this project</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1873,6 +2124,96 @@ export default function ProjectDetails() {
                 {editingScheduleItem?.id ? 'Save Changes' : 'Add Item'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Task Confirmation Dialog */}
+      <Dialog open={isDeletingTask} onOpenChange={setIsDeletingTask}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Task</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this task? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-4 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeletingTask(false)
+                setTaskToDelete(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="bg-red-500 hover:bg-red-600"
+              onClick={() => taskToDelete && handleDeleteTask(taskToDelete)}
+            >
+              Delete Task
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Schedule Confirmation Dialog */}
+      <Dialog open={isDeletingSchedule} onOpenChange={setIsDeletingSchedule}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Schedule Item</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this schedule item? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-4 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeletingSchedule(false)
+                setScheduleToDelete(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="bg-red-500 hover:bg-red-600"
+              onClick={() => scheduleToDelete && handleDeleteScheduleItem(scheduleToDelete)}
+            >
+              Delete Schedule Item
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Comment Confirmation Dialog */}
+      <Dialog open={isDeletingComment} onOpenChange={setIsDeletingComment}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Comment</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this comment? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-4 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeletingComment(false);
+                setCommentToDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="bg-red-500 hover:bg-red-600"
+              onClick={() => commentToDelete && handleDeleteComment(commentToDelete)}
+            >
+              Delete Comment
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

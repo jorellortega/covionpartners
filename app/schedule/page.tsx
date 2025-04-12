@@ -266,23 +266,23 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6">
+    <div className="min-h-screen bg-gray-950 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Project Schedule</h1>
-          <p className="text-gray-400">Manage tasks, events, and team availability for your projects</p>
+        <header className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Project Schedule</h1>
+          <p className="text-sm sm:text-base text-gray-400">Manage tasks, events, and team availability for your projects</p>
         </header>
 
         <div className="space-y-4">
-          <Button onClick={() => router.push('/')} className="gradient-button">
+          <Button onClick={() => router.push('/')} className="gradient-button w-full sm:w-auto">
             Home
           </Button>
 
           {/* Project Selection */}
           <Card className="mb-6 border-gray-800 bg-gray-900">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="w-full sm:w-auto">
                   <Label className="text-white mb-2 block">Select Project</Label>
                   <Select
                     value={selectedProject || ''}
@@ -317,11 +317,11 @@ export default function SchedulePage() {
                   </Select>
                 </div>
                 {selectedProject && (
-                  <div className="ml-4">
+                  <div className="w-full sm:w-auto">
                     <Button
                       onClick={() => router.push(`/projects/${selectedProject}`)}
                       variant="outline"
-                      className="text-white border-gray-700 hover:bg-gray-800"
+                      className="w-full sm:w-auto text-white border-gray-700 hover:bg-gray-800"
                     >
                       View Project Details
                     </Button>
@@ -353,22 +353,22 @@ export default function SchedulePage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Left Column - Calendar and Events */}
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Calendar */}
                 <Card className="border-gray-800 bg-gray-900">
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
+                  <CardHeader className="p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div>
-                        <CardTitle className="flex items-center">
+                        <CardTitle className="flex items-center text-lg sm:text-xl">
                           <CalendarIcon className="w-5 h-5 mr-2" />
                           Project Calendar
                         </CardTitle>
                         <CardDescription>View and manage project events</CardDescription>
                       </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
+                        <div className="flex items-center space-x-2 w-full sm:w-auto">
                           <Switch
                             id="show-all-projects"
                             checked={showAllProjects}
@@ -378,12 +378,12 @@ export default function SchedulePage() {
                             Show All Projects
                           </Label>
                         </div>
-                        <div className="flex space-x-2">
+                        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setIsSendingInvite(true)}
-                            className="text-xs"
+                            className="w-full sm:w-auto text-xs"
                           >
                             <Mail className="w-4 h-4 mr-1" />
                             Send Invite
@@ -392,7 +392,7 @@ export default function SchedulePage() {
                             variant={viewMode === 'day' ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setViewMode('day')}
-                            className="text-xs"
+                            className="w-full sm:w-auto text-xs"
                           >
                             Day
                           </Button>
@@ -400,7 +400,7 @@ export default function SchedulePage() {
                             variant={viewMode === 'week' ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setViewMode('week')}
-                            className="text-xs"
+                            className="w-full sm:w-auto text-xs"
                           >
                             Week
                           </Button>
@@ -408,7 +408,7 @@ export default function SchedulePage() {
                             variant={viewMode === 'month' ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setViewMode('month')}
-                            className="text-xs"
+                            className="w-full sm:w-auto text-xs"
                           >
                             Month
                           </Button>
@@ -416,7 +416,7 @@ export default function SchedulePage() {
                             variant={viewMode === 'list' ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setViewMode('list')}
-                            className="text-xs"
+                            className="w-full sm:w-auto text-xs"
                           >
                             List
                           </Button>
@@ -424,7 +424,7 @@ export default function SchedulePage() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-4 sm:p-6">
                     <div className="space-y-4">
                       {viewMode === 'month' && (
                         <div className="p-4 bg-gray-800/50 rounded-lg">
@@ -642,14 +642,14 @@ export default function SchedulePage() {
 
                 {/* Upcoming Events */}
                 <Card className="border-gray-800 bg-gray-900">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
+                  <CardHeader className="p-4 sm:p-6">
+                    <CardTitle className="flex items-center text-lg sm:text-xl">
                       <CalendarIcon className="w-5 h-5 mr-2" />
                       Upcoming Events
                     </CardTitle>
                     <CardDescription>Events scheduled for the next 7 days</CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-4 sm:p-6">
                     <div className="space-y-4">
                       {events
                         .filter(event => {
@@ -707,25 +707,25 @@ export default function SchedulePage() {
               </div>
 
               {/* Right Column - Tasks and Team */}
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Tasks */}
                 <Card className="border-gray-800 bg-gray-900">
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
+                  <CardHeader className="p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div>
-                        <CardTitle className="flex items-center">
+                        <CardTitle className="flex items-center text-lg sm:text-xl">
                           <CheckSquare className="w-5 h-5 mr-2" />
                           Project Tasks
                         </CardTitle>
                         <CardDescription>Manage project tasks and assignments</CardDescription>
                       </div>
-                      <Button onClick={() => setIsAddingTask(true)} className="gradient-button">
+                      <Button onClick={() => setIsAddingTask(true)} className="w-full sm:w-auto gradient-button">
                         <Plus className="w-4 h-4 mr-2" />
                         Add Task
                       </Button>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-4 sm:p-6">
                     <div className="space-y-3">
                       {tasks.map(task => (
                         <div key={task.id} className="p-3 bg-gray-800/50 rounded-lg">
@@ -773,14 +773,14 @@ export default function SchedulePage() {
 
                 {/* Team Availability */}
                 <Card className="border-gray-800 bg-gray-900">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
+                  <CardHeader className="p-4 sm:p-6">
+                    <CardTitle className="flex items-center text-lg sm:text-xl">
                       <Users className="w-5 h-5 mr-2" />
                       Team Availability
                     </CardTitle>
                     <CardDescription>Today's team member status</CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-4 sm:p-6">
                     <div className="space-y-3">
                       {teamAvailability
                         .filter(member => teamMembers.some(tm => tm.user_id === member.user_id))
