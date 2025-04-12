@@ -54,10 +54,11 @@ body {
 
 /* Leonardo-inspired gradient text */
 .gradient-text {
-  background: linear-gradient(to right, hsl(230, 76%, 59%), hsl(267, 83%, 60%), hsl(320, 80%, 64%));
+  background: linear-gradient(to right, #4f46e5, #7c3aed, #9333ea);
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   background-clip: text;
+  color: transparent;
+  display: inline-block;
 }
 
 /* Leonardo-inspired gradient button */

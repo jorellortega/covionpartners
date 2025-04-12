@@ -98,6 +98,10 @@ export default function SchedulePage() {
   const [showAllProjects, setShowAllProjects] = useState(true)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteMessage, setInviteMessage] = useState('')
+  const [isEditingTask, setIsEditingTask] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [isDeletingTask, setIsDeletingTask] = useState(false)
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -254,6 +258,65 @@ export default function SchedulePage() {
     } else {
       setSelectedProject(value)
       setShowAllProjects(false)
+    }
+  }
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task)
+    setIsEditingTask(true)
+  }
+
+  const handleUpdateTask = async () => {
+    if (!editingTask) return
+
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .update({
+          title: editingTask.title,
+          description: editingTask.description,
+          project_id: editingTask.project_id,
+          assigned_to: editingTask.assigned_to,
+          due_date: editingTask.due_date,
+          status: editingTask.status,
+          priority: editingTask.priority,
+        })
+        .eq('id', editingTask.id)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setTasks(prev => prev.map(task => 
+        task.id === editingTask.id ? data : task
+      ))
+      setIsEditingTask(false)
+      setEditingTask(null)
+      toast.success('Task updated successfully')
+    } catch (error) {
+      console.error('Error updating task:', error)
+      toast.error('Failed to update task')
+    }
+  }
+
+  const handleDeleteTask = async () => {
+    if (!taskToDelete) return
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskToDelete.id)
+
+      if (error) throw error
+
+      setTasks(prev => prev.filter(task => task.id !== taskToDelete.id))
+      setIsDeletingTask(false)
+      setTaskToDelete(null)
+      toast.success('Task deleted successfully')
+    } catch (error) {
+      console.error('Error deleting task:', error)
+      toast.error('Failed to delete task')
     }
   }
 
@@ -1048,6 +1111,204 @@ export default function SchedulePage() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Task List */}
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold mb-4">Tasks</h2>
+            <div className="grid gap-4">
+              {tasks.map(task => (
+                <Card key={task.id}>
+                  <CardContent className="pt-6">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-semibold">{task.title}</h3>
+                        <p className="text-sm text-muted-foreground">{task.description}</p>
+                        <div className="mt-2 flex gap-2">
+                          <Badge variant="secondary">{task.priority}</Badge>
+                          <Badge variant={task.status === 'completed' ? 'default' : 'outline'}>
+                            {task.status}
+                          </Badge>
+                        </div>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Due: {new Date(task.due_date).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditTask(task)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setTaskToDelete(task)
+                            setIsDeletingTask(true)
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* Edit Task Dialog */}
+          <Dialog open={isEditingTask} onOpenChange={setIsEditingTask}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Task</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Title</Label>
+                  <Input
+                    value={editingTask?.title || ''}
+                    onChange={(e) => setEditingTask(prev => prev ? { ...prev, title: e.target.value } : null)}
+                  />
+                </div>
+                <div>
+                  <Label>Description</Label>
+                  <Input
+                    value={editingTask?.description || ''}
+                    onChange={(e) => setEditingTask(prev => prev ? { ...prev, description: e.target.value } : null)}
+                  />
+                </div>
+                <div>
+                  <Label>Project</Label>
+                  <Select
+                    value={editingTask?.project_id || ''}
+                    onValueChange={(value) => setEditingTask(prev => prev ? { ...prev, project_id: value } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map(project => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Due Date</Label>
+                  <Input
+                    type="date"
+                    value={editingTask?.due_date ? new Date(editingTask.due_date).toISOString().split('T')[0] : ''}
+                    onChange={(e) => setEditingTask(prev => prev ? { ...prev, due_date: e.target.value } : null)}
+                  />
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <Select
+                    value={editingTask?.status || 'pending'}
+                    onValueChange={(value) => setEditingTask(prev => prev ? { ...prev, status: value as Task['status'] } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Priority</Label>
+                  <Select
+                    value={editingTask?.priority || 'medium'}
+                    onValueChange={(value) => setEditingTask(prev => prev ? { ...prev, priority: value as Task['priority'] } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsEditingTask(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleUpdateTask}>
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Delete Task Dialog */}
+          <Dialog open={isDeletingTask} onOpenChange={setIsDeletingTask}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete Task</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to delete this task? This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsDeletingTask(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleDeleteTask}>
+                  Delete
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Team Members Section */}
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold mb-4">Team Members</h2>
+            <div className="grid gap-4">
+              {teamMembers.map(member => (
+                <Card key={member.id}>
+                  <CardContent className="pt-6">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-semibold">{member.users.name}</h3>
+                        <p className="text-sm text-muted-foreground">{member.users.email}</p>
+                        <div className="mt-2 flex gap-2">
+                          <Badge variant="secondary">{member.role}</Badge>
+                          <Badge variant={member.status === 'active' ? 'default' : 'outline'}>
+                            {member.status}
+                          </Badge>
+                        </div>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Joined: {new Date(member.joined_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            // Add functionality to view member's tasks/events
+                            toast.info('Viewing member details coming soon')
+                          }}
+                        >
+                          View Details
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -132,7 +132,7 @@ export default function MakeDealPage() {
             Sign In
           </Link>
           <p className="mt-4 text-sm text-gray-400">
-            New to COVION STUDIO?{' '}
+            New to COVION PARTNERS?{' '}
             <Link href="/login?tab=signup" className="text-blue-300 hover:text-blue-200">
               Create an account
             </Link>

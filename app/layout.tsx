@@ -7,7 +7,7 @@ import { SiteHeader } from "@/components/site-header"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "COVION STUDIO",
+  title: "COVION PARTNERS",
   description: "Investment opportunities, projects, collaborations, and partnership management",
 }
 

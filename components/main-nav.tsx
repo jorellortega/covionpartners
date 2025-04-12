@@ -24,7 +24,7 @@ export function MainNav() {
         </Link>
       ) : (
         <Link href="/login">
-          <Button variant="ghost" className="text-sm font-medium hover:text-purple-500">
+          <Button variant="ghost" className="text-sm font-medium hover:text-purple-400">
             Login
           </Button>
         </Link>

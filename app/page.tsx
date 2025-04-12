@@ -46,7 +46,7 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-gray-950">
       <main className="flex-grow flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl w-full space-y-12 text-center">
-          <h2 className="text-5xl font-extrabold gradient-text mt-8">COVION STUDIO partners</h2>
+          <h2 className="text-5xl font-extrabold gradient-text mt-8">COVION PARTNERS</h2>
           <p className="text-xl text-white/90">
             Investment opportunities, projects, collaborations, and partnership management
           </p>
@@ -124,7 +124,7 @@ export default function Home() {
 
           <div className="mt-12 space-y-6">
             <p className="text-sm text-white/80">
-              New to COVION STUDIO?{" "}
+              New to COVION PARTNERS?{" "}
               <Link href="/login?tab=signup" className="font-medium text-blue-300 hover:text-blue-200">
                 Create an account
               </Link>
@@ -134,7 +134,7 @@ export default function Home() {
       </main>
       <footer className="py-8 text-center text-white/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-sm">Developed by JOR. Powered by Covion Studio © 2025</p>
+          <p className="text-sm">Developed by JOR. Powered by Covion Partners © 2025</p>
         </div>
       </footer>
     </div>

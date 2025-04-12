@@ -928,7 +928,7 @@ export default function PartnerDashboard() {
                     </Link>
                   )}
                   <Link href="/projects" className="block">
-                     <Button variant="outline" className="w-full border-gray-700">
+                     <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
                       <FolderKanban className="w-4 h-4 mr-2" />
                       View All Projects
                     </Button>
@@ -937,7 +937,7 @@ export default function PartnerDashboard() {
                   {/* Join a Project Button & Dialog */}
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="outline" className="w-full border-gray-700">
+                      <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
                         <UserPlus className="w-4 h-4 mr-2" />
                         Join a Project
                       </Button>
