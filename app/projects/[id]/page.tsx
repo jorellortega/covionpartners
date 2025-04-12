@@ -232,12 +232,8 @@ export default function ProjectDetails() {
   const [editingTask, setEditingTask] = useState<any>(null)
   const [isEditingTask, setIsEditingTask] = useState(false)
   const [schedule, setSchedule] = useState<any[]>([])
-  const [newScheduleItem, setNewScheduleItem] = useState({
-    date: '',
-    notes: '',
-  })
-  const [editingScheduleItem, setEditingScheduleItem] = useState<any>(null)
   const [isEditingSchedule, setIsEditingSchedule] = useState(false)
+  const [editingScheduleItem, setEditingScheduleItem] = useState<any>(null)
 
   useEffect(() => {
     refreshTeamMembers()
@@ -805,21 +801,38 @@ export default function ProjectDetails() {
     setIsEditingTask(true)
   }
 
+  // Add new schedule item button handler
+  const handleAddNewScheduleClick = () => {
+    setEditingScheduleItem({
+      description: '',
+      notes: '',
+      start_time: new Date().toISOString().split('T')[0],
+      project_id: projectId
+    });
+    setIsEditingSchedule(true);
+  };
+
+  // Add Schedule Item
   const handleAddScheduleItem = async () => {
-    if (!projectId || !user) return;
+    if (!projectId || !user || !editingScheduleItem?.description || !editingScheduleItem?.start_time) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
 
     try {
+      const newItem = {
+        project_id: projectId,
+        description: editingScheduleItem.description,
+        notes: editingScheduleItem.notes || null,
+        start_time: new Date(editingScheduleItem.start_time).toISOString(),
+        created_by: user.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
       const { data, error } = await supabase
         .from('schedule')
-        .insert([{
-          project_id: projectId,
-          description: editingScheduleItem?.description || '',
-          notes: editingScheduleItem?.notes || '',
-          start_time: editingScheduleItem?.start_time,
-          created_by: user.id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }])
+        .insert([newItem])
         .select()
         .single();
 
@@ -835,6 +848,7 @@ export default function ProjectDetails() {
     }
   };
 
+  // Edit Schedule Item
   const handleEditScheduleItem = async () => {
     if (!editingScheduleItem?.id || !projectId) return;
 
@@ -863,6 +877,7 @@ export default function ProjectDetails() {
     }
   };
 
+  // Delete Schedule Item
   const handleDeleteScheduleItem = async (itemId: string) => {
     try {
       const { error } = await supabase
@@ -880,10 +895,11 @@ export default function ProjectDetails() {
     }
   };
 
+  // Start editing a schedule item
   const startEditingScheduleItem = (item: any) => {
-    setEditingScheduleItem({ ...item })
-    setIsEditingSchedule(true)
-  }
+    setEditingScheduleItem({ ...item });
+    setIsEditingSchedule(true);
+  };
 
   // Explicitly type 'prev' in functions
   const handleChange = <T extends object>(setter: React.Dispatch<React.SetStateAction<T>>, field: keyof T, value: any) => {
@@ -1185,14 +1201,18 @@ export default function ProjectDetails() {
             {/* Schedule Section */}
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div>
-                    <CardTitle>Project Schedule</CardTitle>
-                    <CardDescription className="text-gray-400">
-                      View and manage project schedule
-                    </CardDescription>
+                    <CardTitle className="flex items-center">
+                      <Calendar className="w-5 h-5 mr-2" />
+                      Project Schedule
+                    </CardTitle>
+                    <CardDescription>Track important project dates and milestones</CardDescription>
                       </div>
-                  <Button onClick={() => setIsEditingSchedule(true)} className="gradient-button">
+                  <Button
+                    onClick={handleAddNewScheduleClick}
+                    className="gradient-button w-full sm:w-auto"
+                  >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Schedule Item
                   </Button>
@@ -1208,15 +1228,15 @@ export default function ProjectDetails() {
                       <div className="flex items-start gap-4">
                         <div className="min-w-[100px] text-sm text-gray-400">
                           {new Date(item.start_time).toLocaleDateString()}
-                        </div>
-                        <div>
+                      </div>
+                      <div>
                           <h4 className="text-lg font-medium text-white">{item.description}</h4>
                           {item.notes && (
                             <p className="mt-1 text-sm text-gray-400">{item.notes}</p>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1236,10 +1256,10 @@ export default function ProjectDetails() {
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
+                        </div>
                       </div>
-                    </div>
                   ))}
-                </div>
+                    </div>
               </CardContent>
             </Card>
 
@@ -1402,7 +1422,7 @@ export default function ProjectDetails() {
                 </div>
               </CardContent>
             </Card>
-          </div>
+                  </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
@@ -1427,12 +1447,12 @@ export default function ProjectDetails() {
                             <span className="text-white font-medium">
                               {member.user?.name?.[0] || member.user?.email?.[0] || '?'}
                             </span>
-                          </div>
+                </div>
                           <div>
                             <h4 className="font-medium text-white">{member.user?.name || member.user?.email}</h4>
                             <p className="text-sm text-gray-400">{member.role}</p>
-                          </div>
-                        </div>
+              </div>
+            </div>
                         {user?.role !== 'investor' && (
                         <div className="flex items-center gap-2">
                             <Button
@@ -1449,9 +1469,9 @@ export default function ProjectDetails() {
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
-                        </div>
+        </div>
                         )}
-                      </div>
+      </div>
                     </div>
                   ))}
                   {user?.role !== 'investor' && (
@@ -1478,16 +1498,16 @@ export default function ProjectDetails() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <Button
+                variant="outline"
                         className="text-blue-400 border-blue-500/50 hover:bg-blue-500/20"
                         onClick={() => setIsEditing(true)}
-                      >
+              >
                         <Pencil className="w-4 h-4 mr-2" />
                         Edit Project
-                      </Button>
-                      <Button
+              </Button>
+              <Button 
                         variant="outline"
                         className={`${
                           project?.visibility === 'private'
@@ -1529,14 +1549,14 @@ export default function ProjectDetails() {
                           <>
                             <Lock className="w-4 h-4 mr-2" />
                             Make Public
-                          </>
-                        ) : (
+                  </>
+                ) : (
                           <>
                             <Unlock className="w-4 h-4 mr-2" />
                             Make Private
                           </>
-                        )}
-                      </Button>
+                )}
+              </Button>
                       <Button
                         variant="outline"
                         className="text-red-400 border-red-500/50 hover:bg-red-500/20"
@@ -1638,7 +1658,7 @@ export default function ProjectDetails() {
             <Button onClick={handleDeleteProject} className="bg-red-500 hover:bg-red-600">
               Delete Project
             </Button>
-          </div>
+    </div>
         </DialogContent>
       </Dialog>
 
