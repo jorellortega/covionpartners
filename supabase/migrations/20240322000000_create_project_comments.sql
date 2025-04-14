@@ -43,6 +43,7 @@ CREATE POLICY "Users can create comments on their projects"
             AND (
                 projects.owner_id = auth.uid()
                 OR team_members.user_id = auth.uid()
+                OR projects.visibility = 'public'
             )
         )
     );

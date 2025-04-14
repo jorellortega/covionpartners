@@ -409,20 +409,40 @@ export default function ProjectDetails() {
       if (!projectId) return;
       
       try {
+        // First fetch comments
         const { data: commentsData, error: commentsError } = await supabase
           .from('project_comments')
-          .select(`
-            *,
-            user:user_id (
-              name,
-              email
-            )
-          `)
+          .select('*')
           .eq('project_id', projectId)
           .order('created_at', { ascending: false });
 
         if (commentsError) throw commentsError;
-        setComments(commentsData || []);
+
+        // Then fetch user details for each comment
+        const commentsWithUsers = await Promise.all(
+          (commentsData || []).map(async (comment) => {
+            const { data: userData, error: userError } = await supabase
+              .from('users')
+              .select('name, email')
+              .eq('id', comment.user_id)
+              .single();
+
+            if (userError) {
+              console.error('Error fetching user data:', userError);
+              return {
+                ...comment,
+                user: { name: 'Unknown User', email: null }
+              };
+            }
+
+            return {
+              ...comment,
+              user: userData
+            };
+          })
+        );
+        
+        setComments(commentsWithUsers);
       } catch (error) {
         console.error('Error fetching comments:', error);
         toast.error('Failed to load comments');
@@ -985,70 +1005,57 @@ export default function ProjectDetails() {
 
   const handleAddComment = async () => {
     if (!user || !projectId || !newComment.trim()) {
-      console.log('Missing required data:', { user, projectId, newComment });
+      console.error('Missing required data:', { user, projectId, newComment });
+      toast.error('Please ensure you are logged in and have entered a comment');
       return;
     }
 
     try {
-      console.log('Adding comment with:', {
-        projectId,
-        userId: user.id,
-        content: newComment.trim()
-      });
+      // Prepare comment data
+      const commentData = {
+        project_id: projectId,
+        user_id: user.id,
+        content: newComment.trim(),
+        created_at: new Date().toISOString()
+      };
 
-      // First check if user is a team member
-      const { data: teamMember, error: teamError } = await supabase
-        .from('team_members')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('user_id', user.id)
-        .single();
+      console.log('Submitting comment with data:', commentData);
 
-      if (teamError) {
-        console.error('Error checking team membership:', teamError);
-        toast.error('Error verifying team membership');
-        return;
-      }
-
-      if (!teamMember) {
-        console.log('User is not a team member');
-        toast.error('You must be a team member to add comments');
-        return;
-      }
-
-      // Now try to add the comment
-      const { data, error } = await supabase
+      // Insert the comment
+      const { data: insertedComment, error: insertError } = await supabase
         .from('project_comments')
-        .insert([{
-          project_id: projectId,
-          user_id: user.id,
-          content: newComment.trim()
-        }])
-        .select(`
-          *,
-          user:user_id (
-            name,
-            email
-          )
-        `)
+        .insert([commentData])
+        .select()
         .single();
 
-      if (error) {
-        console.error('Error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw error;
+      if (insertError) {
+        console.error('Error adding comment:', insertError);
+        throw new Error(insertError.message || 'Failed to add comment');
       }
 
-      setComments(prev => [data, ...prev]);
+      if (!insertedComment) {
+        throw new Error('No data returned from comment insertion');
+      }
+
+      // Get the user data
+      const { data: userData } = await supabase
+        .from('users')
+        .select('name, email')
+        .eq('id', user.id)
+        .single();
+
+      // Add the comment with user data to the state
+      const commentWithUser = {
+        ...insertedComment,
+        user: userData || { name: user.email, email: user.email }
+      };
+
+      setComments(prev => [commentWithUser, ...prev]);
       setNewComment('');
       toast.success('Comment added successfully');
     } catch (error: any) {
-      console.error('Full error object:', error);
-      toast.error(error.message || 'Failed to add comment');
+      console.error('Error in handleAddComment:', error);
+      toast.error(error.message || 'Failed to add comment. Please try again.');
     }
   };
 
@@ -1517,7 +1524,7 @@ export default function ProjectDetails() {
                     <div key={task.id} className="p-3 bg-gray-800/50 rounded-lg">
                       <div className="flex flex-col gap-3">
                         <div className="flex flex-col gap-2">
-                          <h4 className="font-medium text-white">{task.title}</h4>
+                          <h4 className="text-lg font-semibold text-white">{task.title}</h4>
                           <p className="text-sm text-gray-400">{task.description}</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
