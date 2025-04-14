@@ -483,75 +483,73 @@ export default function PartnerDashboard() {
           )}
 
           {/* My Projects Section - Moved Below Updates */}
-          {user.role !== 'viewer' && (
-            <div className="col-span-full">
-              <Card className="leonardo-card border-gray-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Briefcase className="w-5 h-5 mr-2" />
-                    My Projects
-                  </CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Projects where you have an assigned role
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {loadingMyProjects ? (
-                    <div className="flex justify-center py-8">
-                      <LoadingSpinner />
-                    </div>
-                  ) : myProjects.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-400">You haven't been assigned to any projects yet</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {myProjects.map((project) => (
-                        <div key={project.id} className="p-4 bg-gray-800/30 rounded-lg">
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
-                            <div className="space-y-2 mb-4 sm:mb-0">
-                              <div className="flex items-center gap-2">
-                                <h3 className="text-lg font-medium text-white">{project.name}</h3>
-                                <StatusBadge status={project.status} />
-                              </div>
-                              <div className="flex items-center text-gray-400">
-                                <Briefcase className="w-4 h-4 mr-2" />
-                                <span>Your Role: {project.role.name}</span>
-                              </div>
-                              <p className="text-sm text-gray-400 line-clamp-2">
-                                {project.description || 'No description available'}
-                              </p>
+          <div className="col-span-full">
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Briefcase className="w-5 h-5 mr-2" />
+                  My Projects
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Projects where you have an assigned role
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingMyProjects ? (
+                  <div className="flex justify-center py-8">
+                    <LoadingSpinner />
+                  </div>
+                ) : myProjects.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-400">You haven't been assigned to any projects yet</p>
+                  </div>
+                ) :
+                  <div className="space-y-4">
+                    {myProjects.map((project) => (
+                      <div key={project.id} className="p-4 bg-gray-800/30 rounded-lg">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
+                          <div className="space-y-2 mb-4 sm:mb-0">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-lg font-medium text-white">{project.name}</h3>
+                              <StatusBadge status={project.status} />
                             </div>
-                            <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0 mt-4 sm:mt-0 sm:ml-4">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs border-gray-700 w-full sm:w-auto"
-                                onClick={() => router.push(`/projects/${project.id}/team`)}
-                              >
-                                <Users className="w-3 h-3 mr-1" />
-                                View Team
-                              </Button>
-                              <Button
-                                variant="default"
-                                size="sm"
-                                className="text-xs w-full sm:w-auto"
-                                onClick={() => router.push(`/projects/${project.id}`)}
-                              >
-                                <FileText className="w-3 h-3 mr-1" />
-                                View Details
-                              </Button>
+                            <div className="flex items-center text-gray-400">
+                              <Briefcase className="w-4 h-4 mr-2" />
+                              <span>Your Role: {project.role.name}</span>
                             </div>
+                            <p className="text-sm text-gray-400 line-clamp-2">
+                              {project.description || 'No description available'}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0 mt-4 sm:mt-0 sm:ml-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs border-gray-700 w-full sm:w-auto"
+                              onClick={() => router.push(`/projects/${project.id}/team`)}
+                            >
+                              <Users className="w-3 h-3 mr-1" />
+                              View Team
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="text-xs w-full sm:w-auto"
+                              onClick={() => router.push(`/projects/${project.id}`)}
+                            >
+                              <FileText className="w-3 h-3 mr-1" />
+                              View Details
+                            </Button>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                      </div>
+                    ))}
+                  </div>
+                }
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Withdraw Card */}
           {user?.role === 'admin' && (
@@ -701,6 +699,13 @@ export default function PartnerDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  <Button
+                    className="w-full gradient-button hover:bg-purple-500"
+                    onClick={() => router.push('/projects')}
+                  >
+                    <Briefcase className="w-4 h-4 mr-2" />
+                    Projects
+                  </Button>
                   {user.role === 'viewer' ? (
                     <Button
                       className="w-full gradient-button"
@@ -711,13 +716,6 @@ export default function PartnerDashboard() {
                     </Button>
                   ) : (
                     <>
-                      <Button
-                        className="w-full gradient-button hover:bg-purple-500"
-                        onClick={() => router.push('/projects')}
-                      >
-                        <Briefcase className="w-4 h-4 mr-2" />
-                        Projects
-                      </Button>
                       <Button
                         className="w-full gradient-button hover:bg-purple-500"
                         onClick={() => router.push('/publicprojects')}

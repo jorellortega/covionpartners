@@ -13,7 +13,7 @@ export function MainNav() {
         Home
       </Link>
       <Link href="/publicprojects" className="text-sm font-medium transition-colors hover:text-primary">
-        Projects
+        Public Projects
       </Link>
       <Link href="/account-types" className="text-sm font-medium transition-colors hover:text-primary">
         Account Types

@@ -250,10 +250,13 @@ export default function ProjectsPage() {
         }
 
         // Show success message using toast
-        toast.success('Join request sent successfully! Project owner will be notified.')
+        toast.success('Successfully joined project! Redirecting...')
         
-        // Refresh the page to update the projects list
-        router.refresh()
+        // Redirect to the project page after a short delay
+        setTimeout(() => {
+          router.push(`/projects/${matchedProject.id}`)
+        }, 1500)
+        
         return;
       }
       
@@ -329,10 +332,12 @@ export default function ProjectsPage() {
       }
 
       // Show success message using toast
-      toast.success('Join request sent successfully!')
+      toast.success('Successfully joined project! Redirecting...')
       
-      // Refresh the page to update the projects list
-      router.refresh()
+      // Redirect to the project page after a short delay
+      setTimeout(() => {
+        router.push(`/projects/${projectData.id}`)
+      }, 1500)
     } catch (error: any) {
       console.error('Error joining project:', error)
       setJoinError(error.message || 'Failed to join project')

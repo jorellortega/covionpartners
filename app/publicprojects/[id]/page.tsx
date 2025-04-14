@@ -368,38 +368,42 @@ export default function PublicProjectDetails() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Project Info */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Join Project Card */}
+            {/* Media Files Section */}
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
-                <CardTitle>Join this Project</CardTitle>
-                <CardDescription>Enter the project key to request access</CardDescription>
+                <CardTitle>Media Files</CardTitle>
+                <CardDescription>Project media and documentation</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-4">
-                  <div className="flex-grow">
-                    <Input
-                      placeholder="Enter project key (e.g., COV-ABC12)"
-                      value={projectKey}
-                      onChange={(e) => setProjectKey(e.target.value)}
-                      className="bg-gray-800/30 border-gray-700"
-                    />
-                  </div>
-                  <Button 
-                    className="gradient-button" 
-                    onClick={handleJoinProject}
-                    disabled={isJoining || !projectKey.trim() || !user}
-                  >
-                    {isJoining ? 'Requesting Access...' : 'Request to Join'}
-                  </Button>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {project?.media_files?.map((file, index) => (
+                    <Card key={index} className="overflow-hidden">
+                      {file.type.startsWith('image/') ? (
+                        <div className="relative aspect-video">
+                          <img
+                            src={file.url}
+                            alt={file.name}
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="aspect-video bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                          <FileType className="w-12 h-12 text-gray-400" />
+                        </div>
+                      )}
+                      <CardContent className="p-4">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  {(!project?.media_files || project.media_files.length === 0) && (
+                    <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
+                      No media files available
+                    </div>
+                  )}
                 </div>
-                {!user && (
-                  <div className="mt-2 text-sm text-yellow-500">
-                    Please log in to join this project
-                  </div>
-                )}
-                {joinError && (
-                  <div className="mt-2 text-sm text-red-500">{joinError}</div>
-                )}
               </CardContent>
             </Card>
 
@@ -538,47 +542,6 @@ export default function PublicProjectDetails() {
                         <Upload className="w-4 h-4 mr-2" />
                         Upload New Resource
                       </Button>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Media Files Section */}
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold">Media Files</CardTitle>
-                <CardDescription>Project media and documentation</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {project?.media_files?.map((file, index) => (
-                    <Card key={index} className="overflow-hidden">
-                      {file.type.startsWith('image/') ? (
-                        <div className="relative aspect-video">
-                          <img
-                            src={file.url}
-                            alt={file.name}
-                            className="absolute inset-0 w-full h-full object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className="aspect-video bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                          <FileType className="w-12 h-12 text-gray-400" />
-                        </div>
-                      )}
-                      <CardContent className="p-4">
-                        {/* Hide the file name */}
-                        {/* <h3 className="font-medium truncate">{file.name}</h3> */}
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {formatFileSize(file.size)}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                  {(!project?.media_files || project.media_files.length === 0) && (
-                    <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
-                      No media files available
                     </div>
                   )}
                 </div>
@@ -804,6 +767,38 @@ export default function PublicProjectDetails() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Join Project Card */}
+            {user ? (
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle>Join this Project</CardTitle>
+                <CardDescription>Enter the project key to request access</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-4">
+                  <div className="flex-grow">
+                    <Input
+                      placeholder="Enter project key (e.g., COV-ABC12)"
+                      value={projectKey}
+                      onChange={(e) => setProjectKey(e.target.value)}
+                      className="bg-gray-800/30 border-gray-700"
+                    />
+                  </div>
+                  <Button 
+                    className="gradient-button" 
+                    onClick={handleJoinProject}
+                    disabled={isJoining || !projectKey.trim()}
+                  >
+                    {isJoining ? 'Requesting Access...' : 'Request to Join'}
+                  </Button>
+                </div>
+                {joinError && (
+                  <div className="mt-2 text-sm text-red-500">{joinError}</div>
+                )}
+              </CardContent>
+            </Card>
+            ) : null}
           </div>
         </div>
       </main>

@@ -1143,23 +1143,6 @@ export default function ProjectDetails() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Main Project Info */}
           <div className="lg:col-span-2 space-y-6">
-                {/* Project Description */}
-                <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle>Project Description</CardTitle>
-                <CardDescription className="text-gray-400">
-                      Detailed overview of the project
-                    </CardDescription>
-                  </CardHeader>
-              <CardContent>
-                    <div className="prose prose-invert max-w-none">
-                  <p className="text-gray-300 leading-relaxed">
-                    {project?.description || 'No description available.'}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 {/* Project Media */}
                 <Card className="leonardo-card border-gray-800">
               <CardHeader>
@@ -1170,7 +1153,7 @@ export default function ProjectDetails() {
                           Images, videos, and other media files
                         </CardDescription>
                       </div>
-                  {user?.role !== 'investor' && (
+                  {user?.role !== 'viewer' && user?.role !== 'investor' && (
                       <Button 
                         onClick={() => document.getElementById('media-upload')?.click()} 
                         className="gradient-button"
@@ -1253,114 +1236,133 @@ export default function ProjectDetails() {
                   </CardContent>
                 </Card>
 
-                {/* Project Access */}
-            <Card className="leonardo-card border-gray-800">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle>Project Access</CardTitle>
-                    <CardDescription className="text-gray-400">
-                      Share access to this project with team members
+                {/* Project Description */}
+                <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle>Project Description</CardTitle>
+                <CardDescription className="text-gray-400">
+                      Detailed overview of the project
                     </CardDescription>
-                      </div>
-                    </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      <div className="bg-gray-800/30 p-4 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="text-sm font-medium">Project Key</div>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => {
-                              navigator.clipboard.writeText(project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase());
-                              toast.success("Project key copied to clipboard!");
-                            }}
-                          >
-                            <Copy className="w-4 h-4 mr-2" />
-                            Copy Key
-                          </Button>
-                        </div>
-                        <div className="font-mono text-xl bg-gray-900/50 p-3 rounded flex items-center justify-center">
-                          {project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase()}
-                        </div>
-                        <p className="text-sm text-gray-400 mt-2">
-                          Share this key with users you want to invite to the project. They can use it to request access.
-                        </p>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="text-sm font-medium">Pending Join Requests</div>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={refreshTeamMembers}
-                          >
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Refresh
-                          </Button>
-                        </div>
-                        <div className="space-y-3">
-                          {teamMembers
-                            .filter(member => member.status === 'pending')
-                            .map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg"
-                        >
-                          <div className="flex items-center">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
-                              <span className="text-white font-medium">
-                                      {member.user.name?.charAt(0) || member.user.email?.charAt(0) || '?'}
-                              </span>
-                            </div>
-                            <div className="ml-3">
-                              <div className="text-white font-medium">
-                                      {member.user.name || member.user.email}
-                              </div>
-                            <div className="text-sm text-gray-400">
-                                      Requested {new Date(member.joined_at).toLocaleDateString()}
-                              </div>
-                            </div>
-                          </div>
-                                <div className="flex items-center gap-2">
-                            <Button
-                                    variant="outline"
-                              size="sm"
-                                    className="text-green-400 hover:text-green-300 hover:bg-green-900/20"
-                                    onClick={() => handleApproveRequest(member.id)}
-                            >
-                                    <Check className="w-4 h-4" />
-                            </Button>
-                            <Button
-                                    variant="outline"
-                              size="sm"
-                                    className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                                    onClick={() => handleRejectRequest(member.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                          {!loading && teamMembers.filter(member => member.status === 'pending').length === 0 && (
-                        <div className="text-center py-6">
-                          <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                          <h3 className="text-lg font-medium text-gray-400">
-                                No pending requests
-                          </h3>
-                          <p className="text-gray-500 mt-1">
-                                Share your project key to invite team members
-                          </p>
-                        </div>
-                      )}
-                        </div>
-                      </div>
+              <CardContent>
+                    <div className="prose prose-invert max-w-none">
+                  <p className="text-gray-300 leading-relaxed">
+                    {project?.description || 'No description available.'}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Project Access */}
+                {user?.role !== 'viewer' && (
+                  <Card className="leonardo-card border-gray-800">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Project Access</CardTitle>
+                          <CardDescription className="text-gray-400">
+                            Share access to this project with team members
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-6">
+                        <div className="bg-gray-800/30 p-4 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-sm font-medium">Project Key</div>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => {
+                                navigator.clipboard.writeText(project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase());
+                                toast.success("Project key copied to clipboard!");
+                              }}
+                            >
+                              <Copy className="w-4 h-4 mr-2" />
+                              Copy Key
+                            </Button>
+                          </div>
+                          <div className="font-mono text-xl bg-gray-900/50 p-3 rounded flex items-center justify-center">
+                            {project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase()}
+                          </div>
+                          <p className="text-sm text-gray-400 mt-2">
+                            Share this key with users you want to invite to the project. They can use it to request access.
+                          </p>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="text-sm font-medium">Pending Join Requests</div>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={refreshTeamMembers}
+                            >
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              Refresh
+                            </Button>
+                          </div>
+                          <div className="space-y-3">
+                            {teamMembers
+                              .filter(member => member.status === 'pending')
+                              .map((member) => (
+                                <div
+                                  key={member.id}
+                                  className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg"
+                                >
+                                  <div className="flex items-center">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
+                                      <span className="text-white font-medium">
+                                        {member.user.name?.charAt(0) || member.user.email?.charAt(0) || '?'}
+                                      </span>
+                                    </div>
+                                    <div className="ml-3">
+                                      <div className="text-white font-medium">
+                                        {member.user.name || member.user.email}
+                                      </div>
+                                      <div className="text-sm text-gray-400">
+                                        Requested {new Date(member.joined_at).toLocaleDateString()}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-green-400 hover:text-green-300 hover:bg-green-900/20"
+                                      onClick={() => handleApproveRequest(member.id)}
+                                    >
+                                      <Check className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                                      onClick={() => handleRejectRequest(member.id)}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            {!loading && teamMembers.filter(member => member.status === 'pending').length === 0 && (
+                              <div className="text-center py-6">
+                                <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                                <h3 className="text-lg font-medium text-gray-400">
+                                  No pending requests
+                                </h3>
+                                <p className="text-gray-500 mt-1">
+                                  Share your project key to invite team members
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
             {/* Schedule Section */}
             <Card className="leonardo-card border-gray-800">
@@ -1373,13 +1375,15 @@ export default function ProjectDetails() {
                     </CardTitle>
                     <CardDescription>Track important project dates and milestones</CardDescription>
                       </div>
-                  <Button
-                    onClick={handleAddNewScheduleClick}
-                    className="gradient-button w-full sm:w-auto"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Schedule Item
-                  </Button>
+                  {user?.role !== 'viewer' && (
+                    <Button
+                      onClick={handleAddNewScheduleClick}
+                      className="gradient-button w-full sm:w-auto"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Schedule Item
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
@@ -1400,30 +1404,32 @@ export default function ProjectDetails() {
                           )}
                         </div>
                       </div>
+                      {user?.role !== 'viewer' && (
                         <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-gray-400 hover:text-blue-400"
-                          onClick={() => {
-                            setEditingScheduleItem(item);
-                            setIsEditingSchedule(true);
-                          }}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-gray-400 hover:text-red-400"
-                          onClick={() => {
-                            setScheduleToDelete(item.id)
-                            setIsDeletingSchedule(true)
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-400 hover:text-blue-400"
+                            onClick={() => {
+                              setEditingScheduleItem(item);
+                              setIsEditingSchedule(true);
+                            }}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-400 hover:text-red-400"
+                            onClick={() => {
+                              setScheduleToDelete(item.id)
+                              setIsDeletingSchedule(true)
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
+                      )}
                       </div>
                   ))}
                     </div>
@@ -1441,10 +1447,12 @@ export default function ProjectDetails() {
                     </CardTitle>
                     <CardDescription>Manage project tasks and assignments</CardDescription>
                   </div>
-                  <Button onClick={() => setIsAddingTask(true)} className="gradient-button">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Task
-                  </Button>
+                  {user?.role !== 'viewer' && (
+                    <Button onClick={() => setIsAddingTask(true)} className="gradient-button">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Task
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
@@ -1474,118 +1482,122 @@ export default function ProjectDetails() {
                 <div className="space-y-3">
                   {tasks.map(task => (
                     <div key={task.id} className="p-3 bg-gray-800/50 rounded-lg">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                        <div>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-2">
                           <h4 className="font-medium text-white">{task.title}</h4>
                           <p className="text-sm text-gray-400">{task.description}</p>
-                          <div className="flex flex-wrap items-center mt-2 gap-2">
-                            <span className="text-sm text-gray-400">
-                              <Calendar className="w-4 h-4 inline mr-1" />
-                              Due: {new Date(task.due_date).toLocaleDateString()} at {new Date(task.due_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            <Badge
-                              variant="outline"
-                              className={
-                                task.priority === 'high'
-                                  ? 'bg-red-500/20 text-red-400 border-red-500/50'
-                                  : task.priority === 'medium'
-                                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
-                                  : 'bg-green-500/20 text-green-400 border-green-500/50'
-                              }
-                            >
-                              {task.priority}
-                            </Badge>
-                          </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
-                          <div className="flex gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className={`${
-                                task.status === 'pending'
-                                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
-                                  : 'text-yellow-400/50 hover:text-yellow-400 hover:bg-yellow-500/20'
-                              }`}
-                              onClick={async () => {
-                                const { error } = await supabase
-                                  .from('tasks')
-                                  .update({ status: 'pending' })
-                                  .eq('id', task.id);
-                                if (!error) {
-                                  setTasks(prev => prev.map(t => 
-                                    t.id === task.id ? { ...t, status: 'pending' } : t
-                                  ));
-                                }
-                              }}
-                            >
-                              <Clock className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className={`${
-                                task.status === 'in_progress'
-                                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/50'
-                                  : 'text-blue-400/50 hover:text-blue-400 hover:bg-blue-500/20'
-                              }`}
-                              onClick={async () => {
-                                const { error } = await supabase
-                                  .from('tasks')
-                                  .update({ status: 'in_progress' })
-                                  .eq('id', task.id);
-                                if (!error) {
-                                  setTasks(prev => prev.map(t => 
-                                    t.id === task.id ? { ...t, status: 'in_progress' } : t
-                                  ));
-                                }
-                              }}
-                            >
-                              <RefreshCw className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className={`${
-                                task.status === 'completed'
-                                  ? 'bg-green-500/20 text-green-400 border-green-500/50'
-                                  : 'text-green-400/50 hover:text-green-400 hover:bg-green-500/20'
-                              }`}
-                              onClick={async () => {
-                                const { error } = await supabase
-                                  .from('tasks')
-                                  .update({ status: 'completed' })
-                                  .eq('id', task.id);
-                                if (!error) {
-                                  setTasks(prev => prev.map(t => 
-                                    t.id === task.id ? { ...t, status: 'completed' } : t
-                                  ));
-                                }
-                              }}
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-gray-400 hover:text-blue-400"
-                            onClick={() => startEditingTask(task)}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm text-gray-400 flex items-center">
+                            <Calendar className="w-4 h-4 mr-1" />
+                            Due: {new Date(task.due_date).toLocaleDateString()} at {new Date(task.due_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={
+                              task.priority === 'high'
+                                ? 'bg-red-500/20 text-red-400 border-red-500/50'
+                                : task.priority === 'medium'
+                                ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                                : 'bg-green-500/20 text-green-400 border-green-500/50'
+                            }
                           >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-gray-400 hover:text-red-400"
-                            onClick={() => {
-                              setTaskToDelete(task.id)
-                              setIsDeletingTask(true)
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                            {task.priority}
+                          </Badge>
                         </div>
+                        {user?.role !== 'viewer' && (
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            <div className="flex gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className={`${
+                                  task.status === 'pending'
+                                    ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                                    : 'text-yellow-400/50 hover:text-yellow-400 hover:bg-yellow-500/20'
+                                }`}
+                                onClick={async () => {
+                                  const { error } = await supabase
+                                    .from('tasks')
+                                    .update({ status: 'pending' })
+                                    .eq('id', task.id);
+                                  if (!error) {
+                                    setTasks(prev => prev.map(t => 
+                                      t.id === task.id ? { ...t, status: 'pending' } : t
+                                    ));
+                                  }
+                                }}
+                              >
+                                <Clock className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className={`${
+                                  task.status === 'in_progress'
+                                    ? 'bg-blue-500/20 text-blue-400 border-blue-500/50'
+                                    : 'text-blue-400/50 hover:text-blue-400 hover:bg-blue-500/20'
+                                }`}
+                                onClick={async () => {
+                                  const { error } = await supabase
+                                    .from('tasks')
+                                    .update({ status: 'in_progress' })
+                                    .eq('id', task.id);
+                                  if (!error) {
+                                    setTasks(prev => prev.map(t => 
+                                      t.id === task.id ? { ...t, status: 'in_progress' } : t
+                                    ));
+                                  }
+                                }}
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className={`${
+                                  task.status === 'completed'
+                                    ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                                    : 'text-green-400/50 hover:text-green-400 hover:bg-green-500/20'
+                                }`}
+                                onClick={async () => {
+                                  const { error } = await supabase
+                                    .from('tasks')
+                                    .update({ status: 'completed' })
+                                    .eq('id', task.id);
+                                  if (!error) {
+                                    setTasks(prev => prev.map(t => 
+                                      t.id === task.id ? { ...t, status: 'completed' } : t
+                                    ));
+                                  }
+                                }}
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-400 hover:text-blue-400"
+                                onClick={() => startEditingTask(task)}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-400 hover:text-red-400"
+                                onClick={() => {
+                                  setTaskToDelete(task.id)
+                                  setIsDeletingTask(true)
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1704,7 +1716,7 @@ export default function ProjectDetails() {
                             <p className="text-sm text-gray-400">{member.role}</p>
               </div>
             </div>
-                        {user?.role !== 'investor' && (
+                        {user?.role !== 'viewer' && user?.role !== 'investor' && (
                         <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
@@ -1725,7 +1737,7 @@ export default function ProjectDetails() {
       </div>
                     </div>
                   ))}
-                  {user?.role !== 'investor' && (
+                  {user?.role !== 'viewer' && user?.role !== 'investor' && (
                     <Button
                       className="w-full gradient-button"
                       onClick={() => setIsAddDialogOpen(true)}
@@ -1739,7 +1751,7 @@ export default function ProjectDetails() {
             </Card>
 
             {/* Project Actions */}
-            {user?.role !== 'investor' && (
+            {user?.role !== 'viewer' && (
               <Card className="leonardo-card border-gray-800">
                 <CardHeader>
                   <CardTitle>Actions</CardTitle>
@@ -1750,15 +1762,15 @@ export default function ProjectDetails() {
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <Button
-                variant="outline"
+                      <Button
+                        variant="outline"
                         className="text-blue-400 border-blue-500/50 hover:bg-blue-500/20"
                         onClick={() => setIsEditing(true)}
-              >
+                      >
                         <Pencil className="w-4 h-4 mr-2" />
                         Edit Project
-              </Button>
-              <Button 
+                      </Button>
+                      <Button
                         variant="outline"
                         className={`${
                           project?.visibility === 'private'
@@ -1800,14 +1812,14 @@ export default function ProjectDetails() {
                           <>
                             <Lock className="w-4 h-4 mr-2" />
                             Make Public
-                  </>
-                ) : (
+                          </>
+                        ) : (
                           <>
                             <Unlock className="w-4 h-4 mr-2" />
                             Make Private
                           </>
-                )}
-              </Button>
+                        )}
+                      </Button>
                       <Button
                         variant="outline"
                         className="text-red-400 border-red-500/50 hover:bg-red-500/20"
@@ -1817,7 +1829,7 @@ export default function ProjectDetails() {
                         Delete Project
                       </Button>
                     </div>
-                </div>
+                  </div>
                 </CardContent>
               </Card>
             )}
