@@ -33,6 +33,7 @@ import {
   Unlock,
   MessageCircle,
   Send,
+  Settings,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -1070,6 +1071,38 @@ export default function ProjectDetails() {
     }
   };
 
+  const handleTogglePublic = async () => {
+    if (!project) return;
+    
+    try {
+      const newVisibility = project.visibility === 'public' ? 'private' : 'public';
+      const { error } = await supabase
+        .from('projects')
+        .update({ visibility: newVisibility })
+        .eq('id', project.id);
+
+      if (error) {
+        console.error('Database error:', error);
+        throw new Error(error.message || 'Failed to update project visibility');
+      }
+
+      // Update local state
+      setProject(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          visibility: newVisibility,
+          updated_at: new Date().toISOString()
+        };
+      });
+
+      toast.success(`Project is now ${newVisibility}`);
+    } catch (error: any) {
+      console.error('Error updating project visibility:', error);
+      toast.error(error.message || 'Failed to update project visibility');
+    }
+  };
+
   // Show loading state while authentication or projects are loading
   if (authLoading || projectsLoading || !project) {
     return (
@@ -1621,20 +1654,35 @@ export default function ProjectDetails() {
               <CardContent>
                 <div className="space-y-6">
                   {/* Add Comment */}
-                  <div className="flex gap-2">
-                    <Textarea
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Add a comment..."
-                      className="flex-1 min-h-[80px] bg-gray-800/30"
-                    />
-                    <Button
-                      onClick={handleAddComment}
-                      disabled={!newComment.trim()}
-                      className="gradient-button self-end"
-                    >
-                      <Send className="w-4 h-4" />
-                    </Button>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarFallback>
+                          {user?.name?.[0] || user?.email?.[0] || '?'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-white">
+                          {user?.name || user?.email || 'Unknown User'}
+                        </p>
+                        <p className="text-sm text-gray-400">Commenting as yourself</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Textarea
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder="Add a comment..."
+                        className="flex-1 min-h-[80px] bg-gray-800/30"
+                      />
+                      <Button
+                        onClick={handleAddComment}
+                        disabled={!newComment.trim()}
+                        className="gradient-button self-end"
+                      >
+                        <Send className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Comments List */}
@@ -1754,81 +1802,47 @@ export default function ProjectDetails() {
             {user?.role !== 'viewer' && (
               <Card className="leonardo-card border-gray-800">
                 <CardHeader>
-                  <CardTitle>Actions</CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Manage project settings and details
-                  </CardDescription>
+                  <CardTitle className="flex items-center">
+                    <Settings className="w-5 h-5 mr-2" />
+                    Actions
+                  </CardTitle>
+                  <CardDescription>Manage project settings and visibility</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                      <Button
-                        variant="outline"
-                        className="text-blue-400 border-blue-500/50 hover:bg-blue-500/20"
-                        onClick={() => setIsEditing(true)}
-                      >
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Edit Project
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className={`${
-                          project?.visibility === 'private'
-                            ? 'text-purple-400 border-purple-500/50 hover:bg-purple-500/20'
-                            : 'text-green-400 border-green-500/50 hover:bg-green-500/20'
-                        }`}
-                        onClick={async () => {
-                          if (!project) return;
-                          try {
-                            const newVisibility = project.visibility === 'private' ? 'public' : 'private';
-                            const { error } = await supabase
-                              .from('projects')
-                              .update({ visibility: newVisibility })
-                              .eq('id', project.id);
-
-                            if (error) {
-                              console.error('Database error:', error);
-                              throw new Error(error.message || 'Failed to update project visibility');
-                            }
-
-                            // Update local state
-                            setProject(prev => {
-                              if (!prev) return null;
-                              return {
-                                ...prev,
-                                visibility: newVisibility,
-                                updated_at: new Date().toISOString()
-                              };
-                            });
-
-                            toast.success(`Project is now ${newVisibility}`);
-                          } catch (error: any) {
-                            console.error('Error updating project visibility:', error);
-                            toast.error(error.message || 'Failed to update project visibility');
-                          }
-                        }}
-                      >
-                        {project?.visibility === 'private' ? (
-                          <>
-                            <Lock className="w-4 h-4 mr-2" />
-                            Make Public
-                          </>
-                        ) : (
-                          <>
-                            <Unlock className="w-4 h-4 mr-2" />
-                            Make Private
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="text-red-400 border-red-500/50 hover:bg-red-500/20"
-                        onClick={() => setIsDeleting(true)}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete Project
-                      </Button>
-                    </div>
+                  <div className="flex flex-col md:flex-row gap-4 flex-wrap">
+                    <Button
+                      variant="outline"
+                      className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      <Pencil className="w-4 h-4" /> Edit Project
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30"
+                      onClick={() => setIsDeleteDialogOpen(true)}
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete Project
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className={`flex-1 min-w-[200px] justify-center items-center gap-2 ${
+                        project?.visibility === 'public'
+                          ? 'bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30'
+                          : 'bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30'
+                      }`}
+                      onClick={handleTogglePublic}
+                    >
+                      {project?.visibility === 'public' ? (
+                        <>
+                          <Lock className="w-4 h-4" /> Make Private
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="w-4 h-4" /> Make Public
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
