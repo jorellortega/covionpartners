@@ -2022,20 +2022,20 @@ export default function ProjectDetails() {
                   <div className="flex flex-col md:flex-row gap-4 flex-wrap">
                     {user?.role !== 'viewer' && (
                       <>
-                        <Button
-                          variant="outline"
-                          className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30"
-                          onClick={() => setIsEditing(true)}
-                        >
-                          <Pencil className="w-4 h-4" /> Edit Project
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30"
-                          onClick={() => setIsDeleteDialogOpen(true)}
-                        >
-                          <Trash2 className="w-4 h-4" /> Delete Project
-                        </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      <Pencil className="w-4 h-4" /> Edit Project
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30"
+                      onClick={() => setIsDeleteDialogOpen(true)}
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete Project
+                    </Button>
                       </>
                     )}
                     <Button

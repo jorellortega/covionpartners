@@ -52,6 +52,11 @@ interface JoinRequest {
   created_at: string
 }
 
+interface Project {
+  id: string
+  name: string
+}
+
 export default function UpdatesPage() {
   const router = useRouter()
   const { user } = useAuth()
@@ -62,6 +67,8 @@ export default function UpdatesPage() {
   const [updateToDeleteId, setUpdateToDeleteId] = useState<number | null>(null)
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([])
   const [loadingJoinRequests, setLoadingJoinRequests] = useState(true)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loadingProjects, setLoadingProjects] = useState(true)
   const [newUpdate, setNewUpdate] = useState({
     title: '',
     description: '',
@@ -69,7 +76,10 @@ export default function UpdatesPage() {
     date: new Date().toISOString().split('T')[0],
     category: '',
     full_content: '',
+    project_id: '',
+    project_name: ''
   })
+  const [activeTab, setActiveTab] = useState('all-updates')
 
   // Fetch join requests
   useEffect(() => {
@@ -153,6 +163,31 @@ export default function UpdatesPage() {
     fetchJoinRequests()
   }, [user])
 
+  // Add function to fetch projects
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!user) return
+      
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('id, name')
+          .order('name')
+        
+        if (error) throw error
+        
+        setProjects(data || [])
+      } catch (err) {
+        console.error('Error fetching projects:', err)
+        toast.error('Failed to load projects')
+      } finally {
+        setLoadingProjects(false)
+      }
+    }
+    
+    fetchProjects()
+  }, [user])
+
   const handleApproveJoinRequest = async (notification: JoinRequest) => {
     try {
       if (!user) return
@@ -213,18 +248,41 @@ export default function UpdatesPage() {
     }
   }
 
-  const filteredUpdates = updates.filter(update =>
-    update.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    update.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    update.category.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredUpdates = updates.filter(update => {
+    const matchesSearch = 
+      update.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      update.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      update.category.toLowerCase().includes(searchQuery.toLowerCase())
+
+    if (activeTab === 'project-updates') {
+      return matchesSearch && update.category.toLowerCase() === 'project'
+    }
+    
+    return matchesSearch
+  })
 
   const handleCreateUpdate = async () => {
-    const { data, error } = await createUpdate(newUpdate)
+    if (newUpdate.category === 'project' && !newUpdate.project_id) {
+      toast.error('Please select a project for the project update')
+      return
+    }
+
+    const { data, error } = await createUpdate({
+      title: newUpdate.title,
+      description: newUpdate.description,
+      status: newUpdate.status,
+      date: newUpdate.date,
+      category: newUpdate.category,
+      full_content: newUpdate.full_content,
+      created_by: user?.id,
+      project_id: newUpdate.category === 'project' ? newUpdate.project_id : null
+    })
+    
     if (error) {
       toast.error(error)
     } else {
       toast.success('Update created successfully')
+      refreshUpdates()
       setShowCreateDialog(false)
       setNewUpdate({
         title: '',
@@ -233,6 +291,8 @@ export default function UpdatesPage() {
         date: new Date().toISOString().split('T')[0],
         category: '',
         full_content: '',
+        project_id: '',
+        project_name: ''
       })
     }
   }
@@ -317,31 +377,62 @@ export default function UpdatesPage() {
                       <Input
                         value={newUpdate.title}
                         onChange={(e) => setNewUpdate(prev => ({ ...prev, title: e.target.value }))}
-                        placeholder="Enter update title"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Description</label>
-                      <Input
-                        value={newUpdate.description}
-                        onChange={(e) => setNewUpdate(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="Enter update description"
+                        placeholder="Enter a descriptive title for your update"
                       />
                     </div>
                     <div>
                       <label className="text-sm font-medium">Category</label>
-                      <Input
+                      <select
                         value={newUpdate.category}
                         onChange={(e) => setNewUpdate(prev => ({ ...prev, category: e.target.value }))}
-                        placeholder="Enter update category"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="">Select a category</option>
+                        <option value="project">Project Update</option>
+                        <option value="general">General Update</option>
+                        <option value="announcement">Announcement</option>
+                      </select>
+                    </div>
+                    
+                    {newUpdate.category === 'project' && (
+                      <div>
+                        <label className="text-sm font-medium">Select Project</label>
+                        <select
+                          value={newUpdate.project_id}
+                          onChange={(e) => {
+                            const project = projects.find(p => p.id === e.target.value)
+                            setNewUpdate(prev => ({
+                              ...prev,
+                              project_id: e.target.value,
+                              project_name: project ? project.name : ''
+                            }))
+                          }}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <option value="">Select a project</option>
+                          {projects.map((project) => (
+                            <option key={project.id} value={project.id}>
+                              {project.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <div>
+                      <label className="text-sm font-medium">Brief Description</label>
+                      <Input
+                        value={newUpdate.description}
+                        onChange={(e) => setNewUpdate(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Enter a short summary of the update"
                       />
                     </div>
                     <div>
                       <label className="text-sm font-medium">Full Content</label>
-                      <Input
+                      <textarea
                         value={newUpdate.full_content}
                         onChange={(e) => setNewUpdate(prev => ({ ...prev, full_content: e.target.value }))}
-                        placeholder="Enter full content"
+                        placeholder="Enter the complete details of your update"
+                        className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     </div>
                   </div>
@@ -362,9 +453,10 @@ export default function UpdatesPage() {
             </Button>
           </div>
 
-          <Tabs defaultValue="updates" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="mb-4">
-              <TabsTrigger value="updates">Updates</TabsTrigger>
+              <TabsTrigger value="all-updates">All Updates</TabsTrigger>
+              <TabsTrigger value="project-updates">Project Updates</TabsTrigger>
               <TabsTrigger value="join-requests" className="relative">
                 Join Requests
                 {joinRequests.length > 0 && (
@@ -373,7 +465,7 @@ export default function UpdatesPage() {
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="updates">
+            <TabsContent value="all-updates">
               <div className="relative mb-6">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -447,11 +539,100 @@ export default function UpdatesPage() {
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel onClick={() => setUpdateToDeleteId(null)}>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction 
-                                      onClick={confirmDeleteUpdate} 
-                                      className="bg-red-600 hover:bg-red-700">
-                                        Delete
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={confirmDeleteUpdate}>
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="project-updates">
+              <div className="relative mb-6">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search project updates..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              {filteredUpdates.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8">
+                    <p className="text-gray-500 text-center">
+                      {searchQuery
+                        ? 'No project updates found matching your search.'
+                        : 'No project updates available at the moment.'}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredUpdates.map((update) => (
+                    <Card 
+                      key={update.id} 
+                      className="hover:shadow-lg transition-shadow p-4"
+                    >
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <CardTitle>{update.title}</CardTitle>
+                          <Badge variant={update.status === 'completed' ? 'default' : 'secondary'}>
+                            {update.status}
+                          </Badge>
+                        </div>
+                        <div className="flex gap-2">
+                          <Badge variant="outline">{update.category}</Badge>
+                          <span className="text-sm text-gray-500">
+                            {new Date(update.date).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-gray-600 mb-4">{update.description}</p>
+                        <div className="flex justify-between items-center">
+                          <Button 
+                            variant="ghost" 
+                            onClick={() => router.push(`/updates/${update.id}`)}
+                            className="hover:bg-purple-500"
+                          >
+                            View Details
+                            <ArrowRight className="w-4 h-4 ml-2" />
+                          </Button>
+                          {canManageUpdates && (
+                            <div className="flex gap-2">
+                              <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="hover:bg-red-900/20 hover:text-red-400"
+                                    onClick={() => handleDeleteClick(update.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be undone. This will permanently delete the update.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={confirmDeleteUpdate}>
+                                      Delete
                                     </AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
