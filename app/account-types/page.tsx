@@ -68,6 +68,7 @@ const tiers = [
   {
     name: "Public Account",
     description: "Perfect for exploring investment opportunities and supporting projects",
+    price: "Free",
     icon: Users,
     features: features.filter(f => f.public),
     cta: "Get Started",
@@ -77,6 +78,7 @@ const tiers = [
   {
     name: "Investor Account",
     description: "For active investors and portfolio management",
+    price: "$15/month",
     icon: Briefcase,
     features: features.filter(f => f.investor),
     cta: "Upgrade Now",
@@ -87,6 +89,7 @@ const tiers = [
   {
     name: "Partner Account",
     description: "Complete project and team management",
+    price: "$25/month",
     icon: Star,
     features: features.filter(f => f.partner),
     cta: "Upgrade Now",
@@ -97,6 +100,7 @@ const tiers = [
   {
     name: "Enterprise Account",
     description: "Full platform access with advanced features",
+    price: "$45/month",
     icon: Building2,
     features: features.filter(f => f.enterprise),
     cta: "Contact Sales",
@@ -131,6 +135,9 @@ export default function AccountTypesPage() {
                 <CardDescription className="text-gray-400 mt-2">
                   {tier.description}
                 </CardDescription>
+                <div className="mt-4 text-2xl font-bold text-white">
+                  {tier.price}
+                </div>
                 {tier.comingSoon && (
                   <div className="mt-2 text-yellow-500 font-bold">
                     Coming Soon

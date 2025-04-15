@@ -60,6 +60,7 @@ export default function ProjectsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
 
   const handleDeleteProject = async (projectId: string) => {
     setProjectToDelete(projectId)
@@ -249,7 +250,7 @@ export default function ProjectsPage() {
         setProjectKey("")
         const dialog = document.querySelector('[data-state="open"]')
         if (dialog) {
-          const closeButton = dialog.querySelector('button[aria-label="Close"]')
+          const closeButton = dialog.querySelector('button[aria-label="Close"]') as HTMLButtonElement
           closeButton?.click()
         }
 
@@ -331,7 +332,7 @@ export default function ProjectsPage() {
       setProjectKey("")
       const dialog = document.querySelector('[data-state="open"]')
       if (dialog) {
-        const closeButton = dialog.querySelector('button[aria-label="Close"]')
+        const closeButton = dialog.querySelector('button[aria-label="Close"]') as HTMLButtonElement
         closeButton?.click()
       }
 
@@ -413,7 +414,7 @@ export default function ProjectsPage() {
         <div className="flex justify-end items-center gap-3 mb-6">
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400">
+              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400">
                 <Key className="w-5 h-5 mr-2" />
                 Join Project
               </Button>
@@ -513,7 +514,7 @@ export default function ProjectsPage() {
         {/* Project Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
            {/* Stats cards remain here */}
-             <div className="leonardo-card p-4 flex items-center">
+             <div className="leonardo-card p-4 flex items-center cursor-pointer hover:border-blue-500/50 transition-colors" onClick={() => setStatusFilter(null)}>
               <div className="p-3 rounded-full bg-blue-500/20 mr-4">
                 <Briefcase className="w-6 h-6 text-blue-400" />
               </div>
@@ -523,7 +524,7 @@ export default function ProjectsPage() {
               </div>
             </div>
 
-            <div className="leonardo-card p-4 flex items-center">
+            <div className="leonardo-card p-4 flex items-center cursor-pointer hover:border-green-500/50 transition-colors" onClick={() => setStatusFilter(statusFilter === "active" ? null : "active")}>
               <div className="p-3 rounded-full bg-green-500/20 mr-4">
                 <Clock className="w-6 h-6 text-green-400" />
               </div>
@@ -535,7 +536,7 @@ export default function ProjectsPage() {
               </div>
             </div>
 
-            <div className="leonardo-card p-4 flex items-center">
+            <div className="leonardo-card p-4 flex items-center cursor-pointer hover:border-yellow-500/50 transition-colors" onClick={() => setStatusFilter(statusFilter === "pending" ? null : "pending")}>
               <div className="p-3 rounded-full bg-yellow-500/20 mr-4">
                 <AlertCircle className="w-6 h-6 text-yellow-400" />
               </div>
@@ -547,7 +548,7 @@ export default function ProjectsPage() {
               </div>
             </div>
 
-            <div className="leonardo-card p-4 flex items-center">
+            <div className="leonardo-card p-4 flex items-center cursor-pointer hover:border-purple-500/50 transition-colors" onClick={() => setStatusFilter(statusFilter === "completed" ? null : "completed")}>
               <div className="p-3 rounded-full bg-purple-500/20 mr-4">
                 <CheckCircle className="w-6 h-6 text-purple-400" />
               </div>
@@ -564,19 +565,27 @@ export default function ProjectsPage() {
         <div className="space-y-6">
            {/* List rendering remains here */}
            <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-white">All Projects</h2>
+            <h2 className="text-xl font-bold text-white">
+              {statusFilter ? `${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Projects` : 'All Projects'}
+            </h2>
             <div className="flex space-x-2">
-              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400">
-                Filter
+              <Button 
+                variant="outline" 
+                className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                onClick={() => setStatusFilter(null)}
+              >
+                {statusFilter ? 'Show All' : 'Filter'}
               </Button>
-              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400">
+              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400">
                 Sort
               </Button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => (
+            {projects
+              .filter(project => !statusFilter || project.status.toLowerCase() === statusFilter.toLowerCase())
+              .map((project) => (
               <Card 
                 key={project.id} 
                 className="leonardo-card border-gray-800 overflow-visible cursor-pointer hover:border-blue-500/50 transition-colors"
@@ -587,7 +596,7 @@ export default function ProjectsPage() {
                     <CardTitle className="text-lg">{project.name}</CardTitle>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400">
+                        <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-purple-900/20 hover:text-purple-400">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -595,21 +604,29 @@ export default function ProjectsPage() {
                         <DropdownMenuLabel>Project Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator className="bg-gray-700" />
                         <DropdownMenuItem 
-                          className="text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
-                          onClick={() => router.push(`/projects/${project.id}`)}
+                          className="text-white hover:bg-purple-900/20 hover:text-purple-400 focus:bg-purple-900/20 focus:text-purple-400"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            router.push(`/publicprojects/${project.id}`);
+                          }}
                         >
-                          View Details
+                          Public View
                         </DropdownMenuItem>
                         {user?.role !== 'viewer' && (
                           <>
                             <DropdownMenuItem 
-                              className="text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
-                              onClick={() => setIsEditing(true)}
+                              className="text-white hover:bg-purple-900/20 hover:text-purple-400 focus:bg-purple-900/20 focus:text-purple-400"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                router.push(`/projects/${project.id}`);
+                              }}
                             >
                               Edit Project
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              className="text-red-400 hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400 cursor-pointer focus:bg-purple-900/20 focus:text-purple-400"
+                              className="text-red-400 hover:bg-purple-900/20 hover:text-purple-400 cursor-pointer focus:bg-purple-900/20 focus:text-purple-400"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 e.preventDefault();
@@ -660,11 +677,18 @@ export default function ProjectsPage() {
                           })}
                         </span>
                       </div>
-                      {user?.id && project.owner_id !== user.id && (
-                        <Badge variant="outline" className="text-xs font-normal text-gray-400 border-gray-600 px-1.5 py-0.5">
-                          Joined
-                        </Badge>
-                      )}
+                      <div className="flex gap-2">
+                        {user?.id && project.owner_id === user.id && (
+                          <Badge variant="outline" className="text-xs font-normal text-blue-400 border-blue-600 px-1.5 py-0.5">
+                            Owner
+                          </Badge>
+                        )}
+                        {user?.id && project.owner_id !== user.id && (
+                          <Badge variant="outline" className="text-xs font-normal text-green-400 border-green-600 px-1.5 py-0.5">
+                            Joined
+                          </Badge>
+                        )}
+                      </div>
                       {project.team_members && project.team_members.length > 0 && (
                         <div className="ml-auto pl-2">
                           <span className="text-gray-400">Team:</span>
@@ -691,7 +715,7 @@ export default function ProjectsPage() {
             <DialogFooter className="pt-4">
               <Button
                 variant="outline"
-                className="border-gray-700 bg-gray-800/30 text-white hover:bg-gray-800/50"
+                className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
                 onClick={() => setIsDeleteDialogOpen(false)}
               >
                 Cancel
@@ -723,12 +747,13 @@ export default function ProjectsPage() {
             <div className="flex justify-end gap-4 mt-6">
               <Button
                 variant="outline"
+                className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
                 onClick={() => setIsUpgradeDialogOpen(false)}
               >
                 Close
               </Button>
               <Button
-                className="gradient-button"
+                className="gradient-button hover:bg-purple-700"
                 onClick={() => {
                   setIsUpgradeDialogOpen(false)
                   router.push('/account-types')

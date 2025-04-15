@@ -48,7 +48,8 @@ import {
   CheckCircle,
   XCircle,
   Lock,
-  Shield
+  Shield,
+  Megaphone
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -699,6 +700,13 @@ export default function PartnerDashboard() {
                     <Briefcase className="w-4 h-4 mr-2" />
                     Projects
                   </Button>
+                  <Button
+                    className="w-full gradient-button hover:bg-purple-500"
+                    onClick={() => router.push('/deals')}
+                  >
+                    <Handshake className="w-4 h-4 mr-2" />
+                    Deals
+                  </Button>
                   {user.role === 'viewer' ? (
                     <Button
                       className="w-full gradient-button"
@@ -804,6 +812,13 @@ export default function PartnerDashboard() {
                       >
                         <Handshake className="w-4 h-4 mr-2" />
                         Make Deal
+                      </Button>
+                      <Button
+                        className="w-full gradient-button"
+                        onClick={() => router.push('/marketing')}
+                      >
+                        <Megaphone className="w-4 h-4 mr-2" />
+                        Marketing
                       </Button>
                     </>
                   )}

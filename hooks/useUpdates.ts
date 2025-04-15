@@ -13,6 +13,7 @@ export interface Update {
   created_at: string
   updated_at: string
   target_roles?: string[]
+  project_id?: number
 }
 
 export interface CreateUpdateInput {
@@ -54,33 +55,27 @@ export function useUpdates() {
 
         console.log('Test query result:', { testData, testError })
 
+        // Get projects where user is owner or team member
+        const { data: userProjects } = await supabase
+          .from('team_members')
+          .select('project_id')
+          .eq('user_id', user.id)
+
+        const teamProjectIds = userProjects?.map(p => p.project_id) || []
+
         // Build the query
         let query = supabase
           .from('updates')
-          .select(`
-            *,
-            project:project_id (
-              owner_id
-            )
-          `)
+          .select('*')
           .order('created_at', { ascending: false })
 
-        // If user is not admin, filter by target_roles and project access
+        // If user is not admin, apply filtering
         if (user.role !== 'admin') {
-          // Get projects where user is owner or team member
-          const { data: userProjects } = await supabase
-            .from('team_members')
-            .select('project_id')
-            .eq('user_id', user.id)
-
-          const teamProjectIds = userProjects?.map(p => p.project_id) || []
-
-          // Filter updates based on role and project access
           query = query.or(
-            `target_roles.is.null,` +
-            `target_roles.cs.{${user.role}},` +
-            `project.owner_id.eq.${user.id}` +
-            (teamProjectIds.length > 0 ? `,project_id.in.(${teamProjectIds.join(',')})` : '')
+            // Show non-project updates (global updates) that are either public or match user's role
+            `and(project_id.is.null,or(target_roles.is.null,target_roles.cs.{${user.role}})),` +
+            // Show project updates only for projects user is a member of
+            `and(project_id.in.(${teamProjectIds.join(',')}),or(target_roles.is.null,target_roles.cs.{${user.role}}))`
           )
         }
 
@@ -91,9 +86,7 @@ export function useUpdates() {
           throw new Error(`Failed to fetch updates: ${fetchError.message}`)
         }
 
-        // Clean up the data before setting state
-        const cleanedUpdates = data?.map(({ project, ...update }) => update) || []
-        setUpdates(cleanedUpdates)
+        setUpdates(data || [])
       } catch (err) {
         console.error('Error in fetchUpdates:', err)
         setError(err instanceof Error ? err.message : 'Failed to load updates')
@@ -203,32 +196,26 @@ export function useUpdates() {
           console.log('Refreshing updates...')
           console.log('Current user:', user)
           
+          // Get projects where user is owner or team member
+          const { data: userProjects } = await supabase
+            .from('team_members')
+            .select('project_id')
+            .eq('user_id', user.id)
+
+          const teamProjectIds = userProjects?.map(p => p.project_id) || []
+          
           let query = supabase
             .from('updates')
-            .select(`
-              *,
-              project:project_id (
-                owner_id
-              )
-            `)
+            .select('*')
             .order('created_at', { ascending: false })
 
-          // If user is not admin, filter by target_roles and project access
+          // If user is not admin, apply filtering
           if (user.role !== 'admin') {
-            // Get projects where user is owner or team member
-            const { data: userProjects } = await supabase
-              .from('team_members')
-              .select('project_id')
-              .eq('user_id', user.id)
-
-            const teamProjectIds = userProjects?.map(p => p.project_id) || []
-
-            // Filter updates based on role and project access
             query = query.or(
-              `target_roles.is.null,` +
-              `target_roles.cs.{${user.role}},` +
-              `project.owner_id.eq.${user.id}` +
-              (teamProjectIds.length > 0 ? `,project_id.in.(${teamProjectIds.join(',')})` : '')
+              // Show non-project updates (global updates) that are either public or match user's role
+              `and(project_id.is.null,or(target_roles.is.null,target_roles.cs.{${user.role}})),` +
+              // Show project updates only for projects user is a member of
+              `and(project_id.in.(${teamProjectIds.join(',')}),or(target_roles.is.null,target_roles.cs.{${user.role}}))`
             )
           }
 
@@ -237,9 +224,7 @@ export function useUpdates() {
           
           if (fetchError) throw new Error(`Failed to fetch updates: ${fetchError.message}`)
 
-          // Clean up the data before setting state
-          const cleanedUpdates = data?.map(({ project, ...update }) => update) || []
-          setUpdates(cleanedUpdates)
+          setUpdates(data || [])
         } catch (err) {
           console.error('Error in fetchUpdates:', err)
           setError(err instanceof Error ? err.message : 'Failed to load updates')

@@ -42,6 +42,7 @@ export interface Project {
   media_files?: MediaFile[] | null
   project_key?: string | null
   visibility: 'private' | 'public'
+  team_members?: TeamMember[] | null
 }
 
 export interface ProjectRole {
