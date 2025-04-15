@@ -34,6 +34,7 @@ import {
   MessageCircle,
   Send,
   Settings,
+  Download,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -256,6 +257,9 @@ export default function ProjectDetails() {
   const [newComment, setNewComment] = useState('')
   const [isDeletingComment, setIsDeletingComment] = useState(false)
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null)
+  const [isRenamingFile, setIsRenamingFile] = useState(false)
+  const [fileToRename, setFileToRename] = useState<MediaFile | null>(null)
+  const [newFileName, setNewFileName] = useState('')
 
   useEffect(() => {
     refreshTeamMembers()
@@ -454,6 +458,7 @@ export default function ProjectDetails() {
 
   const handleEditMember = (member: TeamMemberWithUser) => {
     setSelectedMember(member)
+    setSelectedRole(member.role)
     setIsEditDialogOpen(true)
   }
 
@@ -1110,6 +1115,78 @@ export default function ProjectDetails() {
     }
   };
 
+  const handleRenameFile = async () => {
+    if (!fileToRename || !newFileName.trim() || !project) return;
+
+    try {
+      // Get file extension from original name
+      const originalExt = fileToRename.name.split('.').pop();
+      // Create new filename with same extension
+      const newNameWithExt = `${newFileName.trim()}.${originalExt}`;
+
+      // Create new file object with updated name
+      const updatedFile = {
+        ...fileToRename,
+        name: newNameWithExt
+      };
+
+      // Update the media_files array
+      const updatedMediaFiles = project.media_files?.map(file => 
+        file.name === fileToRename.name ? updatedFile : file
+      ) || [];
+
+      // Update project in database
+      const { error: updateError } = await supabase
+        .from('projects')
+        .update({
+          media_files: updatedMediaFiles
+        })
+        .eq('id', projectId);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setProject(prev => ({
+        ...prev!,
+        media_files: updatedMediaFiles
+      }));
+
+      setIsRenamingFile(false);
+      setFileToRename(null);
+      setNewFileName('');
+      toast.success('File renamed successfully');
+    } catch (error) {
+      console.error('Error renaming file:', error);
+      toast.error('Failed to rename file');
+    }
+  };
+
+  const handleUpdateMember = async () => {
+    if (!selectedMember || !selectedRole) return
+
+    try {
+      const { error } = await supabase
+        .from('team_members')
+        .update({ role: selectedRole })
+        .eq('id', selectedMember.id)
+
+      if (error) throw error
+
+      // Update local state
+      setTeamMembers(prev => prev.map(member =>
+        member.id === selectedMember.id ? { ...member, role: selectedRole } : member
+      ))
+
+      setIsEditDialogOpen(false)
+      setSelectedMember(null)
+      setSelectedRole('')
+      toast.success('Team member role updated successfully')
+    } catch (error) {
+      console.error('Error updating team member:', error)
+      toast.error('Failed to update team member role')
+    }
+  }
+
   // Show loading state while authentication or projects are loading
   if (authLoading || projectsLoading || !project) {
     return (
@@ -1216,64 +1293,131 @@ export default function ProjectDetails() {
                         type="file"
                         id="media-upload"
                         className="hidden"
-                        accept="image/*,video/*"
+                        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
                         multiple
                         onChange={handleMediaUpload}
                       />
                     </div>
                   </CardHeader>
               <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {project?.media_files?.map((file, index) => (
-                        <div key={index} className="relative group">
-                          {file.type.startsWith('image/') ? (
-                            <div className={`relative overflow-hidden rounded-lg ${
-                              file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
-                              file.aspect_ratio === 'square' ? 'aspect-square' :
-                              'aspect-[16/9]'
-                            }`}>
-                              <img
-                                src={file.url}
-                                alt={file.name}
-                                className="object-cover w-full h-full"
-                              />
-                            </div>
-                          ) : file.type.startsWith('video/') ? (
-                            <div className={`relative overflow-hidden rounded-lg ${
-                              file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
-                              file.aspect_ratio === 'square' ? 'aspect-square' :
-                              'aspect-[16/9]'
-                            }`}>
-                              <video
-                                src={file.url}
-                                controls
-                                className="object-cover w-full h-full"
-                              />
-                            </div>
-                          ) : null}
-                      {user?.role !== 'investor' && (
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-white hover:text-red-400"
-                              onClick={() => handleDeleteMedia(file.name)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                      )}
+                {/* Images and Videos Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {project?.media_files?.filter(file => 
+                    file.type.startsWith('image/') || file.type.startsWith('video/')
+                  ).map((file, index) => (
+                    <div key={index} className="relative group">
+                      {file.type.startsWith('image/') ? (
+                        <div className={`relative overflow-hidden rounded-lg ${
+                          file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
+                          file.aspect_ratio === 'square' ? 'aspect-square' :
+                          'aspect-[16/9]'
+                        }`}>
+                          <img
+                            src={file.url}
+                            alt={file.name}
+                            className="object-cover w-full h-full"
+                          />
                         </div>
-                      ))}
-                  {(!project?.media_files || project.media_files.length === 0) && (
-                        <div className="col-span-full text-center py-8">
-                          <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                          <h3 className="text-lg font-medium text-gray-400">No media files</h3>
-                          <p className="text-gray-500 mt-1">Upload images or videos to showcase your project</p>
+                      ) : file.type.startsWith('video/') ? (
+                        <div className={`relative overflow-hidden rounded-lg ${
+                          file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
+                          file.aspect_ratio === 'square' ? 'aspect-square' :
+                          'aspect-[16/9]'
+                        }`}>
+                          <video
+                            src={file.url}
+                            controls
+                            className="object-cover w-full h-full"
+                          />
+                        </div>
+                      ) : null}
+                      {user?.role !== 'investor' && (
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-white hover:text-red-400"
+                            onClick={() => handleDeleteMedia(file.name)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       )}
                     </div>
-                  </CardContent>
+                  ))}
+                </div>
+
+                {/* Files List */}
+                {project?.media_files?.some(file => 
+                  !file.type.startsWith('image/') && !file.type.startsWith('video/')
+                ) && (
+                  <div className="mt-6 border-t border-gray-800 pt-6">
+                    <h4 className="text-sm font-medium text-gray-400 mb-4">Uploaded Files</h4>
+                    <div className="space-y-2">
+                      {project?.media_files?.filter(file => 
+                        !file.type.startsWith('image/') && !file.type.startsWith('video/')
+                      ).map((file, index) => (
+                        <div 
+                          key={index} 
+                          className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <FileText className="w-5 h-5 text-gray-400" />
+                            <div>
+                              <p className="text-sm font-medium text-white">{file.name}</p>
+                              <p className="text-xs text-gray-400">
+                                {file.type.split('/')[1].toUpperCase()} • {(file.size / 1024 / 1024).toFixed(2)}MB
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-400 hover:text-blue-400"
+                              onClick={() => window.open(file.url, '_blank')}
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                            {user?.role !== 'investor' && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-gray-400 hover:text-blue-400"
+                                  onClick={() => {
+                                    setFileToRename(file);
+                                    setNewFileName(file.name.split('.')[0]);
+                                    setIsRenamingFile(true);
+                                  }}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-gray-400 hover:text-red-400"
+                                  onClick={() => handleDeleteMedia(file.name)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(!project?.media_files || project.media_files.length === 0) && (
+                  <div className="col-span-full text-center py-8">
+                    <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-400">No media files</h3>
+                    <p className="text-gray-500 mt-1">Upload images, videos, or documents to showcase your project</p>
+                  </div>
+                )}
+              </CardContent>
                 </Card>
 
                 {/* Project Description */}
@@ -1352,38 +1496,36 @@ export default function ProjectDetails() {
                                   className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg"
                                 >
                                   <div className="flex items-center">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center mr-3">
                                       <span className="text-white font-medium">
-                                        {member.user.name?.charAt(0) || member.user.email?.charAt(0) || '?'}
+                                        {member.user?.name?.[0] || member.user?.email?.[0] || '?'}
                                       </span>
                                     </div>
-                                    <div className="ml-3">
-                                      <div className="text-white font-medium">
-                                        {member.user.name || member.user.email}
-                                      </div>
-                                      <div className="text-sm text-gray-400">
-                                        Requested {new Date(member.joined_at).toLocaleDateString()}
-                                      </div>
+                                    <div>
+                                      <h4 className="font-medium text-white">{member.user?.name || member.user?.email}</h4>
+                                      <p className="text-sm text-gray-400">{member.role}</p>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-green-400 hover:text-green-300 hover:bg-green-900/20"
-                                      onClick={() => handleApproveRequest(member.id)}
-                                    >
-                                      <Check className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                                      onClick={() => handleRejectRequest(member.id)}
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </div>
+                                  {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="text-gray-400 hover:text-purple-400"
+                                        onClick={() => handleEditMember(member)}
+                                      >
+                                        <Pencil className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="text-gray-400 hover:text-purple-400"
+                                        onClick={() => handleRemoveMember(member.id)}
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             {!loading && teamMembers.filter(member => member.status === 'pending').length === 0 && (
@@ -1449,7 +1591,7 @@ export default function ProjectDetails() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-gray-400 hover:text-blue-400"
+                            className="text-gray-400 hover:text-purple-400"
                             onClick={() => {
                               setEditingScheduleItem(item);
                               setIsEditingSchedule(true);
@@ -1460,7 +1602,7 @@ export default function ProjectDetails() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-gray-400 hover:text-red-400"
+                            className="text-gray-400 hover:text-purple-400"
                             onClick={() => {
                               setScheduleToDelete(item.id)
                               setIsDeletingSchedule(true)
@@ -1536,7 +1678,7 @@ export default function ProjectDetails() {
                             variant="outline"
                             className={
                               task.priority === 'high'
-                                ? 'bg-red-500/20 text-red-400 border-red-500/50'
+                                ? 'bg-purple-500/20 text-purple-400 border-purple-500/50'
                                 : task.priority === 'medium'
                                 ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
                                 : 'bg-green-500/20 text-green-400 border-green-500/50'
@@ -1619,7 +1761,7 @@ export default function ProjectDetails() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-gray-400 hover:text-blue-400"
+                                className="text-gray-400 hover:text-purple-400"
                                 onClick={() => startEditingTask(task)}
                               >
                                 <Pencil className="w-4 h-4" />
@@ -1627,7 +1769,7 @@ export default function ProjectDetails() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-gray-400 hover:text-red-400"
+                                className="text-gray-400 hover:text-purple-400"
                                 onClick={() => {
                                   setTaskToDelete(task.id)
                                   setIsDeletingTask(true)
@@ -1761,7 +1903,7 @@ export default function ProjectDetails() {
                     <div key={member.id} className="p-4 bg-gray-800/30 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                          <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center mr-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center mr-3">
                             <span className="text-white font-medium">
                               {member.user?.name?.[0] || member.user?.email?.[0] || '?'}
                             </span>
@@ -1776,6 +1918,7 @@ export default function ProjectDetails() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              className="text-gray-400 hover:text-purple-400"
                               onClick={() => handleEditMember(member)}
                             >
                               <Pencil className="w-4 h-4" />
@@ -1783,6 +1926,7 @@ export default function ProjectDetails() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              className="text-gray-400 hover:text-purple-400"
                               onClick={() => handleRemoveMember(member.id)}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -2248,6 +2392,96 @@ export default function ProjectDetails() {
               Delete Comment
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename File Dialog */}
+      <Dialog open={isRenamingFile} onOpenChange={setIsRenamingFile}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Rename File</DialogTitle>
+            <DialogDescription>
+              Enter a new name for the file. The extension will be preserved.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>New File Name</Label>
+              <Input
+                value={newFileName}
+                onChange={(e) => setNewFileName(e.target.value)}
+                placeholder="Enter new file name"
+              />
+              <p className="text-sm text-gray-400">
+                Current file: {fileToRename?.name}
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsRenamingFile(false);
+                setFileToRename(null);
+                setNewFileName('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRenameFile}
+              className="gradient-button"
+              disabled={!newFileName.trim()}
+            >
+              Rename File
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Team Member Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Team Member Role</DialogTitle>
+            <DialogDescription>
+              Change the role for {selectedMember?.user?.name || selectedMember?.user?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="role">Role</Label>
+              <Select
+                value={selectedRole}
+                onValueChange={setSelectedRole}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lead">Lead</SelectItem>
+                  <SelectItem value="member">Member</SelectItem>
+                  <SelectItem value="advisor">Advisor</SelectItem>
+                  <SelectItem value="consultant">Consultant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsEditDialogOpen(false)
+                setSelectedMember(null)
+                setSelectedRole('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateMember} className="gradient-button">
+              Save Changes
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

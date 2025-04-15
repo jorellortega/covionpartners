@@ -17,6 +17,7 @@ import {
   DollarSign,
   UserPlus,
   Key,
+  Plus,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -47,7 +48,7 @@ import { toast } from "sonner"
 
 export default function ProjectsPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { projects, loading, error } = useProjects(user?.id || '')
   const [projectKey, setProjectKey] = useState("")
   const [isJoining, setIsJoining] = useState(false)
@@ -56,6 +57,8 @@ export default function ProjectsPage() {
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null)
   const [searchStatus, setSearchStatus] = useState<"idle" | "searching" | "found" | "not_found">("idle")
   const [foundProject, setFoundProject] = useState<any>(null)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false)
 
   const handleDeleteProject = async (projectId: string) => {
     setProjectToDelete(projectId)
@@ -356,6 +359,14 @@ export default function ProjectsPage() {
     }
   }
 
+  const handleNewProjectClick = () => {
+    if (user?.role === 'viewer') {
+      setIsUpgradeDialogOpen(true)
+    } else {
+      router.push('/projects/new')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -488,12 +499,13 @@ export default function ProjectsPage() {
             </DialogContent>
           </Dialog>
           {user && user.role !== 'investor' && (
-            <Link href="/projects/new">
-              <Button className="gradient-button">
-                <PlusCircle className="w-5 h-5 mr-2" />
-                New Project
-              </Button>
-            </Link>
+            <Button
+              onClick={handleNewProjectClick}
+              className="gradient-button"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Project
+            </Button>
           )}
         </div>
 
@@ -690,6 +702,40 @@ export default function ProjectsPage() {
                 Delete Project
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Create Project Dialog */}
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          {/* Existing create project dialog content ... */}
+        </Dialog>
+
+        {/* Upgrade Account Dialog */}
+        <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Upgrade Required</DialogTitle>
+              <DialogDescription>
+                You must upgrade your account to create and manage projects.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-4 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setIsUpgradeDialogOpen(false)}
+              >
+                Close
+              </Button>
+              <Button
+                className="gradient-button"
+                onClick={() => {
+                  setIsUpgradeDialogOpen(false)
+                  router.push('/account-types')
+                }}
+              >
+                Upgrade Account
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </main>
