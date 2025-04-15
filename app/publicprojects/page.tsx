@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input"
 import { useProjects } from "@/hooks/useProjects"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useAuth } from "@/hooks/useAuth"
+import { QRCodeCanvas } from 'qrcode.react'
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -141,7 +142,7 @@ export default function PublicProjectsPage() {
           {filteredProjects.map((project) => (
             <Card
               key={project.id}
-              className="leonardo-card border-gray-800 overflow-visible cursor-pointer hover:border-blue-500/50 transition-colors"
+              className="leonardo-card border-gray-800 overflow-visible cursor-pointer hover:border-blue-500/50 transition-colors relative"
               onClick={() => router.push(`/publicprojects/${project.id}`)}
             >
               <CardHeader className="pb-2">

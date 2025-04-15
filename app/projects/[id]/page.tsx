@@ -67,6 +67,7 @@ import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
 import { TaskList } from '@/components/task-list'
 import { Textarea } from "@/components/ui/textarea"
+import { QRCodeCanvas } from 'qrcode.react'
 
 // Project status badge component
 function StatusBadge({ status, projectId, onStatusChange }: { status: string, projectId: string, onStatusChange?: (newStatus: string) => void }) {
@@ -3091,6 +3092,12 @@ export default function ProjectDetails() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {project && typeof window !== 'undefined' && localStorage.getItem('showQRCodes') !== 'false' && (
+        <div className="absolute bottom-4 right-4 z-10 bg-white p-2 rounded shadow">
+          <QRCodeCanvas value={`${window.location.origin}/publicprojects/${project.id}`} size={64} />
+        </div>
+      )}
     </div>
   )
 }

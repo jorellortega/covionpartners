@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -38,6 +38,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
+import { QRCodeCanvas } from 'qrcode.react'
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -89,6 +90,7 @@ export default function PublicProjectDetails() {
   const [projectKey, setProjectKey] = useState("")
   const [isJoining, setIsJoining] = useState(false)
   const [joinError, setJoinError] = useState("")
+  const qrRef = useRef<any>(null)
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -310,6 +312,26 @@ export default function PublicProjectDetails() {
     }
   }
 
+  const handleDownloadQR = () => {
+    if (!qrRef.current) return;
+    // Create a hidden canvas for high-res export
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = 1200;
+    tempCanvas.height = 1200;
+    const ctx = tempCanvas.getContext('2d');
+    // Render QR code to temp canvas
+    const svg = qrRef.current.querySelector('canvas');
+    if (svg) {
+      // Draw the existing canvas onto the temp canvas, scaling up
+      ctx.drawImage(svg, 0, 0, 1200, 1200);
+      const url = tempCanvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `project-qr-${project.id}.png`;
+      a.click();
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -424,6 +446,66 @@ export default function PublicProjectDetails() {
               </CardContent>
             </Card>
 
+            {/* Project Resources */}
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <FileText className="w-5 h-5 mr-2" />
+                  Project Resources
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Available documents and materials
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {resources.length === 0 ? (
+                    <div className="text-center py-8">
+                      <File className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-400">No resources available yet</p>
+                    </div>
+                  ) : (
+                    resources.map((resource) => (
+                      <div key={resource.id} className="p-4 bg-gray-800/30 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <FileType className="w-8 h-8 text-blue-400 mr-3" />
+                            <div>
+                              <h4 className="font-medium text-white">{resource.name}</h4>
+                              <p className="text-sm text-gray-400">
+                                {resource.file_type.toUpperCase()} • {formatFileSize(resource.size)}
+                              </p>
+                            </div>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-gray-400 hover:text-white"
+                            onClick={() => handleDownload(resource)}
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  {/* Upload section - only visible to project owner */}
+                  {user && project.owner_id === user.id && (
+                    <div className="mt-6 border-t border-gray-800 pt-6">
+                      <Button 
+                        className="w-full gradient-button"
+                        onClick={() => setIsUploadOpen(true)}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload New Resource
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Project Overview */}
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
@@ -484,66 +566,6 @@ export default function PublicProjectDetails() {
                       <div className="text-white font-medium">{project.type || 'Unknown'}</div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Project Resources */}
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FileText className="w-5 h-5 mr-2" />
-                  Project Resources
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Available documents and materials
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {resources.length === 0 ? (
-                    <div className="text-center py-8">
-                      <File className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-400">No resources available yet</p>
-                    </div>
-                  ) : (
-                    resources.map((resource) => (
-                      <div key={resource.id} className="p-4 bg-gray-800/30 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <FileType className="w-8 h-8 text-blue-400 mr-3" />
-                            <div>
-                              <h4 className="font-medium text-white">{resource.name}</h4>
-                              <p className="text-sm text-gray-400">
-                                {resource.file_type.toUpperCase()} • {formatFileSize(resource.size)}
-                              </p>
-                            </div>
-                          </div>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-gray-400 hover:text-white"
-                            onClick={() => handleDownload(resource)}
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-
-                  {/* Upload section - only visible to project owner */}
-                  {user && project.owner_id === user.id && (
-                    <div className="mt-6 border-t border-gray-800 pt-6">
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={() => setIsUploadOpen(true)}
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload New Resource
-                      </Button>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -635,6 +657,23 @@ export default function PublicProjectDetails() {
                 </div>
               </DialogContent>
             </Dialog>
+
+            {typeof window !== 'undefined' && localStorage.getItem('showQRCodes') !== 'false' && project && (
+              <Card className="leonardo-card border-gray-800">
+                <CardHeader>
+                  <CardTitle>Share this Project</CardTitle>
+                  <CardDescription>Scan to open this public project page</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center py-6">
+                  <div ref={qrRef}>
+                    <QRCodeCanvas value={`${window.location.origin}/publicprojects/${project.id}`} size={256} />
+                  </div>
+                  <Button className="mt-4" onClick={handleDownloadQR}>
+                    Download QR Code
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Sidebar */}

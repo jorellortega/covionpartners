@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
+import { QRCodeCanvas } from 'qrcode.react'
 
 interface Project {
   id: string
@@ -157,6 +158,9 @@ export default function LivePromoPage({ params }: { params: Promise<{ id: string
                 </div>
               </div>
             )}
+            <div className="absolute bottom-4 right-4 z-10 bg-white p-2 rounded shadow">
+              <QRCodeCanvas value={`${window.location.origin}/publicprojects/${project.id}`} size={64} />
+            </div>
           </div>
         </Card>
 

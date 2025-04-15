@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase"
@@ -57,6 +57,18 @@ export default function MarketingPage() {
   const [promoDescription, setPromoDescription] = useState("")
   const [editingPromo, setEditingPromo] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [showQRCodes, setShowQRCodes] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('showQRCodes') === 'true';
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('showQRCodes', showQRCodes.toString());
+    }
+  }, [showQRCodes]);
 
   console.log('Projects:', projects) // Debug log
 
@@ -387,6 +399,18 @@ export default function MarketingPage() {
               </Button>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Toggle UI */}
+        <div className="flex items-center gap-2 mb-6">
+          <label htmlFor="showQRCodes" className="text-sm font-medium text-gray-300">Show QR Codes on Project Pages</label>
+          <input
+            id="showQRCodes"
+            type="checkbox"
+            checked={showQRCodes}
+            onChange={e => setShowQRCodes(e.target.checked)}
+            className="ml-2"
+          />
         </div>
       </main>
     </div>
