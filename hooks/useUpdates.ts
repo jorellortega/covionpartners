@@ -57,17 +57,31 @@ export function useUpdates() {
         // Build the query
         let query = supabase
           .from('updates')
-          .select('*')
+          .select(`
+            *,
+            project:project_id (
+              owner_id
+            )
+          `)
           .order('created_at', { ascending: false })
 
-        // If user is not admin, filter by target_roles
+        // If user is not admin, filter by target_roles and project access
         if (user.role !== 'admin') {
-          // Try a simpler query first - just get all updates
-          const { data: allData, error: allError } = await query
-          console.log('All updates before filtering:', allData)
-          
-          // Now add the role filter
-          query = query.or('target_roles.is.null,target_roles.cs.{' + user.role + '}')
+          // Get projects where user is owner or team member
+          const { data: userProjects } = await supabase
+            .from('team_members')
+            .select('project_id')
+            .eq('user_id', user.id)
+
+          const teamProjectIds = userProjects?.map(p => p.project_id) || []
+
+          // Filter updates based on role and project access
+          query = query.or(
+            `target_roles.is.null,` +
+            `target_roles.cs.{${user.role}},` +
+            `project.owner_id.eq.${user.id}` +
+            (teamProjectIds.length > 0 ? `,project_id.in.(${teamProjectIds.join(',')})` : '')
+          )
         }
 
         const { data, error: fetchError } = await query
@@ -77,7 +91,9 @@ export function useUpdates() {
           throw new Error(`Failed to fetch updates: ${fetchError.message}`)
         }
 
-        setUpdates(data || [])
+        // Clean up the data before setting state
+        const cleanedUpdates = data?.map(({ project, ...update }) => update) || []
+        setUpdates(cleanedUpdates)
       } catch (err) {
         console.error('Error in fetchUpdates:', err)
         setError(err instanceof Error ? err.message : 'Failed to load updates')
@@ -189,18 +205,41 @@ export function useUpdates() {
           
           let query = supabase
             .from('updates')
-            .select('*')
+            .select(`
+              *,
+              project:project_id (
+                owner_id
+              )
+            `)
             .order('created_at', { ascending: false })
 
+          // If user is not admin, filter by target_roles and project access
           if (user.role !== 'admin') {
-            query = query.or('target_roles.is.null,target_roles.cs.{' + user.role + '}')
+            // Get projects where user is owner or team member
+            const { data: userProjects } = await supabase
+              .from('team_members')
+              .select('project_id')
+              .eq('user_id', user.id)
+
+            const teamProjectIds = userProjects?.map(p => p.project_id) || []
+
+            // Filter updates based on role and project access
+            query = query.or(
+              `target_roles.is.null,` +
+              `target_roles.cs.{${user.role}},` +
+              `project.owner_id.eq.${user.id}` +
+              (teamProjectIds.length > 0 ? `,project_id.in.(${teamProjectIds.join(',')})` : '')
+            )
           }
 
           const { data, error: fetchError } = await query
           console.log('Refresh query result:', { data, fetchError })
           
           if (fetchError) throw new Error(`Failed to fetch updates: ${fetchError.message}`)
-          setUpdates(data || [])
+
+          // Clean up the data before setting state
+          const cleanedUpdates = data?.map(({ project, ...update }) => update) || []
+          setUpdates(cleanedUpdates)
         } catch (err) {
           console.error('Error in fetchUpdates:', err)
           setError(err instanceof Error ? err.message : 'Failed to load updates')
