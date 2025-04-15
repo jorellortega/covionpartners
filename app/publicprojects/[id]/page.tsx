@@ -666,7 +666,7 @@ export default function PublicProjectDetails() {
                 </CardHeader>
                 <CardContent className="flex flex-col items-center py-6">
                   <div ref={qrRef}>
-                    <QRCodeCanvas value={`${window.location.origin}/publicprojects/${project.id}`} size={256} />
+                    <QRCodeCanvas value={`https://www.covionpartners.com/publicprojects/${project.id}`} size={256} />
                   </div>
                   <Button className="mt-4" onClick={handleDownloadQR}>
                     Download QR Code
