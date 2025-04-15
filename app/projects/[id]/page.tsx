@@ -36,6 +36,7 @@ import {
   Settings,
   Download,
   Briefcase,
+  Link,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -68,7 +69,9 @@ import { TaskList } from '@/components/task-list'
 import { Textarea } from "@/components/ui/textarea"
 
 // Project status badge component
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, projectId, onStatusChange }: { status: string, projectId: string, onStatusChange?: (newStatus: string) => void }) {
+  const [isUpdating, setIsUpdating] = useState(false)
+
   const getStatusStyles = () => {
     switch (status.toLowerCase()) {
       case "active":
@@ -78,21 +81,78 @@ function StatusBadge({ status }: { status: string }) {
       case "completed":
         return "bg-blue-500/20 text-blue-400 border-blue-500/50"
       case "on hold":
-        return "bg-orange-500/20 text-orange-400 border-orange-500/50"
+        return "bg-red-500/20 text-red-400 border-red-500/50"
       default:
         return "bg-gray-500/20 text-gray-400 border-gray-500/50"
     }
   }
 
+  const handleStatusUpdate = async (newStatus: string) => {
+    if (!onStatusChange) return
+    setIsUpdating(true)
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ status: newStatus })
+        .eq('id', projectId)
+
+      if (error) throw error
+      onStatusChange(newStatus)
+      toast.success('Status updated successfully')
+    } catch (error) {
+      console.error('Error updating status:', error)
+      toast.error('Failed to update status')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  if (!onStatusChange) {
   return (
     <Badge className={`${getStatusStyles()} border`} variant="outline">
       {status}
     </Badge>
+    )
+  }
+
+  return (
+    <Select
+      value={status.toLowerCase()}
+      onValueChange={handleStatusUpdate}
+      disabled={isUpdating}
+    >
+      <SelectTrigger className={`w-[130px] ${getStatusStyles()} border hover:bg-gray-800/50`}>
+        <SelectValue>
+          {isUpdating ? (
+            <div className="flex items-center">
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Updating...
+            </div>
+          ) : (
+            status
+          )}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="pending" className="text-yellow-400 hover:bg-yellow-500/20 focus:bg-yellow-500/20">
+          Pending
+        </SelectItem>
+        <SelectItem value="active" className="text-green-400 hover:bg-green-500/20 focus:bg-green-500/20">
+          Active
+        </SelectItem>
+        <SelectItem value="completed" className="text-blue-400 hover:bg-blue-500/20 focus:bg-blue-500/20">
+          Completed
+        </SelectItem>
+        <SelectItem value="on hold" className="text-red-400 hover:bg-red-500/20 focus:bg-red-500/20">
+          On Hold
+        </SelectItem>
+      </SelectContent>
+    </Select>
   )
 }
 
 // Helper component for displaying project status and progress
-function StatusCard({ project }: { project: Project | null }) {
+function StatusCard({ project, onStatusChange }: { project: Project | null, onStatusChange?: (newStatus: string) => void }) {
   if (!project) return <LoadingSpinner />
 
   return (
@@ -103,7 +163,11 @@ function StatusCard({ project }: { project: Project | null }) {
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">Current Status</span>
-          <StatusBadge status={project.status || 'N/A'} />
+          <StatusBadge 
+            status={project.status || 'N/A'} 
+            projectId={project.id}
+            onStatusChange={onStatusChange}
+          />
         </div>
         <div className="space-y-1">
           <div className="flex justify-between text-sm">
@@ -113,7 +177,12 @@ function StatusCard({ project }: { project: Project | null }) {
             </span>
             <span>{Number(project.progress ?? 0).toFixed(0)}%</span>
           </div>
-          <Progress value={Number(project.progress ?? 0)} className="w-full" />
+          <div className="h-2 w-full bg-gray-800 rounded-full overflow-hidden">
+            <div 
+              className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-300"
+              style={{ width: `${Number(project.progress ?? 0)}%` }}
+            />
+          </div>
         </div>
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center">
@@ -271,6 +340,14 @@ export default function ProjectDetails() {
     description: '',
     role_type: '',
     commitment: ''
+  })
+  const [isAddingLink, setIsAddingLink] = useState(false)
+  const [isEditingLink, setIsEditingLink] = useState(false)
+  const [editingLink, setEditingLink] = useState<any>(null)
+  const [newLink, setNewLink] = useState({
+    title: '',
+    url: '',
+    description: ''
   })
 
   useEffect(() => {
@@ -739,8 +816,6 @@ export default function ProjectDetails() {
           description: editProjectData.description,
           status: editProjectData.status,
           progress: editProjectData.progress,
-          goals: editProjectData.goals,
-          target_market: editProjectData.target_market,
           updated_at: new Date().toISOString()
         })
         .eq('id', project.id)
@@ -754,8 +829,6 @@ export default function ProjectDetails() {
         description: editProjectData.description,
         status: editProjectData.status,
         progress: editProjectData.progress,
-        goals: editProjectData.goals,
-        target_market: editProjectData.target_market,
         updated_at: new Date().toISOString()
       })
 
@@ -1249,6 +1322,78 @@ export default function ProjectDetails() {
     toast.success('Position updated successfully')
   }
 
+  const handleStatusChange = async (newStatus: string) => {
+    if (!project) return
+    setProject({ ...project, status: newStatus })
+  }
+
+  const handleAddLink = async () => {
+    if (!newLink.title || !newLink.url) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+
+    try {
+      const updatedLinks = [...(project?.external_links || []), newLink]
+      // Update in Supabase
+      const { error } = await supabase
+        .from('projects')
+        .update({ external_links: updatedLinks })
+        .eq('id', project.id)
+      if (error) throw error
+
+      setProject(prev => ({ ...prev!, external_links: updatedLinks }))
+      setNewLink({ title: '', url: '', description: '' })
+      setIsAddingLink(false)
+      toast.success('Link added successfully')
+    } catch (error) {
+      console.error('Error adding link:', error)
+      toast.error('Failed to add link')
+    }
+  }
+
+  const handleUpdateLink = async () => {
+    if (!editingLink) return
+
+    try {
+      const updatedLinks = project?.external_links?.map(link =>
+        link.id === editingLink.id ? { ...editingLink, ...newLink } : link
+      ) || []
+      // Update in Supabase
+      const { error } = await supabase
+        .from('projects')
+        .update({ external_links: updatedLinks })
+        .eq('id', project.id)
+      if (error) throw error
+
+      setProject(prev => ({ ...prev!, external_links: updatedLinks }))
+      setEditingLink(null)
+      setNewLink({ title: '', url: '', description: '' })
+      setIsEditingLink(false)
+      toast.success('Link updated successfully')
+    } catch (error) {
+      console.error('Error updating link:', error)
+      toast.error('Failed to update link')
+    }
+  }
+
+  const handleDeleteLink = async (index: number) => {
+    if (confirm('Are you sure you want to delete this link?')) {
+      const updatedLinks = project?.external_links?.filter((_, i) => i !== index) || []
+      // Update in Supabase
+      const { error } = await supabase
+        .from('projects')
+        .update({ external_links: updatedLinks })
+        .eq('id', project.id)
+      if (error) {
+        toast.error('Failed to delete link')
+        return
+      }
+      setProject(prev => ({ ...prev!, external_links: updatedLinks }))
+      toast.success('Link deleted successfully')
+    }
+  }
+
   // Show loading state while authentication or projects are loading
   if (authLoading || projectsLoading || !project) {
     return (
@@ -1311,7 +1456,11 @@ export default function ProjectDetails() {
         </div>
 
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 sm:items-center">
-                <StatusBadge status={project?.status || 'Unknown'} />
+                <StatusBadge 
+                  status={project?.status || 'N/A'} 
+                  projectId={project.id}
+                  onStatusChange={handleStatusChange}
+                />
                 </div>
               </div>
               </div>
@@ -1329,10 +1478,11 @@ export default function ProjectDetails() {
                       <div>
                     <CardTitle>Project Media</CardTitle>
                     <CardDescription className="text-gray-400">
-                          Images, videos, and other media files
+                          Images, videos, documents, and external links
                         </CardDescription>
                       </div>
                   {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                        <div className="flex gap-2">
                       <Button 
                         onClick={() => document.getElementById('media-upload')?.click()} 
                         className="gradient-button"
@@ -1350,6 +1500,14 @@ export default function ProjectDetails() {
                           </>
                         )}
                       </Button>
+                          <Button 
+                            onClick={() => setIsAddingLink(true)}
+                            className="gradient-button"
+                          >
+                            <Link className="w-4 h-4 mr-2" />
+                            Add Link
+                          </Button>
+                        </div>
                   )}
                       <input
                         type="file"
@@ -1362,11 +1520,11 @@ export default function ProjectDetails() {
                     </div>
                   </CardHeader>
               <CardContent>
-                {/* Images and Videos Grid */}
+                    {/* Images and Videos Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {project?.media_files?.filter(file => 
-                    file.type.startsWith('image/') || file.type.startsWith('video/')
-                  ).map((file, index) => (
+                      {project?.media_files?.filter(file => 
+                        file.type.startsWith('image/') || file.type.startsWith('video/')
+                      ).map((file, index) => (
                         <div key={index} className="relative group">
                           {file.type.startsWith('image/') ? (
                             <div className={`relative overflow-hidden rounded-lg ${
@@ -1393,7 +1551,7 @@ export default function ProjectDetails() {
                               />
                             </div>
                           ) : null}
-                      {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                          {user?.role !== 'viewer' && user?.role !== 'investor' && (
                           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                             <Button
                               variant="ghost"
@@ -1407,73 +1565,128 @@ export default function ProjectDetails() {
                       )}
                         </div>
                       ))}
-                </div>
+                    </div>
 
-                {/* Files List */}
-                {project?.media_files?.some(file => 
-                  !file.type.startsWith('image/') && !file.type.startsWith('video/')
-                ) && (
-                  <div className="mt-6 border-t border-gray-800 pt-6">
-                    <h4 className="text-sm font-medium text-gray-400 mb-4">Uploaded Files</h4>
-                    <div className="space-y-2">
-                      {project?.media_files?.filter(file => 
-                        !file.type.startsWith('image/') && !file.type.startsWith('video/')
-                      ).map((file, index) => (
-                        <div 
-                          key={index} 
-                          className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors"
-                        >
-                          <div className="flex items-center space-x-3 min-w-0 flex-1">
-                            <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-white truncate">{file.name}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-gray-400 hover:text-blue-400"
-                              onClick={() => window.open(file.url, '_blank')}
+                    {/* Files List */}
+                    {project?.media_files?.some(file => 
+                      !file.type.startsWith('image/') && !file.type.startsWith('video/')
+                    ) && (
+                      <div className="mt-6 border-t border-gray-800 pt-6">
+                        <h4 className="text-sm font-medium text-gray-400 mb-4">Uploaded Files</h4>
+                        <div className="space-y-2">
+                          {project?.media_files?.filter(file => 
+                            !file.type.startsWith('image/') && !file.type.startsWith('video/')
+                          ).map((file, index) => (
+                            <div 
+                              key={index} 
+                              className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors"
                             >
-                              <Download className="w-4 h-4" />
-                            </Button>
-                            {user?.role !== 'viewer' && user?.role !== 'investor' && (
-                              <>
+                              <div className="flex items-center space-x-3 min-w-0 flex-1">
+                                <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-white truncate">{file.name}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className="text-gray-400 hover:text-blue-400"
-                                  onClick={() => {
-                                    setFileToRename(file);
-                                    setNewFileName(file.name.split('.')[0]);
-                                    setIsRenamingFile(true);
-                                  }}
+                                  onClick={() => window.open(file.url, '_blank')}
                                 >
-                                  <Pencil className="w-4 h-4" />
+                                  <Download className="w-4 h-4" />
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-gray-400 hover:text-red-400"
-                                  onClick={() => handleDeleteMedia(file.name)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
+                                {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-gray-400 hover:text-blue-400"
+                                      onClick={() => {
+                                        setFileToRename(file);
+                                        setNewFileName(file.name.split('.')[0]);
+                                        setIsRenamingFile(true);
+                                      }}
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-gray-400 hover:text-red-400"
+                                      onClick={() => handleDeleteMedia(file.name)}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                      </div>
+                    )}
+
+                    {/* External Links Section */}
+                    {project?.external_links && project.external_links.length > 0 && (
+                      <div className="mt-6 border-t border-gray-800 pt-6">
+                        <h4 className="text-sm font-medium text-gray-400 mb-4">External Links</h4>
+                        <div className="space-y-2">
+                          {project.external_links.map((link: any, index: number) => (
+                            <div 
+                              key={index} 
+                              className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors"
+                            >
+                              <div className="flex items-center space-x-3 min-w-0 flex-1">
+                                <Link className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <a 
+                                    href={link.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-sm font-medium text-white hover:text-purple-400 truncate"
+                                  >
+                                    {link.title}
+                                  </a>
+                                  {link.description && (
+                                    <p className="text-xs text-gray-400 truncate">{link.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                              {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                                <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-gray-400 hover:text-blue-400"
+                                    onClick={() => {
+                                      setEditingLink(link)
+                                      setIsEditingLink(true)
+                                    }}
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-gray-400 hover:text-red-400"
+                                    onClick={() => handleDeleteLink(index)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                   {(!project?.media_files || project.media_files.length === 0) && (
                         <div className="col-span-full text-center py-8">
                           <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                           <h3 className="text-lg font-medium text-gray-400">No media files</h3>
-                    <p className="text-gray-500 mt-1">Upload images, videos, or documents to showcase your project</p>
+                        <p className="text-gray-500 mt-1">Upload images, videos, or documents to showcase your project</p>
                         </div>
                       )}
                   </CardContent>
@@ -2283,6 +2496,16 @@ export default function ProjectDetails() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+          </div>
+        </div>
+
+        {/* Project Information and Status Cards at the bottom */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+          <div className="lg:col-span-2">
+            <ProjectInfoCard project={project} />
+          </div>
+          <div>
+            <StatusCard project={project} onStatusChange={handleStatusChange} />
               </div>
             </div>
           </main>
@@ -2334,14 +2557,20 @@ export default function ProjectDetails() {
             </div>
             <div className="space-y-2">
               <Label>Progress ({editProjectData.progress}%)</Label>
-              <Input
+              <div className="relative">
+                <input
                 type="range"
                 min="0"
                 max="100"
                 value={editProjectData.progress}
                 onChange={(e) => setEditProjectData(prev => ({ ...prev, progress: parseInt(e.target.value) }))}
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-              />
+                  className="w-full h-2 bg-gray-800 rounded-full appearance-none cursor-pointer"
+                />
+                <div 
+                  className="absolute top-0 left-0 h-2 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 pointer-events-none"
+                  style={{ width: `${editProjectData.progress}%` }}
+                />
+              </div>
             </div>
             <div className="flex justify-end gap-4">
               <Button variant="outline" onClick={() => setIsEditing(false)}>
@@ -2765,6 +2994,99 @@ export default function ProjectDetails() {
             </Button>
             <Button onClick={handleUpdateMember} className="gradient-button">
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit Link Dialog */}
+      <Dialog open={isAddingLink || isEditingLink} onOpenChange={(open) => {
+        if (!open) {
+          setIsAddingLink(false)
+          setIsEditingLink(false)
+          setEditingLink(null)
+          setNewLink({
+            title: '',
+            url: '',
+            description: ''
+          })
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{isEditingLink ? 'Edit Link' : 'Add New Link'}</DialogTitle>
+            <DialogDescription>
+              {isEditingLink ? 'Update the link details' : 'Add a new external link to your project'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="title">Link Title</Label>
+              <Input
+                id="title"
+                value={isEditingLink ? editingLink?.title : newLink.title}
+                onChange={(e) => {
+                  if (isEditingLink) {
+                    setEditingLink({ ...editingLink, title: e.target.value })
+                  } else {
+                    setNewLink({ ...newLink, title: e.target.value })
+                  }
+                }}
+                placeholder="Enter link title"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="url">URL</Label>
+              <Input
+                id="url"
+                value={isEditingLink ? editingLink?.url : newLink.url}
+                onChange={(e) => {
+                  if (isEditingLink) {
+                    setEditingLink({ ...editingLink, url: e.target.value })
+                  } else {
+                    setNewLink({ ...newLink, url: e.target.value })
+                  }
+                }}
+                placeholder="https://example.com"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description (optional)</Label>
+              <Input
+                id="description"
+                value={isEditingLink ? editingLink?.description : newLink.description}
+                onChange={(e) => {
+                  if (isEditingLink) {
+                    setEditingLink({ ...editingLink, description: e.target.value })
+                  } else {
+                    setNewLink({ ...newLink, description: e.target.value })
+                  }
+                }}
+                placeholder="Brief description of the link"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAddingLink(false)
+                setIsEditingLink(false)
+                setEditingLink(null)
+                setNewLink({
+                  title: '',
+                  url: '',
+                  description: ''
+                })
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={isEditingLink ? handleUpdateLink : handleAddLink}
+              className="gradient-button"
+            >
+              {isEditingLink ? 'Update Link' : 'Add Link'}
             </Button>
           </DialogFooter>
         </DialogContent>

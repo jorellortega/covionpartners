@@ -13,8 +13,9 @@ export function StatusBadge({ status }: StatusBadgeProps) {
         return 'bg-yellow-500/20 text-yellow-400'
       case 'completed':
         return 'bg-blue-500/20 text-blue-400'
+      case 'on hold':
       case 'on_hold':
-        return 'bg-gray-500/20 text-gray-400'
+        return 'bg-red-500/20 text-red-400'
       default:
         return 'bg-gray-500/20 text-gray-400'
     }

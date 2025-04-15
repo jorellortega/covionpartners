@@ -50,7 +50,7 @@ function StatusBadge({ status }: { status: string }) {
       case "completed":
         return "bg-blue-500/20 text-blue-400 border-blue-500/50"
       case "on hold":
-        return "bg-orange-500/20 text-orange-400 border-orange-500/50"
+        return "bg-red-500/20 text-red-400 border-red-500/50"
       default:
         return "bg-gray-500/20 text-gray-400 border-gray-500/50"
     }
