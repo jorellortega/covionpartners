@@ -178,7 +178,7 @@ function StatusCard({ project, onStatusChange }: { project: Project | null, onSt
             </span>
             <span>{Number(project.progress ?? 0).toFixed(0)}%</span>
           </div>
-          <div className="h-2 w-full bg-gray-800 rounded-full overflow-hidden">
+          <div className="h-4 w-full bg-gray-800 rounded-full overflow-hidden">
             <div 
               className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-300"
               style={{ width: `${Number(project.progress ?? 0)}%` }}
@@ -3092,12 +3092,6 @@ export default function ProjectDetails() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {project && typeof window !== 'undefined' && localStorage.getItem('showQRCodes') !== 'false' && (
-        <div className="absolute bottom-4 right-4 z-10 bg-white p-2 rounded shadow">
-          <QRCodeCanvas value={`${window.location.origin}/publicprojects/${project.id}`} size={64} />
-        </div>
-      )}
     </div>
   )
 }
