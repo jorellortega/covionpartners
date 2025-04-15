@@ -401,11 +401,16 @@ export default function PartnerDashboard() {
         }
       }
 
-      // Show success message
+      // Show success message using toast
       toast({
         title: "Success",
-        description: "Join request sent successfully!"
+        description: "Successfully joined project! Redirecting..."
       })
+      
+      // Redirect to the project page after a short delay
+      setTimeout(() => {
+        router.push(`/projects/${projectData.id}`)
+      }, 1000)
     } catch (error: any) {
       console.error('Error joining project:', error)
       setJoinError(error.message || 'Failed to join project')

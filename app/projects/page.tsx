@@ -59,6 +59,7 @@ export default function ProjectsPage() {
   const [foundProject, setFoundProject] = useState<any>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
 
   const handleDeleteProject = async (projectId: string) => {
     setProjectToDelete(projectId)
@@ -258,7 +259,7 @@ export default function ProjectsPage() {
         // Redirect to the project page after a short delay
         setTimeout(() => {
           router.push(`/projects/${matchedProject.id}`)
-        }, 1500)
+        }, 1000)
         
         return;
       }
@@ -340,7 +341,7 @@ export default function ProjectsPage() {
       // Redirect to the project page after a short delay
       setTimeout(() => {
         router.push(`/projects/${projectData.id}`)
-      }, 1500)
+      }, 1000)
     } catch (error: any) {
       console.error('Error joining project:', error)
       setJoinError(error.message || 'Failed to join project')
@@ -599,25 +600,25 @@ export default function ProjectsPage() {
                         >
                           View Details
                         </DropdownMenuItem>
-                        {user?.role !== 'investor' && (
-                          <DropdownMenuItem 
-                            className="text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
-                            onClick={() => router.push(`/projects/${project.id}?edit=true`)}
-                          >
-                            Edit Project
-                          </DropdownMenuItem>
-                        )}
-                        {user?.role !== 'investor' && (
-                          <DropdownMenuItem 
-                            className="text-red-400 hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400 cursor-pointer focus:bg-purple-900/20 focus:text-purple-400"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              handleDeleteProject(project.id);
-                            }}
-                          >
-                            Delete Project
-                          </DropdownMenuItem>
+                        {user?.role !== 'viewer' && (
+                          <>
+                            <DropdownMenuItem 
+                              className="text-white hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+                              onClick={() => setIsEditing(true)}
+                            >
+                              Edit Project
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-red-400 hover:bg-purple-100 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400 cursor-pointer focus:bg-purple-900/20 focus:text-purple-400"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                handleDeleteProject(project.id);
+                              }}
+                            >
+                              Delete Project
+                            </DropdownMenuItem>
+                          </>
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>

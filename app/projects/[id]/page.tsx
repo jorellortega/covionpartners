@@ -35,6 +35,7 @@ import {
   Send,
   Settings,
   Download,
+  Briefcase,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -225,6 +226,8 @@ export default function ProjectDetails() {
     description: project?.description || '',
     status: project?.status || '',
     progress: project?.progress || 0,
+    goals: project?.goals || '',
+    target_market: project?.target_market || '',
   })
   const [isAddingTask, setIsAddingTask] = useState(false)
   const [tasks, setTasks] = useState<any[]>([])
@@ -260,6 +263,15 @@ export default function ProjectDetails() {
   const [isRenamingFile, setIsRenamingFile] = useState(false)
   const [fileToRename, setFileToRename] = useState<MediaFile | null>(null)
   const [newFileName, setNewFileName] = useState('')
+  const [isAddingPosition, setIsAddingPosition] = useState(false)
+  const [isEditingPosition, setIsEditingPosition] = useState(false)
+  const [editingPosition, setEditingPosition] = useState<any>(null)
+  const [newPosition, setNewPosition] = useState({
+    title: '',
+    description: '',
+    role_type: '',
+    commitment: ''
+  })
 
   useEffect(() => {
     refreshTeamMembers()
@@ -358,6 +370,8 @@ export default function ProjectDetails() {
         description: project.description,
         status: project.status,
         progress: project.progress || 0,
+        goals: project.goals || '',
+        target_market: project.target_market || '',
       })
     }
   }, [isEditing, project])
@@ -725,6 +739,8 @@ export default function ProjectDetails() {
           description: editProjectData.description,
           status: editProjectData.status,
           progress: editProjectData.progress,
+          goals: editProjectData.goals,
+          target_market: editProjectData.target_market,
           updated_at: new Date().toISOString()
         })
         .eq('id', project.id)
@@ -738,6 +754,8 @@ export default function ProjectDetails() {
         description: editProjectData.description,
         status: editProjectData.status,
         progress: editProjectData.progress,
+        goals: editProjectData.goals,
+        target_market: editProjectData.target_market,
         updated_at: new Date().toISOString()
       })
 
@@ -1031,7 +1049,7 @@ export default function ProjectDetails() {
         .from('project_comments')
         .insert([commentData])
         .select()
-        .single();
+          .single();
 
       if (insertError) {
         console.error('Error adding comment:', insertError);
@@ -1187,6 +1205,50 @@ export default function ProjectDetails() {
     }
   }
 
+  const handleEditPosition = (position: any, index: number) => {
+    setEditingPosition(position)
+    setIsEditingPosition(true)
+  }
+
+  const handleDeletePosition = (index: number) => {
+    if (confirm('Are you sure you want to delete this position?')) {
+      const updatedPositions = project?.open_positions?.filter((_, i) => i !== index) || []
+      setProject(prev => ({ ...prev!, open_positions: updatedPositions }))
+      setIsAddingPosition(false)
+      setIsEditingPosition(false)
+      setEditingPosition(null)
+      setNewPosition({
+        title: '',
+        description: '',
+        role_type: '',
+        commitment: ''
+      })
+    }
+  }
+
+  const handleSavePosition = async () => {
+    if (!newPosition.title || !newPosition.description || !newPosition.role_type || !newPosition.commitment) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+
+    const updatedPositions = project?.open_positions?.map((position, i) => 
+      i === editingPosition ? { ...position, ...newPosition } : position
+    ) || []
+
+    setProject(prev => ({ ...prev!, open_positions: updatedPositions }))
+    setIsAddingPosition(false)
+    setIsEditingPosition(false)
+    setEditingPosition(null)
+    setNewPosition({
+      title: '',
+      description: '',
+      role_type: '',
+      commitment: ''
+    })
+    toast.success('Position updated successfully')
+  }
+
   // Show loading state while authentication or projects are loading
   if (authLoading || projectsLoading || !project) {
     return (
@@ -1301,50 +1363,50 @@ export default function ProjectDetails() {
                   </CardHeader>
               <CardContent>
                 {/* Images and Videos Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {project?.media_files?.filter(file => 
                     file.type.startsWith('image/') || file.type.startsWith('video/')
                   ).map((file, index) => (
-                    <div key={index} className="relative group">
-                      {file.type.startsWith('image/') ? (
-                        <div className={`relative overflow-hidden rounded-lg ${
-                          file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
-                          file.aspect_ratio === 'square' ? 'aspect-square' :
-                          'aspect-[16/9]'
-                        }`}>
-                          <img
-                            src={file.url}
-                            alt={file.name}
-                            className="object-cover w-full h-full"
-                          />
-                        </div>
-                      ) : file.type.startsWith('video/') ? (
-                        <div className={`relative overflow-hidden rounded-lg ${
-                          file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
-                          file.aspect_ratio === 'square' ? 'aspect-square' :
-                          'aspect-[16/9]'
-                        }`}>
-                          <video
-                            src={file.url}
-                            controls
-                            className="object-cover w-full h-full"
-                          />
-                        </div>
-                      ) : null}
-                      {user?.role !== 'investor' && (
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-white hover:text-red-400"
-                            onClick={() => handleDeleteMedia(file.name)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                        <div key={index} className="relative group">
+                          {file.type.startsWith('image/') ? (
+                            <div className={`relative overflow-hidden rounded-lg ${
+                              file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
+                              file.aspect_ratio === 'square' ? 'aspect-square' :
+                              'aspect-[16/9]'
+                            }`}>
+                              <img
+                                src={file.url}
+                                alt={file.name}
+                                className="object-cover w-full h-full"
+                              />
+                            </div>
+                          ) : file.type.startsWith('video/') ? (
+                            <div className={`relative overflow-hidden rounded-lg ${
+                              file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
+                              file.aspect_ratio === 'square' ? 'aspect-square' :
+                              'aspect-[16/9]'
+                            }`}>
+                              <video
+                                src={file.url}
+                                controls
+                                className="object-cover w-full h-full"
+                              />
+                            </div>
+                          ) : null}
+                      {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-white hover:text-red-400"
+                              onClick={() => handleDeleteMedia(file.name)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                       )}
-                    </div>
-                  ))}
+                        </div>
+                      ))}
                 </div>
 
                 {/* Files List */}
@@ -1361,16 +1423,13 @@ export default function ProjectDetails() {
                           key={index} 
                           className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors"
                         >
-                          <div className="flex items-center space-x-3">
-                            <FileText className="w-5 h-5 text-gray-400" />
-                            <div>
-                              <p className="text-sm font-medium text-white">{file.name}</p>
-                              <p className="text-xs text-gray-400">
-                                {file.type.split('/')[1].toUpperCase()} • {(file.size / 1024 / 1024).toFixed(2)}MB
-                              </p>
+                          <div className="flex items-center space-x-3 min-w-0 flex-1">
+                            <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-white truncate">{file.name}</p>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1379,7 +1438,7 @@ export default function ProjectDetails() {
                             >
                               <Download className="w-4 h-4" />
                             </Button>
-                            {user?.role !== 'investor' && (
+                            {user?.role !== 'viewer' && user?.role !== 'investor' && (
                               <>
                                 <Button
                                   variant="ghost"
@@ -1410,14 +1469,14 @@ export default function ProjectDetails() {
                   </div>
                 )}
 
-                {(!project?.media_files || project.media_files.length === 0) && (
-                  <div className="col-span-full text-center py-8">
-                    <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-400">No media files</h3>
+                  {(!project?.media_files || project.media_files.length === 0) && (
+                        <div className="col-span-full text-center py-8">
+                          <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-gray-400">No media files</h3>
                     <p className="text-gray-500 mt-1">Upload images, videos, or documents to showcase your project</p>
-                  </div>
-                )}
-              </CardContent>
+                        </div>
+                      )}
+                  </CardContent>
                 </Card>
 
                 {/* Project Description */}
@@ -1504,27 +1563,27 @@ export default function ProjectDetails() {
                                     <div>
                                       <h4 className="font-medium text-white">{member.user?.name || member.user?.email}</h4>
                                       <p className="text-sm text-gray-400">{member.role}</p>
-                                    </div>
-                                  </div>
+                                      </div>
+                                      </div>
                                   {user?.role !== 'viewer' && user?.role !== 'investor' && (
-                                    <div className="flex items-center gap-2">
-                                      <Button
+                                  <div className="flex items-center gap-2">
+                                    <Button
                                         variant="ghost"
                                         size="icon"
                                         className="text-gray-400 hover:text-purple-400"
                                         onClick={() => handleEditMember(member)}
                                       >
                                         <Pencil className="w-4 h-4" />
-                                      </Button>
-                                      <Button
+                                    </Button>
+                                    <Button
                                         variant="ghost"
                                         size="icon"
                                         className="text-gray-400 hover:text-purple-400"
                                         onClick={() => handleRemoveMember(member.id)}
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </Button>
-                                    </div>
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
                                   )}
                                 </div>
                               ))}
@@ -1961,20 +2020,24 @@ export default function ProjectDetails() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col md:flex-row gap-4 flex-wrap">
-                    <Button
-                      variant="outline"
-                      className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30"
-                      onClick={() => setIsEditing(true)}
-                    >
-                      <Pencil className="w-4 h-4" /> Edit Project
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30"
-                      onClick={() => setIsDeleteDialogOpen(true)}
-                    >
-                      <Trash2 className="w-4 h-4" /> Delete Project
-                    </Button>
+                    {user?.role !== 'viewer' && (
+                      <>
+                        <Button
+                          variant="outline"
+                          className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30"
+                          onClick={() => setIsEditing(true)}
+                        >
+                          <Pencil className="w-4 h-4" /> Edit Project
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30"
+                          onClick={() => setIsDeleteDialogOpen(true)}
+                        >
+                          <Trash2 className="w-4 h-4" /> Delete Project
+                        </Button>
+                      </>
+                    )}
                     <Button
                       variant="outline"
                       className={`flex-1 min-w-[200px] justify-center items-center gap-2 ${
@@ -1998,6 +2061,228 @@ export default function ProjectDetails() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Project Overview */}
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <FileText className="w-5 h-5 mr-2" />
+                  Project Overview
+                </CardTitle>
+                <CardDescription>Key information about the project</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid gap-4">
+                    <div className="space-y-2">
+                      <Label>Project Description</Label>
+                      {isEditing ? (
+                        <Textarea
+                          value={editProjectData.description}
+                          onChange={(e) => setEditProjectData(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Enter project description"
+                          className="min-h-[100px]"
+                        />
+                      ) : (
+                        <p className="text-sm text-gray-400">{project?.description || 'No description available'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Project Goals</Label>
+                      {isEditing ? (
+                        <Textarea
+                          value={editProjectData.goals}
+                          onChange={(e) => setEditProjectData(prev => ({ ...prev, goals: e.target.value }))}
+                          placeholder="Enter project goals"
+                          className="min-h-[100px]"
+                        />
+                      ) : (
+                        <p className="text-sm text-gray-400">{project?.goals || 'No goals defined'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Target Market</Label>
+                      {isEditing ? (
+                        <Textarea
+                          value={editProjectData.target_market}
+                          onChange={(e) => setEditProjectData(prev => ({ ...prev, target_market: e.target.value }))}
+                          placeholder="Describe the target market"
+                          className="min-h-[100px]"
+                        />
+                      ) : (
+                        <p className="text-sm text-gray-400">{project?.target_market || 'No target market defined'}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Open Positions */}
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Briefcase className="w-5 h-5 mr-2" />
+                  Open Positions
+                </CardTitle>
+                <CardDescription>Available roles for this project</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {project?.open_positions?.map((position, index) => (
+                    <div key={index} className="p-4 bg-gray-800/30 rounded-lg">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <h4 className="font-medium text-white">{position.title}</h4>
+                          <p className="text-sm text-gray-400">{position.description}</p>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {position.role_type}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {position.commitment}
+                            </Badge>
+                          </div>
+                        </div>
+                        {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-gray-400 hover:text-purple-400"
+                              onClick={() => handleEditPosition(position, index)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-gray-400 hover:text-purple-400"
+                              onClick={() => handleDeletePosition(index)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                    <Button
+                      className="w-full gradient-button"
+                      onClick={() => setIsAddingPosition(true)}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Position
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Add/Edit Position Dialog */}
+            <Dialog open={isAddingPosition || isEditingPosition} onOpenChange={(open) => {
+              if (!open) {
+                setIsAddingPosition(false)
+                setIsEditingPosition(false)
+                setEditingPosition(null)
+                setNewPosition({
+                  title: '',
+                  description: '',
+                  role_type: '',
+                  commitment: ''
+                })
+              }
+            }}>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>{isEditingPosition ? 'Edit Position' : 'Add New Position'}</DialogTitle>
+                  <DialogDescription>
+                    {isEditingPosition ? 'Update the position details' : 'Fill in the details for the new position'}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="title">Position Title</Label>
+                    <Input
+                      id="title"
+                      value={newPosition.title}
+                      onChange={(e) => setNewPosition(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="e.g., Senior Developer"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={newPosition.description}
+                      onChange={(e) => setNewPosition(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Describe the position and requirements"
+                      className="min-h-[100px]"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="role_type">Role Type</Label>
+                    <Select
+                      value={newPosition.role_type}
+                      onValueChange={(value) => setNewPosition(prev => ({ ...prev, role_type: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="technical">Technical</SelectItem>
+                        <SelectItem value="business">Business</SelectItem>
+                        <SelectItem value="design">Design</SelectItem>
+                        <SelectItem value="marketing">Marketing</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="commitment">Time Commitment</Label>
+                    <Select
+                      value={newPosition.commitment}
+                      onValueChange={(value) => setNewPosition(prev => ({ ...prev, commitment: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select commitment level" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="full-time">Full-time</SelectItem>
+                        <SelectItem value="part-time">Part-time</SelectItem>
+                        <SelectItem value="contract">Contract</SelectItem>
+                        <SelectItem value="flexible">Flexible</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsAddingPosition(false)
+                      setIsEditingPosition(false)
+                      setEditingPosition(null)
+                      setNewPosition({
+                        title: '',
+                        description: '',
+                        role_type: '',
+                        commitment: ''
+                      })
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSavePosition}
+                    className="gradient-button"
+                  >
+                    {isEditingPosition ? 'Update Position' : 'Add Position'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
               </div>
             </div>
           </main>
