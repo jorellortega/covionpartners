@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
@@ -13,36 +13,26 @@ import {
 } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Mail, Phone } from "lucide-react"
+import { ArrowLeft, Mail, Plus } from "lucide-react"
 import { Project } from "@/types"
-import supabase from "@/utils/supabase/client"
-
-interface TeamMember {
-  id: string
-  project_id: string
-  user_id: string
-  role_name: string
-  description: string
-  status: string
-  user: {
-    id: string
-    email: string
-    full_name: string
-    avatar_url: string | null
-  }
-}
+import { supabase } from "@/lib/supabase"
+import { useTeamMembers } from "@/hooks/useTeamMembers"
+import { toast } from "sonner"
+import { useAuth } from "@/hooks/useAuth"
 
 export default function ViewTeamPage() {
   const params = useParams()
+  const router = useRouter()
+  const { user } = useAuth()
   const projectId = params.id as string
   const [project, setProject] = useState<Project | null>(null)
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [isOwner, setIsOwner] = useState(false)
+  const { teamMembers, loading: loadingTeam, error: teamError } = useTeamMembers(projectId)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchProjectAndTeam() {
+    async function fetchProject() {
       try {
-        // Fetch project details
         const { data: projectData, error: projectError } = await supabase
           .from('projects')
           .select('*')
@@ -51,37 +41,39 @@ export default function ViewTeamPage() {
 
         if (projectError) throw projectError
         setProject(projectData)
-
-        // Fetch team members with their roles
-        const { data: rolesData, error: rolesError } = await supabase
-          .from('project_roles')
-          .select(`
-            *,
-            user:user_id (
-              id,
-              email,
-              full_name,
-              avatar_url
-            )
-          `)
-          .eq('project_id', projectId)
-
-        if (rolesError) throw rolesError
-        setTeamMembers(rolesData)
+        setIsOwner(projectData.owner_id === user?.id)
       } catch (error) {
-        console.error('Error fetching project team:', error)
+        console.error('Error fetching project:', error)
+        toast.error('Failed to load project details')
       } finally {
         setLoading(false)
       }
     }
 
-    fetchProjectAndTeam()
-  }, [projectId])
+    if (projectId) {
+      fetchProject()
+    }
+  }, [projectId, user?.id])
 
-  if (loading) {
+  if (loading || loadingTeam) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
+  if (teamError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-2xl font-bold mb-4 text-red-500">Error loading team members</h1>
+        <p className="text-gray-400 mb-4">{teamError}</p>
+        <Link href="/projects">
+          <Button variant="outline">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Projects
+          </Button>
+        </Link>
       </div>
     )
   }
@@ -110,6 +102,15 @@ export default function ViewTeamPage() {
               Back to Project
             </Button>
           </Link>
+          {isOwner && (
+            <Button 
+              onClick={() => router.push(`/projects/${projectId}/team/invite`)}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Invite Team Member
+            </Button>
+          )}
         </div>
 
         <Card className="leonardo-card border-gray-800">
@@ -124,6 +125,16 @@ export default function ViewTeamPage() {
               {teamMembers.length === 0 ? (
                 <div className="col-span-full text-center py-8">
                   <p className="text-gray-400">No team members assigned yet</p>
+                  {isOwner && (
+                    <Button 
+                      onClick={() => router.push(`/projects/${projectId}/team/invite`)}
+                      variant="outline" 
+                      className="mt-4"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Invite Team Member
+                    </Button>
+                  )}
                 </div>
               ) : (
                 teamMembers.map((member) => (
@@ -131,17 +142,17 @@ export default function ViewTeamPage() {
                     <CardContent className="pt-6">
                       <div className="flex items-start space-x-4">
                         <Avatar className="h-12 w-12">
-                          <AvatarImage src={member.user.avatar_url || '/placeholder-user.jpg'} />
+                          <AvatarImage src={member.user.avatar_url || undefined} />
                           <AvatarFallback>
-                            {member.user.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
+                            {member.user.name?.split(' ').map(n => n[0]).join('') || 'U'}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-white truncate">
-                            {member.user.full_name}
+                            {member.user.name || 'Unnamed User'}
                           </p>
                           <Badge variant="outline" className="mt-1">
-                            {member.role_name}
+                            {member.role}
                           </Badge>
                           <div className="mt-2 flex flex-col space-y-1">
                             <a

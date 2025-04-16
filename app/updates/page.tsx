@@ -559,26 +559,26 @@ export default function UpdatesPage() {
                       </CardHeader>
                       <CardContent>
                         <p className="text-gray-600 mb-4">{update.description}</p>
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-900">
-                              {update.user_name}
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
+                            <span className="text-white font-medium">
+                              {update.created_by === user?.id ? 
+                                (user?.name?.split(' ').map((n: string) => n[0]).join('') || 'U') : 
+                                (update.user_name?.split(' ').map((n: string) => n[0]).join('') || 'U')}
                             </span>
-                            <span className="text-sm text-gray-500">·</span>
-                            <span className="text-sm text-gray-500">
-                              {formatDate(update.created_at)}
-                            </span>
-                            {update.projects && (
-                              <>
-                                <span className="text-sm text-gray-500">·</span>
-                                <span className="text-sm text-gray-500">
-                                  {update.projects.name}
-                                </span>
-                              </>
-                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex justify-between items-center">
+                              <p className="text-sm font-medium">
+                                {update.created_by === user?.id ? user?.name || 'You' : update.user_name || 'Unknown User'}
+                              </p>
+                              <span className="text-xs text-gray-400">
+                                {new Date(update.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center mt-4">
                           <Button 
                             variant="ghost" 
                             onClick={() => router.push(`/updates/${update.id}`)}
@@ -676,26 +676,26 @@ export default function UpdatesPage() {
                       </CardHeader>
                       <CardContent>
                         <p className="text-gray-600 mb-4">{update.description}</p>
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-900">
-                              {update.user_name}
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
+                            <span className="text-white font-medium">
+                              {update.created_by === user?.id ? 
+                                (user?.name?.split(' ').map((n: string) => n[0]).join('') || 'U') : 
+                                (update.user_name?.split(' ').map((n: string) => n[0]).join('') || 'U')}
                             </span>
-                            <span className="text-sm text-gray-500">·</span>
-                            <span className="text-sm text-gray-500">
-                              {formatDate(update.created_at)}
-                            </span>
-                            {update.projects && (
-                              <>
-                                <span className="text-sm text-gray-500">·</span>
-                                <span className="text-sm text-gray-500">
-                                  {update.projects.name}
-                                </span>
-                              </>
-                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex justify-between items-center">
+                              <p className="text-sm font-medium">
+                                {update.created_by === user?.id ? user?.name || 'You' : update.user_name || 'Unknown User'}
+                              </p>
+                              <span className="text-xs text-gray-400">
+                                {new Date(update.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center mt-4">
                           <Button 
                             variant="ghost" 
                             onClick={() => router.push(`/updates/${update.id}`)}

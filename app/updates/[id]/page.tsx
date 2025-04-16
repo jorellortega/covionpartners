@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import { Home, Bell, MessageCircle, ArrowLeft, Calendar, Tag, FileText, Download, Upload, CheckCircle2, XCircle, Loader2, File, ExternalLink, Signature, Edit, Save } from "lucide-react"
+import { Home, Bell, MessageCircle, ArrowLeft, Calendar, Tag, FileText, Download, Upload, CheckCircle2, XCircle, Loader2, File, ExternalLink, Signature, Edit, Save, Briefcase, Trash2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { useUpdates } from "@/hooks/useUpdates"
@@ -67,6 +67,9 @@ interface UpdateDetails {
     name: string
   }
   project_id?: number
+  created_by?: string
+  user_name?: string
+  created_at?: string
 }
 
 interface Project {
@@ -78,7 +81,7 @@ export default function UpdateDetailsPage() {
   const params = useParams()
   const router = useRouter()
   const { user } = useAuth()
-  const { updateUpdate } = useUpdates()
+  const { updateUpdate, deleteUpdate } = useUpdates()
   const [update, setUpdate] = useState<UpdateDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -354,7 +357,8 @@ export default function UpdateDetailsPage() {
         category: editForm.category,
         full_content: editForm.full_content,
         impact: editForm.impact,
-        nextSteps: editForm.nextSteps
+        nextSteps: editForm.nextSteps,
+        project_id: editForm.project_id
       })
 
       if (error) {
@@ -373,6 +377,23 @@ export default function UpdateDetailsPage() {
   const handleCancel = () => {
     setEditForm(null)
     setIsEditing(false)
+  }
+
+  const handleDelete = async () => {
+    if (!update) return
+
+    try {
+      const { error } = await deleteUpdate(update.id)
+      if (error) {
+        toast.error(error)
+        return
+      }
+
+      toast.success('Update deleted successfully')
+      router.push('/updates')
+    } catch (err) {
+      toast.error('Failed to delete update')
+    }
   }
 
   if (loading) {
@@ -403,383 +424,404 @@ export default function UpdateDetailsPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      <div className="max-w-7xl mx-auto py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
-        {/* Header Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-8 mb-6 sm:mb-8">
-          <div className="flex items-start gap-3 sm:gap-4">
+      <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md border-b border-gray-800">
+        <div className="max-w-7xl mx-auto py-3 sm:py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+          <div className="flex items-center">
             <Button
               variant="ghost"
-              size="icon"
               onClick={() => router.back()}
-              className="hover:bg-gray-800 mt-1"
+              className="inline-flex items-center text-white hover:text-blue-300 transition-colors mr-2 sm:mr-4 p-2 sm:p-0"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Back</span>
             </Button>
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white">Update Details</h1>
-              {update?.projects && (
-                <p className="text-base sm:text-lg font-semibold text-purple-400 mt-1">
-                  {update.projects.name}
-                </p>
-              )}
-            </div>
+            <h1 className="text-xl sm:text-3xl font-bold text-white">Update Details</h1>
           </div>
-          {user?.role === 'partner' && (
-            <div className="flex gap-2 self-end sm:self-auto">
-              {isEditing ? (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={handleCancel}
-                    className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <span className="hidden sm:inline">Cancel</span>
-                    <XCircle className="h-4 w-4 sm:hidden" />
-                  </Button>
-                  <Button
-                    onClick={handleSave}
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
-                  >
-                    <Save className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Save Changes</span>
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={handleEdit}
-                  className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                >
-                  <Edit className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Edit Update</span>
-                </Button>
-              )}
+          {!isEditing && canEdit && (
+            <Button 
+              variant="outline" 
+              onClick={handleEdit} 
+              className="inline-flex items-center border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+            >
+              <Edit className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Edit Update</span>
+            </Button>
+          )}
+          {isEditing && (
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Button 
+                variant="outline" 
+                onClick={handleSave} 
+                className="inline-flex items-center border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <Save className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Save</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleCancel} 
+                className="inline-flex items-center border-gray-700 bg-gray-800/30 text-white hover:bg-red-900/20 hover:text-red-400"
+              >
+                <XCircle className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Cancel</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleDelete} 
+                className="inline-flex items-center border-gray-700 bg-gray-800/30 text-white hover:bg-red-900/20 hover:text-red-400"
+              >
+                <Trash2 className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Delete</span>
+              </Button>
             </div>
           )}
         </div>
+      </header>
 
+      <main className="max-w-7xl mx-auto py-4 sm:py-6 px-3 sm:px-6 lg:px-8">
         {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+          <div className="flex items-center justify-center p-8">
+            <Loader2 className="w-6 h-6 animate-spin" />
           </div>
         ) : error ? (
-          <div className="text-center py-12">
-            <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-white mb-2">Error Loading Update</h2>
-            <p className="text-gray-400">{error}</p>
-            <Button
-              variant="outline"
-              onClick={fetchUpdateDetails}
-              className="mt-4 border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-            >
-              Try Again
-            </Button>
-          </div>
+          <div className="text-red-500 text-center p-8">{error}</div>
         ) : update ? (
-          <div className="space-y-6 sm:space-y-8">
-            {/* Main Update Card */}
-            <Card className="border-gray-800 bg-gray-900/50">
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
-                  <div className="space-y-2 w-full">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                      {isEditing ? (
-                        <Input
-                          value={editForm?.title || ''}
-                          onChange={(e) => setEditForm(prev => prev ? { ...prev, title: e.target.value } : null)}
-                          className="text-xl sm:text-2xl font-bold bg-gray-800 border-gray-700 text-white"
-                        />
-                      ) : (
-                        <CardTitle className="text-xl sm:text-2xl text-white">{update.title}</CardTitle>
-                      )}
-                      <div className="flex items-center gap-2">
-                        {!isEditing && <StatusBadge status={update.status} />}
+          <>
+            <div className="leonardo-card border-gray-800 overflow-visible">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 sm:mb-6 p-4 sm:p-6">
+                <div className="space-y-2 w-full">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                    <h1 className="text-xl sm:text-2xl font-semibold text-white break-words">{update.title}</h1>
+                    <StatusBadge status={update.status} />
+                  </div>
+                  {update.projects && (
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 text-purple-400 flex-shrink-0" />
+                      <p className="text-sm sm:text-base font-semibold text-purple-400 break-words">
+                        {update.projects.name}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm text-gray-400 w-full sm:w-auto">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4 flex-shrink-0" />
+                    <span>{new Date(update.date).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Tag className="h-4 w-4 flex-shrink-0" />
+                    <span>{update.category}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-3 mb-4 sm:mb-6 p-3 sm:p-4 bg-gray-800/30 rounded-lg mx-4 sm:mx-6">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-medium text-sm sm:text-base">
+                    {update.created_by === user?.id ? 
+                      (user?.name?.split(' ').map((n: string) => n[0]).join('') || 'U') : 
+                      (update.user_name?.split(' ').map((n: string) => n[0]).join('') || 'U')}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm font-medium text-white truncate">
+                      {update.created_by === user?.id ? 'You' : update.user_name || 'Unknown User'}
+                    </p>
+                    <span className="text-xs text-gray-400 ml-2">
+                      {new Date(update.created_at || '').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 sm:space-y-6">
+                {/* Main Update Card */}
+                <Card className="border-gray-800 bg-gray-900/50">
+                  <CardHeader className="p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
+                      <div className="space-y-2 w-full">
+                        {isEditing && (
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            <Input
+                              value={editForm?.title || ''}
+                              onChange={(e) => setEditForm(prev => prev ? { ...prev, title: e.target.value } : null)}
+                              className="text-xl sm:text-2xl font-bold bg-gray-800 border-gray-700 text-white"
+                            />
+                            <Select
+                              value={editForm?.status || ''}
+                              onValueChange={(value) => setEditForm(prev => prev ? { ...prev, status: value } : null)}
+                            >
+                              <SelectTrigger className="w-full sm:w-32 bg-gray-800 border-gray-700 text-white">
+                                <SelectValue placeholder="Status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="new">New</SelectItem>
+                                <SelectItem value="upcoming">Upcoming</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                         {isEditing && (
                           <Select
-                            value={editForm?.status || ''}
-                            onValueChange={(value) => setEditForm(prev => prev ? { ...prev, status: value } : null)}
+                            value={editForm?.project_id?.toString() || "none"}
+                            onValueChange={(value) => setEditForm(prev => prev ? { ...prev, project_id: value === "none" ? undefined : parseInt(value) } : null)}
                           >
-                            <SelectTrigger className="w-32 bg-gray-800 border-gray-700 text-white">
-                              <SelectValue placeholder="Status" />
+                            <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-white">
+                              <SelectValue placeholder="Select Project" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="new">New</SelectItem>
-                              <SelectItem value="upcoming">Upcoming</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
+                              <SelectItem value="none">No Project</SelectItem>
+                              {projects.map((project) => (
+                                <SelectItem key={project.id} value={project.id.toString()}>
+                                  {project.name}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         )}
-                      </div>
-                    </div>
-                    {isEditing ? (
-                      <Select
-                        value={editForm?.project_id?.toString() || ''}
-                        onValueChange={(value) => setEditForm(prev => prev ? { ...prev, project_id: parseInt(value) } : null)}
-                      >
-                        <SelectTrigger className="w-full sm:w-64 bg-gray-800 border-gray-700 text-white">
-                          <SelectValue placeholder="Select Project" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="">No Project</SelectItem>
-                          {projects.map((project) => (
-                            <SelectItem key={project.id} value={project.id.toString()}>
-                              {project.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      update.projects && (
-                        <p className="text-base sm:text-lg font-semibold text-purple-400">
-                          {update.projects.name}
-                        </p>
-                      )
-                    )}
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
-                      <div className="flex items-center gap-1 min-w-[140px]">
-                        <Calendar className="h-4 w-4 flex-shrink-0" />
-                        {isEditing ? (
-                          <Input
-                            type="date"
-                            value={editForm?.date || ''}
-                            onChange={(e) => setEditForm(prev => prev ? { ...prev, date: e.target.value } : null)}
-                            className="bg-gray-800 border-gray-700 text-white w-full"
-                          />
-                        ) : (
-                          <span>{new Date(update.date).toLocaleDateString()}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Tag className="h-4 w-4 flex-shrink-0" />
-                        {isEditing ? (
-                          <Input
-                            value={editForm?.category || ''}
-                            onChange={(e) => setEditForm(prev => prev ? { ...prev, category: e.target.value } : null)}
-                            className="bg-gray-800 border-gray-700 text-white w-full sm:w-auto"
-                          />
-                        ) : (
-                          <span>{update.category}</span>
+                        {isEditing && (
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 text-sm text-gray-400">
+                            <div className="flex items-center gap-1 w-full sm:w-auto">
+                              <Calendar className="h-4 w-4 flex-shrink-0" />
+                              <Input
+                                type="date"
+                                value={editForm?.date || ''}
+                                onChange={(e) => setEditForm(prev => prev ? { ...prev, date: e.target.value } : null)}
+                                className="bg-gray-800 border-gray-700 text-white w-full"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1 w-full sm:w-auto">
+                              <Tag className="h-4 w-4 flex-shrink-0" />
+                              <Input
+                                value={editForm?.category || ''}
+                                onChange={(e) => setEditForm(prev => prev ? { ...prev, category: e.target.value } : null)}
+                                className="bg-gray-800 border-gray-700 text-white w-full"
+                              />
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Description */}
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white">Description</h3>
-                  {isEditing ? (
-                    <textarea
-                      value={editForm?.description || ''}
-                      onChange={(e) => setEditForm(prev => prev ? { ...prev, description: e.target.value } : null)}
-                      className="w-full min-h-[100px] bg-gray-800 border-gray-700 text-white rounded-md p-2"
-                    />
-                  ) : (
-                    <p className="text-gray-300">{update.description}</p>
-                  )}
-                </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+                    {/* Description */}
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-white">Description</h3>
+                      {isEditing ? (
+                        <textarea
+                          value={editForm?.description || ''}
+                          onChange={(e) => setEditForm(prev => prev ? { ...prev, description: e.target.value } : null)}
+                          className="w-full min-h-[100px] bg-gray-800 border-gray-700 text-white rounded-md p-2"
+                        />
+                      ) : (
+                        <p className="text-gray-300 break-words">{update.description}</p>
+                      )}
+                    </div>
 
-                {/* Full Content */}
-                {(update.full_content || isEditing) && (
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-semibold text-white">Full Content</h3>
-                    {isEditing ? (
-                      <textarea
-                        value={editForm?.full_content || ''}
-                        onChange={(e) => setEditForm(prev => prev ? { ...prev, full_content: e.target.value } : null)}
-                        className="w-full min-h-[150px] bg-gray-800 border-gray-700 text-white rounded-md p-2"
-                      />
-                    ) : (
-                      <p className="text-gray-300 whitespace-pre-wrap">{update.full_content}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Impact */}
-                {((update.impact && update.impact.length > 0) || isEditing) && (
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-semibold text-white">Impact</h3>
-                    {isEditing ? (
+                    {/* Full Content */}
+                    {(update.full_content || isEditing) && (
                       <div className="space-y-2">
-                        {editForm?.impact?.map((item, index) => (
-                          <div key={index} className="flex gap-2">
-                            <Input
-                              value={item}
-                              onChange={(e) => {
-                                const newImpact = [...(editForm?.impact || [])]
-                                newImpact[index] = e.target.value
-                                setEditForm(prev => prev ? { ...prev, impact: newImpact } : null)
-                              }}
-                              className="flex-1 bg-gray-800 border-gray-700 text-white"
-                            />
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                const newImpact = [...(editForm?.impact || [])]
-                                newImpact.splice(index, 1)
-                                setEditForm(prev => prev ? { ...prev, impact: newImpact } : null)
-                              }}
-                              className="text-red-400 hover:text-red-500"
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setEditForm(prev => prev ? { ...prev, impact: [...(prev.impact || []), ''] } : null)
-                          }}
-                          className="w-full sm:w-auto border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                        >
-                          Add Impact Item
-                        </Button>
+                        <h3 className="text-lg font-semibold text-white">Full Content</h3>
+                        {isEditing ? (
+                          <textarea
+                            value={editForm?.full_content || ''}
+                            onChange={(e) => setEditForm(prev => prev ? { ...prev, full_content: e.target.value } : null)}
+                            className="w-full min-h-[150px] bg-gray-800 border-gray-700 text-white rounded-md p-2"
+                          />
+                        ) : (
+                          <p className="text-gray-300 whitespace-pre-wrap break-words">{update.full_content}</p>
+                        )}
                       </div>
-                    ) : (
-                      <ul className="list-disc list-inside space-y-1 text-gray-300">
-                        {update.impact?.map((item, index) => (
-                          <li key={index} className="break-words">{item}</li>
-                        ))}
-                      </ul>
                     )}
-                  </div>
-                )}
 
-                {/* Next Steps */}
-                {((update.nextSteps && update.nextSteps.length > 0) || isEditing) && (
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-semibold text-white">Next Steps</h3>
-                    {isEditing ? (
+                    {/* Impact */}
+                    {((update.impact && update.impact.length > 0) || isEditing) && (
                       <div className="space-y-2">
-                        {editForm?.nextSteps?.map((step, index) => (
-                          <div key={index} className="flex gap-2">
-                            <Input
-                              value={step}
-                              onChange={(e) => {
-                                const newSteps = [...(editForm?.nextSteps || [])]
-                                newSteps[index] = e.target.value
-                                setEditForm(prev => prev ? { ...prev, nextSteps: newSteps } : null)
-                              }}
-                              className="flex-1 bg-gray-800 border-gray-700 text-white"
-                            />
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                const newSteps = [...(editForm?.nextSteps || [])]
-                                newSteps.splice(index, 1)
-                                setEditForm(prev => prev ? { ...prev, nextSteps: newSteps } : null)
-                              }}
-                              className="text-red-400 hover:text-red-500"
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setEditForm(prev => prev ? { ...prev, nextSteps: [...(prev.nextSteps || []), ''] } : null)
-                          }}
-                          className="w-full sm:w-auto border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                        >
-                          Add Next Step
-                        </Button>
-                      </div>
-                    ) : (
-                      <ul className="list-disc list-inside space-y-1 text-gray-300">
-                        {update.nextSteps?.map((step, index) => (
-                          <li key={index} className="break-words">{step}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Documents Section */}
-            {update.documents && update.documents.length > 0 && (
-              <Card className="border-gray-800 bg-gray-900/50">
-                <CardHeader>
-                  <CardTitle className="text-xl text-white">Documents</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4">
-                    {update.documents.map((doc) => (
-                      <div
-                        key={doc.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-800/50 rounded-lg gap-4"
-                      >
-                        <div className="flex items-center gap-3">
-                          <File className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                          <div>
-                            <p className="text-white font-medium break-words">{doc.name}</p>
-                            <p className="text-sm text-gray-400">
-                              {doc.type.charAt(0).toUpperCase() + doc.type.slice(1)} Document
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {doc.status === 'completed' ? (
-                            <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/50">
-                              Completed
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
-                              Pending
-                            </Badge>
-                          )}
-                          {doc.file_path && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleFileDownload(doc)}
-                              className="hover:bg-gray-700"
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {doc.type === 'sign' && doc.status !== 'completed' && (
+                        <h3 className="text-lg font-semibold text-white">Impact</h3>
+                        {isEditing ? (
+                          <div className="space-y-2">
+                            {editForm?.impact?.map((item, index) => (
+                              <div key={index} className="flex gap-2">
+                                <Input
+                                  value={item}
+                                  onChange={(e) => {
+                                    const newImpact = [...(editForm?.impact || [])]
+                                    newImpact[index] = e.target.value
+                                    setEditForm(prev => prev ? { ...prev, impact: newImpact } : null)
+                                  }}
+                                  className="flex-1 bg-gray-800 border-gray-700 text-white"
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    const newImpact = [...(editForm?.impact || [])]
+                                    newImpact.splice(index, 1)
+                                    setEditForm(prev => prev ? { ...prev, impact: newImpact } : null)
+                                  }}
+                                  className="text-red-400 hover:text-red-500 flex-shrink-0"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
                             <Button
                               variant="outline"
-                              onClick={() => handleDocumentSign(doc.id)}
-                              className="w-full sm:w-auto border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                              onClick={() => {
+                                setEditForm(prev => prev ? { ...prev, impact: [...(prev.impact || []), ''] } : null)
+                              }}
+                              className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
                             >
-                              <Signature className="mr-2 h-4 w-4" />
-                              Sign
+                              Add Impact Item
                             </Button>
-                          )}
-                          {doc.type === 'upload' && doc.status !== 'completed' && (
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                              <Input
-                                type="file"
-                                onChange={(e) => handleFileSelect(doc.id, e.target.files?.[0] || null)}
-                                className="w-full sm:w-40"
-                              />
-                              <Button
-                                variant="outline"
-                                onClick={() => handleFileUpload(doc.id)}
-                                disabled={!selectedFiles[doc.id]}
-                                className="w-full sm:w-auto border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                              >
-                                <Upload className="mr-2 h-4 w-4" />
-                                Upload
-                              </Button>
-                            </div>
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          <ul className="list-disc list-inside space-y-1 text-gray-300">
+                            {update.impact?.map((item, index) => (
+                              <li key={index} className="break-words">{item}</li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                    )}
+
+                    {/* Next Steps */}
+                    {((update.nextSteps && update.nextSteps.length > 0) || isEditing) && (
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-semibold text-white">Next Steps</h3>
+                        {isEditing ? (
+                          <div className="space-y-2">
+                            {editForm?.nextSteps?.map((step, index) => (
+                              <div key={index} className="flex gap-2">
+                                <Input
+                                  value={step}
+                                  onChange={(e) => {
+                                    const newSteps = [...(editForm?.nextSteps || [])]
+                                    newSteps[index] = e.target.value
+                                    setEditForm(prev => prev ? { ...prev, nextSteps: newSteps } : null)
+                                  }}
+                                  className="flex-1 bg-gray-800 border-gray-700 text-white"
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    const newSteps = [...(editForm?.nextSteps || [])]
+                                    newSteps.splice(index, 1)
+                                    setEditForm(prev => prev ? { ...prev, nextSteps: newSteps } : null)
+                                  }}
+                                  className="text-red-400 hover:text-red-500 flex-shrink-0"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setEditForm(prev => prev ? { ...prev, nextSteps: [...(prev.nextSteps || []), ''] } : null)
+                              }}
+                              className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                            >
+                              Add Next Step
+                            </Button>
+                          </div>
+                        ) : (
+                          <ul className="list-disc list-inside space-y-1 text-gray-300">
+                            {update.nextSteps?.map((step, index) => (
+                              <li key={index} className="break-words">{step}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Documents Section */}
+                {update.documents && update.documents.length > 0 && (
+                  <Card className="border-gray-800 bg-gray-900/50">
+                    <CardHeader className="p-4 sm:p-6">
+                      <CardTitle className="text-xl text-white">Documents</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="grid gap-4">
+                        {update.documents.map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-800/50 rounded-lg gap-4"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <File className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-white font-medium break-words">{doc.name}</p>
+                                <p className="text-sm text-gray-400">
+                                  {doc.type.charAt(0).toUpperCase() + doc.type.slice(1)} Document
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {doc.status === 'completed' ? (
+                                <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/50">
+                                  Completed
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
+                                  Pending
+                                </Badge>
+                              )}
+                              {doc.file_path && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleFileDownload(doc)}
+                                  className="hover:bg-gray-700"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {doc.type === 'sign' && doc.status !== 'completed' && (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => handleDocumentSign(doc.id)}
+                                  className="w-full sm:w-auto border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                                >
+                                  <Signature className="mr-2 h-4 w-4" />
+                                  Sign
+                                </Button>
+                              )}
+                              {doc.type === 'upload' && doc.status !== 'completed' && (
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full">
+                                  <Input
+                                    type="file"
+                                    onChange={(e) => handleFileSelect(doc.id, e.target.files?.[0] || null)}
+                                    className="w-full"
+                                  />
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => handleFileUpload(doc.id)}
+                                    disabled={!selectedFiles[doc.id]}
+                                    className="w-full sm:w-auto border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                                  >
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Upload
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </>
         ) : null}
-      </div>
+      </main>
     </div>
   )
 } 

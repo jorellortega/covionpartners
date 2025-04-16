@@ -19,6 +19,8 @@ export interface Update {
     name: string
   }
   user_name?: string
+  user_email?: string
+  created_by?: string
 }
 
 export interface CreateUpdateInput {
@@ -43,6 +45,7 @@ export interface UpdateUpdateInput {
   full_content?: string
   impact?: string[]
   nextSteps?: string[]
+  project_id?: number | null
 }
 
 export function useUpdates() {

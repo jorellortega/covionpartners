@@ -5,6 +5,7 @@ export interface User {
   role: 'partner' | 'admin' | 'investor' | 'viewer'
   created_at: string
   updated_at: string
+  avatar_url?: string | null
 }
 
 export interface TeamMember {

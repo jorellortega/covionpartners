@@ -49,7 +49,8 @@ import {
   XCircle,
   Lock,
   Shield,
-  Megaphone
+  Megaphone,
+  MessageSquare
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -67,8 +68,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
+import { useUpdates, Update } from "@/hooks/useUpdates"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -193,6 +196,20 @@ export default function PartnerDashboard() {
   const [isJoining, setIsJoining] = useState(false)
   const [loading, setLoading] = useState(true)
   const [deals, setDeals] = useState<Deal[]>([])
+  const { updates, loading: updatesLoading, createUpdate } = useUpdates()
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [availableProjects, setAvailableProjects] = useState<{ id: string; name: string }[]>([])
+  const [loadingProjects, setLoadingProjects] = useState(true)
+  const [newUpdate, setNewUpdate] = useState({
+    title: '',
+    description: '',
+    status: 'new',
+    date: new Date().toISOString().split('T')[0],
+    category: '',
+    full_content: '',
+    project_id: '',
+    project_name: ''
+  })
 
   // Mock data for demonstration
   const [totalRevenue] = useState(0)
@@ -202,6 +219,10 @@ export default function PartnerDashboard() {
   const [availableBalance] = useState(0)
   const [amount, setAmount] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("bank")
+
+  const [unreadMessages, setUnreadMessages] = useState(0)
+  const [recentMessages, setRecentMessages] = useState<any[]>([])
+  const [loadingMessages, setLoadingMessages] = useState(true)
 
   useEffect(() => {
     if (!authLoading) {
@@ -340,6 +361,152 @@ export default function PartnerDashboard() {
     fetchDeals()
   }, [user, toast])
 
+  // Add function to fetch projects
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!user) return
+      
+      try {
+        // First get projects where user is the owner
+        const { data: ownedProjects, error: ownedError } = await supabase
+          .from('projects')
+          .select('id, name')
+          .eq('owner_id', user.id)
+          .order('name')
+        
+        if (ownedError) throw ownedError
+
+        // Then get projects where user is a team member
+        const { data: teamMemberships, error: teamError } = await supabase
+          .from('team_members')
+          .select('project_id')
+          .eq('user_id', user.id)
+        
+        if (teamError) throw teamError
+        
+        const teamProjectIds = teamMemberships?.map(p => p.project_id) || []
+        
+        if (teamProjectIds.length > 0) {
+          const { data: teamProjects, error: teamProjectsError } = await supabase
+            .from('projects')
+            .select('id, name')
+            .in('id', teamProjectIds)
+            .order('name')
+          
+          if (teamProjectsError) throw teamProjectsError
+          
+          // Combine and deduplicate projects
+          const allProjects = [...(ownedProjects || []), ...(teamProjects || [])]
+          const uniqueProjects = allProjects.filter((project, index, self) =>
+            index === self.findIndex(p => p.id === project.id)
+          )
+          
+          setAvailableProjects(uniqueProjects)
+        } else {
+          setAvailableProjects(ownedProjects || [])
+        }
+      } catch (err) {
+        console.error('Error fetching projects:', err)
+        toast({
+          title: "Error",
+          description: "Failed to load projects",
+          variant: "destructive"
+        })
+      } finally {
+        setLoadingProjects(false)
+      }
+    }
+    
+    fetchProjects()
+  }, [user, toast])
+
+  useEffect(() => {
+    if (user) {
+      fetchMessages()
+    }
+  }, [user])
+
+  const fetchMessages = async () => {
+    try {
+      setLoadingMessages(true)
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          sender:users!sender_id (
+            id,
+            name,
+            email
+          ),
+          receiver:users!receiver_id (
+            id,
+            name,
+            email
+          )
+        `)
+        .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      if (error) throw error
+
+      // Count unread messages where user is the receiver
+      const unread = data?.filter(msg => !msg.read && msg.receiver_id === user?.id).length || 0
+      setUnreadMessages(unread)
+      setRecentMessages(data || [])
+    } catch (error) {
+      console.error('Error fetching messages:', error)
+    } finally {
+      setLoadingMessages(false)
+    }
+  }
+
+  const handleCreateUpdate = async () => {
+    if (newUpdate.category === 'project' && !newUpdate.project_id) {
+      toast({
+        title: "Error",
+        description: "Please select a project for the project update",
+        variant: "destructive"
+      })
+      return
+    }
+
+    const { data, error } = await createUpdate({
+      title: newUpdate.title,
+      description: newUpdate.description,
+      status: newUpdate.status,
+      date: newUpdate.date,
+      category: newUpdate.category,
+      full_content: newUpdate.full_content,
+      created_by: user?.id,
+      project_id: newUpdate.category === 'project' ? newUpdate.project_id : null
+    })
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: error,
+        variant: "destructive"
+      })
+    } else {
+      toast({
+        title: "Success",
+        description: "Update created successfully"
+      })
+      setShowCreateDialog(false)
+      setNewUpdate({
+        title: '',
+        description: '',
+        status: 'new',
+        date: new Date().toISOString().split('T')[0],
+        category: '',
+        full_content: '',
+        project_id: '',
+        project_name: ''
+      })
+    }
+  }
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -461,30 +628,241 @@ export default function PartnerDashboard() {
           {/* Updates Section */}
           <Card className="leonardo-card border-gray-800">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center">
-                <Bell className="w-5 h-5 mr-2 text-yellow-400" />
-                Updates
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Bell className="w-5 h-5 mr-2 text-yellow-400" />
+                  Updates
+                </div>
+                <Link href="/updates">
+                  <Button variant="ghost" className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-900/20">
+                    View All
+                  </Button>
+                </Link>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700 flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <MessageCircle className="w-5 h-5 text-blue-400" />
-                    <div>
-                      <p className="text-sm font-medium">System Updates Available</p>
-                      <p className="text-xs text-gray-400">Check out our latest platform updates</p>
-                    </div>
+                {updatesLoading ? (
+                  <div className="text-center py-4">
+                    <div className="w-6 h-6 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
                   </div>
-                  <Link href="/updates">
-                    <Button variant="ghost" className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/20">
-                      <ArrowRight className="w-4 h-4" />
+                ) : updates.length > 0 ? (
+                  updates.slice(0, 3).map((update: Update) => (
+                    <div 
+                      key={update.id} 
+                      className="p-3 bg-gray-800/30 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-800/50 transition-colors"
+                      onClick={() => router.push(`/updates/${update.id}`)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
+                          <span className="text-white font-medium">
+                            {update.created_by === user?.id ? 
+                              (user?.name?.split(' ').map((n: string) => n[0]).join('') || 'U') : 
+                              (update.user_name?.split(' ').map((n: string) => n[0]).join('') || 'U')}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between items-center">
+                            <p className="text-sm font-medium">
+                              {update.created_by === user?.id ? user?.name || 'You' : update.user_name || 'Unknown User'}
+                            </p>
+                            <span className="text-xs text-gray-400">
+                              {new Date(update.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-400 line-clamp-1">{update.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-gray-400">
+                    No updates yet
+                  </div>
+                )}
+                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full gradient-button">
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Update
                     </Button>
-                  </Link>
-                </div>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create New Update</DialogTitle>
+                      <DialogDescription>
+                        Create a new update to share with your team.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div>
+                        <label className="text-sm font-medium">Title</label>
+                        <Input
+                          value={newUpdate.title}
+                          onChange={(e) => setNewUpdate(prev => ({ ...prev, title: e.target.value }))}
+                          placeholder="Enter a descriptive title for your update"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Category</label>
+                        <select
+                          value={newUpdate.category}
+                          onChange={(e) => setNewUpdate(prev => ({ ...prev, category: e.target.value }))}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <option value="">Select a category</option>
+                          <option value="project">Project Update</option>
+                          <option value="general">General Update</option>
+                          <option value="announcement">Announcement</option>
+                        </select>
+                      </div>
+                      {newUpdate.category === 'project' && (
+                        <div>
+                          <label className="text-sm font-medium">Select Project</label>
+                          <select
+                            value={newUpdate.project_id}
+                            onChange={(e) => {
+                              const project = availableProjects.find(p => p.id === e.target.value)
+                              setNewUpdate(prev => ({
+                                ...prev,
+                                project_id: e.target.value,
+                                project_name: project ? project.name : ''
+                              }))
+                            }}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <option value="">Select a project</option>
+                            {availableProjects.map((project) => (
+                              <option key={project.id} value={project.id}>
+                                {project.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-sm font-medium">Brief Description</label>
+                        <Input
+                          value={newUpdate.description}
+                          onChange={(e) => setNewUpdate(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Enter a short summary of the update"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Full Content</label>
+                        <textarea
+                          value={newUpdate.full_content}
+                          onChange={(e) => setNewUpdate(prev => ({ ...prev, full_content: e.target.value }))}
+                          placeholder="Enter the complete details of your update"
+                          className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleCreateUpdate}>
+                        Create Update
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardContent>
           </Card>
+
+          {/* Messages Section */}
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-white">Messages</h2>
+              <Button
+                onClick={() => router.push('/messages')}
+                variant="ghost"
+                className="text-purple-400 hover:text-purple-300"
+              >
+                View All
+              </Button>
+            </div>
+
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <MessageSquare className="w-5 h-5 mr-2 text-purple-400" />
+                  Messages
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {loadingMessages ? (
+                    <div className="flex justify-center py-4">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                    </div>
+                  ) : recentMessages.length > 0 ? (
+                    <>
+                      <div className="grid gap-4">
+                        {recentMessages.map((message) => (
+                          <Card 
+                            key={message.id} 
+                            className="bg-gray-900/50 border-gray-800 cursor-pointer hover:bg-gray-900"
+                            onClick={() => router.push(`/messages/${message.id}`)}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h3 className="text-sm font-medium text-white truncate">
+                                      {message.subject}
+                                    </h3>
+                                    {!message.read && message.receiver_id === user?.id && (
+                                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">
+                                        New
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-gray-400 text-xs line-clamp-1">
+                                    {message.content}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                                    <span>From: {message.sender_id === user?.id ? 'You' : message.sender?.name || 'Unknown'}</span>
+                                    <span>•</span>
+                                    <span>{new Date(message.created_at).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                      <div className="flex justify-center pt-2">
+                        <Button
+                          onClick={() => router.push('/messages/new')}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          New Message
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-6">
+                      <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-300 mb-2">No messages yet</h3>
+                      <p className="text-gray-500 mb-4">Start a conversation with your team</p>
+                      <Button
+                        onClick={() => router.push('/messages/new')}
+                        variant="outline"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        New Message
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* My Projects */}
           {user?.role !== 'viewer' && (
