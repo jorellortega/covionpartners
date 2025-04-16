@@ -50,7 +50,8 @@ import {
   Lock,
   Shield,
   Megaphone,
-  MessageSquare
+  MessageSquare,
+  Wrench
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -72,6 +73,12 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { useUpdates, Update } from "@/hooks/useUpdates"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -776,13 +783,18 @@ export default function PartnerDashboard() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-white">Messages</h2>
-              <Button
-                onClick={() => router.push('/messages')}
-                variant="ghost"
-                className="text-purple-400 hover:text-purple-300"
-              >
-                View All
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" className="text-purple-400 hover:text-purple-300 cursor-not-allowed opacity-50">
+                      View All
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Coming Soon</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             <Card className="leonardo-card border-gray-800">
@@ -793,72 +805,14 @@ export default function PartnerDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {loadingMessages ? (
-                    <div className="flex justify-center py-4">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-                    </div>
-                  ) : recentMessages.length > 0 ? (
-                    <>
-                      <div className="grid gap-4">
-                        {recentMessages.map((message) => (
-                          <Card 
-                            key={message.id} 
-                            className="bg-gray-900/50 border-gray-800 cursor-pointer hover:bg-gray-900"
-                            onClick={() => router.push(`/messages/${message.id}`)}
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <h3 className="text-sm font-medium text-white truncate">
-                                      {message.subject}
-                                    </h3>
-                                    {!message.read && message.receiver_id === user?.id && (
-                                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">
-                                        New
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <p className="text-gray-400 text-xs line-clamp-1">
-                                    {message.content}
-                                  </p>
-                                  <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                                    <span>From: {message.sender_id === user?.id ? 'You' : message.sender?.name || 'Unknown'}</span>
-                                    <span>•</span>
-                                    <span>{new Date(message.created_at).toLocaleDateString()}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                      <div className="flex justify-center pt-2">
-                        <Button
-                          onClick={() => router.push('/messages/new')}
-                          variant="outline"
-                          className="w-full"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          New Message
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-6">
-                      <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-300 mb-2">No messages yet</h3>
-                      <p className="text-gray-500 mb-4">Start a conversation with your team</p>
-                      <Button
-                        onClick={() => router.push('/messages/new')}
-                        variant="outline"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        New Message
-                      </Button>
-                    </div>
-                  )}
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/10 flex items-center justify-center">
+                    <Wrench className="w-8 h-8 text-purple-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-300 mb-2">Under Development</h3>
+                  <p className="text-gray-500 max-w-sm mx-auto">
+                    The messaging system is currently being developed. Check back soon for updates!
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -1076,6 +1030,22 @@ export default function PartnerDashboard() {
                     <Briefcase className="w-4 h-4 mr-2" />
                     Projects
                   </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          className="w-full gradient-button cursor-not-allowed opacity-50"
+                          disabled
+                        >
+                          <MessageSquare className="w-4 h-4 mr-2" />
+                          Messages
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Coming Soon</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <Button
                     className="w-full gradient-button hover:bg-purple-500"
                     onClick={() => router.push('/deals')}
@@ -1367,36 +1337,44 @@ export default function PartnerDashboard() {
             </div>
           </div>
 
-          {/* Deal Actions Section */}
-          {user?.role === 'admin' && (
-            <div className="col-span-full">
-              <DisabledCard 
-                userRole={user.role}
-                title="Deal Actions"
-                icon={<Handshake className="w-5 h-5 mr-2" />}
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Button 
-                    className="w-full gradient-button"
-                    onClick={() => router.push('/makedeal')}
-                  >
-                    <Handshake className="w-4 h-4 mr-2" />
-                    Make Deal
-                  </Button>
-                  <Button 
-                    className="w-full gradient-button"
-                    onClick={() => router.push('/deals')}
-                  >
-                    <Globe className="w-4 h-4 mr-2" />
-                    View All Deals
-                  </Button>
-                  <DisabledButton userRole={user.role} icon={<DollarSign className="w-5 h-5 mr-2" />}>
-                    Financial Dashboard
-                  </DisabledButton>
-                </div>
-              </DisabledCard>
+          {/* Deals Section */}
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-white">Deals</h2>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" className="text-purple-400 hover:text-purple-300 cursor-not-allowed opacity-50">
+                      View All
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Coming Soon</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
-          )}
+
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Handshake className="w-5 h-5 mr-2 text-purple-400" />
+                  Deals
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/10 flex items-center justify-center">
+                    <Wrench className="w-8 h-8 text-purple-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-300 mb-2">Under Development</h3>
+                  <p className="text-gray-500 max-w-sm mx-auto">
+                    The deals feature is currently being developed. Check back soon for updates!
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Recent Deals Section */}
           {user?.role === 'admin' && (
