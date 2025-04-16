@@ -18,6 +18,7 @@ import {
   UserPlus,
   Key,
   Plus,
+  PauseCircle,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -544,6 +545,18 @@ export default function ProjectsPage() {
                 <p className="text-sm text-gray-400">Pending</p>
                 <h3 className="text-2xl font-bold text-white">
                   {projects.filter((p) => p.status.toLowerCase() === "pending").length}
+                </h3>
+              </div>
+            </div>
+
+            <div className="leonardo-card p-4 flex items-center cursor-pointer hover:border-red-500/50 transition-colors" onClick={() => setStatusFilter(statusFilter === "on hold" ? null : "on hold")}>
+              <div className="p-3 rounded-full bg-red-500/20 mr-4">
+                <PauseCircle className="w-6 h-6 text-red-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">On Hold</p>
+                <h3 className="text-2xl font-bold text-white">
+                  {projects.filter((p) => p.status.toLowerCase() === "on hold").length}
                 </h3>
               </div>
             </div>
