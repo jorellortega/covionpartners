@@ -774,7 +774,7 @@ export default function PartnerDashboard() {
                       {/* Keep Payments enabled */}
                       <Button 
                         className="w-full gradient-button"
-                        onClick={() => router.push('/payments')}
+                        onClick={() => router.push('/managepayments')}
                       >
                         <Calculator className="w-4 h-4 mr-2" />
                         Manage Payments

@@ -331,11 +331,11 @@ export default function MarketingPage() {
                   </div>
                 )}
                 <div className="p-6 border-t border-gray-800">
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                      className="flex-1 sm:flex-none border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
                       onClick={() => {
                         const element = document.querySelector('.preview-content') as HTMLElement
                         if (element) {
@@ -354,7 +354,7 @@ export default function MarketingPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                      className="flex-1 sm:flex-none border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
                       onClick={() => {
                         const shareUrl = `${window.location.origin}/livepromo/${selectedProject}`
                         navigator.clipboard.writeText(shareUrl)
@@ -367,7 +367,7 @@ export default function MarketingPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                      className="flex-1 sm:flex-none border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
                       onClick={() => router.push(`/livepromo/${selectedProject}`)}
                     >
                       <ExternalLink className="w-4 h-4 mr-2" />
