@@ -32,6 +32,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { formatDate } from "@/lib/utils"
 
 // Join request notification type
 interface JoinRequest {
@@ -55,6 +56,17 @@ interface JoinRequest {
 interface Project {
   id: string
   name: string
+}
+
+type Update = {
+  id: string
+  content: string
+  created_at: string
+  user_name: string
+  projects?: {
+    id: string
+    name: string
+  }
 }
 
 export default function UpdatesPage() {
@@ -526,7 +538,14 @@ export default function UpdatesPage() {
                     >
                       <CardHeader>
                         <div className="flex justify-between items-start">
-                          <CardTitle>{update.title}</CardTitle>
+                          <div>
+                            <CardTitle>{update.title}</CardTitle>
+                            {update.projects && (
+                              <p className="text-lg font-semibold text-purple-400 mt-1">
+                                {update.projects.name}
+                              </p>
+                            )}
+                          </div>
                           <Badge variant={update.status === 'completed' ? 'default' : 'secondary'}>
                             {update.status}
                           </Badge>
@@ -540,6 +559,25 @@ export default function UpdatesPage() {
                       </CardHeader>
                       <CardContent>
                         <p className="text-gray-600 mb-4">{update.description}</p>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-900">
+                              {update.user_name}
+                            </span>
+                            <span className="text-sm text-gray-500">·</span>
+                            <span className="text-sm text-gray-500">
+                              {formatDate(update.created_at)}
+                            </span>
+                            {update.projects && (
+                              <>
+                                <span className="text-sm text-gray-500">·</span>
+                                <span className="text-sm text-gray-500">
+                                  {update.projects.name}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
                         <div className="flex justify-between items-center">
                           <Button 
                             variant="ghost" 
@@ -617,7 +655,14 @@ export default function UpdatesPage() {
                     >
                       <CardHeader>
                         <div className="flex justify-between items-start">
-                          <CardTitle>{update.title}</CardTitle>
+                          <div>
+                            <CardTitle>{update.title}</CardTitle>
+                            {update.projects && (
+                              <p className="text-lg font-semibold text-purple-400 mt-1">
+                                {update.projects.name}
+                              </p>
+                            )}
+                          </div>
                           <Badge variant={update.status === 'completed' ? 'default' : 'secondary'}>
                             {update.status}
                           </Badge>
@@ -631,6 +676,25 @@ export default function UpdatesPage() {
                       </CardHeader>
                       <CardContent>
                         <p className="text-gray-600 mb-4">{update.description}</p>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-900">
+                              {update.user_name}
+                            </span>
+                            <span className="text-sm text-gray-500">·</span>
+                            <span className="text-sm text-gray-500">
+                              {formatDate(update.created_at)}
+                            </span>
+                            {update.projects && (
+                              <>
+                                <span className="text-sm text-gray-500">·</span>
+                                <span className="text-sm text-gray-500">
+                                  {update.projects.name}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
                         <div className="flex justify-between items-center">
                           <Button 
                             variant="ghost" 

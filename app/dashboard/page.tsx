@@ -459,34 +459,32 @@ export default function PartnerDashboard() {
 
         <div className="space-y-8">
           {/* Updates Section */}
-          {user.role !== 'viewer' && (
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center">
-                  <Bell className="w-5 h-5 mr-2 text-yellow-400" />
-                  Updates
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <MessageCircle className="w-5 h-5 text-blue-400" />
-                      <div>
-                        <p className="text-sm font-medium">System Updates Available</p>
-                        <p className="text-xs text-gray-400">Check out our latest platform updates</p>
-                      </div>
+          <Card className="leonardo-card border-gray-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center">
+                <Bell className="w-5 h-5 mr-2 text-yellow-400" />
+                Updates
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <MessageCircle className="w-5 h-5 text-blue-400" />
+                    <div>
+                      <p className="text-sm font-medium">System Updates Available</p>
+                      <p className="text-xs text-gray-400">Check out our latest platform updates</p>
                     </div>
-                    <Link href="/updates">
-                      <Button variant="ghost" className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/20">
-                        <ArrowRight className="w-4 h-4" />
-                      </Button>
-                    </Link>
                   </div>
+                  <Link href="/updates">
+                    <Button variant="ghost" className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/20">
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </Link>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* My Projects */}
           {user?.role !== 'viewer' && (

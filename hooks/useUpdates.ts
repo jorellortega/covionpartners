@@ -14,6 +14,11 @@ export interface Update {
   updated_at: string
   target_roles?: string[]
   project_id?: number
+  projects?: {
+    id: number
+    name: string
+  }
+  user_name?: string
 }
 
 export interface CreateUpdateInput {
@@ -28,8 +33,16 @@ export interface CreateUpdateInput {
   project_id?: string | null
 }
 
-export interface UpdateUpdateInput extends Partial<CreateUpdateInput> {
+export interface UpdateUpdateInput {
   id: number
+  title: string
+  description: string
+  status: string
+  date: string
+  category: string
+  full_content?: string
+  impact?: string[]
+  nextSteps?: string[]
 }
 
 export function useUpdates() {
@@ -68,7 +81,13 @@ export function useUpdates() {
         // Build the query
         let query = supabase
           .from('updates')
-          .select('*')
+          .select(`
+            *,
+            projects (
+              id,
+              name
+            )
+          `)
           .order('created_at', { ascending: false })
 
         // If user is not admin, apply filtering
@@ -208,7 +227,13 @@ export function useUpdates() {
           
           let query = supabase
             .from('updates')
-            .select('*')
+            .select(`
+              *,
+              projects (
+                id,
+                name
+              )
+            `)
             .order('created_at', { ascending: false })
 
           // If user is not admin, apply filtering

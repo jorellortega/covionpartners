@@ -154,7 +154,11 @@ function StatusBadge({ status, projectId, onStatusChange }: { status: string, pr
 
 // Helper component for displaying project status and progress
 function StatusCard({ project, onStatusChange }: { project: Project | null, onStatusChange?: (newStatus: string) => void }) {
+  const { user } = useAuth()
   if (!project) return <LoadingSpinner />
+
+  // Only allow status changes for non-viewer roles
+  const canChangeStatus = user && user.role !== 'viewer'
 
   return (
     <Card>
@@ -167,7 +171,7 @@ function StatusCard({ project, onStatusChange }: { project: Project | null, onSt
           <StatusBadge 
             status={project.status || 'N/A'} 
             projectId={project.id}
-            onStatusChange={onStatusChange}
+            onStatusChange={canChangeStatus ? onStatusChange : undefined}
           />
         </div>
         <div className="space-y-1">
@@ -1324,8 +1328,21 @@ export default function ProjectDetails() {
   }
 
   const handleStatusChange = async (newStatus: string) => {
-    if (!project) return
-    setProject({ ...project, status: newStatus })
+    if (!project || !user || user.role === 'viewer') return
+    
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ status: newStatus })
+        .eq('id', project.id)
+
+      if (error) throw error
+      setProject({ ...project, status: newStatus })
+      toast.success('Status updated successfully')
+    } catch (error) {
+      console.error('Error updating status:', error)
+      toast.error('Failed to update status')
+    }
   }
 
   const handleAddLink = async () => {
@@ -1460,7 +1477,7 @@ export default function ProjectDetails() {
                 <StatusBadge 
                   status={project?.status || 'N/A'} 
                   projectId={project.id}
-                  onStatusChange={handleStatusChange}
+                  onStatusChange={user?.role !== 'viewer' ? handleStatusChange : undefined}
                 />
                 </div>
               </div>
@@ -2502,13 +2519,15 @@ export default function ProjectDetails() {
 
         {/* Project Information and Status Cards at the bottom */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-          <div className="lg:col-span-2">
-            <ProjectInfoCard project={project} />
-          </div>
-          <div>
-            <StatusCard project={project} onStatusChange={handleStatusChange} />
-              </div>
+          {user?.role !== 'viewer' && (
+            <div className="lg:col-span-2">
+              <ProjectInfoCard project={project} />
             </div>
+          )}
+          <div className={user?.role !== 'viewer' ? '' : 'lg:col-span-3'}>
+            <StatusCard project={project} onStatusChange={handleStatusChange} />
+          </div>
+        </div>
           </main>
 
       {/* Edit Project Dialog */}
