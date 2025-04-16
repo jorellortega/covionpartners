@@ -24,6 +24,8 @@ export interface CreateUpdateInput {
   category: string
   full_content?: string
   target_roles?: string[]
+  created_by?: string
+  project_id?: string | null
 }
 
 export interface UpdateUpdateInput extends Partial<CreateUpdateInput> {

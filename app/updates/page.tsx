@@ -169,14 +169,45 @@ export default function UpdatesPage() {
       if (!user) return
       
       try {
-        const { data, error } = await supabase
+        // First get projects where user is the owner
+        const { data: ownedProjects, error: ownedError } = await supabase
           .from('projects')
           .select('id, name')
+          .eq('owner_id', user.id)
           .order('name')
         
-        if (error) throw error
+        if (ownedError) throw ownedError
+
+        // Then get projects where user is a team member
+        const { data: teamMemberships, error: teamError } = await supabase
+          .from('team_members')
+          .select('project_id')
+          .eq('user_id', user.id)
         
-        setProjects(data || [])
+        if (teamError) throw teamError
+        
+        let memberProjects: any[] = []
+        
+        if (teamMemberships && teamMemberships.length > 0) {
+          const projectIds = teamMemberships.map(tm => tm.project_id)
+          
+          const { data: joinedProjects, error: joinedError } = await supabase
+            .from('projects')
+            .select('id, name')
+            .in('id', projectIds)
+            .order('name')
+          
+          if (joinedError) throw joinedError
+          memberProjects = joinedProjects || []
+        }
+        
+        // Combine owned and member projects, removing duplicates
+        const allProjects = [...(ownedProjects || []), ...memberProjects]
+        const uniqueProjects = allProjects.filter((project, index, self) =>
+          index === self.findIndex(p => p.id === project.id)
+        )
+        
+        setProjects(uniqueProjects)
       } catch (err) {
         console.error('Error fetching projects:', err)
         toast.error('Failed to load projects')
