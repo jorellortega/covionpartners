@@ -436,31 +436,46 @@ export default function PartnerDashboard() {
   const fetchMessages = async () => {
     try {
       setLoadingMessages(true)
-      const { data, error } = await supabase
+      // Step 1: Fetch messages without joins
+      const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
-        .select(`
-          *,
-          sender:users!sender_id (
-            id,
-            name,
-            email
-          ),
-          receiver:users!receiver_id (
-            id,
-            name,
-            email
-          )
-        `)
+        .select('*')
         .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
         .order('created_at', { ascending: false })
         .limit(5)
 
-      if (error) throw error
+      if (messagesError) throw messagesError
 
       // Count unread messages where user is the receiver
-      const unread = data?.filter(msg => !msg.read && msg.receiver_id === user?.id).length || 0
+      const unread = messagesData?.filter(msg => !msg.read && msg.receiver_id === user?.id).length || 0
       setUnreadMessages(unread)
-      setRecentMessages(data || [])
+
+      // Collect unique user IDs
+      const userIds = new Set<string>()
+      messagesData?.forEach(message => {
+        userIds.add(message.sender_id)
+        userIds.add(message.receiver_id)
+      })
+
+      // Step 2: Fetch user details
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .in('id', Array.from(userIds))
+
+      if (usersError) throw usersError
+
+      // Create a map of user details
+      const usersMap = new Map(usersData?.map(user => [user.id, user]) || [])
+
+      // Combine messages with user details
+      const messagesWithUsers = messagesData?.map(message => ({
+        ...message,
+        sender: usersMap.get(message.sender_id) || null,
+        receiver: usersMap.get(message.receiver_id) || null
+      })) || []
+
+      setRecentMessages(messagesWithUsers)
     } catch (error) {
       console.error('Error fetching messages:', error)
     } finally {
@@ -630,6 +645,146 @@ export default function PartnerDashboard() {
             Here's an overview of your projects, revenue, and team performance.
           </p>
         </div>
+
+        {/* Upcoming Deadlines Section */}
+        <Card className="leonardo-card border-gray-800">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Calendar className="w-5 h-5 mr-2 text-blue-400" />
+                Upcoming Deadlines
+              </div>
+              <Button
+                variant="ghost"
+                className="text-blue-400 hover:text-blue-300"
+                onClick={() => router.push('/deadlines')}
+              >
+                View All
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {loadingMyProjects ? (
+                <div className="text-center py-4">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                </div>
+              ) : (
+                <>
+                  {/* Project Deadlines */}
+                  {myProjects
+                    .filter(project => project.deadline)
+                    .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
+                    .slice(0, 3)
+                    .map(project => (
+                      <div 
+                        key={project.id}
+                        className="p-3 bg-gray-800/30 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-800/50 transition-colors"
+                        onClick={() => router.push(`/projects/${project.id}`)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                              <Briefcase className="w-4 h-4 text-blue-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-white">{project.name}</p>
+                              <p className="text-xs text-gray-400">Project Deadline</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-white">
+                              {new Date(project.deadline!).toLocaleDateString()}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {Math.ceil((new Date(project.deadline!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days left
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  }
+
+                  {/* Recent Updates */}
+                  {updates
+                    .filter(update => update.date)
+                    .sort((a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime())
+                    .slice(0, 3)
+                    .map(update => (
+                      <div 
+                        key={update.id}
+                        className="p-3 bg-gray-800/30 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-800/50 transition-colors"
+                        onClick={() => router.push(`/updates/${update.id}`)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                              <Bell className="w-4 h-4 text-purple-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-white">{update.title}</p>
+                              <p className="text-xs text-gray-400">Update Due</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-white">
+                              {new Date(update.date!).toLocaleDateString()}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {Math.ceil((new Date(update.date!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days left
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  }
+
+                  {/* Messages with Due Dates */}
+                  {recentMessages
+                    .filter(message => message.due_date)
+                    .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
+                    .slice(0, 3)
+                    .map(message => (
+                      <div 
+                        key={message.id}
+                        className="p-3 bg-gray-800/30 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-800/50 transition-colors"
+                        onClick={() => router.push(`/messages/${message.id}`)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                              <MessageSquare className="w-4 h-4 text-green-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-white">{message.subject}</p>
+                              <p className="text-xs text-gray-400">Message Response Due</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-white">
+                              {new Date(message.due_date!).toLocaleDateString()}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {Math.ceil((new Date(message.due_date!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days left
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  }
+
+                  {(myProjects.filter(p => p.deadline).length === 0 && 
+                    updates.filter(u => u.date).length === 0 && 
+                    recentMessages.filter(m => m.due_date).length === 0) && (
+                    <div className="text-center py-4 text-gray-400">
+                      No upcoming deadlines
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="space-y-8">
           {/* Updates Section */}
@@ -844,8 +999,7 @@ export default function PartnerDashboard() {
                       <div className="flex justify-center pt-2">
                         <Button
                           onClick={() => router.push('/messages/new')}
-                          variant="outline"
-                          className="w-full"
+                          className="w-full gradient-button"
                         >
                           <Plus className="w-4 h-4 mr-2" />
                           New Message
