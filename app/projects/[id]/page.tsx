@@ -1351,7 +1351,21 @@ export default function ProjectDetails() {
     }
 
     try {
-      const updatedLinks = [...(project?.external_links || []), newLink]
+      // Normalize URL format
+      let normalizedUrl = newLink.url.trim()
+      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+        normalizedUrl = 'https://' + normalizedUrl
+      }
+
+      // Validate URL format
+      try {
+        new URL(normalizedUrl)
+      } catch (e) {
+        toast.error('Please enter a valid URL')
+        return
+      }
+
+      const updatedLinks = [...(project?.external_links || []), { ...newLink, url: normalizedUrl }]
       // Update in Supabase
       const { error } = await supabase
         .from('projects')
@@ -1491,7 +1505,7 @@ export default function ProjectDetails() {
                 {/* Project Media */}
                 <Card className="leonardo-card border-gray-800">
               <CardHeader>
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div>
                     <CardTitle>Project Media</CardTitle>
                     <CardDescription className="text-gray-400">
@@ -1499,10 +1513,10 @@ export default function ProjectDetails() {
                         </CardDescription>
                       </div>
                   {user?.role !== 'viewer' && user?.role !== 'investor' && (
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                       <Button 
                         onClick={() => document.getElementById('media-upload')?.click()} 
-                        className="gradient-button"
+                        className="gradient-button w-full sm:w-auto"
                         disabled={isUploadingMedia}
                       >
                         {isUploadingMedia ? (
@@ -1519,7 +1533,7 @@ export default function ProjectDetails() {
                       </Button>
                           <Button 
                             onClick={() => setIsAddingLink(true)}
-                            className="gradient-button"
+                            className="gradient-button w-full sm:w-auto"
                           >
                             <Link className="w-4 h-4 mr-2" />
                             Add Link
@@ -1658,16 +1672,13 @@ export default function ProjectDetails() {
                                 <Link className="w-5 h-5 text-gray-400 flex-shrink-0" />
                                 <div className="min-w-0 flex-1">
                                   <a 
-                                    href={link.url} 
+                                    href={link.url.startsWith('http') ? link.url : `https://${link.url}`}
                                     target="_blank" 
                                     rel="noopener noreferrer"
                                     className="text-sm font-medium text-white hover:text-purple-400 truncate"
                                   >
                                     {link.title}
                                   </a>
-                                  {link.description && (
-                                    <p className="text-xs text-gray-400 truncate">{link.description}</p>
-                                  )}
                                 </div>
                               </div>
                               {user?.role !== 'viewer' && user?.role !== 'investor' && (
@@ -2048,24 +2059,36 @@ export default function ProjectDetails() {
                             </div>
                             <div className="flex gap-1">
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
                                 className="text-gray-400 hover:text-purple-400"
-                                onClick={() => startEditingTask(task)}
+                                onClick={() => router.push(`/tasks/${task.id}`)}
                               >
-                                <Pencil className="w-4 h-4" />
+                                View Details
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-gray-400 hover:text-purple-400"
-                                onClick={() => {
-                                  setTaskToDelete(task.id)
-                                  setIsDeletingTask(true)
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
+                              {user?.role !== 'viewer' && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-gray-400 hover:text-purple-400"
+                                    onClick={() => startEditingTask(task)}
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-gray-400 hover:text-purple-400"
+                                    onClick={() => {
+                                      setTaskToDelete(task.id)
+                                      setIsDeletingTask(true)
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
                         )}

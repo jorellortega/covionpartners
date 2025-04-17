@@ -76,4 +76,19 @@ export interface MediaFile {
   url: string
   aspect_ratio?: '16:9' | '9:16' | 'square'
   created_at: string
+}
+
+export interface Task {
+  id: string
+  title: string
+  description: string
+  status: 'pending' | 'in_progress' | 'completed'
+  due_date: string
+  project_id: string
+  assigned_to: string
+  assigned_user?: {
+    id: string
+    name: string
+    email: string
+  }
 } 

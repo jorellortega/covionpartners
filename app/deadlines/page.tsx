@@ -13,7 +13,8 @@ import {
   MessageSquare,
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  CheckSquare
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -24,7 +25,7 @@ import { Project, Update } from "@/types"
 interface DeadlineItem {
   id: string
   title: string
-  type: 'project' | 'update' | 'message'
+  type: 'project' | 'update' | 'message' | 'task'
   date: string
   status: 'upcoming' | 'past' | 'future'
   link: string
@@ -37,12 +38,15 @@ export default function DeadlinesPage() {
   const { updates, loading: loadingUpdates } = useUpdates()
   const [messages, setMessages] = useState<any[]>([])
   const [loadingMessages, setLoadingMessages] = useState(true)
+  const [tasks, setTasks] = useState<any[]>([])
+  const [loadingTasks, setLoadingTasks] = useState(true)
   const [deadlines, setDeadlines] = useState<DeadlineItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (user) {
       fetchMessages()
+      fetchTasks()
     }
   }, [user])
 
@@ -91,8 +95,50 @@ export default function DeadlinesPage() {
     }
   }
 
+  const fetchTasks = async () => {
+    try {
+      setLoadingTasks(true)
+      // Step 1: Fetch tasks without joins
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (tasksError) throw tasksError
+
+      // Collect unique user IDs
+      const userIds = new Set<string>()
+      tasksData?.forEach(task => {
+        if (task.assigned_to) userIds.add(task.assigned_to)
+      })
+
+      // Step 2: Fetch user details
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .in('id', Array.from(userIds))
+
+      if (usersError) throw usersError
+
+      // Create a map of user details
+      const usersMap = new Map(usersData?.map(user => [user.id, user]) || [])
+
+      // Combine tasks with user details
+      const tasksWithUsers = tasksData?.map(task => ({
+        ...task,
+        assigned_user: task.assigned_to ? usersMap.get(task.assigned_to) || null : null
+      })) || []
+
+      setTasks(tasksWithUsers)
+    } catch (error) {
+      console.error('Error fetching tasks:', error)
+    } finally {
+      setLoadingTasks(false)
+    }
+  }
+
   useEffect(() => {
-    if (!loadingProjects && !loadingUpdates && !loadingMessages) {
+    if (!loadingProjects && !loadingUpdates && !loadingMessages && !loadingTasks) {
       const now = new Date()
       const allDeadlines: DeadlineItem[] = []
 
@@ -141,12 +187,27 @@ export default function DeadlinesPage() {
         }
       })
 
+      // Add task deadlines
+      tasks.forEach(task => {
+        if (task.due_date) {
+          const deadlineDate = new Date(task.due_date)
+          allDeadlines.push({
+            id: task.id,
+            title: task.title,
+            type: 'task',
+            date: task.due_date,
+            status: deadlineDate < now ? 'past' : 'upcoming',
+            link: `/tasks/${task.id}`
+          })
+        }
+      })
+
       // Sort all deadlines by date
       allDeadlines.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       setDeadlines(allDeadlines)
       setLoading(false)
     }
-  }, [loadingProjects, loadingUpdates, loadingMessages, myProjects, updates, messages])
+  }, [loadingProjects, loadingUpdates, loadingMessages, loadingTasks, myProjects, updates, messages, tasks])
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -167,6 +228,8 @@ export default function DeadlinesPage() {
         return <Bell className="w-4 h-4 text-purple-400" />
       case 'message':
         return <MessageSquare className="w-4 h-4 text-green-400" />
+      case 'task':
+        return <CheckSquare className="w-4 h-4 text-yellow-400" />
       default:
         return null
     }
@@ -180,6 +243,8 @@ export default function DeadlinesPage() {
         return 'bg-purple-500/20'
       case 'message':
         return 'bg-green-500/20'
+      case 'task':
+        return 'bg-yellow-500/20'
       default:
         return 'bg-gray-500/20'
     }
@@ -193,6 +258,8 @@ export default function DeadlinesPage() {
         return 'Update Due'
       case 'message':
         return 'Message Response Due'
+      case 'task':
+        return 'Task Due'
       default:
         return 'Deadline'
     }
