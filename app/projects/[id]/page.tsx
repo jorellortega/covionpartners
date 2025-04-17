@@ -267,7 +267,7 @@ export default function ProjectDetails() {
   const projectId = params.id as string
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
-  const { projects, loading: projectsLoading } = useProjects(user?.id || '')
+  const { projects, loading: projectsLoading, deleteProject } = useProjects(user?.id || '')
   const { teamMembers, loading, addTeamMember, updateTeamMember, removeTeamMember, refreshTeamMembers } = useTeamMembers(projectId)
   const [project, setProject] = useState<Project | null>(null)
   const [selectedMember, setSelectedMember] = useState<TeamMemberWithUser | null>(null)
@@ -649,18 +649,17 @@ export default function ProjectDetails() {
     if (!project) return;
     
     try {
-      const { error } = await supabase
-        .from('projects')
-        .delete()
-        .eq('id', project.id)
+      const { error } = await deleteProject(project.id)
 
       if (error) throw error;
 
       toast.success('Project deleted successfully')
       router.push('/projects')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting project:', error)
-      toast.error('Failed to delete project')
+      toast.error(error.message || 'Failed to delete project')
+    } finally {
+      setIsDeleteDialogOpen(false)
     }
   }
 
@@ -2605,22 +2604,29 @@ export default function ProjectDetails() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleting} onOpenChange={setIsDeleting}>
-        <DialogContent>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="leonardo-card border-gray-800 fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%]">
           <DialogHeader>
             <DialogTitle>Delete Project</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-gray-400">
               Are you sure you want to delete this project? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={() => setIsDeleting(false)}>
+          <DialogFooter className="pt-4">
+            <Button
+              variant="outline"
+              className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleDeleteProject} className="bg-red-500 hover:bg-red-600">
+            <Button 
+              className="bg-red-500 hover:bg-red-600 text-white"
+              onClick={handleDeleteProject}
+            >
               Delete Project
             </Button>
-    </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

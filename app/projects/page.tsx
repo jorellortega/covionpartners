@@ -50,7 +50,7 @@ import { toast } from "sonner"
 export default function ProjectsPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const { projects, loading, error } = useProjects(user?.id || '')
+  const { projects, loading, error, deleteProject } = useProjects(user?.id || '')
   const [projectKey, setProjectKey] = useState("")
   const [isJoining, setIsJoining] = useState(false)
   const [joinError, setJoinError] = useState("")
@@ -72,20 +72,15 @@ export default function ProjectsPage() {
     if (!projectToDelete) return
     
     try {
-      const { error } = await supabase
-        .from('projects')
-        .delete()
-        .eq('id', projectToDelete)
+      const { error } = await deleteProject(projectToDelete)
 
       if (error) throw error;
 
-      // Refresh the projects list immediately
-      router.refresh();
       toast.success("Project deleted successfully")
       
     } catch (error: any) {
       console.error('Error deleting project:', error);
-      toast.error('Failed to delete project. Please try again.');
+      toast.error(error.message || 'Failed to delete project. Please try again.')
     } finally {
       setIsDeleteDialogOpen(false)
       setProjectToDelete(null)
@@ -718,7 +713,7 @@ export default function ProjectsPage() {
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent className="leonardo-card border-gray-800">
+          <DialogContent className="leonardo-card border-gray-800 fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%]">
             <DialogHeader>
               <DialogTitle>Confirm Deletion</DialogTitle>
               <DialogDescription className="text-gray-400">
@@ -734,7 +729,7 @@ export default function ProjectsPage() {
                 Cancel
               </Button>
               <Button 
-                className="bg-purple-600 hover:bg-purple-700 text-white"
+                className="bg-red-500 hover:bg-red-600 text-white"
                 onClick={confirmDelete}
               >
                 Delete Project
