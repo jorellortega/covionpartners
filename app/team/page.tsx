@@ -10,10 +10,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, Search, UserPlus, AlertCircle, Users, Mail } from "lucide-react"
+import { Loader2, Search, UserPlus, AlertCircle, Users, Mail, Edit, Trash2, MoreVertical } from "lucide-react"
 import { toast } from "sonner"
 import { Label } from "@/components/ui/label"
 import { Project, TeamMember, User } from "@/types"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface TeamMemberWithUser extends TeamMember {
   user: User
@@ -34,6 +58,11 @@ export default function TeamPage() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
   const [memberFilter, setMemberFilter] = useState<'all' | 'active' | 'pending'>('all')
+  const [editingMember, setEditingMember] = useState<TeamMemberWithUser | null>(null)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deletingMember, setDeletingMember] = useState<TeamMemberWithUser | null>(null)
+  const [newRole, setNewRole] = useState("")
 
   useEffect(() => {
     if (authLoading) return
@@ -270,6 +299,59 @@ export default function TeamPage() {
     return matchesSearch && matchesFilter
   })
 
+  const handleEditMember = (member: TeamMemberWithUser) => {
+    setEditingMember(member)
+    setNewRole(member.role)
+    setShowEditDialog(true)
+  }
+
+  const handleDeleteMember = (member: TeamMemberWithUser) => {
+    setDeletingMember(member)
+    setShowDeleteDialog(true)
+  }
+
+  const updateMemberRole = async () => {
+    if (!editingMember || !selectedProject) return
+
+    try {
+      const { error } = await supabase
+        .from('team_members')
+        .update({ role: newRole })
+        .eq('id', editingMember.id)
+        .eq('project_id', selectedProject)
+
+      if (error) throw error
+
+      toast.success('Team member role updated successfully')
+      setShowEditDialog(false)
+      fetchProjectTeamMembers() // Refresh the list
+    } catch (error) {
+      console.error('Error updating team member:', error)
+      toast.error('Failed to update team member role')
+    }
+  }
+
+  const deleteMember = async () => {
+    if (!deletingMember || !selectedProject) return
+
+    try {
+      const { error } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('id', deletingMember.id)
+        .eq('project_id', selectedProject)
+
+      if (error) throw error
+
+      toast.success('Team member removed successfully')
+      setShowDeleteDialog(false)
+      fetchProjectTeamMembers() // Refresh the list
+    } catch (error) {
+      console.error('Error removing team member:', error)
+      toast.error('Failed to remove team member')
+    }
+  }
+
   if (loading || authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -390,33 +472,57 @@ export default function TeamPage() {
             filteredTeamMembers.map((member) => (
               <Card key={member.id} className="bg-gray-900/50 border-gray-800">
                 <CardContent className="p-6">
-                  <div className="flex items-start space-x-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={member.user.avatar_url || undefined} />
-                      <AvatarFallback>
-                        {member.user.name?.split(' ').map(n => n[0]).join('') || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">
-                        {member.user.name || 'Unknown User'}
-                      </p>
-                      <Badge 
-                        variant={member.status === 'active' ? 'default' : 'secondary'}
-                        className="mt-1"
-                      >
-                        {member.role}
-                      </Badge>
-                      <div className="mt-2 flex flex-col space-y-1">
-                        <a
-                          href={`mailto:${member.user.email}`}
-                          className="flex items-center text-sm text-gray-400 hover:text-white"
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-4">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={member.user.avatar_url || undefined} />
+                        <AvatarFallback>
+                          {member.user.name?.split(' ').map(n => n[0]).join('') || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">
+                          {member.user.name || 'Unknown User'}
+                        </p>
+                        <Badge 
+                          variant={member.status === 'active' ? 'default' : 'secondary'}
+                          className="mt-1"
                         >
-                          <Mail className="h-4 w-4 mr-2" />
-                          {member.user.email}
-                        </a>
+                          {member.role}
+                        </Badge>
+                        <div className="mt-2 flex flex-col space-y-1">
+                          <a
+                            href={`mailto:${member.user.email}`}
+                            className="flex items-center text-sm text-gray-400 hover:text-white"
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            {member.user.email}
+                          </a>
+                        </div>
                       </div>
                     </div>
+                    {member.role !== 'owner' && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditMember(member)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Role
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-red-500 focus:text-red-500"
+                            onClick={() => handleDeleteMember(member)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Remove
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -424,6 +530,60 @@ export default function TeamPage() {
           )}
         </div>
       </main>
+
+      {/* Edit Member Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Team Member Role</DialogTitle>
+            <DialogDescription>
+              Update the role for {editingMember?.user.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="role">Role</Label>
+            <Select value={newRole} onValueChange={setNewRole}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="member">Member</SelectItem>
+                <SelectItem value="viewer">Viewer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={updateMemberRole}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Team Member</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove {deletingMember?.user.name} from the project? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={deleteMember}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 } 

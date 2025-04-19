@@ -51,7 +51,8 @@ import {
   Shield,
   Megaphone,
   MessageSquare,
-  Wrench
+  Wrench,
+  Workflow
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -79,6 +80,20 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -230,6 +245,9 @@ export default function PartnerDashboard() {
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [recentMessages, setRecentMessages] = useState<any[]>([])
   const [loadingMessages, setLoadingMessages] = useState(true)
+
+  const [editingMember, setEditingMember] = useState<ProjectWithRole | null>(null)
+  const [selectedRole, setSelectedRole] = useState('member')
 
   useEffect(() => {
     if (!authLoading) {
@@ -614,6 +632,33 @@ export default function PartnerDashboard() {
     }
   }
 
+  const handleUpdateRole = async () => {
+    if (!editingMember) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('team_members')
+        .update({ role: selectedRole })
+        .eq('id', editingMember.id)
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Team member role updated successfully"
+      })
+
+      setEditingMember(null)
+    } catch (error) {
+      console.error('Error updating team member role:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update team member role",
+        variant: "destructive"
+      })
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header">
@@ -689,6 +734,14 @@ export default function PartnerDashboard() {
                 onClick={() => router.push('/managepayments')}
               >
                 <DollarSign className="w-5 h-5" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-gray-400 hover:text-blue-400 hover:bg-transparent"
+                onClick={() => router.push('/workflow')}
+              >
+                <Workflow className="w-5 h-5" />
               </Button>
             </div>
           </div>
@@ -1367,12 +1420,19 @@ export default function PartnerDashboard() {
                     Make Deal
                   </Button>
                 </Link>
-                <Link href="/marketing" className="block">
-                  <Button variant="outline" className="w-full border-gray-700 hover:bg-rose-900/20 hover:text-rose-400">
-                    <Megaphone className="w-4 h-4 mr-2" />
-                    Marketing
-                  </Button>
-                </Link>
+                {user?.role === 'admin' && (
+                  <div className="flex items-center space-x-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="hover:bg-rose-900/20 hover:text-rose-400"
+                      onClick={() => router.push('/admin/marketing')}
+                    >
+                      <Megaphone className="mr-2 h-4 w-4" />
+                      <span>Marketing</span>
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
