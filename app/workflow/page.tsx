@@ -29,7 +29,8 @@ import {
   Link as LinkIcon,
   File,
   X,
-  Search
+  Search,
+  StickyNote
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
@@ -43,6 +44,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useRouter } from "next/navigation"
 
 interface Task {
   id: string
@@ -64,6 +66,7 @@ interface Task {
     url: string
     name: string
   }[]
+  notes?: string
 }
 
 interface Project {
@@ -86,6 +89,9 @@ export default function WorkflowPage() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [showFilter, setShowFilter] = useState(false)
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false)
+  const [currentNote, setCurrentNote] = useState("")
+  const router = useRouter()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -106,7 +112,7 @@ export default function WorkflowPage() {
           color: getProjectColor(p.id)
         })) || [])
 
-        // Fetch tasks
+        // Fetch tasks with proper single row query format
         const { data: tasksData, error: tasksError } = await supabase
           .from('tasks')
           .select(`
@@ -395,6 +401,33 @@ export default function WorkflowPage() {
     }
   }
 
+  const handleNoteUpdate = async (taskId: string, note: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ notes: note })
+        .eq('id', taskId)
+
+      if (error) throw error
+
+      setTasks(prev => prev.map(task => 
+        task.id === taskId ? { ...task, notes: note } : task
+      ))
+
+      toast({
+        title: "Success",
+        description: "Note updated successfully"
+      })
+    } catch (error) {
+      console.error('Error updating note:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update note",
+        variant: "destructive"
+      })
+    }
+  }
+
   const filteredTasks = tasks.filter(task => 
     task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     task.description.toLowerCase().includes(searchQuery.toLowerCase())
@@ -408,6 +441,8 @@ export default function WorkflowPage() {
           ? "opacity-20 hover:opacity-40 bg-gray-900/20 py-1 px-3"
           : "bg-black hover:bg-gray-900 p-3"
       }`}
+      onClick={() => router.push(`/task/${task.id}`)}
+      style={{ cursor: 'pointer' }}
     >
       <div className="flex items-start sm:items-center gap-4 w-full sm:w-auto">
         {getStatusIcon(task.status)}
@@ -431,6 +466,7 @@ export default function WorkflowPage() {
                     variant="ghost"
                     size="sm"
                     className="p-0 h-auto hover:bg-transparent"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex items-center">
                       <Timer className={`mr-1 transition-all duration-300 ${
@@ -457,21 +493,30 @@ export default function WorkflowPage() {
                 <DropdownMenuContent className="w-32 bg-gray-900 border-gray-700">
                   <DropdownMenuItem
                     className="text-red-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-                    onClick={() => handlePriorityUpdate(task.id, "high")}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handlePriorityUpdate(task.id, "high")
+                    }}
                   >
                     <Timer className="mr-2 h-4 w-4" />
                     High
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-yellow-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-                    onClick={() => handlePriorityUpdate(task.id, "medium")}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handlePriorityUpdate(task.id, "medium")
+                    }}
                   >
                     <Timer className="mr-2 h-4 w-4" />
                     Medium
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-green-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-                    onClick={() => handlePriorityUpdate(task.id, "low")}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handlePriorityUpdate(task.id, "low")
+                    }}
                   >
                     <Timer className="mr-2 h-4 w-4" />
                     Low
@@ -498,6 +543,7 @@ export default function WorkflowPage() {
                     ? "text-blue-400 hover:text-blue-400"
                     : "text-yellow-400 hover:text-yellow-400"
                 }`}
+                onClick={(e) => e.stopPropagation()}
               >
                 {task.status === "completed" 
                   ? "Completed"
@@ -512,21 +558,30 @@ export default function WorkflowPage() {
             <DropdownMenuContent className="w-40 bg-gray-900 border-gray-700">
               <DropdownMenuItem
                 className="text-yellow-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-                onClick={() => handleStatusUpdate(task.id, "pending")}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleStatusUpdate(task.id, "pending")
+                }}
               >
                 <AlertCircle className="mr-2 h-4 w-4" />
                 Pending
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-blue-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-                onClick={() => handleStatusUpdate(task.id, "in_progress")}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleStatusUpdate(task.id, "in_progress")
+                }}
               >
                 <Clock className="mr-2 h-4 w-4" />
                 In Progress
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-green-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-                onClick={() => handleStatusUpdate(task.id, "completed")}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleStatusUpdate(task.id, "completed")
+                }}
               >
                 <CheckCircle2 className="mr-2 h-4 w-4" />
                 Completed
@@ -541,6 +596,10 @@ export default function WorkflowPage() {
             className={`hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300 ${
               task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
             }`}
+            onClick={(e) => {
+              e.stopPropagation()
+              // Handle file text click
+            }}
           >
             <FileText className={`transition-all duration-300 ${
               task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
@@ -554,6 +613,7 @@ export default function WorkflowPage() {
                 className={`hover:bg-blue-900/20 hover:text-blue-400 transition-all duration-300 ${
                   task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
                 }`}
+                onClick={(e) => e.stopPropagation()}
               >
                 <Upload className={`transition-all duration-300 ${
                   task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
@@ -563,7 +623,8 @@ export default function WorkflowPage() {
             <DropdownMenuContent className="w-40 bg-gray-900 border-gray-700">
               <DropdownMenuItem
                 className="text-blue-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation()
                   const input = document.createElement('input')
                   input.type = 'file'
                   input.onchange = (e) => {
@@ -586,12 +647,30 @@ export default function WorkflowPage() {
             className={`hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300 ${
               task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
             }`}
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation()
               setCurrentTaskId(task.id)
               setLinkDialogOpen(true)
             }}
           >
             <LinkIcon className={`transition-all duration-300 ${
+              task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
+            }`} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`hover:bg-yellow-900/20 hover:text-yellow-400 transition-all duration-300 ${
+              task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
+            }`}
+            onClick={(e) => {
+              e.stopPropagation()
+              setCurrentTaskId(task.id)
+              setCurrentNote(task.notes || "")
+              setNoteDialogOpen(true)
+            }}
+          >
+            <StickyNote className={`transition-all duration-300 ${
               task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
             }`} />
           </Button>
@@ -644,6 +723,51 @@ export default function WorkflowPage() {
               disabled={!linkUrl}
             >
               Add Link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Note Dialog */}
+      <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-black border-gray-800">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">Add Note</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="note">Note</Label>
+              <textarea
+                id="note"
+                value={currentNote}
+                onChange={(e) => setCurrentNote(e.target.value)}
+                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="Enter your note here..."
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex space-x-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setNoteDialogOpen(false)
+                setCurrentNote("")
+                setCurrentTaskId(null)
+              }}
+              className="hover:bg-gray-900 hover:text-gray-400"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (currentTaskId) {
+                  handleNoteUpdate(currentTaskId, currentNote)
+                  setNoteDialogOpen(false)
+                }
+              }}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white"
+            >
+              Save Note
             </Button>
           </DialogFooter>
         </DialogContent>
