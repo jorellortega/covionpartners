@@ -25,10 +25,23 @@ import {
   Flag,
   Filter,
   ChevronDown,
+  Upload,
+  Link as LinkIcon,
+  File,
+  X
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/components/ui/use-toast"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface Task {
   id: string
@@ -45,6 +58,11 @@ interface Task {
     id: string
     name: string
   }
+  attachments?: {
+    type: 'file' | 'link'
+    url: string
+    name: string
+  }[]
 }
 
 interface Project {
@@ -59,6 +77,10 @@ export default function WorkflowPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false)
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null)
+  const [linkName, setLinkName] = useState("")
+  const [linkUrl, setLinkUrl] = useState("")
   const { user } = useAuth()
   const { toast } = useToast()
 
@@ -157,6 +179,141 @@ export default function WorkflowPage() {
     }
   }
 
+  const handlePriorityUpdate = async (taskId: string, newPriority: 'low' | 'medium' | 'high') => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ priority: newPriority })
+        .eq('id', taskId)
+
+      if (error) throw error
+
+      setTasks(prev => prev.map(task => 
+        task.id === taskId ? { ...task, priority: newPriority } : task
+      ))
+    } catch (error) {
+      console.error('Error updating task priority:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to update task priority',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const handleFileUpload = async (taskId: string, file: File) => {
+    try {
+      const fileName = `${taskId}/${file.name}`
+      const { error: uploadError } = await supabase.storage
+        .from('task-attachments')
+        .upload(fileName, file)
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = await supabase.storage
+        .from('task-attachments')
+        .getPublicUrl(fileName)
+
+      const publicUrl = urlData.publicUrl
+
+      const { error: updateError } = await supabase
+        .from('tasks')
+        .update({
+          attachments: [
+            ...(tasks.find(t => t.id === taskId)?.attachments || []),
+            {
+              type: 'file',
+              url: publicUrl,
+              name: file.name
+            }
+          ]
+        })
+        .eq('id', taskId)
+
+      if (updateError) throw updateError
+
+      setTasks(prev => prev.map(task => 
+        task.id === taskId 
+          ? {
+              ...task,
+              attachments: [...(task.attachments || []), {
+                type: 'file',
+                url: publicUrl,
+                name: file.name
+              }]
+            }
+          : task
+      ))
+
+      toast({
+        title: 'Success',
+        description: 'File uploaded successfully'
+      })
+    } catch (error) {
+      console.error('Error uploading file:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to upload file',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const handleLinkAdd = async (taskId: string, url: string, name: string) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('tasks')
+        .update({
+          attachments: [
+            ...(tasks.find(t => t.id === taskId)?.attachments || []),
+            {
+              type: 'link',
+              url: url,
+              name: name || url
+            }
+          ]
+        })
+        .eq('id', taskId)
+
+      if (updateError) throw updateError
+
+      setTasks(prev => prev.map(task => 
+        task.id === taskId 
+          ? {
+              ...task,
+              attachments: [...(task.attachments || []), {
+                type: 'link',
+                url: url,
+                name: name || url
+              }]
+            }
+          : task
+      ))
+
+      toast({
+        title: 'Success',
+        description: 'Link added successfully'
+      })
+    } catch (error) {
+      console.error('Error adding link:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to add link',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const handleLinkDialogSubmit = () => {
+    if (currentTaskId && linkUrl) {
+      handleLinkAdd(currentTaskId, linkUrl, linkName)
+      setLinkDialogOpen(false)
+      setLinkName("")
+      setLinkUrl("")
+      setCurrentTaskId(null)
+    }
+  }
+
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case "high":
@@ -241,7 +398,7 @@ export default function WorkflowPage() {
       className={`flex items-center justify-between rounded-lg transition-all duration-300 ${
         task.status === "completed"
           ? "opacity-20 hover:opacity-40 bg-gray-900/20 py-1 px-3"
-          : "bg-gray-900/50 hover:bg-gray-900/70 p-3"
+          : "bg-black hover:bg-gray-900 p-3"
       }`}
     >
       <div className="flex items-center space-x-4">
@@ -260,55 +417,115 @@ export default function WorkflowPage() {
               {new Date(task.due_date).toLocaleDateString()}
             </div>
             <div className="flex items-center">
-              <Timer className={`mr-1 transition-all duration-300 ${
-                task.status === "completed" ? "w-3 h-3 text-gray-500" : "w-4 h-4"
-              }`} />
-              {task.priority}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="p-0 h-auto hover:bg-transparent"
+                  >
+                    <div className="flex items-center">
+                      <Timer className={`mr-1 transition-all duration-300 ${
+                        task.status === "completed" ? "w-3 h-3 text-gray-500" : "w-4 h-4"
+                      } ${
+                        task.priority === "high" 
+                          ? "text-red-400"
+                          : task.priority === "medium"
+                          ? "text-yellow-400"
+                          : "text-green-400"
+                      }`} />
+                      <span className={`${
+                        task.priority === "high" 
+                          ? "text-red-400"
+                          : task.priority === "medium"
+                          ? "text-yellow-400"
+                          : "text-green-400"
+                      }`}>
+                        {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                      </span>
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-32 bg-gray-900 border-gray-700">
+                  <DropdownMenuItem
+                    className="text-red-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
+                    onClick={() => handlePriorityUpdate(task.id, "high")}
+                  >
+                    <Timer className="mr-2 h-4 w-4" />
+                    High
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-yellow-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
+                    onClick={() => handlePriorityUpdate(task.id, "medium")}
+                  >
+                    <Timer className="mr-2 h-4 w-4" />
+                    Medium
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-green-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
+                    onClick={() => handlePriorityUpdate(task.id, "low")}
+                  >
+                    <Timer className="mr-2 h-4 w-4" />
+                    Low
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
       </div>
       <div className="flex items-center space-x-2">
-        {getPriorityBadge(task.priority)}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className={`border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300 ${
-                task.status === "completed" ? "h-7 text-xs px-2 opacity-50" : ""
-              }`}
-            >
-              Update
-              <ChevronDown className={`ml-2 transition-all duration-300 ${
-                task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
-              }`} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-40 bg-gray-900 border-gray-700">
-            <DropdownMenuItem
-              className="text-yellow-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-              onClick={() => handleStatusUpdate(task.id, "pending")}
-            >
-              <AlertCircle className="mr-2 h-4 w-4" />
-              Pending
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-blue-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-              onClick={() => handleStatusUpdate(task.id, "in_progress")}
-            >
-              <Clock className="mr-2 h-4 w-4" />
-              In Progress
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-green-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-              onClick={() => handleStatusUpdate(task.id, "completed")}
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Completed
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center space-x-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={`border-gray-700 bg-gray-800/30 hover:bg-purple-900/20 transition-all duration-300 ${
+                  task.status === "completed" ? "h-7 text-xs px-2 opacity-50" : ""
+                } ${
+                  task.status === "completed" 
+                    ? "text-green-400 hover:text-green-400" 
+                    : task.status === "in_progress"
+                    ? "text-blue-400 hover:text-blue-400"
+                    : "text-yellow-400 hover:text-yellow-400"
+                }`}
+              >
+                {task.status === "completed" 
+                  ? "Completed"
+                  : task.status === "in_progress"
+                  ? "In Progress"
+                  : "Pending"}
+                <ChevronDown className={`ml-2 transition-all duration-300 ${
+                  task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
+                }`} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-40 bg-gray-900 border-gray-700">
+              <DropdownMenuItem
+                className="text-yellow-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
+                onClick={() => handleStatusUpdate(task.id, "pending")}
+              >
+                <AlertCircle className="mr-2 h-4 w-4" />
+                Pending
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-blue-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
+                onClick={() => handleStatusUpdate(task.id, "in_progress")}
+              >
+                <Clock className="mr-2 h-4 w-4" />
+                In Progress
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-green-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
+                onClick={() => handleStatusUpdate(task.id, "completed")}
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Completed
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <Button
           variant="ghost"
           size="icon"
@@ -320,7 +537,107 @@ export default function WorkflowPage() {
             task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
           }`} />
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`hover:bg-blue-900/20 hover:text-blue-400 transition-all duration-300 ${
+                task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
+              }`}
+            >
+              <Upload className={`transition-all duration-300 ${
+                task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
+              }`} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-40 bg-gray-900 border-gray-700">
+            <DropdownMenuItem
+              className="text-blue-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
+              onClick={() => {
+                const input = document.createElement('input')
+                input.type = 'file'
+                input.onchange = (e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0]
+                  if (file) {
+                    handleFileUpload(task.id, file)
+                  }
+                }
+                input.click()
+              }}
+            >
+              <File className="mr-2 h-4 w-4" />
+              Upload File
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300 ${
+            task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
+          }`}
+          onClick={() => {
+            setCurrentTaskId(task.id)
+            setLinkDialogOpen(true)
+          }}
+        >
+          <LinkIcon className={`transition-all duration-300 ${
+            task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
+          }`} />
+        </Button>
       </div>
+
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-black border-gray-800">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">Add Link</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                value={linkName}
+                onChange={(e) => setLinkName(e.target.value)}
+                className="bg-black border-gray-800 focus:border-gray-700"
+                placeholder="Enter link name"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="url">URL</Label>
+              <Input
+                id="url"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                className="bg-black border-gray-800 focus:border-gray-700"
+                placeholder="Enter URL"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex space-x-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setLinkDialogOpen(false)
+                setLinkName("")
+                setLinkUrl("")
+                setCurrentTaskId(null)
+              }}
+              className="hover:bg-gray-900 hover:text-gray-400"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleLinkDialogSubmit}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+              disabled={!linkUrl}
+            >
+              Add Link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 
@@ -467,7 +784,7 @@ export default function WorkflowPage() {
                   return (
                     <Card 
                       key={project.id}
-                      className={`border-gray-800 ${getProjectColorClass(project.color)}`}
+                      className={`border-gray-800 bg-black ${getProjectColorClass(project.color)}`}
                     >
                       <CardHeader className="pb-2">
                         <CardTitle className="text-lg font-medium flex items-center justify-between">
@@ -502,7 +819,7 @@ export default function WorkflowPage() {
                   return (
                     <Card 
                       key={project.id}
-                      className={`border-gray-800 ${getProjectColorClass(project.color)}`}
+                      className={`border-gray-800 bg-black ${getProjectColorClass(project.color)}`}
                     >
                       <CardHeader className="pb-2">
                         <CardTitle className="text-lg font-medium flex items-center justify-between">
