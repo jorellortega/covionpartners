@@ -402,19 +402,19 @@ export default function WorkflowPage() {
   const renderTaskCard = (task: Task) => (
     <div
       key={task.id}
-      className={`flex items-center justify-between rounded-lg transition-all duration-300 ${
+      className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-2 rounded-lg transition-all duration-300 ${
         task.status === "completed"
           ? "opacity-20 hover:opacity-40 bg-gray-900/20 py-1 px-3"
           : "bg-black hover:bg-gray-900 p-3"
       }`}
     >
-      <div className="flex items-center space-x-4">
+      <div className="flex items-start sm:items-center gap-4 w-full sm:w-auto">
         {getStatusIcon(task.status)}
-        <div>
+        <div className="flex-1">
           <h3 className={`font-medium text-white transition-all duration-300 ${
             task.status === "completed" ? "text-sm text-gray-400" : "text-base"
           }`}>{task.title}</h3>
-          <div className={`flex items-center space-x-4 mt-1 transition-all duration-300 ${
+          <div className={`flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 mt-1 transition-all duration-300 ${
             task.status === "completed" ? "text-xs text-gray-500" : "text-sm text-gray-400"
           }`}>
             <div className="flex items-center">
@@ -481,14 +481,14 @@ export default function WorkflowPage() {
           </div>
         </div>
       </div>
-      <div className="flex items-center space-x-2">
-        <div className="flex items-center space-x-2">
+      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
-                className={`border-gray-700 bg-gray-800/30 hover:bg-purple-900/20 transition-all duration-300 ${
+                className={`w-full sm:w-auto border-gray-700 bg-gray-800/30 hover:bg-purple-900/20 transition-all duration-300 ${
                   task.status === "completed" ? "h-7 text-xs px-2 opacity-50" : ""
                 } ${
                   task.status === "completed" 
@@ -533,66 +533,68 @@ export default function WorkflowPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={`hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300 ${
-            task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
-          }`}
-        >
-          <FileText className={`transition-all duration-300 ${
-            task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
-          }`} />
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`hover:bg-blue-900/20 hover:text-blue-400 transition-all duration-300 ${
-                task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
-              }`}
-            >
-              <Upload className={`transition-all duration-300 ${
-                task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
-              }`} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-40 bg-gray-900 border-gray-700">
-            <DropdownMenuItem
-              className="text-blue-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-              onClick={() => {
-                const input = document.createElement('input')
-                input.type = 'file'
-                input.onchange = (e) => {
-                  const file = (e.target as HTMLInputElement).files?.[0]
-                  if (file) {
-                    handleFileUpload(task.id, file)
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300 ${
+              task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
+            }`}
+          >
+            <FileText className={`transition-all duration-300 ${
+              task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
+            }`} />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`hover:bg-blue-900/20 hover:text-blue-400 transition-all duration-300 ${
+                  task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
+                }`}
+              >
+                <Upload className={`transition-all duration-300 ${
+                  task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
+                }`} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-40 bg-gray-900 border-gray-700">
+              <DropdownMenuItem
+                className="text-blue-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
+                onClick={() => {
+                  const input = document.createElement('input')
+                  input.type = 'file'
+                  input.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0]
+                    if (file) {
+                      handleFileUpload(task.id, file)
+                    }
                   }
-                }
-                input.click()
-              }}
-            >
-              <File className="mr-2 h-4 w-4" />
-              Upload File
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={`hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300 ${
-            task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
-          }`}
-          onClick={() => {
-            setCurrentTaskId(task.id)
-            setLinkDialogOpen(true)
-          }}
-        >
-          <LinkIcon className={`transition-all duration-300 ${
-            task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
-          }`} />
-        </Button>
+                  input.click()
+                }}
+              >
+                <File className="mr-2 h-4 w-4" />
+                Upload File
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300 ${
+              task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
+            }`}
+            onClick={() => {
+              setCurrentTaskId(task.id)
+              setLinkDialogOpen(true)
+            }}
+          >
+            <LinkIcon className={`transition-all duration-300 ${
+              task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
+            }`} />
+          </Button>
+        </div>
       </div>
 
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
@@ -745,10 +747,10 @@ export default function WorkflowPage() {
 
         {/* Tasks View */}
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <h2 className="text-xl font-bold text-white">Tasks Overview</h2>
-            <div className="flex items-center gap-4 flex-1 max-w-2xl mx-4">
-              <div className="relative flex-1">
+            <div className="flex-1 w-full sm:max-w-2xl">
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   type="text"
@@ -759,12 +761,15 @@ export default function WorkflowPage() {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button 
+                variant="outline" 
+                className="flex-1 sm:flex-none border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
                 <Filter className="w-4 h-4 mr-2" />
                 Filter
               </Button>
-              <Button className="gradient-button">
+              <Button className="flex-1 sm:flex-none gradient-button">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Task
               </Button>
@@ -772,7 +777,7 @@ export default function WorkflowPage() {
           </div>
 
           <Tabs defaultValue="weekly" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 max-w-[400px] bg-gray-800/30">
+            <TabsList className="grid w-full sm:w-[400px] grid-cols-2 bg-gray-800/30">
               <TabsTrigger 
                 value="weekly"
                 className="data-[state=active]:bg-gray-700"
@@ -806,9 +811,9 @@ export default function WorkflowPage() {
                       className={`border-gray-800 bg-black ${getProjectColorClass(project.color)}`}
                     >
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium flex items-center justify-between">
+                        <CardTitle className="text-lg font-medium flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <span>{project.name}</span>
-                          <Badge className={`bg-${project.color}-500/20 text-${project.color}-400`}>
+                          <Badge className={`bg-${project.color}-500/20 text-${project.color}-400 w-fit`}>
                             {projectTasks.length} tasks
                           </Badge>
                         </CardTitle>
@@ -841,9 +846,9 @@ export default function WorkflowPage() {
                       className={`border-gray-800 bg-black ${getProjectColorClass(project.color)}`}
                     >
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium flex items-center justify-between">
+                        <CardTitle className="text-lg font-medium flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <span>{project.name}</span>
-                          <Badge className={`bg-${project.color}-500/20 text-${project.color}-400`}>
+                          <Badge className={`bg-${project.color}-500/20 text-${project.color}-400 w-fit`}>
                             {projectTasks.length} tasks
                           </Badge>
                         </CardTitle>
