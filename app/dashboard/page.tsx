@@ -1420,6 +1420,12 @@ export default function PartnerDashboard() {
                     Make Deal
                   </Button>
                 </Link>
+                <Link href="/settings" className="block">
+                  <Button variant="outline" className="w-full border-gray-700 hover:bg-gray-900/20 hover:text-gray-400">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Settings
+                  </Button>
+                </Link>
                 {user?.role === 'admin' && (
                   <div className="flex items-center space-x-4">
                     <Button

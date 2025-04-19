@@ -787,7 +787,7 @@ export default function WorkflowPage() {
     <div className="min-h-screen bg-gray-950">
       <header className="sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
             <div className="flex items-center">
               <Link
                 href="/dashboard"
@@ -798,7 +798,7 @@ export default function WorkflowPage() {
               </Link>
               <h1 className="text-3xl font-bold text-white">My Workflow</h1>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center justify-end w-full sm:w-auto">
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
