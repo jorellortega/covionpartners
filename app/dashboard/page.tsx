@@ -690,9 +690,9 @@ export default function PartnerDashboard() {
 
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
         <div className="leonardo-card p-4 sm:p-6 mb-4 sm:mb-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <h2 className="text-xl font-bold">Welcome, {user?.name || user?.email}!</h2>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
               <Button 
                 variant="ghost" 
                 size="icon" 
@@ -731,7 +731,7 @@ export default function PartnerDashboard() {
                 variant="ghost" 
                 size="icon" 
                 className="text-gray-400 hover:text-green-400 hover:bg-transparent"
-                onClick={() => router.push('/managepayments')}
+                onClick={() => router.push('/payments')}
               >
                 <DollarSign className="w-5 h-5" />
               </Button>

@@ -85,6 +85,7 @@ export default function WorkflowPage() {
   const [linkUrl, setLinkUrl] = useState("")
   const { user } = useAuth()
   const { toast } = useToast()
+  const [showFilter, setShowFilter] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -673,10 +674,19 @@ export default function WorkflowPage() {
               </Link>
               <h1 className="text-3xl font-bold text-white">My Workflow</h1>
             </div>
-            <Button className="gradient-button">
-              <Plus className="w-4 h-4 mr-2" />
-              New Task
-            </Button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-gray-700 hover:bg-gray-800/50"
+                  onClick={() => setShowFilter(!showFilter)}
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filter
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -762,13 +772,6 @@ export default function WorkflowPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button 
-                variant="outline" 
-                className="flex-1 sm:flex-none border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Filter
-              </Button>
               <Button className="flex-1 sm:flex-none gradient-button">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Task
