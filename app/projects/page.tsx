@@ -19,6 +19,7 @@ import {
   Key,
   Plus,
   PauseCircle,
+  Search,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -62,6 +63,7 @@ export default function ProjectsPage() {
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
 
   const handleDeleteProject = async (projectId: string) => {
     setProjectToDelete(projectId)
@@ -408,6 +410,16 @@ export default function ProjectsPage() {
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* Buttons MOVED to here, inside main */}
         <div className="flex justify-end items-center gap-3 mb-6">
+          {/* Search Bar - Moved here */}
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-gray-800/30 border-gray-700"
+            />
+          </div>
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400">
@@ -571,8 +583,7 @@ export default function ProjectsPage() {
 
         {/* Projects List */}
         <div className="space-y-6">
-           {/* List rendering remains here */}
-           <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold text-white">
               {statusFilter ? `${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Projects` : 'All Projects'}
             </h2>
@@ -592,7 +603,13 @@ export default function ProjectsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects
-              .filter(project => !statusFilter || project.status.toLowerCase() === statusFilter.toLowerCase())
+              .filter(project => {
+                const matchesStatus = !statusFilter || project.status.toLowerCase() === statusFilter.toLowerCase();
+                const matchesSearch = !searchQuery || 
+                  project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  (project.description && project.description.toLowerCase().includes(searchQuery.toLowerCase()));
+                return matchesStatus && matchesSearch;
+              })
               .map((project) => (
               <Card 
                 key={project.id} 
