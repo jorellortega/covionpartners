@@ -28,7 +28,8 @@ import {
   Upload,
   Link as LinkIcon,
   File,
-  X
+  X,
+  Search
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
@@ -77,6 +78,7 @@ export default function WorkflowPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null)
   const [linkName, setLinkName] = useState("")
@@ -391,6 +393,11 @@ export default function WorkflowPage() {
         return null
     }
   }
+
+  const filteredTasks = tasks.filter(task => 
+    task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    task.description.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   const renderTaskCard = (task: Task) => (
     <div
@@ -740,6 +747,18 @@ export default function WorkflowPage() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-white">Tasks Overview</h2>
+            <div className="flex items-center gap-4 flex-1 max-w-2xl mx-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Search tasks..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-black border-gray-800 focus:border-gray-700 rounded-lg"
+                />
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400">
                 <Filter className="w-4 h-4 mr-2" />
@@ -773,7 +792,7 @@ export default function WorkflowPage() {
             <TabsContent value="weekly" className="mt-6">
               <div className="space-y-6">
                 {projects.map((project) => {
-                  const projectTasks = tasks.filter(task => 
+                  const projectTasks = filteredTasks.filter(task => 
                     task.project_id === project.id && 
                     new Date(task.due_date) >= new Date() && 
                     new Date(task.due_date) <= new Date(new Date().setDate(new Date().getDate() + 7))
@@ -808,7 +827,7 @@ export default function WorkflowPage() {
             <TabsContent value="monthly" className="mt-6">
               <div className="space-y-6">
                 {projects.map((project) => {
-                  const projectTasks = tasks.filter(task => 
+                  const projectTasks = filteredTasks.filter(task => 
                     task.project_id === project.id && 
                     new Date(task.due_date) >= new Date() && 
                     new Date(task.due_date) <= new Date(new Date().setMonth(new Date().getMonth() + 1))
