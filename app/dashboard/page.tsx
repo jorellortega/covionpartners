@@ -619,8 +619,13 @@ export default function PartnerDashboard() {
       <header className="leonardo-header">
         <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center">
-            <h1 className="text-2xl sm:text-3xl font-bold">Partner Dashboard</h1>
-            <Badge className="ml-3 bg-gray-800/30 text-gray-300 border-gray-700">
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center">
+              <span className="bg-gradient-to-r from-purple-500 to-purple-900 rounded-full p-1.5 mr-3">
+                <Handshake className="w-6 h-6 text-white" />
+              </span>
+              Dashboard
+            </h1>
+            <Badge className="ml-3 bg-gray-800/30 text-gray-300 border-gray-700 flex items-center justify-center h-7 px-3">
               {getTierName(user?.role || '')}
             </Badge>
           </div>
@@ -640,10 +645,53 @@ export default function PartnerDashboard() {
 
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
         <div className="leonardo-card p-4 sm:p-6 mb-4 sm:mb-6">
-          <h2 className="text-xl font-bold mb-4">Welcome, {user?.name || user?.email}!</h2>
-          <p className="text-gray-300">
-            Here's an overview of your projects, revenue, and team performance.
-          </p>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold">Welcome, {user?.name || user?.email}!</h2>
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-gray-400 hover:text-yellow-400 hover:bg-transparent relative"
+                onClick={() => router.push('/updates')}
+              >
+                <Bell className="w-5 h-5" />
+                {unreadMessages > 0 && (
+                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center text-white">
+                    {unreadMessages}
+                  </span>
+                )}
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-gray-400 hover:text-purple-400 hover:bg-transparent relative"
+                onClick={() => router.push('/messages')}
+              >
+                <MessageSquare className="w-5 h-5" />
+                {unreadMessages > 0 && (
+                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center text-white">
+                    {unreadMessages}
+                  </span>
+                )}
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-gray-400 hover:text-yellow-400 hover:bg-transparent"
+                onClick={() => router.push('/projects')}
+              >
+                <Briefcase className="w-5 h-5" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-gray-400 hover:text-green-400 hover:bg-transparent"
+                onClick={() => router.push('/managepayments')}
+              >
+                <DollarSign className="w-5 h-5" />
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Upcoming Deadlines Section */}
@@ -1029,16 +1077,25 @@ export default function PartnerDashboard() {
           {user?.role !== 'viewer' && (
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FolderKanban className="w-5 h-5 mr-2" />
-                  My Projects
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <FolderKanban className="w-5 h-5 mr-2" />
+                    My Projects
+                  </div>
+                  <Button
+                    variant="ghost"
+                    className="text-blue-400 hover:text-blue-300"
+                    onClick={() => router.push('/projects')}
+                  >
+                    View All
+                  </Button>
                 </CardTitle>
                 <CardDescription>Projects you own or are a member of</CardDescription>
               </CardHeader>
               <CardContent>
                 {/* Projects list */}
                 <div className="space-y-4">
-                  {myProjects.map((project) => (
+                  {myProjects.slice(0, 5).map((project) => (
                     <div key={project.id} className="p-4 bg-gray-800/30 rounded-lg">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
                         <div className="space-y-2 mb-4 sm:mb-0">
@@ -1077,6 +1134,33 @@ export default function PartnerDashboard() {
                       </div>
                     </div>
                   ))}
+                  {myProjects.length > 5 && (
+                    <div className="flex justify-center pt-4">
+                      <Button
+                        variant="outline"
+                        className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                        onClick={() => router.push('/projects')}
+                      >
+                        View All Projects
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </div>
+                  )}
+                  {myProjects.length === 0 && (
+                    <div className="text-center py-6">
+                      <Briefcase className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-300 mb-2">No projects yet</h3>
+                      <p className="text-gray-500 mb-4">Create or join a project to get started</p>
+                      <Button
+                        variant="outline"
+                        className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                        onClick={() => router.push('/projects/new')}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create New Project
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1226,142 +1310,69 @@ export default function PartnerDashboard() {
             {/* Quick Actions */}
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
-                <CardTitle className="text-xl font-bold">Quick Actions</CardTitle>
+                <CardTitle className="flex items-center">
+                  <Briefcase className="w-5 h-5 mr-2" />
+                  Quick Actions
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Quick access to common actions
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <Button
-                    className="w-full gradient-button hover:bg-purple-500"
-                    onClick={() => router.push('/projects')}
-                  >
+              <CardContent className="space-y-3">
+                <Link href="/projects" className="block">
+                  <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
                     <Briefcase className="w-4 h-4 mr-2" />
                     Projects
                   </Button>
-                  {user.role !== 'viewer' && (
-                    <Button
-                      className="w-full gradient-button hover:bg-purple-500"
-                      onClick={() => router.push('/deals')}
-                    >
-                      <Handshake className="w-4 h-4 mr-2" />
-                      Deals
-                    </Button>
-                  )}
-                  {user.role === 'viewer' ? (
-                    <Button
-                      className="w-full gradient-button"
-                      onClick={() => router.push('/publicprojects')}
-                    >
-                      <Globe className="w-4 h-4 mr-2" />
-                      Public Projects
-                    </Button>
-                  ) : (
-                    <>
-                      <Button
-                        className="w-full gradient-button hover:bg-purple-500"
-                        onClick={() => router.push('/publicprojects')}
-                      >
-                        <Globe className="w-4 h-4 mr-2" />
-                        Public Projects
-                      </Button>
-                      {user.role === 'admin' && (
-                        <DisabledButton userRole={user.role}>
-                          <Plus className="w-4 h-4 mr-2" />
-                          Create New Project
-                        </DisabledButton>
-                      )}
-                      {user.role === 'admin' && (
-                        <DisabledButton userRole={user.role}>
-                          <Building2 className="w-4 h-4 mr-2" />
-                          Create Organization
-                        </DisabledButton>
-                      )}
-                      {user.role === 'admin' && (
-                        <DisabledButton userRole={user.role}>
-                          <Users className="w-4 h-4 mr-2" />
-                          Manage Team
-                        </DisabledButton>
-                      )}
-                      {user.role === 'admin' && (
-                        <DisabledButton userRole={user.role}>
-                          <DollarSign className="w-4 h-4 mr-2" />
-                          View Revenue
-                        </DisabledButton>
-                      )}
-                      {user.role === 'admin' && (
-                        <DisabledButton userRole={user.role}>
-                          <BarChart2 className="w-4 h-4 mr-2" />
-                          View Analytics
-                        </DisabledButton>
-                      )}
-                      {user.role === 'admin' && (
-                        <DisabledButton userRole={user.role}>
-                          <Globe className="w-4 h-4 mr-2" />
-                          Browse Opportunities
-                        </DisabledButton>
-                      )}
-                      {user.role === 'admin' && (
-                        <DisabledButton userRole={user.role}>
-                          <FileText className="w-4 h-4 mr-2" />
-                          View Documents
-                        </DisabledButton>
-                      )}
-                      {user.role === 'admin' && (
-                        <DisabledButton userRole={user.role} icon={<DollarSign className="w-5 h-5 mr-2" />}>
-                          Financial Dashboard
-                        </DisabledButton>
-                      )}
-                      {/* Keep Payments enabled */}
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/managepayments')}
-                      >
-                        <Calculator className="w-4 h-4 mr-2" />
-                        Manage Payments
-                      </Button>
-                      <DisabledButton userRole={user.role}>
-                        <Lightbulb className="w-4 h-4 mr-2" />
-                        Submit Project Request
-                      </DisabledButton>
-                      {/* Keep Updates enabled */}
-                      <Button
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/updates')}
-                      >
-                        <Bell className="w-4 h-4 mr-2" />
-                        Updates
-                      </Button>
-                      {/* Keep Withdraw enabled */}
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/payments')}
-                      >
-                        <Wallet className="w-4 h-4 mr-2" />
-                        Withdraw Funds
-                      </Button>
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/schedule')}
-                      >
-                        <Calendar className="w-4 h-4 mr-2" />
-                        Schedule & Tasks
-                      </Button>
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/makedeal')}
-                      >
-                        <Handshake className="w-4 h-4 mr-2" />
-                        Make Deal
-                      </Button>
-                      <Button
-                        className="w-full gradient-button"
-                        onClick={() => router.push('/marketing')}
-                      >
-                        <Megaphone className="w-4 h-4 mr-2" />
-                        Marketing
-                      </Button>
-                    </>
-                  )}
-                </div>
+                </Link>
+                <Link href="/deals" className="block">
+                  <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                    <Handshake className="w-4 h-4 mr-2" />
+                    Deals
+                  </Button>
+                </Link>
+                <Link href="/publicprojects" className="block">
+                  <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                    <Globe className="w-4 h-4 mr-2" />
+                    Public Projects
+                  </Button>
+                </Link>
+                <Link href="/managepayments" className="block">
+                  <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
+                    <Calculator className="w-4 h-4 mr-2" />
+                    Manage Payments
+                  </Button>
+                </Link>
+                <Link href="/updates" className="block">
+                  <Button variant="outline" className="w-full border-gray-700 hover:bg-orange-900/20 hover:text-orange-400">
+                    <Bell className="w-4 h-4 mr-2" />
+                    Updates
+                  </Button>
+                </Link>
+                <Link href="/payments" className="block">
+                  <Button variant="outline" className="w-full border-gray-700 hover:bg-emerald-900/20 hover:text-emerald-400">
+                    <Wallet className="w-4 h-4 mr-2" />
+                    Withdraw Funds
+                  </Button>
+                </Link>
+                <Link href="/schedule" className="block">
+                  <Button variant="outline" className="w-full border-gray-700 hover:bg-pink-900/20 hover:text-pink-400">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Schedule & Tasks
+                  </Button>
+                </Link>
+                <Link href="/makedeal" className="block">
+                  <Button variant="outline" className="w-full border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400">
+                    <Handshake className="w-4 h-4 mr-2" />
+                    Make Deal
+                  </Button>
+                </Link>
+                <Link href="/marketing" className="block">
+                  <Button variant="outline" className="w-full border-gray-700 hover:bg-rose-900/20 hover:text-rose-400">
+                    <Megaphone className="w-4 h-4 mr-2" />
+                    Marketing
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           </div>
