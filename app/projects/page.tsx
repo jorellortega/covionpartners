@@ -409,114 +409,116 @@ export default function ProjectsPage() {
       {/* Main content area */}
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* Buttons MOVED to here, inside main */}
-        <div className="flex justify-end items-center gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row justify-end items-stretch sm:items-center gap-3 mb-6">
           {/* Search Bar - Moved here */}
-          <div className="relative flex-1 max-w-xs">
+          <div className="relative flex-1 w-full sm:max-w-xs order-1 sm:order-none">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Search projects..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-gray-800/30 border-gray-700"
+              className="pl-10 bg-gray-800/30 border-gray-700 w-full"
             />
           </div>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400">
-                <Key className="w-5 h-5 mr-2" />
-                Join Project
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Join a Project</DialogTitle>
-                <DialogDescription>
-                  Enter the project key to request access.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Project Key</Label>
-                  <Input
-                    placeholder="Enter project key (e.g., COV-ABC12)"
-                    value={projectKey}
-                    onChange={(e) => setProjectKey(e.target.value)}
-                  />
-                </div>
-                
-                {/* Debug button */}
-                <div className="text-xs text-gray-500 mt-1">
-                  <Button
-                    variant="link"
-                    className="h-auto p-0 text-xs text-gray-500"
-                    onClick={async () => {
-                      try {
-                        console.log('Testing Supabase connection...');
-                        const { data, error } = await supabase
-                          .from('projects')
-                          .select('count()')
-                        console.log('Connection result:', { data, error });
-                        toast.info('Check browser console for connection details');
-                      } catch (err) {
-                        console.error('Connection test error:', err);
-                        toast.error('Connection test failed - see console');
-                      }
-                    }}
+          <div className="flex gap-3 order-2 sm:order-none">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400">
+                  <Key className="w-5 h-5 mr-2" />
+                  Join Project
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Join a Project</DialogTitle>
+                  <DialogDescription>
+                    Enter the project key to request access.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Project Key</Label>
+                    <Input
+                      placeholder="Enter project key (e.g., COV-ABC12)"
+                      value={projectKey}
+                      onChange={(e) => setProjectKey(e.target.value)}
+                    />
+                  </div>
+                  
+                  {/* Debug button */}
+                  <div className="text-xs text-gray-500 mt-1">
+                    <Button
+                      variant="link"
+                      className="h-auto p-0 text-xs text-gray-500"
+                      onClick={async () => {
+                        try {
+                          console.log('Testing Supabase connection...');
+                          const { data, error } = await supabase
+                            .from('projects')
+                            .select('count()')
+                          console.log('Connection result:', { data, error });
+                          toast.info('Check browser console for connection details');
+                        } catch (err) {
+                          console.error('Connection test error:', err);
+                          toast.error('Connection test failed - see console');
+                        }
+                      }}
+                    >
+                      Test DB Connection
+                    </Button>
+                  </div>
+                  
+                  {/* Search Status Indicator */}
+                  {searchStatus === "searching" && (
+                    <div className="p-3 border border-gray-700 rounded-md bg-gray-800/50">
+                      <div className="flex items-center">
+                        <div className="w-4 h-4 border-2 border-t-blue-500 border-b-blue-500 border-l-transparent border-r-transparent rounded-full animate-spin mr-2"></div>
+                        <p className="text-sm text-gray-300">Searching for project...</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {searchStatus === "found" && foundProject && (
+                    <div className="p-3 border border-green-800 rounded-md bg-green-900/20">
+                      <div className="flex items-center">
+                        <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+                        <p className="text-sm text-green-400">Project found: {foundProject.name}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {searchStatus === "not_found" && (
+                    <div className="p-3 border border-red-800 rounded-md bg-red-900/20">
+                      <div className="flex items-center">
+                        <AlertCircle className="w-4 h-4 text-red-500 mr-2" />
+                        <p className="text-sm text-red-400">Project not found. Check the key and try again.</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {joinError && (
+                    <div className="text-sm text-red-500">{joinError}</div>
+                  )}
+                  <Button 
+                    className="w-full gradient-button" 
+                    onClick={handleJoinProject}
+                    disabled={isJoining || !projectKey.trim()}
                   >
-                    Test DB Connection
+                    {isJoining ? 'Requesting Access...' : 'Request to Join'}
                   </Button>
                 </div>
-                
-                {/* Search Status Indicator */}
-                {searchStatus === "searching" && (
-                  <div className="p-3 border border-gray-700 rounded-md bg-gray-800/50">
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 border-2 border-t-blue-500 border-b-blue-500 border-l-transparent border-r-transparent rounded-full animate-spin mr-2"></div>
-                      <p className="text-sm text-gray-300">Searching for project...</p>
-                    </div>
-                  </div>
-                )}
-                
-                {searchStatus === "found" && foundProject && (
-                  <div className="p-3 border border-green-800 rounded-md bg-green-900/20">
-                    <div className="flex items-center">
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                      <p className="text-sm text-green-400">Project found: {foundProject.name}</p>
-                    </div>
-                  </div>
-                )}
-                
-                {searchStatus === "not_found" && (
-                  <div className="p-3 border border-red-800 rounded-md bg-red-900/20">
-                    <div className="flex items-center">
-                      <AlertCircle className="w-4 h-4 text-red-500 mr-2" />
-                      <p className="text-sm text-red-400">Project not found. Check the key and try again.</p>
-                    </div>
-                  </div>
-                )}
-                
-                {joinError && (
-                  <div className="text-sm text-red-500">{joinError}</div>
-                )}
-                <Button 
-                  className="w-full gradient-button" 
-                  onClick={handleJoinProject}
-                  disabled={isJoining || !projectKey.trim()}
-                >
-                  {isJoining ? 'Requesting Access...' : 'Request to Join'}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-          {user && user.role !== 'investor' && (
-            <Button
-              onClick={handleNewProjectClick}
-              className="gradient-button"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Project
-            </Button>
-          )}
+              </DialogContent>
+            </Dialog>
+            {user && user.role !== 'investor' && (
+              <Button
+                onClick={handleNewProjectClick}
+                className="gradient-button"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Project
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Project Stats */}
