@@ -90,6 +90,8 @@ export default function PublicProjectDetails() {
   const [projectKey, setProjectKey] = useState("")
   const [isJoining, setIsJoining] = useState(false)
   const [joinError, setJoinError] = useState("")
+  const [isDonating, setIsDonating] = useState(false)
+  const [donationAmount, setDonationAmount] = useState("")
   const qrRef = useRef<any>(null)
 
   useEffect(() => {
@@ -332,6 +334,39 @@ export default function PublicProjectDetails() {
     }
   }
 
+  const handleDonate = async () => {
+    try {
+      setIsDonating(true)
+      const amount = parseFloat(donationAmount)
+      
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error("Please enter a valid donation amount")
+      }
+
+      // Update the project's current funding
+      const newFunding = (project?.current_funding || 0) + amount
+      const { error } = await supabase
+        .from('projects')
+        .update({ current_funding: newFunding })
+        .eq('id', projectId)
+
+      if (error) throw error
+
+      // Update local state
+      setProject(prev => prev ? {
+        ...prev,
+        current_funding: newFunding
+      } : null)
+
+      toast.success("Thank you for your donation!")
+      setDonationAmount("")
+      setIsDonating(false)
+    } catch (error: any) {
+      toast.error(error.message || "Failed to process donation")
+      setIsDonating(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -569,6 +604,68 @@ export default function PublicProjectDetails() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Public Funding Card */}
+            {project?.accepts_donations && (
+              <Card className="border-purple-500/20">
+                <CardHeader>
+                  <CardTitle className="text-purple-500 flex items-center">
+                    <DollarSign className="w-5 h-5 mr-2" />
+                    Public Funding
+                  </CardTitle>
+                  <CardDescription>Support this project through public donations</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Funding Progress */}
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-gray-400">Progress</span>
+                        <span className="text-white">
+                          ${project.current_funding?.toLocaleString() || '0'} / ${project.funding_goal?.toLocaleString() || '0'}
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-700 rounded-full h-2.5">
+                        <div
+                          className="bg-purple-500 h-2.5 rounded-full"
+                          style={{ 
+                            width: `${project.funding_goal && project.current_funding 
+                              ? (project.current_funding / project.funding_goal * 100).toFixed(0) 
+                              : 0}%` 
+                          }}
+                        ></div>
+                      </div>
+                      <div className="text-right text-sm text-gray-400 mt-1">
+                        {project.funding_goal && project.current_funding 
+                          ? (project.current_funding / project.funding_goal * 100).toFixed(0) 
+                          : 0}% funded
+                      </div>
+                    </div>
+
+                    {/* Donation Input */}
+                    <div className="flex gap-3">
+                      <div className="relative flex-1">
+                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                          type="number"
+                          placeholder="Enter amount"
+                          value={donationAmount}
+                          onChange={(e) => setDonationAmount(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleDonate}
+                        disabled={isDonating || !donationAmount}
+                        className="bg-purple-500 hover:bg-purple-600 text-white"
+                      >
+                        {isDonating ? "Processing..." : "Donate"}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Upload Modal */}
             <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>

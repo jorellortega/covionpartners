@@ -291,48 +291,307 @@ function StatusCard({ project, onStatusChange }: { project: Project | null, onSt
 function ProjectInfoCard({ project }: { project: Project | null }) {
   if (!project) return <LoadingSpinner />
 
+  const [isEditingBudget, setIsEditingBudget] = useState(false)
+  const [budgetValue, setBudgetValue] = useState(project.budget?.toString() || '0')
+  const [isEditingType, setIsEditingType] = useState(false)
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(project.type ? project.type.split(', ') : [])
+  const [customType, setCustomType] = useState('')
+  const [isEditingFunding, setIsEditingFunding] = useState(false)
+  const [fundingGoal, setFundingGoal] = useState(project.funding_goal?.toString() || '0')
+  const [isUpdating, setIsUpdating] = useState(false)
+
+  const validProjectTypes = ["investment", "collaboration", "development", "research", "consulting"]
+
   // Function to format currency, handling null/undefined
   const formatCurrency = (amount: number | null | undefined) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount ?? 0))
   }
 
+  const handleBudgetUpdate = async () => {
+    try {
+      setIsUpdating(true)
+      const { error } = await supabase
+        .from('projects')
+        .update({ budget: Number(budgetValue) })
+        .eq('id', project.id)
+
+      if (error) throw error
+
+      // Update the project object
+      project.budget = Number(budgetValue)
+      setIsEditingBudget(false)
+      toast.success('Budget updated successfully')
+    } catch (error) {
+      console.error('Error updating budget:', error)
+      toast.error('Failed to update budget')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const handleTypeUpdate = async () => {
+    try {
+      setIsUpdating(true)
+      // Combine selected types and custom type if present
+      const finalTypes = [...selectedTypes]
+      if (customType.trim()) {
+        finalTypes.push(customType.trim())
+      }
+      
+      const { error } = await supabase
+        .from('projects')
+        .update({ type: finalTypes.join(', ') })
+        .eq('id', project.id)
+
+      if (error) throw error
+
+      // Update the project object
+      project.type = finalTypes.join(', ')
+      setIsEditingType(false)
+      toast.success('Project type updated successfully')
+    } catch (error) {
+      console.error('Error updating project type:', error)
+      toast.error('Failed to update project type')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const toggleType = (type: string) => {
+    setSelectedTypes(prev => 
+      prev.includes(type) 
+        ? prev.filter(t => t !== type)
+        : [...prev, type]
+    )
+  }
+
+  const handleFundingUpdate = async () => {
+    try {
+      setIsUpdating(true)
+      const { error } = await supabase
+        .from('projects')
+        .update({ 
+          funding_goal: Number(fundingGoal),
+          accepts_donations: true 
+        })
+        .eq('id', project.id)
+
+      if (error) throw error
+
+      // Update the project object
+      project.funding_goal = Number(fundingGoal)
+      project.accepts_donations = true
+      setIsEditingFunding(false)
+      toast.success('Funding goal updated successfully')
+    } catch (error) {
+      console.error('Error updating funding goal:', error)
+      toast.error('Failed to update funding goal')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
   return (
-    <Card>
+    <Card className="border-purple-500/20">
       <CardHeader>
-        <CardTitle>Project Information</CardTitle>
-         <CardDescription>Detailed overview of the project.</CardDescription>
+        <CardTitle className="text-purple-500">Project Information</CardTitle>
+        <CardDescription>Detailed overview of the project.</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
         <div className="flex items-center">
-          <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
+          <Building2 className="mr-2 h-4 w-4 text-purple-500" />
           <span className="text-muted-foreground mr-2">Type:</span>
-          <span>{project.type || 'N/A'}</span>
+          {isEditingType ? (
+            <div className="flex flex-col gap-2 w-full">
+              <div className="flex flex-wrap gap-2">
+                {validProjectTypes.map((type) => (
+                  <Button
+                    key={type}
+                    variant={selectedTypes.includes(type) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleType(type)}
+                    className={selectedTypes.includes(type) 
+                      ? "bg-purple-500 hover:bg-purple-600 text-white"
+                      : "hover:bg-purple-500/10 hover:text-purple-500"
+                    }
+                  >
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Add custom type..."
+                  value={customType}
+                  onChange={(e) => setCustomType(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTypeUpdate}
+                  disabled={isUpdating || (selectedTypes.length === 0 && !customType.trim())}
+                  className="hover:bg-purple-500 hover:text-white"
+                >
+                  {isUpdating ? 'Saving...' : 'Save'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsEditingType(false)
+                    setSelectedTypes(project.type ? project.type.split(', ') : [])
+                    setCustomType('')
+                  }}
+                  className="hover:bg-purple-500/10 hover:text-purple-500"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="flex flex-wrap gap-1">
+                {(project.type || '').split(', ').map((type, index) => (
+                  <span key={index} className="bg-purple-500/10 text-purple-500 px-2 py-1 rounded-md text-sm">
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </span>
+                ))}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsEditingType(true)
+                  setSelectedTypes(project.type ? project.type.split(', ') : [])
+                }}
+                className="hover:bg-purple-500/10 hover:text-purple-500"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
-         <div className="flex items-center">
-           <Target className="mr-2 h-4 w-4 text-muted-foreground" />
-           <span className="text-muted-foreground mr-2">ROI:</span>
-           <span>{Number(project.roi ?? 0).toFixed(0)}%</span>
-         </div>
         <div className="flex items-center">
-          <DollarSign className="mr-2 h-4 w-4 text-muted-foreground" />
+          <Target className="mr-2 h-4 w-4 text-purple-500" />
+          <span className="text-muted-foreground mr-2">ROI:</span>
+          <span>{Number(project.roi ?? 0).toFixed(0)}%</span>
+        </div>
+        <div className="flex items-center">
+          <DollarSign className="mr-2 h-4 w-4 text-purple-500" />
           <span className="text-muted-foreground mr-2">Budget:</span>
-          <span>{formatCurrency(project.budget)}</span>
+          {isEditingBudget ? (
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={budgetValue}
+                onChange={(e) => setBudgetValue(e.target.value)}
+                className="w-32 border-purple-500/20 focus:border-purple-500"
+                min="0"
+                step="0.01"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBudgetUpdate}
+                disabled={isUpdating}
+                className="border-purple-500/20 hover:bg-purple-500/10"
+              >
+                {isUpdating ? 'Saving...' : 'Save'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsEditingBudget(false)
+                  setBudgetValue(project.budget?.toString() || '0')
+                }}
+                className="hover:bg-purple-500/10"
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span>{formatCurrency(project.budget)}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditingBudget(true)}
+                className="hover:bg-purple-500/10"
+              >
+                <Pencil className="h-4 w-4 text-purple-500" />
+              </Button>
+            </div>
+          )}
         </div>
         <div className="flex items-center">
-           <DollarSign className="mr-2 h-4 w-4 text-muted-foreground" />
+          <DollarSign className="mr-2 h-4 w-4 text-purple-500" />
           <span className="text-muted-foreground mr-2">Invested:</span>
           <span>{formatCurrency(project.invested)}</span>
         </div>
-         <div className="flex items-center">
-           <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-           <span className="text-muted-foreground mr-2">Owner:</span>
-           <span>{project.owner_name || project.owner_id || 'N/A'}</span>
-         </div>
-         <div className="flex items-center col-span-1 md:col-span-2">
-           <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
-           <span className="text-muted-foreground mr-2">Description:</span>
-           <span className="whitespace-pre-wrap">{project.description || 'No description provided.'}</span>
-         </div>
+        <div className="flex items-center">
+          <Users className="mr-2 h-4 w-4 text-purple-500" />
+          <span className="text-muted-foreground mr-2">Owner:</span>
+          <span>{project.owner_name || project.owner_id || 'N/A'}</span>
+        </div>
+        <div className="flex items-center col-span-1 md:col-span-2">
+          <FileText className="mr-2 h-4 w-4 text-purple-500" />
+          <span className="text-muted-foreground mr-2">Description:</span>
+          <span className="whitespace-pre-wrap">{project.description || 'No description provided.'}</span>
+        </div>
+        <div className="flex items-center col-span-2">
+          <DollarSign className="mr-2 h-4 w-4 text-purple-500" />
+          <span className="text-muted-foreground mr-2">Public Funding Goal:</span>
+          {isEditingFunding ? (
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={fundingGoal}
+                onChange={(e) => setFundingGoal(e.target.value)}
+                className="w-40"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleFundingUpdate}
+                disabled={isUpdating}
+                className="hover:bg-purple-500 hover:text-white"
+              >
+                {isUpdating ? 'Saving...' : 'Save'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsEditingFunding(false)
+                  setFundingGoal(project.funding_goal?.toString() || '0')
+                }}
+                className="hover:bg-purple-500/10 hover:text-purple-500"
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span>
+                {project.accepts_donations 
+                  ? `${formatCurrency(project.funding_goal)} (${formatCurrency(project.current_funding || 0)} raised)`
+                  : 'Not accepting donations'}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditingFunding(true)}
+                className="hover:bg-purple-500/10 hover:text-purple-500"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   )

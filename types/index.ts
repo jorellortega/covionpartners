@@ -44,6 +44,9 @@ export interface Project {
   project_key?: string | null
   visibility: 'private' | 'public'
   team_members?: TeamMember[] | null
+  funding_goal?: number | null
+  current_funding?: number | null
+  accepts_donations?: boolean
 }
 
 export interface ProjectRole {

@@ -177,6 +177,30 @@ export default function PublicProjectsPage() {
                     </div>
                   </div>
 
+                  {project.accepts_donations && (
+                    <div className="p-3 bg-purple-500/10 rounded-lg">
+                      <div className="flex items-center text-purple-400 mb-1">
+                        <DollarSign className="w-4 h-4 mr-2" />
+                        <span>Public Funding</span>
+                      </div>
+                      <div className="text-white font-medium">
+                        ${project.current_funding?.toLocaleString() || '0'} / ${project.funding_goal?.toLocaleString() || '0'}
+                      </div>
+                      <div className="mt-2">
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div
+                            className="bg-purple-500 h-2 rounded-full"
+                            style={{ 
+                              width: `${project.funding_goal && project.current_funding 
+                                ? (project.current_funding / project.funding_goal * 100).toFixed(0) 
+                                : 0}%` 
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Progress</span>
