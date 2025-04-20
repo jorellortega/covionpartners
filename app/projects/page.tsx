@@ -66,29 +66,16 @@ export default function ProjectsPage() {
   const [searchQuery, setSearchQuery] = useState("")
 
   const handleDeleteProject = async (projectId: string) => {
-    setProjectToDelete(projectId)
-    setIsDeleteDialogOpen(true)
-  }
-  
-  const confirmDelete = async () => {
-    if (!projectToDelete) return
-    
     try {
-      const { error } = await deleteProject(projectToDelete)
-
+      const { error } = await deleteProject(projectId)
       if (error) throw error;
-
       toast.success("Project deleted successfully")
-      
     } catch (error: any) {
       console.error('Error deleting project:', error);
       toast.error(error.message || 'Failed to delete project. Please try again.')
-    } finally {
-      setIsDeleteDialogOpen(false)
-      setProjectToDelete(null)
     }
   }
-
+  
   const handleJoinProject = async () => {
     if (!projectKey.trim()) return;
     
@@ -729,33 +716,6 @@ export default function ProjectsPage() {
             ))}
           </div>
         </div>
-
-        {/* Delete Confirmation Dialog */}
-        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent className="leonardo-card border-gray-800 fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%]">
-            <DialogHeader>
-              <DialogTitle>Confirm Deletion</DialogTitle>
-              <DialogDescription className="text-gray-400">
-                Are you sure you want to delete this project? This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="pt-4">
-              <Button
-                variant="outline"
-                className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                onClick={() => setIsDeleteDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button 
-                className="bg-red-500 hover:bg-red-600 text-white"
-                onClick={confirmDelete}
-              >
-                Delete Project
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Create Project Dialog */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>

@@ -327,26 +327,29 @@ export default function WorkflowPage() {
     switch (priority) {
       case "high":
         return (
-          <Badge className="bg-red-500/20 text-red-400 hover:bg-red-500/30">
-            High Priority
-          </Badge>
-        )
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-400/10 text-red-400 border border-red-400/20">
+            <Timer className="w-3 h-3" />
+            High
+          </div>
+        );
       case "medium":
         return (
-          <Badge className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30">
-            Medium Priority
-          </Badge>
-        )
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-400/10 text-yellow-400 border border-yellow-400/20">
+            <Timer className="w-3 h-3" />
+            Medium
+          </div>
+        );
       case "low":
         return (
-          <Badge className="bg-green-500/20 text-green-400 hover:bg-green-500/30">
-            Low Priority
-          </Badge>
-        )
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-400/10 text-green-400 border border-green-400/20">
+            <Timer className="w-3 h-3" />
+            Low
+          </div>
+        );
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -468,26 +471,7 @@ export default function WorkflowPage() {
                     className="p-0 h-auto hover:bg-transparent"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center">
-                      <Timer className={`mr-1 transition-all duration-300 ${
-                        task.status === "completed" ? "w-3 h-3 text-gray-500" : "w-4 h-4"
-                      } ${
-                        task.priority === "high" 
-                          ? "text-red-400"
-                          : task.priority === "medium"
-                          ? "text-yellow-400"
-                          : "text-green-400"
-                      }`} />
-                      <span className={`${
-                        task.priority === "high" 
-                          ? "text-red-400"
-                          : task.priority === "medium"
-                          ? "text-yellow-400"
-                          : "text-green-400"
-                      }`}>
-                        {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                      </span>
-                    </div>
+                    {getPriorityBadge(task.priority)}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-32 bg-gray-900 border-gray-700">
@@ -529,65 +513,14 @@ export default function WorkflowPage() {
       </div>
       <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
         <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className={`w-full sm:w-auto border-gray-700 bg-gray-800/30 hover:bg-purple-900/20 transition-all duration-300 ${
-                  task.status === "completed" ? "h-7 text-xs px-2 opacity-50" : ""
-                } ${
-                  task.status === "completed" 
-                    ? "text-green-400 hover:text-green-400" 
-                    : task.status === "in_progress"
-                    ? "text-blue-400 hover:text-blue-400"
-                    : "text-yellow-400 hover:text-yellow-400"
-                }`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {task.status === "completed" 
-                  ? "Completed"
-                  : task.status === "in_progress"
-                  ? "In Progress"
-                  : "Pending"}
-                <ChevronDown className={`ml-2 transition-all duration-300 ${
-                  task.status === "completed" ? "w-3 h-3" : "w-4 h-4"
-                }`} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-40 bg-gray-900 border-gray-700">
-              <DropdownMenuItem
-                className="text-yellow-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleStatusUpdate(task.id, "pending")
-                }}
-              >
-                <AlertCircle className="mr-2 h-4 w-4" />
-                Pending
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-blue-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleStatusUpdate(task.id, "in_progress")
-                }}
-              >
-                <Clock className="mr-2 h-4 w-4" />
-                In Progress
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-green-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleStatusUpdate(task.id, "completed")
-                }}
-              >
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                Completed
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30"
+            onClick={() => router.push(`/task/${task.id}`)}
+          >
+            View Details
+          </Button>
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -610,7 +543,7 @@ export default function WorkflowPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className={`hover:bg-blue-900/20 hover:text-blue-400 transition-all duration-300 ${
+                className={`hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300 ${
                   task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
                 }`}
                 onClick={(e) => e.stopPropagation()}
@@ -622,7 +555,7 @@ export default function WorkflowPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-40 bg-gray-900 border-gray-700">
               <DropdownMenuItem
-                className="text-blue-400 hover:bg-gray-800 focus:bg-gray-800 cursor-pointer"
+                className="text-purple-400 hover:bg-purple-900/20 focus:bg-purple-900/20 cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation()
                   const input = document.createElement('input')
@@ -660,7 +593,7 @@ export default function WorkflowPage() {
           <Button
             variant="ghost"
             size="icon"
-            className={`hover:bg-yellow-900/20 hover:text-yellow-400 transition-all duration-300 ${
+            className={`hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300 ${
               task.status === "completed" ? "h-7 w-7 opacity-50" : "h-8 w-8"
             }`}
             onClick={(e) => {

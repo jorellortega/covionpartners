@@ -37,6 +37,7 @@ import {
   Download,
   Briefcase,
   Link,
+  User as UserIcon,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -68,6 +69,7 @@ import { toast } from "sonner"
 import { TaskList } from '@/components/task-list'
 import { Textarea } from "@/components/ui/textarea"
 import { QRCodeCanvas } from 'qrcode.react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 // Project status badge component
 function StatusBadge({ status, projectId, onStatusChange }: { status: string, projectId: string, onStatusChange?: (newStatus: string) => void }) {
@@ -155,10 +157,36 @@ function StatusBadge({ status, projectId, onStatusChange }: { status: string, pr
 // Helper component for displaying project status and progress
 function StatusCard({ project, onStatusChange }: { project: Project | null, onStatusChange?: (newStatus: string) => void }) {
   const { user } = useAuth()
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [showDeadlineDialog, setShowDeadlineDialog] = useState(false)
+  const [newDeadline, setNewDeadline] = useState(project?.deadline ? new Date(project.deadline).toISOString().split('T')[0] : '')
+
   if (!project) return <LoadingSpinner />
 
   // Only allow status changes for non-viewer roles
   const canChangeStatus = user && user.role !== 'viewer'
+
+  const handleDeadlineUpdate = async () => {
+    if (!project || !newDeadline) return
+    setIsUpdating(true)
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ deadline: newDeadline })
+        .eq('id', project.id)
+
+      if (error) throw error
+      toast.success('Deadline updated successfully')
+      setShowDeadlineDialog(false)
+      // Refresh the page to show updated deadline
+      window.location.reload()
+    } catch (error) {
+      console.error('Error updating deadline:', error)
+      toast.error('Failed to update deadline')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
 
   return (
     <Card>
@@ -194,8 +222,59 @@ function StatusCard({ project, onStatusChange }: { project: Project | null, onSt
             <Calendar className="mr-1 h-4 w-4" />
             <span>Deadline</span>
           </div>
-          <span>{project.deadline ? new Date(project.deadline).toLocaleDateString() : 'N/A'}</span>
+          {canChangeStatus ? (
+            <button
+              onClick={() => setShowDeadlineDialog(true)}
+              className="hover:text-primary transition-colors"
+            >
+              {project.deadline ? new Date(project.deadline).toLocaleDateString() : 'N/A'}
+            </button>
+          ) : (
+            <span>{project.deadline ? new Date(project.deadline).toLocaleDateString() : 'N/A'}</span>
+          )}
         </div>
+        <Dialog open={showDeadlineDialog} onOpenChange={setShowDeadlineDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Update Deadline</DialogTitle>
+              <DialogDescription>
+                Choose a new deadline for this project.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="deadline">Deadline</Label>
+                <Input
+                  id="deadline"
+                  type="date"
+                  value={newDeadline}
+                  onChange={(e) => setNewDeadline(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowDeadlineDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeadlineUpdate}
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update Deadline'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
          <div className="flex items-center justify-between text-sm text-muted-foreground">
            <div className="flex items-center">
             <Clock className="mr-1 h-4 w-4" />
@@ -1974,6 +2053,66 @@ export default function ProjectDetails() {
                             <Calendar className="w-4 h-4 mr-1" />
                             Due: {new Date(task.due_date).toLocaleDateString()} at {new Date(task.due_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-auto p-0 text-gray-400 hover:text-indigo-400">
+                                <span className="flex items-center">
+                                  <UserIcon className="w-4 h-4 mr-1" />
+                                  {task.assigned_to ? teamMembers.find(member => member.user_id === task.assigned_to)?.user?.name || 'Unassigned' : 'Unassigned'}
+                                </span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56 bg-gray-900 border-gray-700">
+                              <DropdownMenuItem 
+                                className="text-white hover:bg-indigo-900/20 hover:text-indigo-400 focus:bg-indigo-900/20 focus:text-indigo-400"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const { error } = await supabase
+                                      .from('tasks')
+                                      .update({ assigned_to: null })
+                                      .eq('id', task.id);
+                                    if (error) throw error;
+                                    setTasks(prev => prev.map(t => 
+                                      t.id === task.id ? { ...t, assigned_to: null } : t
+                                    ));
+                                    toast.success('Task unassigned successfully');
+                                  } catch (error) {
+                                    console.error('Error unassigning task:', error);
+                                    toast.error('Failed to unassign task');
+                                  }
+                                }}
+                              >
+                                Unassign
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="bg-gray-700" />
+                              {teamMembers.map(member => (
+                                <DropdownMenuItem
+                                  key={member.id}
+                                  className="text-white hover:bg-purple-900/20 hover:text-purple-400 focus:bg-purple-900/20 focus:text-purple-400"
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    try {
+                                      const { error } = await supabase
+                                        .from('tasks')
+                                        .update({ assigned_to: member.user_id })
+                                        .eq('id', task.id)
+                                      if (error) throw error
+                                      setTasks(prev => prev.map(t => 
+                                        t.id === task.id ? { ...t, assigned_to: member.user_id } : t
+                                      ))
+                                      toast.success(`Task assigned to ${member.user?.name}`)
+                                    } catch (error) {
+                                      console.error('Error assigning task:', error)
+                                      toast.error('Failed to assign task')
+                                    }
+                                  }}
+                                >
+                                  {member.user?.name}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           <Badge
                             variant="outline"
                             className={
@@ -2070,19 +2209,22 @@ export default function ProjectDetails() {
                                 <>
                                   <Button
                                     variant="ghost"
-                                    size="sm"
-                                    className="text-gray-400 hover:text-purple-400"
-                                    onClick={() => startEditingTask(task)}
+                                    size="icon"
+                                    className="hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      startEditingTask(task)
+                                    }}
                                   >
                                     <Pencil className="w-4 h-4" />
                                   </Button>
                                   <Button
                                     variant="ghost"
-                                    size="sm"
-                                    className="text-gray-400 hover:text-purple-400"
-                                    onClick={() => {
-                                      setTaskToDelete(task.id)
-                                      setIsDeletingTask(true)
+                                    size="icon"
+                                    className="hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDeleteTask(task.id)
                                     }}
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -2243,7 +2385,7 @@ export default function ProjectDetails() {
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
-        </div>
+                          </div>
                         )}
       </div>
                     </div>
@@ -2285,7 +2427,7 @@ export default function ProjectDetails() {
                     <Button
                       variant="outline"
                       className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30"
-                      onClick={() => setIsDeleteDialogOpen(true)}
+                      onClick={handleDeleteProject}
                     >
                       <Trash2 className="w-4 h-4" /> Delete Project
                     </Button>
@@ -2402,7 +2544,7 @@ export default function ProjectDetails() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="text-gray-400 hover:text-purple-400"
+                              className="hover:bg-purple-900/20 hover:text-purple-400"
                               onClick={() => handleEditPosition(position, index)}
                             >
                               <Pencil className="w-4 h-4" />
@@ -2410,7 +2552,7 @@ export default function ProjectDetails() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="text-gray-400 hover:text-purple-400"
+                              className="hover:bg-purple-900/20 hover:text-purple-400"
                               onClick={() => handleDeletePosition(index)}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -2623,33 +2765,6 @@ export default function ProjectDetails() {
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="leonardo-card border-gray-800 fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%]">
-          <DialogHeader>
-            <DialogTitle>Delete Project</DialogTitle>
-            <DialogDescription className="text-gray-400">
-              Are you sure you want to delete this project? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="pt-4">
-            <Button
-              variant="outline"
-              className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              onClick={() => setIsDeleteDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button 
-              className="bg-red-500 hover:bg-red-600 text-white"
-              onClick={handleDeleteProject}
-            >
-              Delete Project
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
