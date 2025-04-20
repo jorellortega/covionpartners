@@ -887,6 +887,151 @@ export default function PartnerDashboard() {
           </CardContent>
         </Card>
 
+        {/* Quick Actions */}
+        <Card className="leonardo-card border-gray-800">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Briefcase className="w-5 h-5 mr-2" />
+              Quick Actions
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              Quick access to common actions
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Link href="/projects" className="block">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <FolderKanban className="w-4 h-4 mr-2" />
+                View All Projects
+              </Button>
+            </Link>
+            <Link href="/create-project" className="block">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create New Project
+              </Button>
+            </Link>
+            <Link href="/deals" className="block">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <Handshake className="w-4 h-4 mr-2" />
+                Deals
+              </Button>
+            </Link>
+            <Link href="/publicprojects" className="block">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <Globe className="w-4 h-4 mr-2" />
+                Public Projects
+              </Button>
+            </Link>
+            <Link href="/managepayments" className="block">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <Calculator className="w-4 h-4 mr-2" />
+                Manage Payments
+              </Button>
+            </Link>
+            <Link href="/updates" className="block">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <Bell className="w-4 h-4 mr-2" />
+                Updates
+              </Button>
+            </Link>
+            <Link href="/payments" className="block">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <Wallet className="w-4 h-4 mr-2" />
+                Withdraw Funds
+              </Button>
+            </Link>
+            <Link href="/schedule" className="block">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Schedule & Tasks
+              </Button>
+            </Link>
+            <Link href="/makedeal" className="block">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <Handshake className="w-4 h-4 mr-2" />
+                Make Deal
+              </Button>
+            </Link>
+            <Link href="/marketing" className="block">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <Megaphone className="w-4 h-4 mr-2" />
+                Marketing
+              </Button>
+            </Link>
+            <Link href="/settings" className="block">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Button>
+            </Link>
+            <Link href="/funding-settings" className="block">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <DollarSign className="w-4 h-4 mr-2" />
+                Funding Settings
+              </Button>
+            </Link>
+            <Link href="/team" className="block">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Manage Team
+              </Button>
+            </Link>
+            {user?.role === 'admin' && (
+              <div className="flex items-center space-x-4">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="hover:bg-rose-900/20 hover:text-rose-400"
+                  onClick={() => router.push('/admin/marketing')}
+                >
+                  <Megaphone className="mr-2 h-4 w-4" />
+                  <span>Marketing</span>
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="space-y-8">
           {/* Updates Section */}
           <Card className="leonardo-card border-gray-800">
@@ -1361,456 +1506,311 @@ export default function PartnerDashboard() {
               </DisabledCard>
             )}
 
-            {/* Quick Actions */}
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Briefcase className="w-5 h-5 mr-2" />
-                  Quick Actions
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Quick access to common actions
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Link href="/projects" className="block">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <FolderKanban className="w-4 h-4 mr-2" />
-                    View All Projects
-                  </Button>
-                </Link>
-                <Link href="/create-project" className="block">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create New Project
-                  </Button>
-                </Link>
-                <Link href="/deals" className="block">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <Handshake className="w-4 h-4 mr-2" />
-                    Deals
-                  </Button>
-                </Link>
-                <Link href="/publicprojects" className="block">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <Globe className="w-4 h-4 mr-2" />
-                    Public Projects
-                  </Button>
-                </Link>
-                <Link href="/managepayments" className="block">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <Calculator className="w-4 h-4 mr-2" />
-                    Manage Payments
-                  </Button>
-                </Link>
-                <Link href="/updates" className="block">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <Bell className="w-4 h-4 mr-2" />
-                    Updates
-                  </Button>
-                </Link>
-                <Link href="/payments" className="block">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <Wallet className="w-4 h-4 mr-2" />
-                    Withdraw Funds
-                  </Button>
-                </Link>
-                <Link href="/schedule" className="block">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Schedule & Tasks
-                  </Button>
-                </Link>
-                <Link href="/makedeal" className="block">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <Handshake className="w-4 h-4 mr-2" />
-                    Make Deal
-                  </Button>
-                </Link>
-                <Link href="/marketing" className="block">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <Megaphone className="w-4 h-4 mr-2" />
-                    Marketing
-                  </Button>
-                </Link>
-                <Link href="/settings" className="block">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    Settings
-                  </Button>
-                </Link>
-                <Link href="/funding-settings" className="block">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <DollarSign className="w-4 h-4 mr-2" />
-                    Funding Settings
-                  </Button>
-                </Link>
-                <Link href="/team" className="block">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <Users className="w-4 h-4 mr-2" />
-                    Manage Team
-                  </Button>
-                </Link>
-                {user?.role === 'admin' && (
-                  <div className="flex items-center space-x-4">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="hover:bg-rose-900/20 hover:text-rose-400"
-                      onClick={() => router.push('/admin/marketing')}
-                    >
-                      <Megaphone className="mr-2 h-4 w-4" />
-                      <span>Marketing</span>
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Opportunities Section */}
-          <div className="mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-white">Get Involved</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              <DisabledCard 
-                userRole={user.role}
-                title="Become an Investor"
-                icon={<TrendingUp className="w-5 h-5 text-blue-400" />}
-              >
-                <p className="text-sm text-white/60 mb-4">
-                  Join our network of investors and get access to exclusive investment opportunities in innovative projects.
-                </p>
-              </DisabledCard>
-
-              <Card className="leonardo-card border-gray-800">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center">
-                    <UserPlus className="w-5 h-5 text-green-400 mr-2" />
-                    Join a Project
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+            {/* Opportunities Section */}
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-white">Get Involved</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                <DisabledCard 
+                  userRole={user.role}
+                  title="Become an Investor"
+                  icon={<TrendingUp className="w-5 h-5 text-blue-400" />}
+                >
                   <p className="text-sm text-white/60 mb-4">
-                    Have a project key? Enter it below to request access and join the team.
+                    Join our network of investors and get access to exclusive investment opportunities in innovative projects.
                   </p>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Input
-                        placeholder="Enter project key (e.g., COV-ABC12)"
-                        value={projectKey}
-                        onChange={(e) => setProjectKey(e.target.value)}
-                      />
+                </DisabledCard>
+
+                <Card className="leonardo-card border-gray-800">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center">
+                      <UserPlus className="w-5 h-5 text-green-400 mr-2" />
+                      Join a Project
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-white/60 mb-4">
+                      Have a project key? Enter it below to request access and join the team.
+                    </p>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="Enter project key (e.g., COV-ABC12)"
+                          value={projectKey}
+                          onChange={(e) => setProjectKey(e.target.value)}
+                        />
+                      </div>
+                      {joinError && (
+                        <div className="text-sm text-red-500">{joinError}</div>
+                      )}
+                      <Button 
+                        className="w-full gradient-button" 
+                        onClick={handleJoinProject}
+                        disabled={isJoining || !projectKey.trim()}
+                      >
+                        {isJoining ? 'Requesting Access...' : 'Request to Join'}
+                      </Button>
                     </div>
-                    {joinError && (
-                      <div className="text-sm text-red-500">{joinError}</div>
+                  </CardContent>
+                </Card>
+
+                <DisabledCard 
+                  userRole={user.role}
+                  title="Join as Team Member"
+                  icon={<Users className="w-5 h-5 text-purple-400" />}
+                >
+                  <p className="text-sm text-white/60 mb-4">
+                    Work with talented professionals on exciting projects and grow your career.
+                  </p>
+                </DisabledCard>
+
+                <DisabledCard 
+                  userRole={user.role}
+                  title="Join an Organization"
+                  icon={<Building2 className="w-5 h-5 text-green-400" />}
+                >
+                  <p className="text-sm text-white/60 mb-4">
+                    Connect with established organizations and collaborate on projects.
+                  </p>
+                </DisabledCard>
+
+                <DisabledCard 
+                  userRole={user.role}
+                  title="Partnership"
+                  icon={<Handshake className="w-5 h-5 text-yellow-400" />}
+                >
+                  <p className="text-sm text-white/60 mb-4">
+                    Form strategic partnerships to grow your business and expand your network.
+                  </p>
+                </DisabledCard>
+
+                <DisabledCard 
+                  userRole={user.role}
+                  title="Create Organization"
+                  icon={<PlusCircle className="w-5 h-5 text-red-400" />}
+                >
+                  <p className="text-sm text-white/60 mb-4">
+                    Launch your own organization and manage projects under your brand.
+                  </p>
+                </DisabledCard>
+
+                <Card className="leonardo-card border-gray-800">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Briefcase className="w-5 h-5 mr-2" />
+                      Project Actions
+                    </CardTitle>
+                    <CardDescription className="text-gray-400">
+                      Create, manage, or view projects
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {user && user.role !== 'investor' && user.role !== 'viewer' && (
+                      <Link href="/projects/new" className="block">
+                        <Button className="w-full gradient-button">
+                          <PlusCircle className="w-4 h-4 mr-2" />
+                          New Project
+                        </Button>
+                      </Link>
                     )}
-                    <Button 
-                      className="w-full gradient-button" 
-                      onClick={handleJoinProject}
-                      disabled={isJoining || !projectKey.trim()}
-                    >
-                      {isJoining ? 'Requesting Access...' : 'Request to Join'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <DisabledCard 
-                userRole={user.role}
-                title="Join as Team Member"
-                icon={<Users className="w-5 h-5 text-purple-400" />}
-              >
-                <p className="text-sm text-white/60 mb-4">
-                  Work with talented professionals on exciting projects and grow your career.
-                </p>
-              </DisabledCard>
-
-              <DisabledCard 
-                userRole={user.role}
-                title="Join an Organization"
-                icon={<Building2 className="w-5 h-5 text-green-400" />}
-              >
-                <p className="text-sm text-white/60 mb-4">
-                  Connect with established organizations and collaborate on projects.
-                </p>
-              </DisabledCard>
-
-              <DisabledCard 
-                userRole={user.role}
-                title="Partnership"
-                icon={<Handshake className="w-5 h-5 text-yellow-400" />}
-              >
-                <p className="text-sm text-white/60 mb-4">
-                  Form strategic partnerships to grow your business and expand your network.
-                </p>
-              </DisabledCard>
-
-              <DisabledCard 
-                userRole={user.role}
-                title="Create Organization"
-                icon={<PlusCircle className="w-5 h-5 text-red-400" />}
-              >
-                <p className="text-sm text-white/60 mb-4">
-                  Launch your own organization and manage projects under your brand.
-                </p>
-              </DisabledCard>
-
-              <Card className="leonardo-card border-gray-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Briefcase className="w-5 h-5 mr-2" />
-                    Project Actions
-                  </CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Create, manage, or view projects
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {user && user.role !== 'investor' && user.role !== 'viewer' && (
-                    <Link href="/projects/new" className="block">
-                      <Button className="w-full gradient-button">
-                        <PlusCircle className="w-4 h-4 mr-2" />
-                        New Project
+                    <Link href="/projects" className="block">
+                       <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
+                        <FolderKanban className="w-4 h-4 mr-2" />
+                        View All Projects
                       </Button>
                     </Link>
-                  )}
-                  <Link href="/projects" className="block">
-                     <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
-                      <FolderKanban className="w-4 h-4 mr-2" />
-                      View All Projects
-                    </Button>
-                  </Link>
 
-                  {/* Join a Project Button & Dialog */}
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
-                        <UserPlus className="w-4 h-4 mr-2" />
-                        Join a Project
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Join a Project</DialogTitle>
-                        <DialogDescription>
-                          Enter the project key to request access.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                          <Label>Project Key</Label>
-                          <Input
-                            placeholder="Enter project key (e.g., COV-ABC12)"
-                            value={projectKey}
-                            onChange={(e) => setProjectKey(e.target.value)}
-                          />
+                    {/* Join a Project Button & Dialog */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
+                          <UserPlus className="w-4 h-4 mr-2" />
+                          Join a Project
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Join a Project</DialogTitle>
+                          <DialogDescription>
+                            Enter the project key to request access.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label>Project Key</Label>
+                            <Input
+                              placeholder="Enter project key (e.g., COV-ABC12)"
+                              value={projectKey}
+                              onChange={(e) => setProjectKey(e.target.value)}
+                            />
+                          </div>
+                          {joinError && (
+                            <div className="text-sm text-red-500">{joinError}</div>
+                          )}
+                          <Button 
+                            className="w-full gradient-button" 
+                            onClick={handleJoinProject}
+                            disabled={isJoining || !projectKey.trim()}
+                          >
+                            {isJoining ? 'Requesting Access...' : 'Request to Join'}
+                          </Button>
                         </div>
-                        {joinError && (
-                          <div className="text-sm text-red-500">{joinError}</div>
-                        )}
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Manage Team Button */}
+                    {user && user.role !== 'investor' && user.role !== 'viewer' && (
+                      <Button className="w-full gradient-button" onClick={() => router.push("/team")}>
+                        <Users className="w-5 h-5 mr-2" />
+                        Manage Team
+                      </Button>
+                    )}
+                    {/* Add other relevant actions here if needed */}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Deals Section */}
+            {user?.role && ['admin', 'partner'].includes(user.role) && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold text-white">Deals</h2>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" className="text-purple-400 hover:text-purple-300 cursor-not-allowed opacity-50">
+                          View All
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Coming Soon</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+                <Card className="leonardo-card border-gray-800">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Handshake className="w-5 h-5 mr-2 text-purple-400" />
+                      Deals
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/10 flex items-center justify-center">
+                        <Wrench className="w-8 h-8 text-purple-400" />
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-300 mb-2">Under Development</h3>
+                      <p className="text-gray-500 max-w-sm mx-auto">
+                        The deals feature is currently being developed. Check back soon for updates!
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Recent Deals Section */}
+            {user?.role === 'admin' && (
+              <div className="col-span-full">
+                <DisabledCard 
+                  userRole={user.role}
+                  title="Recent Deals"
+                  icon={<Handshake className="w-5 h-5 mr-2" />}
+                >
+                  <div className="space-y-4">
+                    {loading ? (
+                      <div className="text-center py-4">
+                        <p className="text-gray-400">Loading deals...</p>
+                      </div>
+                    ) : deals.length === 0 ? (
+                      <div className="text-center py-4">
+                        <p className="text-gray-400">No deals found</p>
                         <Button 
-                          className="w-full gradient-button" 
-                          onClick={handleJoinProject}
-                          disabled={isJoining || !projectKey.trim()}
+                          variant="outline" 
+                          className="mt-2 border-gray-700"
+                          onClick={() => router.push('/makedeal')}
                         >
-                          {isJoining ? 'Requesting Access...' : 'Request to Join'}
+                          <Handshake className="w-4 h-4 mr-2" />
+                          Create Your First Deal
                         </Button>
                       </div>
-                    </DialogContent>
-                  </Dialog>
-
-                  {/* Manage Team Button */}
-                  {user && user.role !== 'investor' && user.role !== 'viewer' && (
-                    <Button className="w-full gradient-button" onClick={() => router.push("/team")}>
-                      <Users className="w-5 h-5 mr-2" />
-                      Manage Team
-                    </Button>
-                  )}
-                  {/* Add other relevant actions here if needed */}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Deals Section */}
-          {user?.role && ['admin', 'partner'].includes(user.role) && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-white">Deals</h2>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" className="text-purple-400 hover:text-purple-300 cursor-not-allowed opacity-50">
-                        View All
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Coming Soon</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-
-              <Card className="leonardo-card border-gray-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Handshake className="w-5 h-5 mr-2 text-purple-400" />
-                    Deals
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/10 flex items-center justify-center">
-                      <Wrench className="w-8 h-8 text-purple-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-300 mb-2">Under Development</h3>
-                    <p className="text-gray-500 max-w-sm mx-auto">
-                      The deals feature is currently being developed. Check back soon for updates!
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Recent Deals Section */}
-          {user?.role === 'admin' && (
-            <div className="col-span-full">
-              <DisabledCard 
-                userRole={user.role}
-                title="Recent Deals"
-                icon={<Handshake className="w-5 h-5 mr-2" />}
-              >
-                <div className="space-y-4">
-                  {loading ? (
-                    <div className="text-center py-4">
-                      <p className="text-gray-400">Loading deals...</p>
-                    </div>
-                  ) : deals.length === 0 ? (
-                    <div className="text-center py-4">
-                      <p className="text-gray-400">No deals found</p>
-                      <Button 
-                        variant="outline" 
-                        className="mt-2 border-gray-700"
-                        onClick={() => router.push('/makedeal')}
-                      >
-                        <Handshake className="w-4 h-4 mr-2" />
-                        Create Your First Deal
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {deals.slice(0, 5).map((deal) => (
-                        <div 
-                          key={deal.id}
-                          className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors cursor-pointer"
-                          onClick={() => router.push(`/deals/${deal.id}`)}
-                        >
-                          <div className="flex items-center gap-3">
-                            {deal.confidentiality_level === 'public' ? (
-                              <Globe className="w-4 h-4 text-blue-500" />
-                            ) : deal.confidentiality_level === 'private' ? (
-                              <Lock className="w-4 h-4 text-gray-500" />
-                            ) : (
-                              <Shield className="w-4 h-4 text-purple-500" />
-                            )}
-                            <div>
-                              <p className="font-medium">{deal.title}</p>
-                              <p className="text-sm text-gray-400">
-                                {deal.participants.length} participants
-                              </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {deals.slice(0, 5).map((deal) => (
+                          <div 
+                            key={deal.id}
+                            className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors cursor-pointer"
+                            onClick={() => router.push(`/deals/${deal.id}`)}
+                          >
+                            <div className="flex items-center gap-3">
+                              {deal.confidentiality_level === 'public' ? (
+                                <Globe className="w-4 h-4 text-blue-500" />
+                              ) : deal.confidentiality_level === 'private' ? (
+                                <Lock className="w-4 h-4 text-gray-500" />
+                              ) : (
+                                <Shield className="w-4 h-4 text-purple-500" />
+                              )}
+                              <div>
+                                <p className="font-medium">{deal.title}</p>
+                                <p className="text-sm text-gray-400">
+                                  {deal.participants.length} participants
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {deal.status === 'pending' ? (
+                                <Clock className="w-4 h-4 text-yellow-500" />
+                              ) : deal.status === 'accepted' ? (
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <XCircle className="w-4 h-4 text-red-500" />
+                              )}
+                              <Badge variant="outline" className="capitalize">
+                                {deal.status}
+                              </Badge>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {deal.status === 'pending' ? (
-                              <Clock className="w-4 h-4 text-yellow-500" />
-                            ) : deal.status === 'accepted' ? (
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-red-500" />
-                            )}
-                            <Badge variant="outline" className="capitalize">
-                              {deal.status}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </DisabledCard>
-            </div>
-          )}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </DisabledCard>
+              </div>
+            )}
 
-          {/* Deal Actions Section */}
-          {user?.role === 'admin' && (
-            <div className="col-span-full">
-              <DisabledCard 
-                userRole={user.role}
-                title="Deal Actions"
-                icon={<Handshake className="w-5 h-5 mr-2" />}
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Button 
-                    className="w-full gradient-button"
-                    onClick={() => router.push('/makedeal')}
-                  >
-                    <Handshake className="w-4 h-4 mr-2" />
-                    Make Deal
-                  </Button>
-                  <Button 
-                    className="w-full gradient-button"
-                    onClick={() => router.push('/deals')}
-                  >
-                    <Globe className="w-4 h-4 mr-2" />
-                    View All Deals
-                  </Button>
-                  <DisabledButton userRole={user.role} icon={<DollarSign className="w-5 h-5 mr-2" />}>
-                    Financial Dashboard
-                  </DisabledButton>
-                </div>
-              </DisabledCard>
-            </div>
-          )}
+            {/* Deal Actions Section */}
+            {user?.role === 'admin' && (
+              <div className="col-span-full">
+                <DisabledCard 
+                  userRole={user.role}
+                  title="Deal Actions"
+                  icon={<Handshake className="w-5 h-5 mr-2" />}
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Button 
+                      className="w-full gradient-button"
+                      onClick={() => router.push('/makedeal')}
+                    >
+                      <Handshake className="w-4 h-4 mr-2" />
+                      Make Deal
+                    </Button>
+                    <Button 
+                      className="w-full gradient-button"
+                      onClick={() => router.push('/deals')}
+                    >
+                      <Globe className="w-4 h-4 mr-2" />
+                      View All Deals
+                    </Button>
+                    <DisabledButton userRole={user.role} icon={<DollarSign className="w-5 h-5 mr-2" />}>
+                      Financial Dashboard
+                    </DisabledButton>
+                  </div>
+                </DisabledCard>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
