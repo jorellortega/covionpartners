@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -16,7 +17,7 @@ import { useProjects } from "@/hooks/useProjects"
 import { Project } from "@/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-export default function MakeDealPage() {
+function MakeDealPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -446,5 +447,26 @@ export default function MakeDealPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function MakeDealPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 text-white p-8">
+        <div className="max-w-7xl mx-auto">
+          <Card className="leonardo-card border-gray-800">
+            <CardContent className="py-8">
+              <div className="flex items-center justify-center">
+                <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="ml-3 text-lg text-gray-400">Loading...</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    }>
+      <MakeDealPageContent />
+    </Suspense>
   )
 } 
