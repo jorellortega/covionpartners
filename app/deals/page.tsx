@@ -1,48 +1,194 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Wrench, ArrowLeft } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { 
+  Handshake, 
+  ArrowLeft, 
+  Search, 
+  Plus, 
+  Globe,
+  Lock,
+  Shield,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Filter,
+  SortAsc
+} from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useDeals } from "@/hooks/useDeals"
+import { useAuth } from "@/hooks/useAuth"
 
 export default function DealsPage() {
   const router = useRouter()
+  const { user } = useAuth()
+  const { deals, loading, error } = useDeals()
+  const [searchQuery, setSearchQuery] = useState("")
+
+  // Filter deals based on search query
+  const filteredDeals = deals?.filter(deal =>
+    deal.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    deal.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || []
 
   return (
     <div className="min-h-screen bg-gray-950 text-white p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              onClick={() => router.back()}
+              className="text-gray-400 hover:text-white"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+          </div>
           <Button
-            variant="ghost"
-            onClick={() => router.back()}
-            className="text-gray-400 hover:text-white"
+            onClick={() => router.push('/makedeal')}
+            className="gradient-button"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
+            <Plus className="w-4 h-4 mr-2" />
+            Make New Deal
           </Button>
         </div>
 
         <Card className="leonardo-card border-gray-800">
           <CardHeader>
-            <CardTitle className="text-2xl">Deals</CardTitle>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <CardTitle className="text-2xl">Deals</CardTitle>
+                <CardDescription>Manage your business deals and partnerships</CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-16">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-purple-500/10 flex items-center justify-center">
-                <Wrench className="w-10 h-10 text-purple-400" />
+            {/* Search and Filters */}
+            <div className="flex flex-col md:flex-row gap-4 mb-8">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Search deals..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
-              <h2 className="text-2xl font-semibold text-gray-300 mb-3">Under Development</h2>
-              <p className="text-gray-500 max-w-md mx-auto mb-8">
-                We're currently working on building an amazing deals management system. 
-                Check back soon for updates!
-              </p>
-              <Button
-                onClick={() => router.push('/dashboard')}
-                className="gradient-button"
-              >
-                Return to Dashboard
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filter
+                </Button>
+                <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white">
+                  <SortAsc className="h-4 w-4 mr-2" />
+                  Sort
+                </Button>
+              </div>
             </div>
+
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
+              </div>
+            ) : error ? (
+              <div className="text-center py-12">
+                <p className="text-red-400">Error loading deals: {error}</p>
+              </div>
+            ) : filteredDeals.length > 0 ? (
+              <div className="space-y-4">
+                {filteredDeals.map((deal) => (
+                  <div
+                    key={deal.id}
+                    className="p-4 bg-gray-800/30 rounded-lg border border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer"
+                    onClick={() => router.push(`/deals/${deal.id}`)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {deal.confidentiality_level === 'public' ? (
+                          <Globe className="w-5 h-5 text-blue-400" />
+                        ) : deal.confidentiality_level === 'private' ? (
+                          <Lock className="w-5 h-5 text-gray-400" />
+                        ) : (
+                          <Shield className="w-5 h-5 text-purple-400" />
+                        )}
+                        <div>
+                          <h3 className="font-medium text-lg">{deal.title}</h3>
+                          <p className="text-sm text-gray-400 line-clamp-1">
+                            {deal.description}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline" className="capitalize">
+                              {deal.deal_type}
+                            </Badge>
+                            <Badge 
+                              variant={
+                                deal.confidentiality_level === 'public' 
+                                  ? 'outline' 
+                                  : deal.confidentiality_level === 'private'
+                                  ? 'secondary'
+                                  : 'destructive'
+                              }
+                              className="capitalize"
+                            >
+                              {deal.confidentiality_level}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {deal.status === 'pending' ? (
+                          <Clock className="w-5 h-5 text-yellow-500" />
+                        ) : deal.status === 'accepted' ? (
+                          <CheckCircle className="w-5 h-5 text-green-500" />
+                        ) : (
+                          <XCircle className="w-5 h-5 text-red-500" />
+                        )}
+                        <Badge 
+                          variant={
+                            deal.status === 'pending'
+                              ? 'outline'
+                              : deal.status === 'accepted'
+                              ? 'secondary'
+                              : 'destructive'
+                          }
+                          className="capitalize"
+                        >
+                          {deal.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="mx-auto w-24 h-24 bg-gray-800/30 rounded-full flex items-center justify-center mb-4">
+                  <Handshake className="w-12 h-12 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-300 mb-2">
+                  No deals found
+                </h3>
+                <p className="text-gray-400 mb-6">
+                  {searchQuery
+                    ? "Try adjusting your search terms"
+                    : "Create your first deal to get started"}
+                </p>
+                <Button
+                  onClick={() => router.push('/makedeal')}
+                  className="gradient-button"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Make New Deal
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

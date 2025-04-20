@@ -47,6 +47,8 @@ export interface Project {
   funding_goal?: number | null
   current_funding?: number | null
   accepts_donations?: boolean
+  promo_title?: string | null
+  promo_description?: string | null
 }
 
 export interface ProjectRole {

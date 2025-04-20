@@ -1253,13 +1253,14 @@ export default function PartnerDashboard() {
           )}
 
           {/* Make a Deal Button */}
-          {user?.role === 'admin' && user?.role !== 'viewer' && (
-            <DisabledButton 
-              userRole={user.role}
-              icon={<Handshake className="w-4 h-4 mr-2" />}
+          {user?.role === 'admin' && (
+            <Button 
+              className="w-full gradient-button"
+              onClick={() => router.push('/makedeal')}
             >
+              <Handshake className="w-4 h-4 mr-2" />
               Make a Deal
-            </DisabledButton>
+            </Button>
           )}
 
           {/* Schedule & Tasks */}
@@ -1373,63 +1374,126 @@ export default function PartnerDashboard() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <Link href="/projects" className="block">
-                  <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
-                    <Briefcase className="w-4 h-4 mr-2" />
-                    Projects
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
+                    <FolderKanban className="w-4 h-4 mr-2" />
+                    View All Projects
+                  </Button>
+                </Link>
+                <Link href="/create-project" className="block">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create New Project
                   </Button>
                 </Link>
                 <Link href="/deals" className="block">
-                  <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
                     <Handshake className="w-4 h-4 mr-2" />
                     Deals
                   </Button>
                 </Link>
                 <Link href="/publicprojects" className="block">
-                  <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
                     <Globe className="w-4 h-4 mr-2" />
                     Public Projects
                   </Button>
                 </Link>
                 <Link href="/managepayments" className="block">
-                  <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
                     <Calculator className="w-4 h-4 mr-2" />
                     Manage Payments
                   </Button>
                 </Link>
                 <Link href="/updates" className="block">
-                  <Button variant="outline" className="w-full border-gray-700 hover:bg-orange-900/20 hover:text-orange-400">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
                     <Bell className="w-4 h-4 mr-2" />
                     Updates
                   </Button>
                 </Link>
                 <Link href="/payments" className="block">
-                  <Button variant="outline" className="w-full border-gray-700 hover:bg-emerald-900/20 hover:text-emerald-400">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
                     <Wallet className="w-4 h-4 mr-2" />
                     Withdraw Funds
                   </Button>
                 </Link>
                 <Link href="/schedule" className="block">
-                  <Button variant="outline" className="w-full border-gray-700 hover:bg-pink-900/20 hover:text-pink-400">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
                     <Calendar className="w-4 h-4 mr-2" />
                     Schedule & Tasks
                   </Button>
                 </Link>
                 <Link href="/makedeal" className="block">
-                  <Button variant="outline" className="w-full border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
                     <Handshake className="w-4 h-4 mr-2" />
                     Make Deal
                   </Button>
                 </Link>
+                <Link href="/marketing" className="block">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
+                    <Megaphone className="w-4 h-4 mr-2" />
+                    Marketing
+                  </Button>
+                </Link>
                 <Link href="/settings" className="block">
-                  <Button variant="outline" className="w-full border-gray-700 hover:bg-gray-900/20 hover:text-gray-400">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
                     <Settings className="w-4 h-4 mr-2" />
                     Settings
                   </Button>
                 </Link>
+                <Link href="/funding-settings" className="block">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
+                    <DollarSign className="w-4 h-4 mr-2" />
+                    Funding Settings
+                  </Button>
+                </Link>
+                <Link href="/team" className="block">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Manage Team
+                  </Button>
+                </Link>
                 {user?.role === 'admin' && (
                   <div className="flex items-center space-x-4">
-                    <Button
-                      variant="outline"
+                    <Button 
+                      variant="outline" 
                       size="sm"
                       className="hover:bg-rose-900/20 hover:text-rose-400"
                       onClick={() => router.push('/admin/marketing')}

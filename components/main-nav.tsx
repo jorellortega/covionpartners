@@ -15,6 +15,12 @@ export function MainNav() {
       <Link href="/publicprojects" className="text-sm font-medium transition-colors hover:text-primary">
         Public Projects
       </Link>
+      <Link href="/publicfunding" className="text-sm font-medium transition-colors hover:text-primary">
+        Public Funding
+      </Link>
+      <Link href="/funding-settings" className="text-sm font-medium transition-colors hover:text-primary">
+        Funding Settings
+      </Link>
       <Link href="/account-types" className="text-sm font-medium transition-colors hover:text-primary">
         Account Types
       </Link>

@@ -2,20 +2,41 @@
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Check, Star, Zap, Building2, Users, Briefcase } from "lucide-react"
+import { Check, Star, Zap, Building2, Users, Briefcase, Target, DollarSign, Shield, FileText, BarChart3 } from "lucide-react"
 import Link from "next/link"
 
 const features = [
   {
-    name: "Project Management",
+    name: "View Public Projects",
     public: true,
     investor: true,
     partner: true,
     enterprise: true
   },
   {
-    name: "Investment Opportunities",
+    name: "Support Projects",
     public: true,
+    investor: true,
+    partner: true,
+    enterprise: true
+  },
+  {
+    name: "Project Discovery",
+    public: true,
+    investor: true,
+    partner: true,
+    enterprise: true
+  },
+  {
+    name: "Basic Analytics",
+    public: true,
+    investor: true,
+    partner: true,
+    enterprise: true
+  },
+  {
+    name: "Project Funding",
+    public: false,
     investor: true,
     partner: true,
     enterprise: true
@@ -28,9 +49,23 @@ const features = [
     enterprise: true
   },
   {
-    name: "Financial Analytics",
+    name: "Advanced Analytics",
     public: false,
     investor: true,
+    partner: true,
+    enterprise: true
+  },
+  {
+    name: "Create Projects",
+    public: false,
+    investor: false,
+    partner: true,
+    enterprise: true
+  },
+  {
+    name: "Project Management",
+    public: false,
+    investor: false,
     partner: true,
     enterprise: true
   },
@@ -42,13 +77,6 @@ const features = [
     enterprise: true
   },
   {
-    name: "API Access",
-    public: false,
-    investor: false,
-    partner: false,
-    enterprise: true
-  },
-  {
     name: "Priority Support",
     public: false,
     investor: false,
@@ -56,18 +84,18 @@ const features = [
     enterprise: true
   },
   {
-    name: "Advanced Security",
+    name: "API Access",
     public: false,
     investor: false,
-    partner: true,
+    partner: false,
     enterprise: true
   }
 ]
 
 const tiers = [
   {
-    name: "Public Account",
-    description: "Perfect for exploring investment opportunities and supporting projects",
+    name: "Viewer Account",
+    description: "Perfect for exploring and supporting projects",
     price: "Free",
     icon: Users,
     features: features.filter(f => f.public),
@@ -77,25 +105,23 @@ const tiers = [
   },
   {
     name: "Investor Account",
-    description: "For active investors and portfolio management",
+    description: "For active investors and project supporters",
     price: "$15/month",
-    icon: Briefcase,
+    icon: DollarSign,
     features: features.filter(f => f.investor),
     cta: "Upgrade Now",
     href: "/contact",
-    popular: false,
-    comingSoon: true
+    popular: false
   },
   {
     name: "Partner Account",
-    description: "Complete project and team management",
+    description: "Complete project creation and management",
     price: "$25/month",
-    icon: Star,
+    icon: Target,
     features: features.filter(f => f.partner),
     cta: "Upgrade Now",
     href: "/contact",
-    popular: true,
-    comingSoon: true
+    popular: true
   },
   {
     name: "Enterprise Account",
@@ -105,8 +131,7 @@ const tiers = [
     features: features.filter(f => f.enterprise),
     cta: "Contact Sales",
     href: "/contact",
-    popular: false,
-    comingSoon: true
+    popular: false
   }
 ]
 
@@ -117,7 +142,7 @@ export default function AccountTypesPage() {
         <div className="text-center">
           <h1 className="text-4xl font-bold text-white mb-4">Choose Your Account Type</h1>
           <p className="text-xl text-gray-400 mb-12">
-            Select the perfect plan for your investment and project management needs
+            Select the perfect plan for your project funding and management needs
           </p>
         </div>
 
@@ -125,11 +150,11 @@ export default function AccountTypesPage() {
           {tiers.map((tier) => (
             <Card 
               key={tier.name}
-              className={`leonardo-card border-gray-800 ${tier.comingSoon ? 'opacity-50' : ''}`}
+              className={`leonardo-card border-gray-800 ${tier.popular ? 'border-purple-500/50' : ''}`}
             >
               <CardHeader className="pb-4 pt-6">
                 <div className="flex items-center gap-3">
-                  <tier.icon className="w-6 h-6 text-blue-400" />
+                  <tier.icon className="w-6 h-6 text-purple-400" />
                   <CardTitle className="text-xl">{tier.name}</CardTitle>
                 </div>
                 <CardDescription className="text-gray-400 mt-2">
@@ -138,25 +163,22 @@ export default function AccountTypesPage() {
                 <div className="mt-4 text-2xl font-bold text-white">
                   {tier.price}
                 </div>
-                {tier.comingSoon && (
-                  <div className="mt-2 text-yellow-500 font-bold">
-                    Coming Soon
-                  </div>
-                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 <ul className="space-y-3">
                   {tier.features.map((feature) => (
                     <li key={feature.name} className="flex items-center gap-2 text-sm">
                       <Check className="w-4 h-4 text-green-500" />
-                      <span className="text-gray-300">{feature.name}</span>
+                      <span className={`text-gray-300 ${feature.name === "Create Projects" ? "text-purple-400 font-medium" : ""}`}>
+                        {feature.name}
+                      </span>
                     </li>
                   ))}
                 </ul>
               </CardContent>
               <CardFooter className="pt-6">
                 <Link href={tier.href} className="w-full">
-                  <Button className="w-full gradient-button">
+                  <Button className={`w-full ${tier.popular ? 'bg-purple-500 hover:bg-purple-600' : 'gradient-button'}`}>
                     {tier.cta}
                   </Button>
                 </Link>

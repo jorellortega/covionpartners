@@ -28,6 +28,8 @@ import {
   FileText as FileTextIcon,
   FileType,
   X,
+  Handshake,
+  Settings,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -882,6 +884,22 @@ export default function PublicProjectDetails() {
                       <Calculator className="w-4 h-4 mr-2" />
                       Calculate Investment
                     </Button>
+                    <Button 
+                      className="w-full gradient-button"
+                      onClick={() => router.push(`/makedeal?project=${project.id}`)}
+                    >
+                      <Handshake className="w-4 h-4 mr-2" />
+                      Make Deal
+                    </Button>
+                    {user.role === 'admin' && (
+                      <Button 
+                        className="w-full gradient-button"
+                        onClick={() => router.push(`/projects/${project.id}/edit`)}
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Edit Project
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
