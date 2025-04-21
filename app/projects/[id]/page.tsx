@@ -685,11 +685,18 @@ export default function ProjectDetails() {
       if (!projectId) return
       
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('tasks')
           .select('*')
           .eq('project_id', projectId)
           .order('due_date', { ascending: true })
+
+        // If user is a viewer or investor, only fetch tasks assigned to them
+        if (user?.role === 'viewer' || user?.role === 'investor') {
+          query = query.eq('assigned_to', user.id)
+        }
+
+        const { data, error } = await query
 
         if (error) throw error
         setTasks(data || [])
@@ -700,7 +707,7 @@ export default function ProjectDetails() {
     }
 
     fetchTasks()
-  }, [projectId])
+  }, [projectId, user])
 
   useEffect(() => {
     const fetchSchedule = async () => {
@@ -2183,202 +2190,208 @@ export default function ProjectDetails() {
                   </Button>
                 </div>
                 <div className="space-y-3">
-                  {tasks.map(task => (
-                    <div key={task.id} className="p-3 bg-gray-800/50 rounded-lg">
-                      <div className="flex flex-col gap-3">
-                        <div className="flex flex-col gap-2">
-                          <h4 className="text-lg font-semibold text-white">{task.title}</h4>
-                          <p className="text-sm text-gray-400">{task.description}</p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm text-gray-400 flex items-center">
-                            <Calendar className="w-4 h-4 mr-1" />
-                            Due: {new Date(task.due_date).toLocaleDateString()} at {new Date(task.due_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-auto p-0 text-gray-400 hover:text-indigo-400">
-                                <span className="flex items-center">
-                                  <UserIcon className="w-4 h-4 mr-1" />
-                                  {task.assigned_to ? teamMembers.find(member => member.user_id === task.assigned_to)?.user?.name || 'Unassigned' : 'Unassigned'}
-                                </span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-56 bg-gray-900 border-gray-700">
-                              <DropdownMenuItem 
-                                className="text-white hover:bg-indigo-900/20 hover:text-indigo-400 focus:bg-indigo-900/20 focus:text-indigo-400"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    const { error } = await supabase
-                                      .from('tasks')
-                                      .update({ assigned_to: null })
-                                      .eq('id', task.id);
-                                    if (error) throw error;
-                                    setTasks(prev => prev.map(t => 
-                                      t.id === task.id ? { ...t, assigned_to: null } : t
-                                    ));
-                                    toast.success('Task unassigned successfully');
-                                  } catch (error) {
-                                    console.error('Error unassigning task:', error);
-                                    toast.error('Failed to unassign task');
-                                  }
-                                }}
-                              >
-                                Unassign
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator className="bg-gray-700" />
-                              {teamMembers.map(member => (
-                                <DropdownMenuItem
-                                  key={member.id}
-                                  className="text-white hover:bg-purple-900/20 hover:text-purple-400 focus:bg-purple-900/20 focus:text-purple-400"
+                  {tasks.length === 0 ? (
+                    <div className="text-center py-4 text-gray-400">
+                      {user?.role === 'viewer' || user?.role === 'investor' ? 'No tasks assigned to you' : 'No tasks found'}
+                    </div>
+                  ) : (
+                    tasks.map(task => (
+                      <div key={task.id} className="p-3 bg-gray-800/50 rounded-lg">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex flex-col gap-2">
+                            <h4 className="text-lg font-semibold text-white">{task.title}</h4>
+                            <p className="text-sm text-gray-400">{task.description}</p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm text-gray-400 flex items-center">
+                              <Calendar className="w-4 h-4 mr-1" />
+                              Due: {new Date(task.due_date).toLocaleDateString()} at {new Date(task.due_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-auto p-0 text-gray-400 hover:text-indigo-400">
+                                  <span className="flex items-center">
+                                    <UserIcon className="w-4 h-4 mr-1" />
+                                    {task.assigned_to ? teamMembers.find(member => member.user_id === task.assigned_to)?.user?.name || 'Unassigned' : 'Unassigned'}
+                                  </span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent className="w-56 bg-gray-900 border-gray-700">
+                                <DropdownMenuItem 
+                                  className="text-white hover:bg-indigo-900/20 hover:text-indigo-400 focus:bg-indigo-900/20 focus:text-indigo-400"
                                   onClick={async (e) => {
-                                    e.stopPropagation()
+                                    e.stopPropagation();
                                     try {
                                       const { error } = await supabase
                                         .from('tasks')
-                                        .update({ assigned_to: member.user_id })
-                                        .eq('id', task.id)
-                                      if (error) throw error
+                                        .update({ assigned_to: null })
+                                        .eq('id', task.id);
+                                      if (error) throw error;
                                       setTasks(prev => prev.map(t => 
-                                        t.id === task.id ? { ...t, assigned_to: member.user_id } : t
-                                      ))
-                                      toast.success(`Task assigned to ${member.user?.name}`)
+                                        t.id === task.id ? { ...t, assigned_to: null } : t
+                                      ));
+                                      toast.success('Task unassigned successfully');
                                     } catch (error) {
-                                      console.error('Error assigning task:', error)
-                                      toast.error('Failed to assign task')
+                                      console.error('Error unassigning task:', error);
+                                      toast.error('Failed to unassign task');
                                     }
                                   }}
                                 >
-                                  {member.user?.name}
+                                  Unassign
                                 </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          <Badge
-                            variant="outline"
-                            className={
-                              task.priority === 'high'
-                                ? 'bg-purple-500/20 text-purple-400 border-purple-500/50'
-                                : task.priority === 'medium'
-                                ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
-                                : 'bg-green-500/20 text-green-400 border-green-500/50'
-                            }
-                          >
-                            {task.priority}
-                          </Badge>
-                        </div>
-                        {user?.role !== 'viewer' && (
-                          <div className="flex flex-wrap items-center gap-2 mt-2">
-                            <div className="flex gap-1">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className={`${
-                                  task.status === 'pending'
-                                    ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
-                                    : 'text-yellow-400/50 hover:text-yellow-400 hover:bg-yellow-500/20'
-                                }`}
-                                onClick={async () => {
-                                  const { error } = await supabase
-                                    .from('tasks')
-                                    .update({ status: 'pending' })
-                                    .eq('id', task.id);
-                                  if (!error) {
-                                    setTasks(prev => prev.map(t => 
-                                      t.id === task.id ? { ...t, status: 'pending' } : t
-                                    ));
-                                  }
-                                }}
-                              >
-                                <Clock className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className={`${
-                                  task.status === 'in_progress'
-                                    ? 'bg-blue-500/20 text-blue-400 border-blue-500/50'
-                                    : 'text-blue-400/50 hover:text-blue-400 hover:bg-blue-500/20'
-                                }`}
-                                onClick={async () => {
-                                  const { error } = await supabase
-                                    .from('tasks')
-                                    .update({ status: 'in_progress' })
-                                    .eq('id', task.id);
-                                  if (!error) {
-                                    setTasks(prev => prev.map(t => 
-                                      t.id === task.id ? { ...t, status: 'in_progress' } : t
-                                    ));
-                                  }
-                                }}
-                              >
-                                <RefreshCw className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className={`${
-                                  task.status === 'completed'
-                                    ? 'bg-green-500/20 text-green-400 border-green-500/50'
-                                    : 'text-green-400/50 hover:text-green-400 hover:bg-green-500/20'
-                                }`}
-                                onClick={async () => {
-                                  const { error } = await supabase
-                                    .from('tasks')
-                                    .update({ status: 'completed' })
-                                    .eq('id', task.id);
-                                  if (!error) {
-                                    setTasks(prev => prev.map(t => 
-                                      t.id === task.id ? { ...t, status: 'completed' } : t
-                                    ));
-                                  }
-                                }}
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                              </Button>
-                            </div>
-                            <div className="flex gap-1">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-gray-400 hover:text-purple-400"
-                                onClick={() => router.push(`/task/${task.id}`)}
-                              >
-                                View Details
-                              </Button>
-                              {user?.role !== 'viewer' && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300"
-                                    onClick={(e) => {
+                                <DropdownMenuSeparator className="bg-gray-700" />
+                                {teamMembers.map(member => (
+                                  <DropdownMenuItem
+                                    key={member.id}
+                                    className="text-white hover:bg-purple-900/20 hover:text-purple-400 focus:bg-purple-900/20 focus:text-purple-400"
+                                    onClick={async (e) => {
                                       e.stopPropagation()
-                                      startEditingTask(task)
+                                      try {
+                                        const { error } = await supabase
+                                          .from('tasks')
+                                          .update({ assigned_to: member.user_id })
+                                          .eq('id', task.id)
+                                        if (error) throw error
+                                        setTasks(prev => prev.map(t => 
+                                          t.id === task.id ? { ...t, assigned_to: member.user_id } : t
+                                        ))
+                                        toast.success(`Task assigned to ${member.user?.name}`)
+                                      } catch (error) {
+                                        console.error('Error assigning task:', error)
+                                        toast.error('Failed to assign task')
+                                      }
                                     }}
                                   >
-                                    <Pencil className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleDeleteTask(task.id)
-                                    }}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
+                                    {member.user?.name}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <Badge
+                              variant="outline"
+                              className={
+                                task.priority === 'high'
+                                  ? 'bg-purple-500/20 text-purple-400 border-purple-500/50'
+                                  : task.priority === 'medium'
+                                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                                  : 'bg-green-500/20 text-green-400 border-green-500/50'
+                              }
+                            >
+                              {task.priority}
+                            </Badge>
                           </div>
-                        )}
+                          {user?.role !== 'viewer' && (
+                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={`${
+                                    task.status === 'pending'
+                                      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                                      : 'text-yellow-400/50 hover:text-yellow-400 hover:bg-yellow-500/20'
+                                  }`}
+                                  onClick={async () => {
+                                    const { error } = await supabase
+                                      .from('tasks')
+                                      .update({ status: 'pending' })
+                                      .eq('id', task.id);
+                                    if (!error) {
+                                      setTasks(prev => prev.map(t => 
+                                        t.id === task.id ? { ...t, status: 'pending' } : t
+                                      ));
+                                    }
+                                  }}
+                                >
+                                  <Clock className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={`${
+                                    task.status === 'in_progress'
+                                      ? 'bg-blue-500/20 text-blue-400 border-blue-500/50'
+                                      : 'text-blue-400/50 hover:text-blue-400 hover:bg-blue-500/20'
+                                  }`}
+                                  onClick={async () => {
+                                    const { error } = await supabase
+                                      .from('tasks')
+                                      .update({ status: 'in_progress' })
+                                      .eq('id', task.id);
+                                    if (!error) {
+                                      setTasks(prev => prev.map(t => 
+                                        t.id === task.id ? { ...t, status: 'in_progress' } : t
+                                      ));
+                                    }
+                                  }}
+                                >
+                                  <RefreshCw className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={`${
+                                    task.status === 'completed'
+                                      ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                                      : 'text-green-400/50 hover:text-green-400 hover:bg-green-500/20'
+                                  }`}
+                                  onClick={async () => {
+                                    const { error } = await supabase
+                                      .from('tasks')
+                                      .update({ status: 'completed' })
+                                      .eq('id', task.id);
+                                    if (!error) {
+                                      setTasks(prev => prev.map(t => 
+                                        t.id === task.id ? { ...t, status: 'completed' } : t
+                                      ));
+                                    }
+                                  }}
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-gray-400 hover:text-purple-400"
+                                  onClick={() => router.push(`/task/${task.id}`)}
+                                >
+                                  View Details
+                                </Button>
+                                {user?.role !== 'viewer' && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        startEditingTask(task)
+                                      }}
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDeleteTask(task.id)
+                                      }}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
