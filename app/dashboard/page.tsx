@@ -53,7 +53,8 @@ import {
   MessageSquare,
   Wrench,
   Workflow,
-  User
+  User,
+  Cog
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -690,6 +691,33 @@ export default function PartnerDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
+        {/* Admin-only Organization Management Card */}
+        {user?.role === "admin" && (
+          <Card className="mb-8 border border-purple-500/20 bg-purple-500/5">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-purple-400" />
+                    <h3 className="text-lg font-semibold text-purple-400">Admin Controls</h3>
+                  </div>
+                  <p className="text-sm text-gray-400">
+                    Manage enterprise organizations and their access levels
+                  </p>
+                  <Button 
+                    className="mt-4 bg-purple-600 hover:bg-purple-700"
+                    onClick={() => router.push('/admin/organizations')}
+                  >
+                    Organization Management
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+                <Building2 className="h-16 w-16 text-purple-400/20" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Welcome Banner */}
         <div className="leonardo-card p-4 sm:p-6 mb-6 bg-gradient-to-r from-gray-800/50 to-gray-900/50">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
