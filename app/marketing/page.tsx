@@ -114,6 +114,12 @@ export default function MarketingPage() {
   const [selectedFormat, setSelectedFormat] = useState<PreviewFormat>(PREVIEW_FORMATS[0]);
   const [isDownloading, setIsDownloading] = useState(false)
 
+  // Check if user has access to marketing features
+  const hasMarketingAccess = user?.role === 'viewer' || 
+                           user?.role === 'admin' || 
+                           user?.role === 'partner' || 
+                           user?.role === 'investor'
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('showQRCodes', showQRCodes.toString());
@@ -137,6 +143,23 @@ export default function MarketingPage() {
     window.addEventListener('resize', updateScale)
     return () => window.removeEventListener('resize', updateScale)
   }, [selectedFormat])
+
+  if (!hasMarketingAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">Access Denied</h1>
+          <p className="text-gray-400">You need to upgrade your account to access marketing features.</p>
+          <Button 
+            className="mt-4 gradient-button"
+            onClick={() => router.push('/account-types')}
+          >
+            Upgrade Account
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   console.log('Projects:', projects) // Debug log
 

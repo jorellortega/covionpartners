@@ -220,8 +220,8 @@ export default function AdminDashboard() {
             <div className="bg-gray-800/30 rounded-lg p-4">
               <p className="text-sm text-gray-400">
                 Guest accounts will automatically expire after their set duration. You can manage existing guest accounts from the Users section.
-              </p>
-            </div>
+          </p>
+        </div>
           </CardContent>
         </Card>
 

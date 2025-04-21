@@ -936,12 +936,42 @@ export default function PartnerDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <Link href="/projects/new">
-                    <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
-                      <Plus className="w-4 h-4 mr-2" />
-                      New Project
-                    </Button>
-                  </Link>
+                  {user?.role === 'viewer' ? (
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
+                          <Plus className="w-4 h-4 mr-2" />
+                          New Project
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Upgrade Required</DialogTitle>
+                          <DialogDescription>
+                            You must upgrade your account to create and manage projects.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex justify-end gap-3">
+                          <DialogTrigger asChild>
+                            <Button variant="outline">Close</Button>
+                          </DialogTrigger>
+                          <Button 
+                            className="bg-[#7C3AED] hover:bg-[#6D28D9]"
+                            onClick={() => router.push('/account-types')}
+                          >
+                            Upgrade Account
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  ) : (
+                    <Link href="/projects/new">
+                      <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
+                        <Plus className="w-4 h-4 mr-2" />
+                        New Project
+                      </Button>
+                    </Link>
+                  )}
                   <Link href="/projects">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
                       <FolderKanban className="w-4 h-4 mr-2" />
@@ -968,36 +998,50 @@ export default function PartnerDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <Link href="/makedeal">
-                    <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600">
-                      <Handshake className="w-4 h-4 mr-2" />
-                      Make Deal
-                    </Button>
-                  </Link>
-                  <Link href="/deals">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
-                      <Globe className="w-4 h-4 mr-2" />
-                      Active Deals
-                    </Button>
-                  </Link>
-                  <Link href="/publicprojects">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
-                      <Globe className="w-4 h-4 mr-2" />
-                      Public Projects
-                    </Button>
-                  </Link>
-                  <Link href="/invest">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
-                      <DollarSign className="w-4 h-4 mr-2" />
-                      Invest
-                    </Button>
-                  </Link>
-                  <Link href="/portfolio">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
-                      <BarChart2 className="w-4 h-4 mr-2" />
-                      Portfolio
-                    </Button>
-                  </Link>
+                  {user?.role === 'viewer' ? (
+                    <div className="text-center py-4">
+                      <p className="text-gray-400 mb-4">Upgrade your account to access deal features</p>
+                      <Button 
+                        className="w-full gradient-button"
+                        onClick={() => router.push('/account-types')}
+                      >
+                        Upgrade Account
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Link href="/makedeal">
+                        <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600">
+                          <Handshake className="w-4 h-4 mr-2" />
+                          Make Deal
+                        </Button>
+                      </Link>
+                      <Link href="/deals">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                          <Globe className="w-4 h-4 mr-2" />
+                          Active Deals
+                        </Button>
+                      </Link>
+                      <Link href="/publicprojects">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                          <Globe className="w-4 h-4 mr-2" />
+                          Public Projects
+                        </Button>
+                      </Link>
+                      <Link href="/invest">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                          <DollarSign className="w-4 h-4 mr-2" />
+                          Invest
+                        </Button>
+                      </Link>
+                      <Link href="/portfolio">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                          <BarChart2 className="w-4 h-4 mr-2" />
+                          Portfolio
+                        </Button>
+                      </Link>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
@@ -1012,24 +1056,38 @@ export default function PartnerDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <Link href="/managepayments">
-                    <Button className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600">
-                      <Calculator className="w-4 h-4 mr-2" />
-                      Manage Payments
-                    </Button>
-                  </Link>
-                  <Link href="/payments">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <Wallet className="w-4 h-4 mr-2" />
-                      Withdraw Funds
-                    </Button>
-                  </Link>
-                  <Link href="/funding-settings">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <DollarSign className="w-4 h-4 mr-2" />
-                      Funding Settings
-                    </Button>
-                  </Link>
+                  {user?.role === 'viewer' ? (
+                    <div className="text-center py-4">
+                      <p className="text-gray-400 mb-4">Upgrade your account to access financial features</p>
+                      <Button 
+                        className="w-full gradient-button"
+                        onClick={() => router.push('/account-types')}
+                      >
+                        Upgrade Account
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Link href="/managepayments">
+                        <Button className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600">
+                          <Calculator className="w-4 h-4 mr-2" />
+                          Manage Payments
+                        </Button>
+                      </Link>
+                      <Link href="/payments">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                          <Wallet className="w-4 h-4 mr-2" />
+                          Withdraw Funds
+                        </Button>
+                      </Link>
+                      <Link href="/funding-settings">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                          <DollarSign className="w-4 h-4 mr-2" />
+                          Funding Settings
+                        </Button>
+                      </Link>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 

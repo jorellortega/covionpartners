@@ -254,17 +254,17 @@ export default function PublicProjectsPage() {
                   </div>
 
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
+                  <Button 
+                    variant="outline" 
                       className="flex-1 border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/makedeal?project=${project.id}`);
-                      }}
-                    >
-                      <Handshake className="w-4 h-4 mr-2" />
-                      Make Deal
-                    </Button>
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/makedeal?project=${project.id}`);
+                    }}
+                  >
+                    <Handshake className="w-4 h-4 mr-2" />
+                    Make Deal
+                  </Button>
                     <Button 
                       variant="outline" 
                       className="flex-1 border-gray-700 bg-gray-800/30 text-white hover:bg-green-900/20 hover:text-green-400"

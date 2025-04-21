@@ -20,6 +20,7 @@ import {
   Plus,
   PauseCircle,
   Search,
+  Building2,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -47,6 +48,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
+import Image from "next/image"
 
 export default function ProjectsPage() {
   const router = useRouter()
@@ -606,7 +608,23 @@ export default function ProjectsPage() {
               >
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{project.name}</CardTitle>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 relative rounded-lg overflow-hidden bg-gray-800/30">
+                        {project.media_files && project.media_files.length > 0 ? (
+                          <Image
+                            src={project.media_files[0].url}
+                            alt={project.name}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Building2 className="w-6 h-6 text-gray-400/50" />
+                          </div>
+                        )}
+                      </div>
+                      <CardTitle className="text-lg">{project.name}</CardTitle>
+                    </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-purple-900/20 hover:text-purple-400">
