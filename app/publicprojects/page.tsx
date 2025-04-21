@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -21,6 +22,7 @@ import {
   SortAsc,
   Home,
   Handshake,
+  Users,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useProjects } from "@/hooks/useProjects"
@@ -145,7 +147,12 @@ export default function PublicProjectsPage() {
             <Card
               key={project.id}
               className="leonardo-card border-gray-800 cursor-pointer hover:border-blue-500/50 transition-colors relative overflow-hidden"
-              onClick={() => router.push(`/publicprojects/${project.id}`)}
+              onClick={(e) => {
+                // Don't navigate if clicking on a button
+                if (!(e.target as HTMLElement).closest('button')) {
+                  router.push(`/publicprojects/${project.id}`);
+                }
+              }}
             >
               {/* Project Thumbnail */}
               <div className="w-full h-48 relative">
@@ -270,6 +277,14 @@ export default function PublicProjectsPage() {
                       Invest
                     </Button>
                   </div>
+                  <Link
+                    href={`/collaborations/${project.id}`}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Users className="w-4 h-4" />
+                    Collaborate
+                  </Link>
                 </div>
               </CardContent>
             </Card>
