@@ -39,14 +39,14 @@ export default function DealsPage() {
     <div className="min-h-screen bg-gray-950 text-white p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              onClick={() => router.back()}
-              className="text-gray-400 hover:text-white"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="ghost"
+            onClick={() => router.back()}
+            className="text-gray-400 hover:text-white"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
             </Button>
           </div>
           <Button
@@ -62,7 +62,7 @@ export default function DealsPage() {
           <CardHeader>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <CardTitle className="text-2xl">Deals</CardTitle>
+            <CardTitle className="text-2xl">Deals</CardTitle>
                 <CardDescription>Manage your business deals and partnerships</CardDescription>
               </div>
             </div>
@@ -179,15 +179,15 @@ export default function DealsPage() {
                   {searchQuery
                     ? "Try adjusting your search terms"
                     : "Create your first deal to get started"}
-                </p>
-                <Button
+              </p>
+              <Button
                   onClick={() => router.push('/makedeal')}
-                  className="gradient-button"
-                >
+                className="gradient-button"
+              >
                   <Plus className="w-4 h-4 mr-2" />
                   Make New Deal
-                </Button>
-              </div>
+              </Button>
+            </div>
             )}
           </CardContent>
         </Card>

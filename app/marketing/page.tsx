@@ -364,111 +364,116 @@ export default function MarketingPage() {
             <Card className="leonardo-card border-gray-800 overflow-hidden">
               <div className="flex justify-center p-4 bg-gray-900/50">
                 <div 
-                  className="relative preview-content bg-[#0F1117] overflow-hidden"
+                  className="preview-container relative"
                   style={{
                     width: `${selectedFormat.width}px`,
                     height: `${selectedFormat.height}px`,
                     maxWidth: '100%',
                     maxHeight: '80vh',
-                    transform: `scale(${previewScale})`,
-                    transformOrigin: 'top center',
                   }}
                 >
-                  {/* Content wrapper with absolute positioning to maintain aspect ratio */}
-                  <div className="absolute inset-0 flex flex-col">
-                    {/* Header section - adjusts size based on format */}
-                    <div 
-                      className="flex flex-col items-center justify-center"
-                      style={{
-                        padding: selectedFormat.id === 'story' ? '64px 24px' : '32px 24px',
-                        height: selectedFormat.id === 'story' ? '45%' : '50%'
-                      }}
-                    >
+                  <div 
+                    className="preview-content absolute inset-0 bg-[#0F1117] overflow-hidden origin-top"
+                    style={{
+                      transform: `scale(${previewScale})`,
+                    }}
+                  >
+                    {/* Content wrapper with absolute positioning to maintain aspect ratio */}
+                    <div className="absolute inset-0 flex flex-col">
+                      {/* Header section - adjusts size based on format */}
                       <div 
-                        className="flex items-center justify-center gap-3 mb-4"
+                        className="flex flex-col items-center justify-center"
                         style={{
-                          transform: `scale(${selectedFormat.id === 'story' ? 0.8 : 1})`
+                          padding: selectedFormat.id === 'story' ? '64px 24px' : '32px 24px',
+                          height: selectedFormat.id === 'story' ? '45%' : '50%'
                         }}
                       >
-                        <HandshakeIcon className="w-8 h-8 text-purple-400" />
-                        <h2 className="text-2xl font-bold text-purple-400">Covion Partners</h2>
+                        <div 
+                          className="flex items-center justify-center gap-3 mb-4"
+                          style={{
+                            transform: `scale(${selectedFormat.id === 'story' ? 0.8 : 1})`
+                          }}
+                        >
+                          <HandshakeIcon className="w-8 h-8 text-purple-400" />
+                          <h2 className="text-2xl font-bold text-purple-400">Covion Partners</h2>
+                        </div>
+                        <h3 
+                          className="font-bold text-white text-center mb-4 mx-auto leading-tight px-4"
+                          style={{
+                            fontSize: selectedFormat.id === 'story' ? '2rem' : 
+                                     selectedFormat.id === 'landscape' ? '3rem' : '2.5rem',
+                            maxWidth: selectedFormat.id === 'story' ? '90%' : '80%'
+                          }}
+                        >
+                          {promoTitle}
+                        </h3>
+                        <p 
+                          className="text-gray-300 text-center mx-auto leading-relaxed px-4"
+                          style={{
+                            fontSize: selectedFormat.id === 'story' ? '1rem' : 
+                                     selectedFormat.id === 'landscape' ? '1.25rem' : '1.125rem',
+                            maxWidth: selectedFormat.id === 'story' ? '95%' : '85%',
+                            display: '-webkit-box',
+                            WebkitLineClamp: selectedFormat.id === 'story' ? 4 : 3,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          {promoDescription}
+                        </p>
                       </div>
-                      <h3 
-                        className="font-bold text-white text-center mb-4 mx-auto leading-tight px-4"
-                        style={{
-                          fontSize: selectedFormat.id === 'story' ? '2rem' : 
-                                   selectedFormat.id === 'landscape' ? '3rem' : '2.5rem',
-                          maxWidth: selectedFormat.id === 'story' ? '90%' : '80%'
-                        }}
-                      >
-                        {promoTitle}
-                      </h3>
-                      <p 
-                        className="text-gray-300 text-center mx-auto leading-relaxed px-4"
-                        style={{
-                          fontSize: selectedFormat.id === 'story' ? '1rem' : 
-                                   selectedFormat.id === 'landscape' ? '1.25rem' : '1.125rem',
-                          maxWidth: selectedFormat.id === 'story' ? '95%' : '85%',
-                          display: '-webkit-box',
-                          WebkitLineClamp: selectedFormat.id === 'story' ? 4 : 3,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden'
-                        }}
-                      >
-                        {promoDescription}
-                      </p>
-                    </div>
 
-                    {/* Media section - takes remaining height */}
-                    <div className="relative flex-1">
-                      {selectedProjectData?.media_files && selectedProjectData.media_files.length > 0 ? (
-                        <div className="relative w-full h-full">
-                          <Image
-                            src={selectedProjectData.media_files[currentImageIndex].url}
-                            alt={selectedProjectData.media_files[currentImageIndex].name}
-                            fill
-                            className="object-cover"
-                            sizes={`${selectedFormat.width}px`}
-                          />
-                          {selectedProjectData.media_files.length > 1 && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-gray-900/50 border-gray-700 hover:bg-purple-900/20 hover:text-purple-400 z-10"
-                                onClick={handlePrevImage}
-                              >
-                                <ChevronLeft className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-900/50 border-gray-700 hover:bg-purple-900/20 hover:text-purple-400 z-10"
-                                onClick={handleNextImage}
-                              >
-                                <ChevronRightIcon className="h-4 w-4" />
-                              </Button>
-                              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
-                                {selectedProjectData.media_files.map((_, index) => (
-                                  <button
-                                    key={index}
-                                    className={`w-2 h-2 rounded-full ${
-                                      index === currentImageIndex
-                                        ? "bg-purple-400"
-                                        : "bg-gray-600"
-                                    }`}
-                                    onClick={() => setCurrentImageIndex(index)}
-                                  />
-                                ))}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-r from-purple-900 to-pink-900 flex items-center justify-center">
-                          <span className="text-xl text-gray-400">No media available</span>
-                        </div>
-                      )}
+                      {/* Media section - takes remaining height */}
+                      <div className="relative flex-1">
+                        {selectedProjectData?.media_files && selectedProjectData.media_files.length > 0 ? (
+                          <div className="relative w-full h-full">
+                            <Image
+                              src={selectedProjectData.media_files[currentImageIndex].url}
+                              alt={selectedProjectData.media_files[currentImageIndex].name}
+                              fill
+                              className="object-cover"
+                              sizes={`${selectedFormat.width}px`}
+                            />
+                            {selectedProjectData.media_files.length > 1 && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-gray-900/50 border-gray-700 hover:bg-purple-900/20 hover:text-purple-400 z-10"
+                                  onClick={handlePrevImage}
+                                >
+                                  <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-900/50 border-gray-700 hover:bg-purple-900/20 hover:text-purple-400 z-10"
+                                  onClick={handleNextImage}
+                                >
+                                  <ChevronRightIcon className="h-4 w-4" />
+                                </Button>
+                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+                                  {selectedProjectData.media_files.map((_, index) => (
+                                    <button
+                                      key={index}
+                                      className={`w-2 h-2 rounded-full ${
+                                        index === currentImageIndex
+                                          ? "bg-purple-400"
+                                          : "bg-gray-600"
+                                      }`}
+                                      onClick={() => setCurrentImageIndex(index)}
+                                    />
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-r from-purple-900 to-pink-900 flex items-center justify-center">
+                            <span className="text-xl text-gray-400">No media available</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -798,7 +798,10 @@ export default function PartnerDashboard() {
 
         {/* Stats Overview */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-6">
-          <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+          <Card 
+            className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:border-blue-500/50 transition-colors"
+            onClick={() => router.push('/projects')}
+          >
             <CardContent className="p-3 sm:pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -1029,41 +1032,37 @@ export default function PartnerDashboard() {
           {/* Right Sidebar */}
           <div className="col-span-12 lg:col-span-4 space-y-4">
             {/* Quick Actions */}
-            <div className="relative">
-              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-800/50 to-gray-900/50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-xl">Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <TooltipProvider delayDuration={100}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon" className="hover:bg-gray-800/50">
-                            <Bell className="h-5 w-5 text-yellow-500" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="z-50">
-                          <p>Notifications</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon" className="hover:bg-gray-800/50">
-                            <MessageSquare className="h-5 w-5 text-yellow-500" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="z-50">
-                          <p>Messages</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-800/50 to-gray-900/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button 
+                  variant="outline" 
+                  className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                  onClick={() => router.push('/updates')}
+                >
+                  <Bell className="w-4 h-4 mr-2" />
+                  Updates Center
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                  onClick={() => router.push('/marketing')}
+                >
+                  <Megaphone className="w-4 h-4 mr-2" />
+                  Marketing
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                  onClick={() => router.push('/settings')}
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </Button>
+              </CardContent>
+            </Card>
 
             {/* Recent Activity */}
             <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-800/50 to-gray-900/50">
