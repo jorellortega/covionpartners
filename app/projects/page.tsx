@@ -509,61 +509,60 @@ export default function ProjectsPage() {
         </div>
 
         {/* Project Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-           {/* Stats cards remain here */}
-             <div className="leonardo-card p-4 flex items-center cursor-pointer hover:border-blue-500/50 transition-colors" onClick={() => setStatusFilter(null)}>
-              <div className="p-3 rounded-full bg-blue-500/20 mr-4">
-                <Briefcase className="w-6 h-6 text-blue-400" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-6 mb-8">
+             <div className="leonardo-card p-3 sm:p-4 flex items-center cursor-pointer hover:border-blue-500/50 transition-colors" onClick={() => setStatusFilter(null)}>
+              <div className="p-2 sm:p-3 rounded-full bg-blue-500/20 mr-2 sm:mr-4">
+                <Briefcase className="w-4 h-4 sm:w-6 sm:h-6 text-blue-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-400">Total Projects</p>
-                <h3 className="text-2xl font-bold text-white">{projects.length}</h3>
+                <p className="text-xs sm:text-sm text-gray-400">Total Projects</p>
+                <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{projects.length}</h3>
               </div>
             </div>
 
-            <div className="leonardo-card p-4 flex items-center cursor-pointer hover:border-green-500/50 transition-colors" onClick={() => setStatusFilter(statusFilter === "active" ? null : "active")}>
-              <div className="p-3 rounded-full bg-green-500/20 mr-4">
-                <Clock className="w-6 h-6 text-green-400" />
+            <div className="leonardo-card p-3 sm:p-4 flex items-center cursor-pointer hover:border-green-500/50 transition-colors" onClick={() => setStatusFilter(statusFilter === "active" ? null : "active")}>
+              <div className="p-2 sm:p-3 rounded-full bg-green-500/20 mr-2 sm:mr-4">
+                <Clock className="w-4 h-4 sm:w-6 sm:h-6 text-green-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-400">Active Projects</p>
-                <h3 className="text-2xl font-bold text-white">
+                <p className="text-xs sm:text-sm text-gray-400">Active Projects</p>
+                <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">
                   {projects.filter((p) => p.status.toLowerCase() === "active").length}
                 </h3>
               </div>
             </div>
 
-            <div className="leonardo-card p-4 flex items-center cursor-pointer hover:border-yellow-500/50 transition-colors" onClick={() => setStatusFilter(statusFilter === "pending" ? null : "pending")}>
-              <div className="p-3 rounded-full bg-yellow-500/20 mr-4">
-                <AlertCircle className="w-6 h-6 text-yellow-400" />
+            <div className="leonardo-card p-3 sm:p-4 flex items-center cursor-pointer hover:border-yellow-500/50 transition-colors" onClick={() => setStatusFilter(statusFilter === "pending" ? null : "pending")}>
+              <div className="p-2 sm:p-3 rounded-full bg-yellow-500/20 mr-2 sm:mr-4">
+                <AlertCircle className="w-4 h-4 sm:w-6 sm:h-6 text-yellow-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-400">Pending</p>
-                <h3 className="text-2xl font-bold text-white">
+                <p className="text-xs sm:text-sm text-gray-400">Pending</p>
+                <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">
                   {projects.filter((p) => p.status.toLowerCase() === "pending").length}
                 </h3>
               </div>
             </div>
 
-            <div className="leonardo-card p-4 flex items-center cursor-pointer hover:border-red-500/50 transition-colors" onClick={() => setStatusFilter(statusFilter === "on hold" ? null : "on hold")}>
-              <div className="p-3 rounded-full bg-red-500/20 mr-4">
-                <PauseCircle className="w-6 h-6 text-red-400" />
+            <div className="leonardo-card p-3 sm:p-4 flex items-center cursor-pointer hover:border-red-500/50 transition-colors" onClick={() => setStatusFilter(statusFilter === "on hold" ? null : "on hold")}>
+              <div className="p-2 sm:p-3 rounded-full bg-red-500/20 mr-2 sm:mr-4">
+                <PauseCircle className="w-4 h-4 sm:w-6 sm:h-6 text-red-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-400">On Hold</p>
-                <h3 className="text-2xl font-bold text-white">
+                <p className="text-xs sm:text-sm text-gray-400">On Hold</p>
+                <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">
                   {projects.filter((p) => p.status.toLowerCase() === "on hold").length}
                 </h3>
               </div>
             </div>
 
-            <div className="leonardo-card p-4 flex items-center cursor-pointer hover:border-purple-500/50 transition-colors" onClick={() => setStatusFilter(statusFilter === "completed" ? null : "completed")}>
-              <div className="p-3 rounded-full bg-purple-500/20 mr-4">
-                <CheckCircle className="w-6 h-6 text-purple-400" />
+            <div className="leonardo-card p-3 sm:p-4 flex items-center cursor-pointer hover:border-purple-500/50 transition-colors" onClick={() => setStatusFilter(statusFilter === "completed" ? null : "completed")}>
+              <div className="p-2 sm:p-3 rounded-full bg-purple-500/20 mr-2 sm:mr-4">
+                <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6 text-purple-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-400">Completed</p>
-                <h3 className="text-2xl font-bold text-white">
+                <p className="text-xs sm:text-sm text-gray-400">Completed</p>
+                <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">
                   {projects.filter((p) => p.status.toLowerCase() === "completed").length}
                 </h3>
               </div>
