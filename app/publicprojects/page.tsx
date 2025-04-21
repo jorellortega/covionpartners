@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -143,9 +144,25 @@ export default function PublicProjectsPage() {
           {filteredProjects.map((project) => (
             <Card
               key={project.id}
-              className="leonardo-card border-gray-800 cursor-pointer hover:border-blue-500/50 transition-colors relative"
+              className="leonardo-card border-gray-800 cursor-pointer hover:border-blue-500/50 transition-colors relative overflow-hidden"
               onClick={() => router.push(`/publicprojects/${project.id}`)}
             >
+              {/* Project Thumbnail */}
+              <div className="w-full h-48 relative">
+                {project.media_files && project.media_files.length > 0 ? (
+                  <Image
+                    src={project.media_files[0].url}
+                    alt={project.name}
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-800/50 flex items-center justify-center">
+                    <Building2 className="w-16 h-16 text-purple-400/50" />
+                  </div>
+                )}
+              </div>
+              
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-lg">{project.name}</CardTitle>
@@ -164,7 +181,7 @@ export default function PublicProjectsPage() {
                         <span>Investment</span>
                       </div>
                       <div className="text-white font-medium">
-                        ${project.minInvestment?.toLocaleString() || 'N/A'}
+                        ${project.funding_goal?.toLocaleString() || 'N/A'}
                       </div>
                     </div>
                     <div className="p-3 bg-gray-800/30 rounded-lg">
@@ -229,17 +246,30 @@ export default function PublicProjectsPage() {
                     </div>
                   </div>
 
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/makedeal?project=${project.id}`);
-                    }}
-                  >
-                    <Handshake className="w-4 h-4 mr-2" />
-                    Make Deal
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/makedeal?project=${project.id}`);
+                      }}
+                    >
+                      <Handshake className="w-4 h-4 mr-2" />
+                      Make Deal
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 border-gray-700 bg-gray-800/30 text-white hover:bg-green-900/20 hover:text-green-400"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/invest?project=${project.id}`);
+                      }}
+                    >
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      Invest
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
