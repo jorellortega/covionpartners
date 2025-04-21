@@ -860,6 +860,40 @@ export default function PartnerDashboard() {
           {/* Action Hubs - Left Column */}
           <div className="col-span-12 lg:col-span-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Join a Project Card */}
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/5 to-pink-500/5 hover:from-purple-500/10 hover:to-pink-500/10 transition-colors">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-xl">
+                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center mr-3">
+                      <UserPlus className="w-5 h-5 text-purple-400" />
+                    </div>
+                    Join a Project
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-400 mb-4">
+                    Have a project key? Enter it below to request access and join the team.
+                  </p>
+                  <div className="space-y-3">
+                    <Input
+                      placeholder="Enter project key (e.g., COV-ABC12)"
+                      value={projectKey}
+                      onChange={(e) => setProjectKey(e.target.value)}
+                    />
+                    {joinError && (
+                      <div className="text-sm text-red-500">{joinError}</div>
+                    )}
+                    <Button 
+                      className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600" 
+                      onClick={handleJoinProject}
+                      disabled={isJoining || !projectKey.trim()}
+                    >
+                      {isJoining ? 'Requesting Access...' : 'Request to Join'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Project Hub */}
               <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/5 to-purple-500/5 hover:from-blue-500/10 hover:to-purple-500/10 transition-colors">
                 <CardHeader className="pb-3">
