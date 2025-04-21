@@ -52,7 +52,8 @@ import {
   Megaphone,
   MessageSquare,
   Wrench,
-  Workflow
+  Workflow,
+  User
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -689,61 +690,367 @@ export default function PartnerDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
-        <div className="leonardo-card p-4 sm:p-6 mb-4 sm:mb-6">
+        {/* Welcome Banner */}
+        <div className="leonardo-card p-4 sm:p-6 mb-6 bg-gradient-to-r from-gray-800/50 to-gray-900/50">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <h2 className="text-xl font-bold">Welcome, {user?.name || user?.email}!</h2>
-            <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="text-gray-400 hover:text-yellow-400 hover:bg-transparent relative"
-                onClick={() => router.push('/updates')}
-              >
-                <Bell className="w-5 h-5" />
-                {unreadMessages > 0 && (
-                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center text-white">
-                    {unreadMessages}
-                  </span>
-                )}
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="text-gray-400 hover:text-purple-400 hover:bg-transparent relative"
-                onClick={() => router.push('/messages')}
-              >
-                <MessageSquare className="w-5 h-5" />
-                {unreadMessages > 0 && (
-                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center text-white">
-                    {unreadMessages}
-                  </span>
-                )}
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="text-gray-400 hover:text-yellow-400 hover:bg-transparent"
-                onClick={() => router.push('/projects')}
-              >
-                <Briefcase className="w-5 h-5" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="text-gray-400 hover:text-green-400 hover:bg-transparent"
-                onClick={() => router.push('/payments')}
-              >
-                <DollarSign className="w-5 h-5" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="text-gray-400 hover:text-blue-400 hover:bg-transparent"
-                onClick={() => router.push('/workflow')}
-              >
-                <Workflow className="w-5 h-5" />
-              </Button>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                <User className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Welcome back, {user?.name || user?.email}!</h2>
+                <p className="text-sm text-gray-400">Here's what's happening in your workspace</p>
+              </div>
             </div>
+            <div className="flex items-center gap-2 sm:gap-4">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="relative hover:bg-yellow-500/20 hover:text-yellow-400"
+                      onClick={() => router.push('/updates')}
+                    >
+                      <Bell className="w-5 h-5" />
+                      {unreadMessages > 0 && (
+                        <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center text-white">
+                          {unreadMessages}
+                        </span>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Updates</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="relative hover:bg-purple-500/20 hover:text-purple-400"
+                      onClick={() => router.push('/messages')}
+                    >
+                      <MessageSquare className="w-5 h-5" />
+                      {unreadMessages > 0 && (
+                        <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center text-white">
+                          {unreadMessages}
+                        </span>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Messages</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="hover:bg-blue-500/20 hover:text-blue-400"
+                      onClick={() => router.push('/projects')}
+                    >
+                      <Briefcase className="w-5 h-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Projects</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="hover:bg-green-500/20 hover:text-green-400"
+                      onClick={() => router.push('/payments')}
+                    >
+                      <DollarSign className="w-5 h-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Payments</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="hover:bg-purple-500/20 hover:text-purple-400"
+                      onClick={() => router.push('/workflow')}
+                    >
+                      <Workflow className="w-5 h-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Workflow</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Active Projects</p>
+                  <h3 className="text-2xl font-bold mt-1">{myProjects.length}</h3>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <Briefcase className="w-5 h-5 text-blue-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Active Deals</p>
+                  <h3 className="text-2xl font-bold mt-1">{deals.length}</h3>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <Handshake className="w-5 h-5 text-green-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Unread Messages</p>
+                  <h3 className="text-2xl font-bold mt-1">{unreadMessages}</h3>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                  <MessageSquare className="w-5 h-5 text-purple-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Updates</p>
+                  <h3 className="text-2xl font-bold mt-1">{updates.length}</h3>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                  <Bell className="w-5 h-5 text-yellow-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-12 gap-6">
+          {/* Action Hubs - Left Column */}
+          <div className="col-span-12 lg:col-span-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Project Hub */}
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/5 to-purple-500/5 hover:from-blue-500/10 hover:to-purple-500/10 transition-colors">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-xl">
+                    <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mr-3">
+                      <Briefcase className="w-5 h-5 text-blue-400" />
+                    </div>
+                    Project Hub
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Link href="/projects/new">
+                    <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Project
+                    </Button>
+                  </Link>
+                  <Link href="/projects">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
+                      <FolderKanban className="w-4 h-4 mr-2" />
+                      View Projects
+                    </Button>
+                  </Link>
+                  <Link href="/team">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
+                      <Users className="w-4 h-4 mr-2" />
+                      Team Management
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* Deal Hub */}
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/5 to-emerald-500/5 hover:from-green-500/10 hover:to-emerald-500/10 transition-colors">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-xl">
+                    <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center mr-3">
+                      <Handshake className="w-5 h-5 text-green-400" />
+                    </div>
+                    Deal Hub
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Link href="/makedeal">
+                    <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600">
+                      <Handshake className="w-4 h-4 mr-2" />
+                      Make Deal
+                    </Button>
+                  </Link>
+                  <Link href="/deals">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Active Deals
+                    </Button>
+                  </Link>
+                  <Link href="/publicprojects">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Public Projects
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* Financial Hub */}
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/5 to-orange-500/5 hover:from-yellow-500/10 hover:to-orange-500/10 transition-colors">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-xl">
+                    <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center mr-3">
+                      <DollarSign className="w-5 h-5 text-yellow-400" />
+                    </div>
+                    Financial Hub
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Link href="/managepayments">
+                    <Button className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600">
+                      <Calculator className="w-4 h-4 mr-2" />
+                      Manage Payments
+                    </Button>
+                  </Link>
+                  <Link href="/payments">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <Wallet className="w-4 h-4 mr-2" />
+                      Withdraw Funds
+                    </Button>
+                  </Link>
+                  <Link href="/funding-settings">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      Funding Settings
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* Communication Hub */}
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/5 to-pink-500/5 hover:from-purple-500/10 hover:to-pink-500/10 transition-colors">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-xl">
+                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center mr-3">
+                      <MessageSquare className="w-5 h-5 text-purple-400" />
+                    </div>
+                    Communication Hub
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Link href="/updates">
+                    <Button className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                      <Bell className="w-4 h-4 mr-2" />
+                      Updates Center
+                    </Button>
+                  </Link>
+                  <Link href="/marketing">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
+                      <Megaphone className="w-4 h-4 mr-2" />
+                      Marketing
+                    </Button>
+                  </Link>
+                  {user?.role === 'admin' && (
+                    <Link href="/admin/marketing">
+                      <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
+                        <Megaphone className="w-4 h-4 mr-2" />
+                        Admin Marketing
+                      </Button>
+                    </Link>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Right Sidebar */}
+          <div className="col-span-12 lg:col-span-4 space-y-4">
+            {/* Quick Actions */}
+            <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-800/50 to-gray-900/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-xl">
+                  <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center mr-3">
+                    <Zap className="w-5 h-5 text-gray-400" />
+                  </div>
+                  Quick Actions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Link href="/schedule">
+                  <Button variant="outline" className="w-full border-gray-700 hover:bg-gray-800 hover:text-white group">
+                    <Calendar className="w-4 h-4 mr-2 group-hover:text-blue-400" />
+                    Schedule & Tasks
+                  </Button>
+                </Link>
+                <Link href="/settings">
+                  <Button variant="outline" className="w-full border-gray-700 hover:bg-gray-800 hover:text-white group">
+                    <Settings className="w-4 h-4 mr-2 group-hover:text-purple-400" />
+                    Settings
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            {/* Recent Activity */}
+            <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-800/50 to-gray-900/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-xl">
+                  <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center mr-3">
+                    <Clock className="w-5 h-5 text-gray-400" />
+                  </div>
+                  Recent Activity
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {recentMessages.slice(0, 3).map((message, index) => (
+                    <div 
+                      key={index} 
+                      className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-800/50 cursor-pointer transition-colors"
+                      onClick={() => router.push(`/messages/${message.id}`)}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                        <MessageSquare className="w-4 h-4 text-purple-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{message.subject}</p>
+                        <p className="text-xs text-gray-400">{new Date(message.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-gray-400" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
@@ -886,932 +1193,6 @@ export default function PartnerDashboard() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Quick Actions */}
-        <Card className="leonardo-card border-gray-800">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Briefcase className="w-5 h-5 mr-2" />
-              Quick Actions
-            </CardTitle>
-            <CardDescription className="text-gray-400">
-              Quick access to common actions
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Link href="/projects" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <FolderKanban className="w-4 h-4 mr-2" />
-                View All Projects
-              </Button>
-            </Link>
-            <Link href="/create-project" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create New Project
-              </Button>
-            </Link>
-            <Link href="/deals" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <Handshake className="w-4 h-4 mr-2" />
-                Deals
-              </Button>
-            </Link>
-            <Link href="/publicprojects" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <Globe className="w-4 h-4 mr-2" />
-                Public Projects
-              </Button>
-            </Link>
-            <Link href="/managepayments" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <Calculator className="w-4 h-4 mr-2" />
-                Manage Payments
-              </Button>
-            </Link>
-            <Link href="/updates" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <Bell className="w-4 h-4 mr-2" />
-                Updates
-              </Button>
-            </Link>
-            <Link href="/payments" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                Withdraw Funds
-              </Button>
-            </Link>
-            <Link href="/schedule" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <Calendar className="w-4 h-4 mr-2" />
-                Schedule & Tasks
-              </Button>
-            </Link>
-            <Link href="/makedeal" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <Handshake className="w-4 h-4 mr-2" />
-                Make Deal
-              </Button>
-            </Link>
-            <Link href="/marketing" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <Megaphone className="w-4 h-4 mr-2" />
-                Marketing
-              </Button>
-            </Link>
-            <Link href="/settings" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </Button>
-            </Link>
-            <Link href="/funding-settings" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <DollarSign className="w-4 h-4 mr-2" />
-                Funding Settings
-              </Button>
-            </Link>
-            <Link href="/team" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Manage Team
-              </Button>
-            </Link>
-            {user?.role === 'admin' && (
-              <div className="flex items-center space-x-4">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="hover:bg-rose-900/20 hover:text-rose-400"
-                  onClick={() => router.push('/admin/marketing')}
-                >
-                  <Megaphone className="mr-2 h-4 w-4" />
-                  <span>Marketing</span>
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="space-y-8">
-          {/* Updates Section */}
-          <Card className="leonardo-card border-gray-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Bell className="w-5 h-5 mr-2 text-yellow-400" />
-                  Updates
-                </div>
-                <Link href="/updates">
-                  <Button variant="ghost" className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-900/20">
-                    View All
-                  </Button>
-                </Link>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {updatesLoading ? (
-                  <div className="text-center py-4">
-                    <div className="w-6 h-6 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  </div>
-                ) : updates.length > 0 ? (
-                  updates.slice(0, 3).map((update: Update) => (
-                    <div 
-                      key={update.id} 
-                      className="p-3 bg-gray-800/30 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-800/50 transition-colors"
-                      onClick={() => router.push(`/updates/${update.id}`)}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
-                          <span className="text-white font-medium">
-                            {update.created_by === user?.id ? 
-                              (user?.name?.split(' ').map((n: string) => n[0]).join('') || 'U') : 
-                              (update.user_name?.split(' ').map((n: string) => n[0]).join('') || 'U')}
-                          </span>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex justify-between items-center">
-                            <p className="text-sm font-medium">
-                              {update.created_by === user?.id ? user?.name || 'You' : update.user_name || 'Unknown User'}
-                            </p>
-                            <span className="text-xs text-gray-400">
-                              {new Date(update.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-400 line-clamp-1">{update.description}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-4 text-gray-400">
-                    No updates yet
-                  </div>
-                )}
-                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                  <DialogTrigger asChild>
-                    <Button className="w-full gradient-button">
-                      <Plus className="w-4 h-4 mr-2" />
-                      New Update
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Create New Update</DialogTitle>
-                      <DialogDescription>
-                        Create a new update to share with your team.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div>
-                        <label className="text-sm font-medium">Title</label>
-                        <Input
-                          value={newUpdate.title}
-                          onChange={(e) => setNewUpdate(prev => ({ ...prev, title: e.target.value }))}
-                          placeholder="Enter a descriptive title for your update"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Category</label>
-                        <select
-                          value={newUpdate.category}
-                          onChange={(e) => setNewUpdate(prev => ({ ...prev, category: e.target.value }))}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <option value="">Select a category</option>
-                          <option value="project">Project Update</option>
-                          <option value="general">General Update</option>
-                          <option value="announcement">Announcement</option>
-                        </select>
-                      </div>
-                      {newUpdate.category === 'project' && (
-                        <div>
-                          <label className="text-sm font-medium">Select Project</label>
-                          <select
-                            value={newUpdate.project_id}
-                            onChange={(e) => {
-                              const project = availableProjects.find(p => p.id === e.target.value)
-                              setNewUpdate(prev => ({
-                                ...prev,
-                                project_id: e.target.value,
-                                project_name: project ? project.name : ''
-                              }))
-                            }}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <option value="">Select a project</option>
-                            {availableProjects.map((project) => (
-                              <option key={project.id} value={project.id}>
-                                {project.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                      <div>
-                        <label className="text-sm font-medium">Brief Description</label>
-                        <Input
-                          value={newUpdate.description}
-                          onChange={(e) => setNewUpdate(prev => ({ ...prev, description: e.target.value }))}
-                          placeholder="Enter a short summary of the update"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Full Content</label>
-                        <textarea
-                          value={newUpdate.full_content}
-                          onChange={(e) => setNewUpdate(prev => ({ ...prev, full_content: e.target.value }))}
-                          placeholder="Enter the complete details of your update"
-                          className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleCreateUpdate}>
-                        Create Update
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Messages Section */}
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-white">Messages</h2>
-              <Button
-                onClick={() => router.push('/messages')}
-                variant="ghost"
-                className="text-purple-400 hover:text-purple-300"
-              >
-                View All
-              </Button>
-            </div>
-
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <MessageSquare className="w-5 h-5 mr-2 text-purple-400" />
-                  Messages
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {loadingMessages ? (
-                    <div className="flex justify-center py-4">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-                    </div>
-                  ) : recentMessages.length > 0 ? (
-                    <>
-                      <div className="grid gap-4">
-                        {recentMessages.map((message) => (
-                          <Card 
-                            key={message.id} 
-                            className="bg-gray-900/50 border-gray-800 cursor-pointer hover:bg-gray-900"
-                            onClick={() => router.push(`/messages/${message.id}`)}
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <h3 className="text-sm font-medium text-white truncate">
-                                      {message.subject}
-                                    </h3>
-                                    {!message.read && message.receiver_id === user?.id && (
-                                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">
-                                        New
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <p className="text-gray-400 text-xs line-clamp-1">
-                                    {message.content}
-                                  </p>
-                                  <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                                    <span>From: {message.sender_id === user?.id ? 'You' : message.sender?.name || 'Unknown'}</span>
-                                    <span>•</span>
-                                    <span>{new Date(message.created_at).toLocaleDateString()}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                      <div className="flex justify-center pt-2">
-                        <Button
-                          onClick={() => router.push('/messages/new')}
-                          className="w-full gradient-button"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          New Message
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-6">
-                      <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-300 mb-2">No messages yet</h3>
-                      <p className="text-gray-500 mb-4">Start a conversation with your team</p>
-                      <Button
-                        onClick={() => router.push('/messages/new')}
-                        variant="outline"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        New Message
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* My Projects */}
-          {user?.role !== 'viewer' && (
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FolderKanban className="w-5 h-5 mr-2" />
-                    My Projects
-                  </div>
-                  <Button
-                    variant="ghost"
-                    className="text-blue-400 hover:text-blue-300"
-                    onClick={() => router.push('/projects')}
-                  >
-                    View All
-                  </Button>
-                </CardTitle>
-                <CardDescription>Projects you own or are a member of</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {/* Projects list */}
-                <div className="space-y-4">
-                  {myProjects.slice(0, 5).map((project) => (
-                    <div key={project.id} className="p-4 bg-gray-800/30 rounded-lg">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
-                        <div className="space-y-2 mb-4 sm:mb-0">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-lg font-medium text-white">{project.name}</h3>
-                            <StatusBadge status={project.status} />
-                          </div>
-                          <div className="flex items-center text-gray-400">
-                            <Briefcase className="w-4 h-4 mr-2" />
-                            <span>Your Role: {project.role.name}</span>
-                          </div>
-                          <p className="text-sm text-gray-400 line-clamp-2">
-                            {project.description || 'No description available'}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0 mt-4 sm:mt-0 sm:ml-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs border-gray-700 w-full sm:w-auto"
-                            onClick={() => router.push(`/projects/${project.id}/team`)}
-                          >
-                            <Users className="w-3 h-3 mr-1" />
-                            View Team
-                          </Button>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="text-xs w-full sm:w-auto"
-                            onClick={() => router.push(`/projects/${project.id}`)}
-                          >
-                            <FileText className="w-3 h-3 mr-1" />
-                            View Details
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {myProjects.length > 5 && (
-                    <div className="flex justify-center pt-4">
-                      <Button
-                        variant="outline"
-                        className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
-                        onClick={() => router.push('/projects')}
-                      >
-                        View All Projects
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    </div>
-                  )}
-                  {myProjects.length === 0 && (
-                    <div className="text-center py-6">
-                      <Briefcase className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-300 mb-2">No projects yet</h3>
-                      <p className="text-gray-500 mb-4">Create or join a project to get started</p>
-                      <Button
-                        variant="outline"
-                        className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
-                        onClick={() => router.push('/projects/new')}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create New Project
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Withdraw Card */}
-          {user?.role === 'admin' && (
-            <DisabledCard 
-              userRole={user.role}
-              title="Withdraw"
-              icon={<DollarSign className="w-5 h-5 mr-2" />}
-            >
-              <p className="text-sm text-white/60 mb-4">
-                Manage your funds and transactions securely.
-              </p>
-            </DisabledCard>
-          )}
-
-          {/* Quick Action: Withdraw Funds Button */}
-          {user?.role === 'admin' && (
-            <DisabledButton 
-              userRole={user.role}
-              icon={<DollarSign className="w-4 h-4 mr-2" />}
-            >
-              Withdraw Funds
-            </DisabledButton>
-          )}
-
-          {/* Quick Action: Manage Payments Button */}
-          {user?.role === 'admin' && (
-            <DisabledButton 
-              userRole={user.role}
-              icon={<CreditCard className="w-4 h-4 mr-2" />}
-            >
-              Manage Payments
-            </DisabledButton>
-          )}
-
-          {/* Make a Deal Button */}
-          {user?.role === 'admin' && (
-            <Button 
-              className="w-full gradient-button"
-              onClick={() => router.push('/makedeal')}
-            >
-              <Handshake className="w-4 h-4 mr-2" />
-              Make a Deal
-            </Button>
-          )}
-
-          {/* Schedule & Tasks */}
-          {user?.role === 'admin' && (
-            <DisabledCard 
-              userRole={user.role}
-              title="Schedule & Tasks"
-              icon={<Calendar className="w-5 h-5 mr-2" />}
-            >
-              <p className="text-sm text-white/60 mb-4">
-                Plan and manage your tasks efficiently.
-              </p>
-            </DisabledCard>
-          )}
-
-          {/* Partner Type & Ownership Card - Disabled */}
-          {user.role === 'admin' && (
-            <DisabledCard 
-              userRole={user.role}
-              title="Partnership Details" 
-              icon={<Building2 className="w-5 h-5 mr-2 text-purple-400" />}
-            >
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <div className="text-center">
-                  <div className="text-lg font-medium text-gray-400">Current Role</div>
-                  <div className="text-2xl font-bold text-white">Managing Partner</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-medium text-gray-400">Ownership Stake</div>
-                  <div className="text-4xl font-bold text-blue-400">0%</div>
-                </div>
-              </div>
-            </DisabledCard>
-          )}
-
-          {/* Quick Stats - Disabled */}
-          {user.role === 'admin' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {[
-                {
-                  title: "Active Projects",
-                  value: "0",
-                  change: "+0 this month",
-                  icon: <Building2 className="w-6 h-6 text-blue-400" />
-                },
-                {
-                  title: "Total Revenue",
-                  value: "$0.00",
-                  change: "+0% from last month",
-                  icon: <DollarSign className="w-6 h-6 text-green-400" />
-                },
-                {
-                  title: "Team Members",
-                  value: "0",
-                  change: "+0 this month",
-                  icon: <Users className="w-6 h-6 text-purple-400" />
-                },
-                {
-                  title: "Growth Rate",
-                  value: "+0%",
-                  change: "+0% from last month",
-                  icon: <BarChart3 className="w-6 h-6 text-yellow-400" />
-                }
-              ].map((stat, index) => (
-                <DisabledCard
-                  key={index}
-                  userRole={user.role}
-                  title={stat.title}
-                  icon={stat.icon}
-                >
-                  <div>
-                    <h3 className="text-3xl font-bold mt-1">{stat.value}</h3>
-                    <div className="mt-4 flex items-center">
-                      <TrendingUp className="w-4 h-4 text-green-400 mr-1" />
-                      <span className="text-green-400 text-sm">{stat.change}</span>
-                    </div>
-                  </div>
-                </DisabledCard>
-              ))}
-            </div>
-          )}
-
-          {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Recent Activity - Disabled */}
-            {user.role === 'admin' && (
-              <DisabledCard 
-                userRole={user.role}
-                title="Recent Activity"
-                icon={<Clock className="w-5 h-5 mr-2 text-blue-400" />}
-                className="lg:col-span-2"
-              >
-                <div className="space-y-4">
-                  <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
-                    <p className="text-gray-400">Activity feed is under development</p>
-                  </div>
-                </div>
-              </DisabledCard>
-            )}
-
-            {/* Opportunities Section */}
-            <div className="mb-6 sm:mb-8">
-              <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-white">Get Involved</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                <DisabledCard 
-                  userRole={user.role}
-                  title="Become an Investor"
-                  icon={<TrendingUp className="w-5 h-5 text-blue-400" />}
-                >
-                  <p className="text-sm text-white/60 mb-4">
-                    Join our network of investors and get access to exclusive investment opportunities in innovative projects.
-                  </p>
-                </DisabledCard>
-
-                <Card className="leonardo-card border-gray-800">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center">
-                      <UserPlus className="w-5 h-5 text-green-400 mr-2" />
-                      Join a Project
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-white/60 mb-4">
-                      Have a project key? Enter it below to request access and join the team.
-                    </p>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Input
-                          placeholder="Enter project key (e.g., COV-ABC12)"
-                          value={projectKey}
-                          onChange={(e) => setProjectKey(e.target.value)}
-                        />
-                      </div>
-                      {joinError && (
-                        <div className="text-sm text-red-500">{joinError}</div>
-                      )}
-                      <Button 
-                        className="w-full gradient-button" 
-                        onClick={handleJoinProject}
-                        disabled={isJoining || !projectKey.trim()}
-                      >
-                        {isJoining ? 'Requesting Access...' : 'Request to Join'}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <DisabledCard 
-                  userRole={user.role}
-                  title="Join as Team Member"
-                  icon={<Users className="w-5 h-5 text-purple-400" />}
-                >
-                  <p className="text-sm text-white/60 mb-4">
-                    Work with talented professionals on exciting projects and grow your career.
-                  </p>
-                </DisabledCard>
-
-                <DisabledCard 
-                  userRole={user.role}
-                  title="Join an Organization"
-                  icon={<Building2 className="w-5 h-5 text-green-400" />}
-                >
-                  <p className="text-sm text-white/60 mb-4">
-                    Connect with established organizations and collaborate on projects.
-                  </p>
-                </DisabledCard>
-
-                <DisabledCard 
-                  userRole={user.role}
-                  title="Partnership"
-                  icon={<Handshake className="w-5 h-5 text-yellow-400" />}
-                >
-                  <p className="text-sm text-white/60 mb-4">
-                    Form strategic partnerships to grow your business and expand your network.
-                  </p>
-                </DisabledCard>
-
-                <DisabledCard 
-                  userRole={user.role}
-                  title="Create Organization"
-                  icon={<PlusCircle className="w-5 h-5 text-red-400" />}
-                >
-                  <p className="text-sm text-white/60 mb-4">
-                    Launch your own organization and manage projects under your brand.
-                  </p>
-                </DisabledCard>
-
-                <Card className="leonardo-card border-gray-800">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Briefcase className="w-5 h-5 mr-2" />
-                      Project Actions
-                    </CardTitle>
-                    <CardDescription className="text-gray-400">
-                      Create, manage, or view projects
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {user && user.role !== 'investor' && user.role !== 'viewer' && (
-                      <Link href="/projects/new" className="block">
-                        <Button className="w-full gradient-button">
-                          <PlusCircle className="w-4 h-4 mr-2" />
-                          New Project
-                        </Button>
-                      </Link>
-                    )}
-                    <Link href="/projects" className="block">
-                       <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
-                        <FolderKanban className="w-4 h-4 mr-2" />
-                        View All Projects
-                      </Button>
-                    </Link>
-
-                    {/* Join a Project Button & Dialog */}
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
-                          <UserPlus className="w-4 h-4 mr-2" />
-                          Join a Project
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Join a Project</DialogTitle>
-                          <DialogDescription>
-                            Enter the project key to request access.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                          <div className="space-y-2">
-                            <Label>Project Key</Label>
-                            <Input
-                              placeholder="Enter project key (e.g., COV-ABC12)"
-                              value={projectKey}
-                              onChange={(e) => setProjectKey(e.target.value)}
-                            />
-                          </div>
-                          {joinError && (
-                            <div className="text-sm text-red-500">{joinError}</div>
-                          )}
-                          <Button 
-                            className="w-full gradient-button" 
-                            onClick={handleJoinProject}
-                            disabled={isJoining || !projectKey.trim()}
-                          >
-                            {isJoining ? 'Requesting Access...' : 'Request to Join'}
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-
-                    {/* Manage Team Button */}
-                    {user && user.role !== 'investor' && user.role !== 'viewer' && (
-                      <Button className="w-full gradient-button" onClick={() => router.push("/team")}>
-                        <Users className="w-5 h-5 mr-2" />
-                        Manage Team
-                      </Button>
-                    )}
-                    {/* Add other relevant actions here if needed */}
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-
-            {/* Deals Section */}
-            {user?.role && ['admin', 'partner'].includes(user.role) && (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold text-white">Deals</h2>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" className="text-purple-400 hover:text-purple-300 cursor-not-allowed opacity-50">
-                          View All
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Coming Soon</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-
-                <Card className="leonardo-card border-gray-800">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Handshake className="w-5 h-5 mr-2 text-purple-400" />
-                      Deals
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/10 flex items-center justify-center">
-                        <Wrench className="w-8 h-8 text-purple-400" />
-                      </div>
-                      <h3 className="text-lg font-medium text-gray-300 mb-2">Under Development</h3>
-                      <p className="text-gray-500 max-w-sm mx-auto">
-                        The deals feature is currently being developed. Check back soon for updates!
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* Recent Deals Section */}
-            {user?.role === 'admin' && (
-              <div className="col-span-full">
-                <DisabledCard 
-                  userRole={user.role}
-                  title="Recent Deals"
-                  icon={<Handshake className="w-5 h-5 mr-2" />}
-                >
-                  <div className="space-y-4">
-                    {loading ? (
-                      <div className="text-center py-4">
-                        <p className="text-gray-400">Loading deals...</p>
-                      </div>
-                    ) : deals.length === 0 ? (
-                      <div className="text-center py-4">
-                        <p className="text-gray-400">No deals found</p>
-                        <Button 
-                          variant="outline" 
-                          className="mt-2 border-gray-700"
-                          onClick={() => router.push('/makedeal')}
-                        >
-                          <Handshake className="w-4 h-4 mr-2" />
-                          Create Your First Deal
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {deals.slice(0, 5).map((deal) => (
-                          <div 
-                            key={deal.id}
-                            className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors cursor-pointer"
-                            onClick={() => router.push(`/deals/${deal.id}`)}
-                          >
-                            <div className="flex items-center gap-3">
-                              {deal.confidentiality_level === 'public' ? (
-                                <Globe className="w-4 h-4 text-blue-500" />
-                              ) : deal.confidentiality_level === 'private' ? (
-                                <Lock className="w-4 h-4 text-gray-500" />
-                              ) : (
-                                <Shield className="w-4 h-4 text-purple-500" />
-                              )}
-                              <div>
-                                <p className="font-medium">{deal.title}</p>
-                                <p className="text-sm text-gray-400">
-                                  {deal.participants.length} participants
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {deal.status === 'pending' ? (
-                                <Clock className="w-4 h-4 text-yellow-500" />
-                              ) : deal.status === 'accepted' ? (
-                                <CheckCircle className="w-4 h-4 text-green-500" />
-                              ) : (
-                                <XCircle className="w-4 h-4 text-red-500" />
-                              )}
-                              <Badge variant="outline" className="capitalize">
-                                {deal.status}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </DisabledCard>
-              </div>
-            )}
-
-            {/* Deal Actions Section */}
-            {user?.role === 'admin' && (
-              <div className="col-span-full">
-                <DisabledCard 
-                  userRole={user.role}
-                  title="Deal Actions"
-                  icon={<Handshake className="w-5 h-5 mr-2" />}
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Button 
-                      className="w-full gradient-button"
-                      onClick={() => router.push('/makedeal')}
-                    >
-                      <Handshake className="w-4 h-4 mr-2" />
-                      Make Deal
-                    </Button>
-                    <Button 
-                      className="w-full gradient-button"
-                      onClick={() => router.push('/deals')}
-                    >
-                      <Globe className="w-4 h-4 mr-2" />
-                      View All Deals
-                    </Button>
-                    <DisabledButton userRole={user.role} icon={<DollarSign className="w-5 h-5 mr-2" />}>
-                      Financial Dashboard
-                    </DisabledButton>
-                  </div>
-                </DisabledCard>
-              </div>
-            )}
-          </div>
-        </div>
       </main>
     </div>
   )
