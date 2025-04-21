@@ -797,58 +797,58 @@ export default function PartnerDashboard() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-6">
           <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
-            <CardContent className="pt-6">
+            <CardContent className="p-3 sm:pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Active Projects</p>
-                  <h3 className="text-2xl font-bold mt-1">{myProjects.length}</h3>
+                  <p className="text-xs sm:text-sm text-gray-400">Active Projects</p>
+                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{myProjects.length}</h3>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-                  <Briefcase className="w-5 h-5 text-blue-400" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10">
-            <CardContent className="pt-6">
+            <CardContent className="p-3 sm:pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Active Deals</p>
-                  <h3 className="text-2xl font-bold mt-1">{deals.length}</h3>
+                  <p className="text-xs sm:text-sm text-gray-400">Active Deals</p>
+                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{deals.length}</h3>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <Handshake className="w-5 h-5 text-green-400" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <Handshake className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10">
-            <CardContent className="pt-6">
+            <CardContent className="p-3 sm:pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Unread Messages</p>
-                  <h3 className="text-2xl font-bold mt-1">{unreadMessages}</h3>
+                  <p className="text-xs sm:text-sm text-gray-400">Unread Messages</p>
+                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{unreadMessages}</h3>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-purple-400" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                  <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10">
-            <CardContent className="pt-6">
+            <CardContent className="p-3 sm:pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Updates</p>
-                  <h3 className="text-2xl font-bold mt-1">{updates.length}</h3>
+                  <p className="text-xs sm:text-sm text-gray-400">Updates</p>
+                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{updates.length}</h3>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                  <Bell className="w-5 h-5 text-yellow-400" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                  <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
                 </div>
               </div>
             </CardContent>
@@ -1029,30 +1029,41 @@ export default function PartnerDashboard() {
           {/* Right Sidebar */}
           <div className="col-span-12 lg:col-span-4 space-y-4">
             {/* Quick Actions */}
-            <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-800/50 to-gray-900/50">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-xl">
-                  <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center mr-3">
-                    <Zap className="w-5 h-5 text-gray-400" />
+            <div className="relative">
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-800/50 to-gray-900/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-xl">Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="hover:bg-gray-800/50">
+                            <Bell className="h-5 w-5 text-yellow-500" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="z-50">
+                          <p>Notifications</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="hover:bg-gray-800/50">
+                            <MessageSquare className="h-5 w-5 text-yellow-500" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="z-50">
+                          <p>Messages</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
-                  Quick Actions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Link href="/schedule">
-                  <Button variant="outline" className="w-full border-gray-700 hover:bg-gray-800 hover:text-white group">
-                    <Calendar className="w-4 h-4 mr-2 group-hover:text-blue-400" />
-                    Schedule & Tasks
-                  </Button>
-                </Link>
-                <Link href="/settings">
-                  <Button variant="outline" className="w-full border-gray-700 hover:bg-gray-800 hover:text-white group">
-                    <Settings className="w-4 h-4 mr-2 group-hover:text-purple-400" />
-                    Settings
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Recent Activity */}
             <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-800/50 to-gray-900/50">

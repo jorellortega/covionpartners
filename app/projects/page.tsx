@@ -602,7 +602,7 @@ export default function ProjectsPage() {
               .map((project) => (
               <Card 
                 key={project.id} 
-                className="leonardo-card border-gray-800 overflow-visible cursor-pointer hover:border-blue-500/50 transition-colors"
+                className="leonardo-card border-gray-800 cursor-pointer hover:border-blue-500/50 transition-colors relative"
                 onClick={() => router.push(`/projects/${project.id}`)}
               >
                 <CardHeader className="pb-2">
