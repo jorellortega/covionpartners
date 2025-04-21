@@ -26,6 +26,11 @@ interface Task {
     id: string
     name: string
   }
+  assigned_user?: {
+    id: string
+    name: string
+    email: string
+  }
   attachments?: {
     type: 'file' | 'link'
     url: string
@@ -36,6 +41,7 @@ interface Task {
 
 export default function TaskDetailPage() {
   const params = useParams()
+  const taskId = params?.id as string
   const [task, setTask] = useState<Task | null>(null)
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
@@ -55,7 +61,7 @@ export default function TaskDetailPage() {
 
       try {
         setLoading(true)
-        console.log("Fetching task with ID:", params.id)
+        console.log("Fetching task with ID:", taskId)
         console.log("User ID:", user.id)
         
         // Get auth status
@@ -71,7 +77,7 @@ export default function TaskDetailPage() {
               name
             )
           `)
-          .eq('id', params.id)
+          .eq('id', taskId)
           .single()
 
         console.log("Query response:", { data, error })
@@ -90,10 +96,10 @@ export default function TaskDetailPage() {
       }
     }
 
-    if (params.id) {
+    if (taskId) {
       fetchTask()
     }
-  }, [params.id, user])
+  }, [taskId, user])
 
   if (loading) {
     return (
@@ -157,6 +163,14 @@ export default function TaskDetailPage() {
                 <span className="text-gray-400">Project:</span>
                 <Badge className="bg-purple-500/20 text-purple-400">
                   {task.project.name}
+                </Badge>
+              </div>
+            )}
+            {task.assigned_user && (
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-gray-400">Assigned to:</span>
+                <Badge className="bg-blue-500/20 text-blue-400">
+                  {task.assigned_user.name}
                 </Badge>
               </div>
             )}

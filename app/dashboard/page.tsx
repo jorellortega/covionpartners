@@ -958,6 +958,18 @@ export default function PartnerDashboard() {
                       Public Projects
                     </Button>
                   </Link>
+                  <Link href="/invest">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      Invest
+                    </Button>
+                  </Link>
+                  <Link href="/portfolio">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <BarChart2 className="w-4 h-4 mr-2" />
+                      Portfolio
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
 

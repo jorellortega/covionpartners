@@ -2343,7 +2343,7 @@ export default function ProjectDetails() {
                                 variant="outline"
                                 size="sm"
                                 className="text-gray-400 hover:text-purple-400"
-                                onClick={() => router.push(`/tasks/${task.id}`)}
+                                onClick={() => router.push(`/task/${task.id}`)}
                               >
                                 View Details
                               </Button>
