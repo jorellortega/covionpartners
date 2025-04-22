@@ -14,7 +14,7 @@ import {
   BarChart3,
 } from "lucide-react"
 
-export default function AdminDashboard() {
+export default function CeoDashboard() {
   const { user } = useAuth()
   const router = useRouter()
 
@@ -34,7 +34,7 @@ export default function AdminDashboard() {
       <header className="leonardo-header">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div className="flex items-center">
-            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+            <h1 className="text-3xl font-bold">CEO Dashboard</h1>
           </div>
           <div className="flex space-x-4">
             <Button className="gradient-button" onClick={() => router.push("/admin/users")}>

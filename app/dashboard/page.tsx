@@ -857,19 +857,21 @@ export default function PartnerDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10">
-            <CardContent className="p-3 sm:pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-400">Unread Messages</p>
-                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{unreadMessages}</h3>
+          <Link href="/messages">
+            <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 transition-all cursor-pointer">
+              <CardContent className="p-3 sm:pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs sm:text-sm text-gray-400">Unread Messages</p>
+                    <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{unreadMessages}</h3>
+                  </div>
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                    <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+                  </div>
                 </div>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                  <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
 
           <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10">
             <CardContent className="p-3 sm:pt-6">

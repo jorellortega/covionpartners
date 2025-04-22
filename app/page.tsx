@@ -21,7 +21,7 @@ export default function Home() {
           router.push("/dashboard")
           break
         case "admin":
-          router.push("/admindashboard")
+          router.push("/ceodash")
           break
         case "investor":
         case "viewer":
