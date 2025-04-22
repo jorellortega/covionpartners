@@ -49,6 +49,10 @@ export interface Project {
   accepts_donations?: boolean
   promo_title?: string | null
   promo_description?: string | null
+  external_links?: Array<{
+    title: string
+    url: string
+  }> | null
 }
 
 export interface ProjectRole {

@@ -18,6 +18,10 @@ import {
   ChevronLeft,
   ChevronRightIcon,
   ExternalLink,
+  Upload,
+  Image as ImageIcon,
+  Type,
+  CircleDollarSign as LogoIcon,
 } from "lucide-react"
 import {
   Card,
@@ -40,10 +44,14 @@ import { useDeals } from "@/hooks/useDeals"
 import { useAuth } from "@/hooks/useAuth"
 import { Project as ProjectType, MediaFile } from '@/types'
 import html2canvas from "html2canvas"
+import { Label } from "@/components/ui/label"
 
 interface Project extends ProjectType {
   promo_title?: string
   promo_description?: string
+  promo_subtitle?: string
+  promo_cta?: string
+  promo_logo?: string
   media_files?: MediaFile[]
   name: string
   description: string
@@ -102,6 +110,10 @@ export default function MarketingPage() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [promoTitle, setPromoTitle] = useState("")
   const [promoDescription, setPromoDescription] = useState("")
+  const [promoSubtitle, setPromoSubtitle] = useState("")
+  const [promoCTA, setPromoCTA] = useState("")
+  const [promoLogo, setPromoLogo] = useState<File | null>(null)
+  const [promoImage, setPromoImage] = useState<File | null>(null)
   const [editingPromo, setEditingPromo] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [showQRCodes, setShowQRCodes] = useState<boolean>(() => {
@@ -165,6 +177,45 @@ export default function MarketingPage() {
 
   const selectedProjectData = projects.find(p => p.id === selectedProject) as Project | undefined
 
+  const handleFileUpload = async (file: File, type: 'logo' | 'image') => {
+    if (!selectedProject) return
+    
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${type}-${Date.now()}.${fileExt}`
+      const filePath = `projects/${selectedProject}/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(filePath, file)
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('media')
+        .getPublicUrl(filePath)
+
+      const updateData = type === 'logo' 
+        ? { promo_logo: publicUrl }
+        : { media_files: [...(selectedProjectData?.media_files || []), { url: publicUrl }] }
+
+      const { error: updateError } = await supabase
+        .from('projects')
+        .update(updateData)
+        .eq('id', selectedProject)
+
+      if (updateError) throw updateError
+
+      if (type === 'logo') {
+        setPromoLogo(null)
+      } else {
+        setPromoImage(null)
+      }
+    } catch (error) {
+      console.error(`Error uploading ${type}:`, error)
+    }
+  }
+
   const handleSavePromo = async () => {
     if (!selectedProject) return
     
@@ -174,10 +225,20 @@ export default function MarketingPage() {
         .update({
           promo_title: promoTitle,
           promo_description: promoDescription,
+          promo_subtitle: promoSubtitle,
+          promo_cta: promoCTA,
         })
         .eq('id', selectedProject)
 
       if (error) throw error
+
+      if (promoLogo) {
+        await handleFileUpload(promoLogo, 'logo')
+      }
+      if (promoImage) {
+        await handleFileUpload(promoImage, 'image')
+      }
+
       setEditingPromo(false)
     } catch (error) {
       console.error('Error saving promo:', error)
@@ -263,6 +324,8 @@ export default function MarketingPage() {
                     const project = projects.find(p => p.id === value)
                     setPromoTitle(project?.promo_title || project?.name || "")
                     setPromoDescription(project?.promo_description || project?.description || "")
+                    setPromoSubtitle(project?.promo_subtitle || "")
+                    setPromoCTA(project?.promo_cta || "")
                   }}
                 >
                   <SelectTrigger className="w-full bg-gray-900 border-gray-700 text-white">
@@ -289,63 +352,145 @@ export default function MarketingPage() {
         {selectedProject && (
           <div className="mb-16">
             <Card className="leonardo-card border-gray-800">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-xl font-bold text-white">Promotional Content</CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Customize how your project appears in marketing materials
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  onClick={() => setEditingPromo(!editingPromo)}
-                >
-                  {editingPromo ? <Check className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
-                </Button>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-400 mb-2 block">
-                    Promotional Title
-                  </label>
-                  <Input
-                    value={promoTitle}
-                    onChange={(e) => setPromoTitle(e.target.value)}
-                    disabled={!editingPromo}
-                    className="bg-gray-900 border-gray-700 text-white"
-                    placeholder="Enter a catchy title"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-400 mb-2 block">
-                    Promotional Description
-                  </label>
-                  <Textarea
-                    value={promoDescription}
-                    onChange={(e) => setPromoDescription(e.target.value)}
-                    disabled={!editingPromo}
-                    className="bg-gray-900 border-gray-700 text-white min-h-[100px]"
-                    placeholder="Describe your project in an engaging way"
-                  />
-                </div>
-                {editingPromo && (
-                  <div className="flex justify-end gap-2">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Type className="w-5 h-5 text-purple-400" />
+                    <CardTitle>Promotional Content</CardTitle>
+                  </div>
+                  {!editingPromo ? (
                     <Button
-                      variant="outline"
-                      className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                      onClick={() => setEditingPromo(false)}
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setEditingPromo(true)}
                     >
-                      Cancel
+                      <Edit className="w-4 h-4" />
                     </Button>
+                  ) : (
                     <Button
-                      className="gradient-button"
+                      variant="ghost"
+                      size="icon"
                       onClick={handleSavePromo}
                     >
-                      Save Changes
+                      <Check className="w-4 h-4" />
                     </Button>
-                  </div>
+                  )}
+                </div>
+                <CardDescription>
+                  Customize your project's promotional content
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {editingPromo ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Main Title</Label>
+                      <Input
+                        placeholder="Enter main title"
+                        value={promoTitle}
+                        onChange={(e) => setPromoTitle(e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Subtitle</Label>
+                      <Input
+                        placeholder="Enter subtitle"
+                        value={promoSubtitle}
+                        onChange={(e) => setPromoSubtitle(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Textarea
+                        placeholder="Enter description"
+                        value={promoDescription}
+                        onChange={(e) => setPromoDescription(e.target.value)}
+                        className="min-h-[100px]"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Call to Action</Label>
+                      <Input
+                        placeholder="Enter call to action text"
+                        value={promoCTA}
+                        onChange={(e) => setPromoCTA(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-4 pt-4">
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <LogoIcon className="w-4 h-4" />
+                          Logo Upload
+                        </Label>
+                        <div className="flex items-center gap-4">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setPromoLogo(e.target.files?.[0] || null)}
+                            className="flex-1"
+                          />
+                          {promoLogo && (
+                            <Button
+                              onClick={() => handleFileUpload(promoLogo, 'logo')}
+                              size="sm"
+                            >
+                              <Upload className="w-4 h-4 mr-2" />
+                              Upload
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <ImageIcon className="w-4 h-4" />
+                          Picture Upload
+                        </Label>
+                        <div className="flex items-center gap-4">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setPromoImage(e.target.files?.[0] || null)}
+                            className="flex-1"
+                          />
+                          {promoImage && (
+                            <Button
+                              onClick={() => handleFileUpload(promoImage, 'image')}
+                              size="sm"
+                            >
+                              <Upload className="w-4 h-4 mr-2" />
+                              Upload
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="font-medium text-gray-200">Title</h3>
+                        <p className="text-gray-400">{promoTitle || 'No title set'}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-200">Subtitle</h3>
+                        <p className="text-gray-400">{promoSubtitle || 'No subtitle set'}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-200">Description</h3>
+                        <p className="text-gray-400">{promoDescription || 'No description set'}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-200">Call to Action</h3>
+                        <p className="text-gray-400">{promoCTA || 'No CTA set'}</p>
+                      </div>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>

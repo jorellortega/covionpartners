@@ -202,25 +202,27 @@ export default function MessagesPage() {
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md border-b border-gray-800">
-        <div className="max-w-7xl mx-auto py-3 sm:py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <div className="flex items-center">
+        <div className="max-w-7xl mx-auto py-3 sm:py-4 px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                onClick={() => router.back()}
+                className="inline-flex items-center text-white hover:text-blue-300 transition-colors mr-2 sm:mr-4"
+              >
+                <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Back</span>
+              </Button>
+              <h1 className="text-xl sm:text-3xl font-bold text-white">Messages</h1>
+            </div>
             <Button
-              variant="ghost"
-              onClick={() => router.back()}
-              className="inline-flex items-center text-white hover:text-blue-300 transition-colors mr-2 sm:mr-4"
+              onClick={() => router.push('/messages/new')}
+              className="w-full sm:w-auto bg-purple-600 text-white hover:bg-purple-700"
             >
-              <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Back</span>
+              <Plus className="h-4 w-4 mr-2" />
+              New Message
             </Button>
-            <h1 className="text-xl sm:text-3xl font-bold text-white">Messages</h1>
           </div>
-          <Button
-            onClick={() => router.push('/messages/new')}
-            className="bg-purple-600 text-white hover:bg-purple-700"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Message
-          </Button>
         </div>
       </header>
 

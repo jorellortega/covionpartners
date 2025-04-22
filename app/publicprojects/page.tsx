@@ -23,12 +23,39 @@ import {
   Home,
   Handshake,
   Users,
+  Tag,
+  FileText,
+  ExternalLink,
+  Download
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useProjects } from "@/hooks/useProjects"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useAuth } from "@/hooks/useAuth"
 import { QRCodeCanvas } from 'qrcode.react'
+
+interface Project {
+  id: string
+  name: string
+  description: string
+  status: string
+  type: string
+  progress: number
+  funding_goal: number
+  current_funding: number
+  deadline: string
+  accepts_donations: boolean
+  media_files?: Array<{
+    name: string
+    type: string
+    size: number
+    url: string
+  }>
+  external_links?: Array<{
+    title: string
+    url: string
+  }>
+}
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -59,6 +86,15 @@ export default function PublicProjectsPage() {
   const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const { projects, loading, error } = useProjects()
+
+  // Function to ensure URL is properly formatted
+  const formatUrl = (url: string) => {
+    if (!url) return '#'
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url
+    }
+    return `https://${url}`
+  }
 
   // Filter projects based on search query only
   const filteredProjects = projects?.filter(project =>
@@ -155,7 +191,7 @@ export default function PublicProjectsPage() {
               }}
             >
               {/* Project Thumbnail */}
-              <div className="w-full h-48 relative">
+              <div className="w-full aspect-video relative">
                 {project.media_files && project.media_files.length > 0 ? (
                   <Image
                     src={project.media_files[0].url}
@@ -204,12 +240,14 @@ export default function PublicProjectsPage() {
 
                   {project.accepts_donations && (
                     <div className="p-3 bg-purple-500/10 rounded-lg">
-                      <div className="flex items-center text-purple-400 mb-1">
-                        <DollarSign className="w-4 h-4 mr-2" />
-                        <span>Public Funding</span>
-                      </div>
-                      <div className="text-white font-medium">
-                        ${project.current_funding?.toLocaleString() || '0'} / ${project.funding_goal?.toLocaleString() || '0'}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center text-purple-400">
+                          <DollarSign className="w-4 h-4 mr-2" />
+                          <span>Public Funding</span>
+                        </div>
+                        <span className="text-white font-medium">
+                          ${project.current_funding?.toLocaleString() || '0'} / ${project.funding_goal?.toLocaleString() || '0'}
+                        </span>
                       </div>
                       <div className="mt-2">
                         <div className="w-full bg-gray-700 rounded-full h-2">
@@ -254,17 +292,17 @@ export default function PublicProjectsPage() {
                   </div>
 
                   <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
+                    <Button 
+                      variant="outline" 
                       className="flex-1 border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/makedeal?project=${project.id}`);
-                    }}
-                  >
-                    <Handshake className="w-4 h-4 mr-2" />
-                    Make Deal
-                  </Button>
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/makedeal?project=${project.id}`);
+                      }}
+                    >
+                      <Handshake className="w-4 h-4 mr-2" />
+                      Make Deal
+                    </Button>
                     <Button 
                       variant="outline" 
                       className="flex-1 border-gray-700 bg-gray-800/30 text-white hover:bg-green-900/20 hover:text-green-400"
@@ -277,6 +315,67 @@ export default function PublicProjectsPage() {
                       Invest
                     </Button>
                   </div>
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-emerald-900/20 hover:text-emerald-400"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/forsale?project=${project.id}`);
+                    }}
+                  >
+                    <Tag className="w-4 h-4 mr-2" />
+                    For Sale
+                  </Button>
+
+                  {/* Project Resources */}
+                  {(project.media_files?.some(file => !file.type.startsWith('image/')) || (project.external_links?.length ?? 0) > 0) && (
+                    <div className="mt-4 space-y-2">
+                      {/* Downloadable Files */}
+                      {project.media_files?.filter(file => !file.type.startsWith('image/')).map((file, index) => (
+                        <div 
+                          key={index}
+                          className="flex items-center justify-between p-2 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center space-x-2 min-w-0">
+                            <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            <span className="text-sm text-gray-300 truncate">{file.name}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-400 hover:text-blue-400"
+                            onClick={() => window.open(file.url, '_blank')}
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+
+                      {/* External Links */}
+                      {project.external_links?.map((link: any, index: number) => (
+                        <div 
+                          key={index}
+                          className="flex items-center justify-between p-2 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center space-x-2 min-w-0">
+                            <ExternalLink className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            <span className="text-sm text-gray-300 truncate">{link.title || link.url}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-400 hover:text-blue-400"
+                            onClick={() => window.open(formatUrl(link.url), '_blank')}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <Link
                     href={`/collaborations/${project.id}`}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors"

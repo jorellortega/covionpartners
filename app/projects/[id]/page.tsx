@@ -38,6 +38,7 @@ import {
   Briefcase,
   Link,
   User as UserIcon,
+  Video,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -70,6 +71,7 @@ import { TaskList } from '@/components/task-list'
 import { Textarea } from "@/components/ui/textarea"
 import { QRCodeCanvas } from 'qrcode.react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import Image from "next/image"
 
 // Project status badge component
 function StatusBadge({ status, projectId, onStatusChange }: { status: string, projectId: string, onStatusChange?: (newStatus: string) => void }) {
@@ -575,6 +577,7 @@ export default function ProjectDetails() {
     url: '',
     description: ''
   })
+  const [selectedImage, setSelectedImage] = useState<number>(0)
 
   useEffect(() => {
     refreshTeamMembers()
@@ -1732,33 +1735,33 @@ export default function ProjectDetails() {
           <div className="lg:col-span-2 space-y-6">
                 {/* Project Media */}
                 <Card className="leonardo-card border-gray-800">
-              <CardHeader>
+                  <CardHeader>
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div>
-                    <CardTitle>Project Media</CardTitle>
-                    <CardDescription className="text-gray-400">
+                        <CardTitle>Project Media</CardTitle>
+                        <CardDescription className="text-gray-400">
                           Images, videos, documents, and external links
                         </CardDescription>
                       </div>
-                  {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                      {user?.role !== 'viewer' && user?.role !== 'investor' &&
                         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                      <Button 
-                        onClick={() => document.getElementById('media-upload')?.click()} 
-                        className="gradient-button w-full sm:w-auto"
-                        disabled={isUploadingMedia}
-                      >
-                        {isUploadingMedia ? (
-                          <>
-                            <LoadingSpinner className="w-4 h-4 mr-2" />
-                            Uploading...
-                          </>
-                        ) : (
-                          <>
-                            <FileText className="w-4 h-4 mr-2" />
-                            Add Media
-                          </>
-                        )}
-                      </Button>
+                          <Button 
+                            onClick={() => document.getElementById('media-upload')?.click()} 
+                            className="gradient-button w-full sm:w-auto"
+                            disabled={isUploadingMedia}
+                          >
+                            {isUploadingMedia ? (
+                              <>
+                                <LoadingSpinner className="w-4 h-4 mr-2" />
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <FileText className="w-4 h-4 mr-2" />
+                                Add Media
+                              </>
+                            )}
+                          </Button>
                           <Button 
                             onClick={() => setIsAddingLink(true)}
                             className="gradient-button w-full sm:w-auto"
@@ -1767,7 +1770,7 @@ export default function ProjectDetails() {
                             Add Link
                           </Button>
                         </div>
-                  )}
+                      }
                       <input
                         type="file"
                         id="media-upload"
@@ -1778,53 +1781,74 @@ export default function ProjectDetails() {
                       />
                     </div>
                   </CardHeader>
-              <CardContent>
-                    {/* Images and Videos Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {project?.media_files?.filter(file => 
-                        file.type.startsWith('image/') || file.type.startsWith('video/')
-                      ).map((file, index) => (
-                        <div key={index} className="relative group">
-                          {file.type.startsWith('image/') ? (
-                            <div className={`relative overflow-hidden rounded-lg ${
-                              file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
-                              file.aspect_ratio === 'square' ? 'aspect-square' :
-                              'aspect-[16/9]'
-                            }`}>
-                              <img
-                                src={file.url}
-                                alt={file.name}
-                                className="object-cover w-full h-full"
-                              />
+                  <CardContent>
+                    {/* Main Display */}
+                    {project?.media_files && project.media_files.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-gray-800/30">
+                          {project.media_files[selectedImage].type.startsWith('image/') ? (
+                            <Image
+                              src={project.media_files[selectedImage].url}
+                              alt={project.media_files[selectedImage].name}
+                              fill
+                              className="object-cover"
+                            />
+                          ) : project.media_files[selectedImage].type.startsWith('video/') ? (
+                            <video
+                              src={project.media_files[selectedImage].url}
+                              controls
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <FileText className="w-16 h-16 text-gray-400" />
                             </div>
-                          ) : file.type.startsWith('video/') ? (
-                            <div className={`relative overflow-hidden rounded-lg ${
-                              file.aspect_ratio === '9:16' ? 'aspect-[9/16]' :
-                              file.aspect_ratio === 'square' ? 'aspect-square' :
-                              'aspect-[16/9]'
-                            }`}>
-                              <video
-                                src={file.url}
-                                controls
-                                className="object-cover w-full h-full"
-                              />
-                            </div>
-                          ) : null}
+                          )}
                           {user?.role !== 'viewer' && user?.role !== 'investor' && (
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-white hover:text-red-400"
-                              onClick={() => handleDeleteMedia(file.name)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                      )}
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-white hover:text-red-400 bg-black/50"
+                                onClick={() => handleDeleteMedia(project.media_files![selectedImage].name)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
+
+                        {/* Thumbnails */}
+                        <div className="grid grid-cols-6 gap-2">
+                          {project.media_files.map((file, index) => (
+                            <div
+                              key={index}
+                              className={`relative aspect-video cursor-pointer rounded-md overflow-hidden ${
+                                index === selectedImage ? 'ring-2 ring-blue-500' : ''
+                              }`}
+                              onClick={() => setSelectedImage(index)}
+                            >
+                              {file.type.startsWith('image/') ? (
+                                <Image
+                                  src={file.url}
+                                  alt={file.name}
+                                  fill
+                                  className="object-cover"
+                                />
+                              ) : file.type.startsWith('video/') ? (
+                                <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                                  <Video className="w-6 h-6 text-gray-400" />
+                                </div>
+                              ) : (
+                                <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                                  <FileText className="w-6 h-6 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Files List */}
                     {project?.media_files?.some(file => 
@@ -1886,65 +1910,13 @@ export default function ProjectDetails() {
                       </div>
                     )}
 
-                    {/* External Links Section */}
-                    {project?.external_links && project.external_links.length > 0 && (
-                      <div className="mt-6 border-t border-gray-800 pt-6">
-                        <h4 className="text-sm font-medium text-gray-400 mb-4">External Links</h4>
-                        <div className="space-y-2">
-                          {project.external_links.map((link: any, index: number) => (
-                            <div 
-                              key={index} 
-                              className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors"
-                            >
-                              <div className="flex items-center space-x-3 min-w-0 flex-1">
-                                <Link className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                                <div className="min-w-0 flex-1">
-                                  <a 
-                                    href={link.url.startsWith('http') ? link.url : `https://${link.url}`}
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-sm font-medium text-white hover:text-purple-400 truncate"
-                                  >
-                                    {link.title}
-                                  </a>
-                                </div>
-                              </div>
-                              {user?.role !== 'viewer' && user?.role !== 'investor' && (
-                                <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-gray-400 hover:text-blue-400"
-                                    onClick={() => {
-                                      setEditingLink(link)
-                                      setIsEditingLink(true)
-                                    }}
-                                  >
-                                    <Pencil className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-gray-400 hover:text-red-400"
-                                    onClick={() => handleDeleteLink(index)}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                    {(!project?.media_files || project.media_files.length === 0) && (
+                      <div className="col-span-full text-center py-8">
+                        <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-400">No media files</h3>
+                        <p className="text-gray-500 mt-1">Upload images, videos, or documents to showcase your project</p>
                       </div>
                     )}
-
-                  {(!project?.media_files || project.media_files.length === 0) && (
-                        <div className="col-span-full text-center py-8">
-                          <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                          <h3 className="text-lg font-medium text-gray-400">No media files</h3>
-                        <p className="text-gray-500 mt-1">Upload images, videos, or documents to showcase your project</p>
-                        </div>
-                      )}
                   </CardContent>
                 </Card>
 

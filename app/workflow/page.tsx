@@ -517,10 +517,26 @@ export default function WorkflowPage() {
             variant="outline"
             size="sm"
             className="bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30"
-            onClick={() => router.push(`/task/${task.id}`)}
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/task/${task.id}`);
+            }}
           >
             View Details
           </Button>
+          {task.project?.id && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/projects/${task.project?.id}`);
+              }}
+            >
+              View Project
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -750,62 +766,65 @@ export default function WorkflowPage() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-8">
           <Card className="border-gray-800 bg-gray-900/50">
-            <CardContent className="pt-4">
+            <CardContent className="p-3 sm:pt-6">
               <div className="flex items-center justify-between">
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <CheckCircle2 className="w-6 h-6 text-green-500" />
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-400">Completed Tasks</p>
-                  <h3 className="text-2xl font-bold text-white">
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-400">Completed Tasks</p>
+                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">
                     {tasks.filter(t => t.status === 'completed').length}
                   </h3>
                 </div>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-gray-800 bg-gray-900/50">
-            <CardContent className="pt-4">
+            <CardContent className="p-3 sm:pt-6">
               <div className="flex items-center justify-between">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <Clock className="w-6 h-6 text-blue-500" />
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-400">In Progress</p>
-                  <h3 className="text-2xl font-bold text-white">
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-400">In Progress</p>
+                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">
                     {tasks.filter(t => t.status === 'in_progress').length}
                   </h3>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-800 bg-gray-900/50">
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
-                <div className="p-2 bg-purple-500/20 rounded-lg">
-                  <Timer className="w-6 h-6 text-purple-500" />
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-400">Total Tasks</p>
-                  <h3 className="text-2xl font-bold text-white">{tasks.length}</h3>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-gray-800 bg-gray-900/50">
-            <CardContent className="pt-4">
+            <CardContent className="p-3 sm:pt-6">
               <div className="flex items-center justify-between">
-                <div className="p-2 bg-yellow-500/20 rounded-lg">
-                  <BarChart className="w-6 h-6 text-yellow-500" />
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-400">Total Tasks</p>
+                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{tasks.length}</h3>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-400">Projects</p>
-                  <h3 className="text-2xl font-bold text-white">{projects.length}</h3>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                  <Timer className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="border-gray-800 bg-gray-900/50 cursor-pointer hover:bg-gray-800/50 transition-all duration-200"
+            onClick={() => router.push('/projects')}
+          >
+            <CardContent className="p-3 sm:pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-400">Projects</p>
+                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{projects.length}</h3>
+                </div>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                  <BarChart className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
                 </div>
               </div>
             </CardContent>

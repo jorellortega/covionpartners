@@ -623,7 +623,7 @@ export default function ProjectsPage() {
                           </div>
                         )}
                       </div>
-                      <CardTitle className="text-lg">{project.name}</CardTitle>
+                    <CardTitle className="text-lg">{project.name}</CardTitle>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

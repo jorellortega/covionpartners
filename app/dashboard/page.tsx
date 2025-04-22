@@ -721,12 +721,12 @@ export default function PartnerDashboard() {
         {/* Welcome Banner */}
         <div className="leonardo-card p-4 sm:p-6 mb-6 bg-gradient-to-r from-gray-800/50 to-gray-900/50">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+            <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => router.push(`/profile/${user?.id}`)}>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center transition-transform group-hover:scale-105">
                 <User className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-bold">Welcome back, {user?.name || user?.email}!</h2>
+                <h2 className="text-xl font-bold group-hover:text-purple-400 transition-colors">Welcome, {user?.name || user?.email}!</h2>
                 <p className="text-sm text-gray-400">Here's what's happening in your workspace</p>
               </div>
             </div>
@@ -965,12 +965,12 @@ export default function PartnerDashboard() {
                       </DialogContent>
                     </Dialog>
                   ) : (
-                    <Link href="/projects/new">
-                      <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
-                        <Plus className="w-4 h-4 mr-2" />
-                        New Project
-                      </Button>
-                    </Link>
+                  <Link href="/projects/new">
+                    <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Project
+                    </Button>
+                  </Link>
                   )}
                   <Link href="/projects">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
@@ -1010,36 +1010,36 @@ export default function PartnerDashboard() {
                     </div>
                   ) : (
                     <>
-                      <Link href="/makedeal">
-                        <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600">
-                          <Handshake className="w-4 h-4 mr-2" />
-                          Make Deal
-                        </Button>
-                      </Link>
-                      <Link href="/deals">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
-                          <Globe className="w-4 h-4 mr-2" />
-                          Active Deals
-                        </Button>
-                      </Link>
-                      <Link href="/publicprojects">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
-                          <Globe className="w-4 h-4 mr-2" />
-                          Public Projects
-                        </Button>
-                      </Link>
-                      <Link href="/invest">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
-                          <DollarSign className="w-4 h-4 mr-2" />
-                          Invest
-                        </Button>
-                      </Link>
-                      <Link href="/portfolio">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
-                          <BarChart2 className="w-4 h-4 mr-2" />
-                          Portfolio
-                        </Button>
-                      </Link>
+                  <Link href="/makedeal">
+                    <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600">
+                      <Handshake className="w-4 h-4 mr-2" />
+                      Make Deal
+                    </Button>
+                  </Link>
+                  <Link href="/deals">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Active Deals
+                    </Button>
+                  </Link>
+                  <Link href="/publicprojects">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Public Projects
+                    </Button>
+                  </Link>
+                  <Link href="/invest">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      Invest
+                    </Button>
+                  </Link>
+                  <Link href="/portfolio">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <BarChart2 className="w-4 h-4 mr-2" />
+                      Portfolio
+                    </Button>
+                  </Link>
                     </>
                   )}
                 </CardContent>
@@ -1068,60 +1068,58 @@ export default function PartnerDashboard() {
                     </div>
                   ) : (
                     <>
-                      <Link href="/managepayments">
-                        <Button className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600">
-                          <Calculator className="w-4 h-4 mr-2" />
-                          Manage Payments
-                        </Button>
-                      </Link>
-                      <Link href="/payments">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                          <Wallet className="w-4 h-4 mr-2" />
-                          Withdraw Funds
-                        </Button>
-                      </Link>
-                      <Link href="/funding-settings">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                          <DollarSign className="w-4 h-4 mr-2" />
-                          Funding Settings
-                        </Button>
-                      </Link>
+                  <Link href="/managepayments">
+                    <Button className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600">
+                      <Calculator className="w-4 h-4 mr-2" />
+                      Manage Payments
+                    </Button>
+                  </Link>
+                  <Link href="/payments">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <Wallet className="w-4 h-4 mr-2" />
+                      Withdraw Funds
+                    </Button>
+                  </Link>
+                  <Link href="/funding-settings">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      Funding Settings
+                    </Button>
+                  </Link>
                     </>
                   )}
                 </CardContent>
               </Card>
 
               {/* Communication Hub */}
-              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/5 to-pink-500/5 hover:from-purple-500/10 hover:to-pink-500/10 transition-colors">
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-cyan-500/5 to-teal-500/5 hover:from-cyan-500/10 hover:to-teal-500/10 transition-colors">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center text-xl">
-                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center mr-3">
-                      <MessageSquare className="w-5 h-5 text-purple-400" />
+                    <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center mr-3">
+                      <MessageSquare className="w-5 h-5 text-cyan-400" />
                     </div>
                     Communication Hub
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
+                  <Link href="/messages">
+                    <Button className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600">
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Messages
+                    </Button>
+                  </Link>
                   <Link href="/updates">
-                    <Button className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400">
                       <Bell className="w-4 h-4 mr-2" />
                       Updates Center
                     </Button>
                   </Link>
-                  <Link href="/marketing">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
-                      <Megaphone className="w-4 h-4 mr-2" />
-                      Marketing
+                  <Link href="/groupchat">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400">
+                      <Users className="w-4 h-4 mr-2" />
+                      Group Chat
                     </Button>
                   </Link>
-                  {user?.role === 'admin' && (
-                    <Link href="/admin/marketing">
-                      <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400">
-                        <Megaphone className="w-4 h-4 mr-2" />
-                        Admin Marketing
-                      </Button>
-                    </Link>
-                  )}
                 </CardContent>
               </Card>
             </div>
@@ -1146,10 +1144,18 @@ export default function PartnerDashboard() {
                 <Button 
                   variant="outline" 
                   className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
-                  onClick={() => router.push('/marketing')}
+                  onClick={() => router.push('/collaborations')}
                 >
-                  <Megaphone className="w-4 h-4 mr-2" />
-                  Marketing
+                  <Users className="w-4 h-4 mr-2" />
+                  Collaborations
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                  onClick={() => router.push('/contact')}
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Contact Support
                 </Button>
                 <Button 
                   variant="outline" 

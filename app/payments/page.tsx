@@ -74,17 +74,6 @@ export default function PaymentsPage() {
     onSuccess: onPlaidSuccess,
   })
 
-  useEffect(() => {
-    if (user?.role === 'viewer') {
-      router.push('/dashboard')
-    }
-  }, [user, router])
-
-  // Move the viewer check here, after all hooks are declared
-  if (user?.role === 'viewer') {
-    return null
-  }
-
   // Mock function to connect to Stripe
   const connectToStripe = async () => {
     setIsLoading(true)

@@ -457,27 +457,27 @@ export default function PublicProjectDetails() {
                           }`}
                           onClick={() => setSelectedImage(index)}
                         >
-                          {file.type.startsWith('image/') ? (
+                      {file.type.startsWith('image/') ? (
                             <Image
-                              src={file.url}
-                              alt={file.name}
+                            src={file.url}
+                            alt={file.name}
                               fill
                               className="object-cover"
-                            />
+                          />
                           ) : file.type.startsWith('video/') ? (
                             <div className="w-full h-full bg-gray-800 flex items-center justify-center">
                               <Video className="w-6 h-6 text-gray-400" />
-                            </div>
-                          ) : (
+                        </div>
+                      ) : (
                             <div className="w-full h-full bg-gray-800 flex items-center justify-center">
                               <FileText className="w-6 h-6 text-gray-400" />
-                            </div>
-                          )}
                         </div>
-                      ))}
+                      )}
+                        </div>
+                  ))}
                     </div>
-                  </div>
-                )}
+                    </div>
+                  )}
 
                 {/* Files List */}
                 {project?.media_files?.some(file => 
@@ -497,7 +497,7 @@ export default function PublicProjectDetails() {
                             <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium text-white truncate">{file.name}</p>
-                            </div>
+                </div>
                           </div>
                           <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
                             <Button
@@ -987,13 +987,13 @@ export default function PublicProjectDetails() {
                       <ShoppingCart className="w-4 h-4 mr-2" />
                       Buy
                     </Button>
-                    <Button 
-                      className="w-full gradient-button"
+                      <Button 
+                        className="w-full gradient-button"
                       onClick={handleDonate}
-                    >
+                      >
                       <Heart className="w-4 h-4 mr-2" />
                       Donate
-                    </Button>
+                      </Button>
                   </div>
                 </CardContent>
               </Card>
