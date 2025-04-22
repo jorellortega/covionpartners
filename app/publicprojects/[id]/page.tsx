@@ -30,6 +30,11 @@ import {
   X,
   Handshake,
   Settings,
+  ShoppingCart,
+  Heart,
+  Video,
+  Link,
+  ExternalLink,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -41,6 +46,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { QRCodeCanvas } from 'qrcode.react'
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
+import Image from "next/image"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -75,6 +83,12 @@ interface ProjectResource {
   created_at: string
 }
 
+interface ExternalLink {
+  title: string;
+  url: string;
+  description?: string;
+}
+
 export default function PublicProjectDetails() {
   const params = useParams()
   const projectId = params.id as string
@@ -95,6 +109,7 @@ export default function PublicProjectDetails() {
   const [isDonating, setIsDonating] = useState(false)
   const [donationAmount, setDonationAmount] = useState("")
   const qrRef = useRef<any>(null)
+  const [selectedImage, setSelectedImage] = useState(0)
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -317,12 +332,13 @@ export default function PublicProjectDetails() {
   }
 
   const handleDownloadQR = () => {
-    if (!qrRef.current) return;
+    if (!qrRef.current || !project) return;
     // Create a hidden canvas for high-res export
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = 1200;
     tempCanvas.height = 1200;
     const ctx = tempCanvas.getContext('2d');
+    if (!ctx) return;
     // Render QR code to temp canvas
     const svg = qrRef.current.querySelector('canvas');
     if (svg) {
@@ -336,37 +352,10 @@ export default function PublicProjectDetails() {
     }
   }
 
-  const handleDonate = async () => {
-    try {
-      setIsDonating(true)
-      const amount = parseFloat(donationAmount)
-      
-      if (isNaN(amount) || amount <= 0) {
-        throw new Error("Please enter a valid donation amount")
-      }
-
-      // Update the project's current funding
-      const newFunding = (project?.current_funding || 0) + amount
-      const { error } = await supabase
-        .from('projects')
-        .update({ current_funding: newFunding })
-        .eq('id', projectId)
-
-      if (error) throw error
-
-      // Update local state
-      setProject(prev => prev ? {
-        ...prev,
-        current_funding: newFunding
-      } : null)
-
-      toast.success("Thank you for your donation!")
-      setDonationAmount("")
-      setIsDonating(false)
-    } catch (error: any) {
-      toast.error(error.message || "Failed to process donation")
-      setIsDonating(false)
-    }
+  const handleDonate = () => {
+    if (!project) return;
+    // TODO: Implement donation logic
+    router.push(`/donate?project=${project.id}`)
   }
 
   if (loading) {
@@ -434,35 +423,142 @@ export default function PublicProjectDetails() {
                 <CardDescription>Project media and documentation</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {project?.media_files?.map((file, index) => (
-                    <Card key={index} className="overflow-hidden">
-                      {file.type.startsWith('image/') ? (
-                        <div className="relative aspect-video">
-                          <img
-                            src={file.url}
-                            alt={file.name}
-                            className="absolute inset-0 w-full h-full object-cover"
-                          />
-                        </div>
+                {/* Main Display */}
+                {project?.media_files && project.media_files.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-gray-800/30">
+                      {project.media_files[selectedImage].type.startsWith('image/') ? (
+                        <Image
+                          src={project.media_files[selectedImage].url}
+                          alt={project.media_files[selectedImage].name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : project.media_files[selectedImage].type.startsWith('video/') ? (
+                        <video
+                          src={project.media_files[selectedImage].url}
+                          controls
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
-                        <div className="aspect-video bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                          <FileType className="w-12 h-12 text-gray-400" />
+                        <div className="w-full h-full flex items-center justify-center">
+                          <FileText className="w-16 h-16 text-gray-400" />
                         </div>
                       )}
-                      <CardContent className="p-4">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {formatFileSize(file.size)}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                  {(!project?.media_files || project.media_files.length === 0) && (
-                    <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
-                      No media files available
                     </div>
-                  )}
-                </div>
+
+                    {/* Thumbnails */}
+                    <div className="grid grid-cols-6 gap-2">
+                      {project.media_files.map((file, index) => (
+                        <div
+                          key={index}
+                          className={`relative aspect-video cursor-pointer rounded-md overflow-hidden ${
+                            index === selectedImage ? 'ring-2 ring-blue-500' : ''
+                          }`}
+                          onClick={() => setSelectedImage(index)}
+                        >
+                          {file.type.startsWith('image/') ? (
+                            <Image
+                              src={file.url}
+                              alt={file.name}
+                              fill
+                              className="object-cover"
+                            />
+                          ) : file.type.startsWith('video/') ? (
+                            <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                              <Video className="w-6 h-6 text-gray-400" />
+                            </div>
+                          ) : (
+                            <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                              <FileText className="w-6 h-6 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Files List */}
+                {project?.media_files?.some(file => 
+                  !file.type.startsWith('image/') && !file.type.startsWith('video/')
+                ) && (
+                  <div className="mt-6 border-t border-gray-800 pt-6">
+                    <h4 className="text-sm font-medium text-gray-400 mb-4">Uploaded Files</h4>
+                    <div className="space-y-2">
+                      {project?.media_files?.filter(file => 
+                        !file.type.startsWith('image/') && !file.type.startsWith('video/')
+                      ).map((file, index) => (
+                        <div 
+                          key={index} 
+                          className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors"
+                        >
+                          <div className="flex items-center space-x-3 min-w-0 flex-1">
+                            <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-white truncate">{file.name}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-400 hover:text-blue-400"
+                              onClick={() => window.open(file.url, '_blank')}
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* External Links */}
+                {project?.external_links && project.external_links.length > 0 && (
+                  <div className="mt-6 border-t border-gray-800 pt-6">
+                    <h4 className="text-sm font-medium text-gray-400 mb-4">External Links</h4>
+                    <div className="space-y-2">
+                      {project.external_links.map((link, index) => {
+                        // Check if URL is absolute (starts with http:// or https://)
+                        const isAbsoluteUrl = /^https?:\/\//i.test(link.url);
+                        const url = isAbsoluteUrl ? link.url : `https://${link.url}`;
+                        
+                        return (
+                          <div 
+                            key={index} 
+                            className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors"
+                          >
+                            <div className="flex items-center space-x-3 min-w-0 flex-1">
+                              <Link className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-white truncate">{link.title}</p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-400 hover:text-blue-400"
+                              onClick={() => window.open(url, '_blank')}
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {(!project?.media_files || project.media_files.length === 0) && 
+                 (!project?.external_links || project.external_links.length === 0) && (
+                  <div className="col-span-full text-center py-8">
+                    <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-400">No media files</h3>
+                    <p className="text-gray-500 mt-1">No media files or links available for this project</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -872,34 +968,32 @@ export default function PublicProjectDetails() {
                   <div className="space-y-4">
                     <Button 
                       className="w-full gradient-button"
-                      onClick={() => router.push(`/projects/${project.id}`)}
+                      onClick={() => router.push(`/invest?project=${project.id}`)}
                     >
-                      <FileText className="w-4 h-4 mr-2" />
-                      View Full Details
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      Invest
                     </Button>
                     <Button 
                       className="w-full gradient-button"
-                      onClick={() => router.push(`/calculator?project=${project.id}`)}
+                      onClick={() => router.push(`/collab?project=${project.id}`)}
                     >
-                      <Calculator className="w-4 h-4 mr-2" />
-                      Calculate Investment
+                      <Users className="w-4 h-4 mr-2" />
+                      Collab
                     </Button>
                     <Button 
                       className="w-full gradient-button"
-                      onClick={() => router.push(`/makedeal?project=${project.id}`)}
+                      onClick={() => router.push(`/buy?project=${project.id}`)}
                     >
-                      <Handshake className="w-4 h-4 mr-2" />
-                      Make Deal
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      Buy
                     </Button>
-                    {user.role === 'admin' && (
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={() => router.push(`/projects/${project.id}/edit`)}
-                      >
-                        <Settings className="w-4 h-4 mr-2" />
-                        Edit Project
-                      </Button>
-                    )}
+                    <Button 
+                      className="w-full gradient-button"
+                      onClick={handleDonate}
+                    >
+                      <Heart className="w-4 h-4 mr-2" />
+                      Donate
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
