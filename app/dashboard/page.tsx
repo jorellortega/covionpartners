@@ -54,7 +54,14 @@ import {
   Wrench,
   Workflow,
   User,
-  Cog
+  Cog,
+  Code,
+  RefreshCw,
+  Store,
+  PenSquare,
+  LineChart,
+  CheckSquare,
+  ExternalLink as LinkIcon
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -858,7 +865,7 @@ export default function PartnerDashboard() {
           </Card>
 
           <Link href="/messages">
-            <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 transition-all cursor-pointer">
+            <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10 cursor-pointer hover:border-purple-500/50 transition-colors">
               <CardContent className="p-3 sm:pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -873,19 +880,21 @@ export default function PartnerDashboard() {
             </Card>
           </Link>
 
-          <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10">
-            <CardContent className="p-3 sm:pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-400">Updates</p>
-                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{updates.length}</h3>
+          <Link href="/updates">
+            <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 cursor-pointer hover:border-yellow-500/50 transition-colors">
+              <CardContent className="p-3 sm:pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs sm:text-sm text-gray-400">Updates</p>
+                    <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{updates.length}</h3>
+                  </div>
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                    <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
+                  </div>
                 </div>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                  <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         {/* Main Content Grid */}
@@ -1112,8 +1121,7 @@ export default function PartnerDashboard() {
                   </Link>
                   <Link href="/updates">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400">
-                      <Bell className="w-4 h-4 mr-2" />
-                      Updates Center
+                      <Bell className="w-4 h-4 mr-2" /> Updates Center
                     </Button>
                   </Link>
                   <Link href="/groupchat">
@@ -1343,6 +1351,543 @@ export default function PartnerDashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Platform Navigation Card - Only visible to partners and admins */}
+        {(user?.role === 'partner' || user?.role === 'admin') && (
+          <Card className="leonardo-card border-gray-800 mt-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Globe className="w-5 h-5 mr-2 text-blue-400" />
+                  Platform Navigation
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="hover:bg-gray-800/50">
+                      <MoreHorizontal className="w-5 h-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-72 bg-gray-900 border-gray-800">
+                    <DropdownMenuLabel className="text-gray-400">Dashboards</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => router.push('/dashboard')} className="hover:bg-gray-800">
+                      <Home className="w-4 h-4 mr-2" /> Main Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/ceodash')} className="hover:bg-gray-800">
+                      <BarChart2 className="w-4 h-4 mr-2" /> CEO Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/developerdashboard')} className="hover:bg-gray-800">
+                      <Code className="w-4 h-4 mr-2" /> Developer Dashboard
+                    </DropdownMenuItem>
+
+                    <DropdownMenuLabel className="text-gray-400 mt-2">Project Management</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => router.push('/projects')} className="hover:bg-gray-800">
+                      <Briefcase className="w-4 h-4 mr-2" /> Projects
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/projects/new')} className="hover:bg-gray-800">
+                      <Plus className="w-4 h-4 mr-2" /> New Project
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/publicprojects')} className="hover:bg-gray-800">
+                      <Globe className="w-4 h-4 mr-2" /> Public Projects
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/projectrequest')} className="hover:bg-gray-800">
+                      <FileText className="w-4 h-4 mr-2" /> Project Requests
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="hover:bg-gray-800 text-gray-500">
+                      <LinkIcon className="w-4 h-4 mr-2" /> /projects/[id] (needs ID)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="hover:bg-gray-800 text-gray-500">
+                      <LinkIcon className="w-4 h-4 mr-2" /> /projects/edit/[id] (needs ID)
+                    </DropdownMenuItem>
+
+                    <DropdownMenuLabel className="text-gray-400 mt-2">Team & Collaboration</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => router.push('/team')} className="hover:bg-gray-800">
+                      <Users className="w-4 h-4 mr-2" /> Team Management
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/collaborations')} className="hover:bg-gray-800">
+                      <UserPlus className="w-4 h-4 mr-2" /> Collaborations
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/schedule')} className="hover:bg-gray-800">
+                      <Calendar className="w-4 h-4 mr-2" /> Schedule
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/task')} className="hover:bg-gray-800">
+                      <CheckSquare className="w-4 h-4 mr-2" /> Tasks
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/workflow')} className="hover:bg-gray-800">
+                      <Workflow className="w-4 h-4 mr-2" /> Workflow
+                    </DropdownMenuItem>
+
+                    <DropdownMenuLabel className="text-gray-400 mt-2">Deals & Investment</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => router.push('/makedeal')} className="hover:bg-gray-800">
+                      <Handshake className="w-4 h-4 mr-2" /> Make Deal
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/deals')} className="hover:bg-gray-800">
+                      <Globe className="w-4 h-4 mr-2" /> Active Deals
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/invest')} className="hover:bg-gray-800">
+                      <DollarSign className="w-4 h-4 mr-2" /> Invest
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/reinvest')} className="hover:bg-gray-800">
+                      <RefreshCw className="w-4 h-4 mr-2" /> Reinvest
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/portfolio')} className="hover:bg-gray-800">
+                      <BarChart2 className="w-4 h-4 mr-2" /> Portfolio
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/marketplace')} className="hover:bg-gray-800">
+                      <Store className="w-4 h-4 mr-2" /> Marketplace
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/calculator')} className="hover:bg-gray-800">
+                      <Calculator className="w-4 h-4 mr-2" /> Investment Calculator
+                    </DropdownMenuItem>
+
+                    <DropdownMenuLabel className="text-gray-400 mt-2">Financial Management</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => router.push('/managepayments')} className="hover:bg-gray-800">
+                      <Calculator className="w-4 h-4 mr-2" /> Manage Payments
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/payments')} className="hover:bg-gray-800">
+                      <Wallet className="w-4 h-4 mr-2" /> Payments
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/3-payments')} className="hover:bg-gray-800">
+                      <CreditCard className="w-4 h-4 mr-2" /> Payment System
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/funding-settings')} className="hover:bg-gray-800">
+                      <Settings className="w-4 h-4 mr-2" /> Funding Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/publicfunding')} className="hover:bg-gray-800">
+                      <Globe className="w-4 h-4 mr-2" /> Public Funding
+                    </DropdownMenuItem>
+
+                    <DropdownMenuLabel className="text-gray-400 mt-2">Communication</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => router.push('/messages')} className="hover:bg-gray-800">
+                      <MessageSquare className="w-4 h-4 mr-2" /> Messages
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/messages/new')} className="hover:bg-gray-800">
+                      <PenSquare className="w-4 h-4 mr-2" /> New Message
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="hover:bg-gray-800 text-gray-500">
+                      <LinkIcon className="w-4 h-4 mr-2" /> /messages/[id] (needs ID)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/updates')} className="hover:bg-gray-800">
+                      <Bell className="w-4 h-4 mr-2" /> Updates Center
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/groupchat')} className="hover:bg-gray-800">
+                      <Users className="w-4 h-4 mr-2" /> Group Chat
+                    </DropdownMenuItem>
+
+                    <DropdownMenuLabel className="text-gray-400 mt-2">Marketing & Analytics</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => router.push('/marketing')} className="hover:bg-gray-800">
+                      <Target className="w-4 h-4 mr-2" /> Marketing
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/analytics')} className="hover:bg-gray-800">
+                      <LineChart className="w-4 h-4 mr-2" /> Analytics
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/livepromo')} className="hover:bg-gray-800">
+                      <Zap className="w-4 h-4 mr-2" /> Live Promotions
+                    </DropdownMenuItem>
+
+                    <DropdownMenuLabel className="text-gray-400 mt-2">Admin Section</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => router.push('/admin')} className="hover:bg-gray-800">
+                      <Shield className="w-4 h-4 mr-2" /> Admin Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/admin/organizations')} className="hover:bg-gray-800">
+                      <Building2 className="w-4 h-4 mr-2" /> Organizations
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/admin/reports')} className="hover:bg-gray-800">
+                      <FileText className="w-4 h-4 mr-2" /> Reports
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/admin/settings')} className="hover:bg-gray-800">
+                      <Settings className="w-4 h-4 mr-2" /> Admin Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/admin/withdrawals')} className="hover:bg-gray-800">
+                      <Wallet className="w-4 h-4 mr-2" /> Withdrawals
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/admin/users')} className="hover:bg-gray-800">
+                      <Users className="w-4 h-4 mr-2" /> User Management
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/admin/opportunities')} className="hover:bg-gray-800">
+                      <Lightbulb className="w-4 h-4 mr-2" /> Opportunities
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="hover:bg-gray-800 text-gray-500">
+                      <LinkIcon className="w-4 h-4 mr-2" /> /admin/users/[id] (needs ID)
+                    </DropdownMenuItem>
+
+                    <DropdownMenuLabel className="text-gray-400 mt-2">Account & Settings</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => router.push('/settings')} className="hover:bg-gray-800">
+                      <Settings className="w-4 h-4 mr-2" /> Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/profile')} className="hover:bg-gray-800">
+                      <User className="w-4 h-4 mr-2" /> Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="hover:bg-gray-800 text-gray-500">
+                      <LinkIcon className="w-4 h-4 mr-2" /> /profile/[id] (needs ID)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/account-types')} className="hover:bg-gray-800">
+                      <CreditCard className="w-4 h-4 mr-2" /> Account Types
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/createorganization')} className="hover:bg-gray-800">
+                      <Building2 className="w-4 h-4 mr-2" /> Create Organization
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/contact')} className="hover:bg-gray-800">
+                      <MessageSquare className="w-4 h-4 mr-2" /> Contact Support
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </CardTitle>
+              <CardDescription className="text-gray-400">
+                Quick access to all platform features and pages
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Dashboards Section */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-400 mb-2">Dashboards</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-blue-900/20 hover:text-blue-400"
+                    onClick={() => router.push('/dashboard')}
+                  >
+                    <Home className="w-4 h-4 mr-2" /> Dashboard
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                    onClick={() => router.push('/ceodash')}
+                  >
+                    <BarChart2 className="w-4 h-4 mr-2" /> CEO Dashboard
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400"
+                    onClick={() => router.push('/developerdashboard')}
+                  >
+                    <Code className="w-4 h-4 mr-2" /> Dev Dashboard
+                  </Button>
+                </div>
+              </div>
+
+              {/* Project Management Section */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-400 mb-2">Project Management</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-blue-900/20 hover:text-blue-400"
+                    onClick={() => router.push('/projects')}
+                  >
+                    <Briefcase className="w-4 h-4 mr-2" /> Projects
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-blue-900/20 hover:text-blue-400"
+                    onClick={() => router.push('/projects/new')}
+                  >
+                    <Plus className="w-4 h-4 mr-2" /> New Project
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-blue-900/20 hover:text-blue-400"
+                    onClick={() => router.push('/publicprojects')}
+                  >
+                    <Globe className="w-4 h-4 mr-2" /> Public Projects
+                  </Button>
+                  <div className="flex items-center justify-center p-2 border border-gray-800 rounded-md bg-gray-900/50">
+                    <LinkIcon className="w-4 h-4 mr-2 text-gray-500" />
+                    <span className="text-sm text-gray-500">/projects/[id]</span>
+                  </div>
+                  <div className="flex items-center justify-center p-2 border border-gray-800 rounded-md bg-gray-900/50">
+                    <LinkIcon className="w-4 h-4 mr-2 text-gray-500" />
+                    <span className="text-sm text-gray-500">/projects/edit/[id]</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Team & Collaboration Section */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-400 mb-2">Team & Collaboration</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                    onClick={() => router.push('/team')}
+                  >
+                    <Users className="w-4 h-4 mr-2" /> Team
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                    onClick={() => router.push('/collaborations')}
+                  >
+                    <UserPlus className="w-4 h-4 mr-2" /> Collaborations
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                    onClick={() => router.push('/workflow')}
+                  >
+                    <Workflow className="w-4 h-4 mr-2" /> Workflow
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                    onClick={() => router.push('/task')}
+                  >
+                    <CheckSquare className="w-4 h-4 mr-2" /> Tasks
+                  </Button>
+                </div>
+              </div>
+
+              {/* Deals & Investment Section */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-400 mb-2">Deals & Investment</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-green-900/20 hover:text-green-400"
+                    onClick={() => router.push('/makedeal')}
+                  >
+                    <Handshake className="w-4 h-4 mr-2" /> Make Deal
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-green-900/20 hover:text-green-400"
+                    onClick={() => router.push('/deals')}
+                  >
+                    <Globe className="w-4 h-4 mr-2" /> Deals
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-green-900/20 hover:text-green-400"
+                    onClick={() => router.push('/invest')}
+                  >
+                    <DollarSign className="w-4 h-4 mr-2" /> Invest
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-green-900/20 hover:text-green-400"
+                    onClick={() => router.push('/portfolio')}
+                  >
+                    <BarChart2 className="w-4 h-4 mr-2" /> Portfolio
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-green-900/20 hover:text-green-400"
+                    onClick={() => router.push('/marketplace')}
+                  >
+                    <Store className="w-4 h-4 mr-2" /> Marketplace
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-green-900/20 hover:text-green-400"
+                    onClick={() => router.push('/calculator')}
+                  >
+                    <Calculator className="w-4 h-4 mr-2" /> Calculator
+                  </Button>
+                </div>
+              </div>
+
+              {/* Financial Management Section */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-400 mb-2">Financial Management</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400"
+                    onClick={() => router.push('/managepayments')}
+                  >
+                    <Calculator className="w-4 h-4 mr-2" /> Manage Payments
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400"
+                    onClick={() => router.push('/payments')}
+                  >
+                    <Wallet className="w-4 h-4 mr-2" /> Payments
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400"
+                    onClick={() => router.push('/3-payments')}
+                  >
+                    <CreditCard className="w-4 h-4 mr-2" /> Payment System
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400"
+                    onClick={() => router.push('/funding-settings')}
+                  >
+                    <Settings className="w-4 h-4 mr-2" /> Funding Settings
+                  </Button>
+                </div>
+              </div>
+
+              {/* Communication Section */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-400 mb-2">Communication</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                    onClick={() => router.push('/messages')}
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2" /> Messages
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                    onClick={() => router.push('/messages/new')}
+                  >
+                    <PenSquare className="w-4 h-4 mr-2" /> New Message
+                  </Button>
+                  <div className="flex items-center justify-center p-2 border border-gray-800 rounded-md bg-gray-900/50">
+                    <LinkIcon className="w-4 h-4 mr-2 text-gray-500" />
+                    <span className="text-sm text-gray-500">/messages/[id]</span>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400"
+                    onClick={() => router.push('/updates')}
+                  >
+                    <Bell className="w-4 h-4 mr-2" /> Updates
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                    onClick={() => router.push('/groupchat')}
+                  >
+                    <Users className="w-4 h-4 mr-2" /> Group Chat
+                  </Button>
+                </div>
+              </div>
+
+              {/* Marketing & Analytics Section */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-400 mb-2">Marketing & Analytics</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-blue-900/20 hover:text-blue-400"
+                    onClick={() => router.push('/marketing')}
+                  >
+                    <Target className="w-4 h-4 mr-2" /> Marketing
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-blue-900/20 hover:text-blue-400"
+                    onClick={() => router.push('/analytics')}
+                  >
+                    <LineChart className="w-4 h-4 mr-2" /> Analytics
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-blue-900/20 hover:text-blue-400"
+                    onClick={() => router.push('/livepromo')}
+                  >
+                    <Zap className="w-4 h-4 mr-2" /> Live Promo
+                  </Button>
+                </div>
+              </div>
+
+              {/* Admin Section */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-400 mb-2">Admin Section</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-red-900/20 hover:text-red-400"
+                    onClick={() => router.push('/admin')}
+                  >
+                    <Shield className="w-4 h-4 mr-2" /> Admin
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-red-900/20 hover:text-red-400"
+                    onClick={() => router.push('/admin/organizations')}
+                  >
+                    <Building2 className="w-4 h-4 mr-2" /> Organizations
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-red-900/20 hover:text-red-400"
+                    onClick={() => router.push('/admin/reports')}
+                  >
+                    <FileText className="w-4 h-4 mr-2" /> Reports
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-red-900/20 hover:text-red-400"
+                    onClick={() => router.push('/admin/settings')}
+                  >
+                    <Settings className="w-4 h-4 mr-2" /> Admin Settings
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-red-900/20 hover:text-red-400"
+                    onClick={() => router.push('/admin/withdrawals')}
+                  >
+                    <Wallet className="w-4 h-4 mr-2" /> Withdrawals
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-red-900/20 hover:text-red-400"
+                    onClick={() => router.push('/admin/users')}
+                  >
+                    <Users className="w-4 h-4 mr-2" /> Users
+                  </Button>
+                  <div className="flex items-center justify-center p-2 border border-gray-800 rounded-md bg-gray-900/50">
+                    <LinkIcon className="w-4 h-4 mr-2 text-gray-500" />
+                    <span className="text-sm text-gray-500">/admin/users/[id]</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Account & Settings Section */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-400 mb-2">Account & Settings</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-gray-800 hover:text-white"
+                    onClick={() => router.push('/settings')}
+                  >
+                    <Settings className="w-4 h-4 mr-2" /> Settings
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-gray-800 hover:text-white"
+                    onClick={() => router.push('/profile')}
+                  >
+                    <User className="w-4 h-4 mr-2" /> Profile
+                  </Button>
+                  <div className="flex items-center justify-center p-2 border border-gray-800 rounded-md bg-gray-900/50">
+                    <LinkIcon className="w-4 h-4 mr-2 text-gray-500" />
+                    <span className="text-sm text-gray-500">/profile/[id]</span>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-gray-800 hover:text-white"
+                    onClick={() => router.push('/account-types')}
+                  >
+                    <CreditCard className="w-4 h-4 mr-2" /> Account Types
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-gray-800 hover:text-white"
+                    onClick={() => router.push('/createorganization')}
+                  >
+                    <Building2 className="w-4 h-4 mr-2" /> Create Org
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-gray-800 hover:text-white"
+                    onClick={() => router.push('/contact')}
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2" /> Contact
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   )
