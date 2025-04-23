@@ -866,34 +866,34 @@ export default function PartnerDashboard() {
 
           <Link href="/messages">
             <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10 cursor-pointer hover:border-purple-500/50 transition-colors">
-              <CardContent className="p-3 sm:pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-400">Unread Messages</p>
-                    <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{unreadMessages}</h3>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                    <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
-                  </div>
+            <CardContent className="p-3 sm:pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-400">Unread Messages</p>
+                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{unreadMessages}</h3>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                  <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           </Link>
 
           <Link href="/updates">
             <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 cursor-pointer hover:border-yellow-500/50 transition-colors">
-              <CardContent className="p-3 sm:pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-400">Updates</p>
-                    <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{updates.length}</h3>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                    <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
-                  </div>
+            <CardContent className="p-3 sm:pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-400">Updates</p>
+                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{updates.length}</h3>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                  <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           </Link>
         </div>
 
@@ -902,40 +902,6 @@ export default function PartnerDashboard() {
           {/* Action Hubs - Left Column */}
           <div className="col-span-12 lg:col-span-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Join a Project Card */}
-              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/5 to-pink-500/5 hover:from-purple-500/10 hover:to-pink-500/10 transition-colors">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center text-xl">
-                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center mr-3">
-                      <UserPlus className="w-5 h-5 text-purple-400" />
-                    </div>
-                    Join a Project
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-400 mb-4">
-                    Have a project key? Enter it below to request access and join the team.
-                  </p>
-                  <div className="space-y-3">
-                    <Input
-                      placeholder="Enter project key (e.g., COV-ABC12)"
-                      value={projectKey}
-                      onChange={(e) => setProjectKey(e.target.value)}
-                    />
-                    {joinError && (
-                      <div className="text-sm text-red-500">{joinError}</div>
-                    )}
-                    <Button 
-                      className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600" 
-                      onClick={handleJoinProject}
-                      disabled={isJoining || !projectKey.trim()}
-                    >
-                      {isJoining ? 'Requesting Access...' : 'Request to Join'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
               {/* Project Hub */}
               <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/5 to-purple-500/5 hover:from-blue-500/10 hover:to-purple-500/10 transition-colors">
                 <CardHeader className="pb-3">
@@ -995,6 +961,40 @@ export default function PartnerDashboard() {
                       Team Management
                     </Button>
                   </Link>
+                </CardContent>
+              </Card>
+
+              {/* Join a Project Card */}
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/5 to-pink-500/5 hover:from-purple-500/10 hover:to-pink-500/10 transition-colors">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-xl">
+                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center mr-3">
+                      <UserPlus className="w-5 h-5 text-purple-400" />
+                    </div>
+                    Join a Project
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-400 mb-4">
+                    Have a project key? Enter it below to request access and join the team.
+                  </p>
+                  <div className="space-y-3">
+                    <Input
+                      placeholder="Enter project key (e.g., COV-ABC12)"
+                      value={projectKey}
+                      onChange={(e) => setProjectKey(e.target.value)}
+                    />
+                    {joinError && (
+                      <div className="text-sm text-red-500">{joinError}</div>
+                    )}
+                    <Button 
+                      className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600" 
+                      onClick={handleJoinProject}
+                      disabled={isJoining || !projectKey.trim()}
+                    >
+                      {isJoining ? 'Requesting Access...' : 'Request to Join'}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 

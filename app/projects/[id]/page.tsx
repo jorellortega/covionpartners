@@ -1656,6 +1656,32 @@ export default function ProjectDetails() {
     }
   }
 
+  const handleTogglePublicFunding = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .update({ 
+          accepts_donations: !project.accepts_donations 
+        })
+        .eq('id', project.id)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      setProject(data);
+      toast.success(data.accepts_donations 
+        ? "Public funding enabled"
+        : "Public funding disabled"
+      );
+    } catch (error) {
+      console.error('Error toggling public funding:', error);
+      toast.error("Failed to toggle public funding status");
+    }
+  };
+
   // Show loading state while authentication or projects are loading
   if (authLoading || projectsLoading || !project) {
     return (
@@ -2576,6 +2602,25 @@ export default function ProjectDetails() {
                       ) : (
                         <>
                           <Unlock className="w-4 h-4" /> Make Public
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className={`flex-1 min-w-[200px] justify-center items-center gap-2 ${
+                        project?.accepts_donations
+                          ? 'bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30'
+                          : 'bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30'
+                      }`}
+                      onClick={handleTogglePublicFunding}
+                    >
+                      {project?.accepts_donations ? (
+                        <>
+                          <DollarSign className="w-4 h-4" /> Disable Public Funding
+                        </>
+                      ) : (
+                        <>
+                          <DollarSign className="w-4 h-4" /> Enable Public Funding
                         </>
                       )}
                     </Button>

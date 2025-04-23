@@ -16,7 +16,7 @@ export default function ReinvestPage() {
             variant="ghost"
             className="text-gray-400 hover:text-purple-400 w-fit"
             onClick={() => router.back()}
-          >
+            >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Go Back
           </Button>
@@ -24,7 +24,7 @@ export default function ReinvestPage() {
       </header>
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <Card className="leonardo-card border-gray-800">
+          <Card className="leonardo-card border-gray-800">
           <CardHeader className="text-center pb-2">
             <Construction className="w-16 h-16 mx-auto text-yellow-500 mb-4" />
             <CardTitle className="text-3xl">Under Development</CardTitle>
@@ -39,21 +39,21 @@ export default function ReinvestPage() {
                 <h3 className="text-xl font-semibold mb-2">Coming Soon</h3>
                 <p className="text-gray-400">
                   Our team is currently developing this feature to provide you with a seamless reinvestment process.
-                </p>
-              </div>
-              
+                    </p>
+                  </div>
+
               <div className="p-6 bg-gray-900/50 rounded-lg border border-gray-800">
                 <AlertCircle className="w-8 h-8 text-purple-400 mb-4" />
                 <h3 className="text-xl font-semibold mb-2">Stay Tuned</h3>
                 <p className="text-gray-400">
                   We'll notify you as soon as this feature becomes available. Thank you for your patience.
                 </p>
-              </div>
+                </div>
             </div>
 
             <div className="flex justify-center mt-8">
-              <Button 
-                className="gradient-button"
+          <Button
+            className="gradient-button"
                 onClick={() => router.push('/dashboard')}
               >
                 Return to Dashboard

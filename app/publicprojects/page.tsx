@@ -221,7 +221,7 @@ export default function PublicProjectsPage() {
                     <div className="p-3 bg-gray-800/30 rounded-lg">
                       <div className="flex items-center text-gray-400 mb-1">
                         <DollarSign className="w-4 h-4 mr-2" />
-                        <span>Investment</span>
+                        <span>Budget</span>
                       </div>
                       <div className="text-white font-medium">
                         ${project.funding_goal?.toLocaleString() || 'N/A'}

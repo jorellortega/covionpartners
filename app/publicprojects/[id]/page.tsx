@@ -987,13 +987,20 @@ export default function PublicProjectDetails() {
                       <ShoppingCart className="w-4 h-4 mr-2" />
                       Buy
                     </Button>
-                      <Button 
-                        className="w-full gradient-button"
+                    <Button 
+                      className="w-full gradient-button"
+                      onClick={() => router.push('/forsale')}
+                    >
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      For Sale
+                    </Button>
+                    <Button 
+                      className="w-full gradient-button"
                       onClick={handleDonate}
-                      >
+                    >
                       <Heart className="w-4 h-4 mr-2" />
                       Donate
-                      </Button>
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
