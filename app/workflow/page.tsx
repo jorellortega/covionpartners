@@ -512,11 +512,11 @@ export default function WorkflowPage() {
         </div>
       </div>
       <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             size="sm"
-            className="bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30"
+            className="bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30 w-full sm:w-auto"
             onClick={(e) => {
               e.stopPropagation();
               router.push(`/task/${task.id}`);
@@ -528,7 +528,7 @@ export default function WorkflowPage() {
             <Button
               variant="outline"
               size="sm"
-              className="bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30"
+              className="bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30 w-full sm:w-auto"
               onClick={(e) => {
                 e.stopPropagation();
                 router.push(`/projects/${task.project?.id}`);

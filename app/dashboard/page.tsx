@@ -61,7 +61,8 @@ import {
   PenSquare,
   LineChart,
   CheckSquare,
-  ExternalLink as LinkIcon
+  ExternalLink as LinkIcon,
+  Heart
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -1045,6 +1046,18 @@ export default function PartnerDashboard() {
                       Invest
                     </Button>
                   </Link>
+                  <Link href="/forsale">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <Store className="w-4 h-4 mr-2" />
+                      For Sale
+                    </Button>
+                  </Link>
+                  <Link href="/buy">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <Store className="w-4 h-4 mr-2" />
+                      Buy
+                    </Button>
+                  </Link>
                   <Link href="/portfolio">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
                       <BarChart2 className="w-4 h-4 mr-2" />
@@ -1389,34 +1402,8 @@ export default function PartnerDashboard() {
                     <DropdownMenuItem onClick={() => router.push('/publicprojects')} className="hover:bg-gray-800">
                       <Globe className="w-4 h-4 mr-2" /> Public Projects
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/projectrequest')} className="hover:bg-gray-800">
-                      <FileText className="w-4 h-4 mr-2" /> Project Requests
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="hover:bg-gray-800 text-gray-500">
-                      <LinkIcon className="w-4 h-4 mr-2" /> /projects/[id] (needs ID)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="hover:bg-gray-800 text-gray-500">
-                      <LinkIcon className="w-4 h-4 mr-2" /> /projects/edit/[id] (needs ID)
-                    </DropdownMenuItem>
 
-                    <DropdownMenuLabel className="text-gray-400 mt-2">Team & Collaboration</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => router.push('/team')} className="hover:bg-gray-800">
-                      <Users className="w-4 h-4 mr-2" /> Team Management
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/collaborations')} className="hover:bg-gray-800">
-                      <UserPlus className="w-4 h-4 mr-2" /> Collaborations
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/schedule')} className="hover:bg-gray-800">
-                      <Calendar className="w-4 h-4 mr-2" /> Schedule
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/task')} className="hover:bg-gray-800">
-                      <CheckSquare className="w-4 h-4 mr-2" /> Tasks
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/workflow')} className="hover:bg-gray-800">
-                      <Workflow className="w-4 h-4 mr-2" /> Workflow
-                    </DropdownMenuItem>
-
-                    <DropdownMenuLabel className="text-gray-400 mt-2">Deals & Investment</DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-gray-400 mt-2">Deals & Investments</DropdownMenuLabel>
                     <DropdownMenuItem onClick={() => router.push('/makedeal')} className="hover:bg-gray-800">
                       <Handshake className="w-4 h-4 mr-2" /> Make Deal
                     </DropdownMenuItem>
@@ -1426,14 +1413,17 @@ export default function PartnerDashboard() {
                     <DropdownMenuItem onClick={() => router.push('/invest')} className="hover:bg-gray-800">
                       <DollarSign className="w-4 h-4 mr-2" /> Invest
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/reinvest')} className="hover:bg-gray-800">
-                      <RefreshCw className="w-4 h-4 mr-2" /> Reinvest
+                    <DropdownMenuItem onClick={() => router.push('/donate')} className="hover:bg-gray-800">
+                      <Heart className="w-4 h-4 mr-2" /> Donate
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/forsale')} className="hover:bg-gray-800">
+                      <Store className="w-4 h-4 mr-2" /> For Sale
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/buy')} className="hover:bg-gray-800">
+                      <Store className="w-4 h-4 mr-2" /> Buy
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/portfolio')} className="hover:bg-gray-800">
                       <BarChart2 className="w-4 h-4 mr-2" /> Portfolio
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/marketplace')} className="hover:bg-gray-800">
-                      <Store className="w-4 h-4 mr-2" /> Marketplace
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/calculator')} className="hover:bg-gray-800">
                       <Calculator className="w-4 h-4 mr-2" /> Investment Calculator
@@ -1446,88 +1436,30 @@ export default function PartnerDashboard() {
                     <DropdownMenuItem onClick={() => router.push('/payments')} className="hover:bg-gray-800">
                       <Wallet className="w-4 h-4 mr-2" /> Payments
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/3-payments')} className="hover:bg-gray-800">
-                      <CreditCard className="w-4 h-4 mr-2" /> Payment System
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/funding-settings')} className="hover:bg-gray-800">
                       <Settings className="w-4 h-4 mr-2" /> Funding Settings
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/publicfunding')} className="hover:bg-gray-800">
-                      <Globe className="w-4 h-4 mr-2" /> Public Funding
                     </DropdownMenuItem>
 
                     <DropdownMenuLabel className="text-gray-400 mt-2">Communication</DropdownMenuLabel>
                     <DropdownMenuItem onClick={() => router.push('/messages')} className="hover:bg-gray-800">
                       <MessageSquare className="w-4 h-4 mr-2" /> Messages
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/messages/new')} className="hover:bg-gray-800">
-                      <PenSquare className="w-4 h-4 mr-2" /> New Message
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="hover:bg-gray-800 text-gray-500">
-                      <LinkIcon className="w-4 h-4 mr-2" /> /messages/[id] (needs ID)
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/updates')} className="hover:bg-gray-800">
-                      <Bell className="w-4 h-4 mr-2" /> Updates Center
+                      <Bell className="w-4 h-4 mr-2" /> Updates
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/groupchat')} className="hover:bg-gray-800">
                       <Users className="w-4 h-4 mr-2" /> Group Chat
                     </DropdownMenuItem>
 
-                    <DropdownMenuLabel className="text-gray-400 mt-2">Marketing & Analytics</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => router.push('/marketing')} className="hover:bg-gray-800">
-                      <Target className="w-4 h-4 mr-2" /> Marketing
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/analytics')} className="hover:bg-gray-800">
-                      <LineChart className="w-4 h-4 mr-2" /> Analytics
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/livepromo')} className="hover:bg-gray-800">
-                      <Zap className="w-4 h-4 mr-2" /> Live Promotions
-                    </DropdownMenuItem>
-
-                    <DropdownMenuLabel className="text-gray-400 mt-2">Admin Section</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => router.push('/admin')} className="hover:bg-gray-800">
-                      <Shield className="w-4 h-4 mr-2" /> Admin Dashboard
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/admin/organizations')} className="hover:bg-gray-800">
-                      <Building2 className="w-4 h-4 mr-2" /> Organizations
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/admin/reports')} className="hover:bg-gray-800">
-                      <FileText className="w-4 h-4 mr-2" /> Reports
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/admin/settings')} className="hover:bg-gray-800">
-                      <Settings className="w-4 h-4 mr-2" /> Admin Settings
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/admin/withdrawals')} className="hover:bg-gray-800">
-                      <Wallet className="w-4 h-4 mr-2" /> Withdrawals
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/admin/users')} className="hover:bg-gray-800">
-                      <Users className="w-4 h-4 mr-2" /> User Management
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/admin/opportunities')} className="hover:bg-gray-800">
-                      <Lightbulb className="w-4 h-4 mr-2" /> Opportunities
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="hover:bg-gray-800 text-gray-500">
-                      <LinkIcon className="w-4 h-4 mr-2" /> /admin/users/[id] (needs ID)
-                    </DropdownMenuItem>
-
-                    <DropdownMenuLabel className="text-gray-400 mt-2">Account & Settings</DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-gray-400 mt-2">Settings & Support</DropdownMenuLabel>
                     <DropdownMenuItem onClick={() => router.push('/settings')} className="hover:bg-gray-800">
                       <Settings className="w-4 h-4 mr-2" /> Settings
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/profile')} className="hover:bg-gray-800">
                       <User className="w-4 h-4 mr-2" /> Profile
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="hover:bg-gray-800 text-gray-500">
-                      <LinkIcon className="w-4 h-4 mr-2" /> /profile/[id] (needs ID)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/account-types')} className="hover:bg-gray-800">
-                      <CreditCard className="w-4 h-4 mr-2" /> Account Types
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/createorganization')} className="hover:bg-gray-800">
-                      <Building2 className="w-4 h-4 mr-2" /> Create Organization
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/contact')} className="hover:bg-gray-800">
-                      <MessageSquare className="w-4 h-4 mr-2" /> Contact Support
+                      <MessageSquare className="w-4 h-4 mr-2" /> Support
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -1590,55 +1522,12 @@ export default function PartnerDashboard() {
                   >
                     <Globe className="w-4 h-4 mr-2" /> Public Projects
                   </Button>
-                  <div className="flex items-center justify-center p-2 border border-gray-800 rounded-md bg-gray-900/50">
-                    <LinkIcon className="w-4 h-4 mr-2 text-gray-500" />
-                    <span className="text-sm text-gray-500">/projects/[id]</span>
-                  </div>
-                  <div className="flex items-center justify-center p-2 border border-gray-800 rounded-md bg-gray-900/50">
-                    <LinkIcon className="w-4 h-4 mr-2 text-gray-500" />
-                    <span className="text-sm text-gray-500">/projects/edit/[id]</span>
-                  </div>
                 </div>
               </div>
 
-              {/* Team & Collaboration Section */}
+              {/* Deals & Investments Section */}
               <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Team & Collaboration</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
-                    onClick={() => router.push('/team')}
-                  >
-                    <Users className="w-4 h-4 mr-2" /> Team
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
-                    onClick={() => router.push('/collaborations')}
-                  >
-                    <UserPlus className="w-4 h-4 mr-2" /> Collaborations
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
-                    onClick={() => router.push('/workflow')}
-                  >
-                    <Workflow className="w-4 h-4 mr-2" /> Workflow
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
-                    onClick={() => router.push('/task')}
-                  >
-                    <CheckSquare className="w-4 h-4 mr-2" /> Tasks
-                  </Button>
-                </div>
-              </div>
-
-              {/* Deals & Investment Section */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Deals & Investment</h3>
+                <h3 className="text-sm font-medium text-gray-400 mb-2">Deals & Investments</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <Button 
                     variant="outline" 
@@ -1650,16 +1539,30 @@ export default function PartnerDashboard() {
                   <Button 
                     variant="outline" 
                     className="border-gray-700 hover:bg-green-900/20 hover:text-green-400"
-                    onClick={() => router.push('/deals')}
+                    onClick={() => router.push('/invest')}
                   >
-                    <Globe className="w-4 h-4 mr-2" /> Deals
+                    <DollarSign className="w-4 h-4 mr-2" /> Invest
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-pink-900/20 hover:text-pink-400"
+                    onClick={() => router.push('/donate')}
+                  >
+                    <Heart className="w-4 h-4 mr-2" /> Donate
                   </Button>
                   <Button 
                     variant="outline" 
                     className="border-gray-700 hover:bg-green-900/20 hover:text-green-400"
-                    onClick={() => router.push('/invest')}
+                    onClick={() => router.push('/forsale')}
                   >
-                    <DollarSign className="w-4 h-4 mr-2" /> Invest
+                    <Store className="w-4 h-4 mr-2" /> For Sale
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-green-900/20 hover:text-green-400"
+                    onClick={() => router.push('/buy')}
+                  >
+                    <Store className="w-4 h-4 mr-2" /> Buy
                   </Button>
                   <Button 
                     variant="outline" 
@@ -1667,13 +1570,6 @@ export default function PartnerDashboard() {
                     onClick={() => router.push('/portfolio')}
                   >
                     <BarChart2 className="w-4 h-4 mr-2" /> Portfolio
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-green-900/20 hover:text-green-400"
-                    onClick={() => router.push('/marketplace')}
-                  >
-                    <Store className="w-4 h-4 mr-2" /> Marketplace
                   </Button>
                   <Button 
                     variant="outline" 
@@ -1706,13 +1602,6 @@ export default function PartnerDashboard() {
                   <Button 
                     variant="outline" 
                     className="border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400"
-                    onClick={() => router.push('/3-payments')}
-                  >
-                    <CreditCard className="w-4 h-4 mr-2" /> Payment System
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400"
                     onClick={() => router.push('/funding-settings')}
                   >
                     <Settings className="w-4 h-4 mr-2" /> Funding Settings
@@ -1734,17 +1623,6 @@ export default function PartnerDashboard() {
                   <Button 
                     variant="outline" 
                     className="border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
-                    onClick={() => router.push('/messages/new')}
-                  >
-                    <PenSquare className="w-4 h-4 mr-2" /> New Message
-                  </Button>
-                  <div className="flex items-center justify-center p-2 border border-gray-800 rounded-md bg-gray-900/50">
-                    <LinkIcon className="w-4 h-4 mr-2 text-gray-500" />
-                    <span className="text-sm text-gray-500">/messages/[id]</span>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400"
                     onClick={() => router.push('/updates')}
                   >
                     <Bell className="w-4 h-4 mr-2" /> Updates
@@ -1759,90 +1637,9 @@ export default function PartnerDashboard() {
                 </div>
               </div>
 
-              {/* Marketing & Analytics Section */}
+              {/* Settings & Support Section */}
               <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Marketing & Analytics</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-blue-900/20 hover:text-blue-400"
-                    onClick={() => router.push('/marketing')}
-                  >
-                    <Target className="w-4 h-4 mr-2" /> Marketing
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-blue-900/20 hover:text-blue-400"
-                    onClick={() => router.push('/analytics')}
-                  >
-                    <LineChart className="w-4 h-4 mr-2" /> Analytics
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-blue-900/20 hover:text-blue-400"
-                    onClick={() => router.push('/livepromo')}
-                  >
-                    <Zap className="w-4 h-4 mr-2" /> Live Promo
-                  </Button>
-                </div>
-              </div>
-
-              {/* Admin Section */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Admin Section</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-red-900/20 hover:text-red-400"
-                    onClick={() => router.push('/admin')}
-                  >
-                    <Shield className="w-4 h-4 mr-2" /> Admin
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-red-900/20 hover:text-red-400"
-                    onClick={() => router.push('/admin/organizations')}
-                  >
-                    <Building2 className="w-4 h-4 mr-2" /> Organizations
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-red-900/20 hover:text-red-400"
-                    onClick={() => router.push('/admin/reports')}
-                  >
-                    <FileText className="w-4 h-4 mr-2" /> Reports
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-red-900/20 hover:text-red-400"
-                    onClick={() => router.push('/admin/settings')}
-                  >
-                    <Settings className="w-4 h-4 mr-2" /> Admin Settings
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-red-900/20 hover:text-red-400"
-                    onClick={() => router.push('/admin/withdrawals')}
-                  >
-                    <Wallet className="w-4 h-4 mr-2" /> Withdrawals
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-red-900/20 hover:text-red-400"
-                    onClick={() => router.push('/admin/users')}
-                  >
-                    <Users className="w-4 h-4 mr-2" /> Users
-                  </Button>
-                  <div className="flex items-center justify-center p-2 border border-gray-800 rounded-md bg-gray-900/50">
-                    <LinkIcon className="w-4 h-4 mr-2 text-gray-500" />
-                    <span className="text-sm text-gray-500">/admin/users/[id]</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Account & Settings Section */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Account & Settings</h3>
+                <h3 className="text-sm font-medium text-gray-400 mb-2">Settings & Support</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <Button 
                     variant="outline" 
@@ -1858,30 +1655,12 @@ export default function PartnerDashboard() {
                   >
                     <User className="w-4 h-4 mr-2" /> Profile
                   </Button>
-                  <div className="flex items-center justify-center p-2 border border-gray-800 rounded-md bg-gray-900/50">
-                    <LinkIcon className="w-4 h-4 mr-2 text-gray-500" />
-                    <span className="text-sm text-gray-500">/profile/[id]</span>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-gray-800 hover:text-white"
-                    onClick={() => router.push('/account-types')}
-                  >
-                    <CreditCard className="w-4 h-4 mr-2" /> Account Types
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-gray-800 hover:text-white"
-                    onClick={() => router.push('/createorganization')}
-                  >
-                    <Building2 className="w-4 h-4 mr-2" /> Create Org
-                  </Button>
                   <Button 
                     variant="outline" 
                     className="border-gray-700 hover:bg-gray-800 hover:text-white"
                     onClick={() => router.push('/contact')}
                   >
-                    <MessageSquare className="w-4 h-4 mr-2" /> Contact
+                    <MessageSquare className="w-4 h-4 mr-2" /> Support
                   </Button>
                 </div>
               </div>

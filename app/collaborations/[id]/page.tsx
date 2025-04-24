@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { DevelopmentBanner } from "@/components/ui/development-banner"
 import {
   Card,
   CardContent,
@@ -92,6 +93,7 @@ export default function CollaborationPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="min-h-screen bg-gray-950">
+      <DevelopmentBanner />
       <header className="leonardo-header">
         <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col space-y-4">

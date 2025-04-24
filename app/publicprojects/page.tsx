@@ -26,7 +26,9 @@ import {
   Tag,
   FileText,
   ExternalLink,
-  Download
+  Download,
+  Settings,
+  Heart
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useProjects } from "@/hooks/useProjects"
@@ -209,7 +211,23 @@ export default function PublicProjectsPage() {
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-lg">{project.name}</CardTitle>
-                  <StatusBadge status={project.status} />
+                  <div className="flex items-center gap-2">
+                    {/* Settings Button - Only show if user owns the project */}
+                    {user && project.owner_id === user.id && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 p-0.5 hover:bg-gray-800/50 text-gray-400 hover:text-purple-400"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/publicsettings?project=${project.id}`);
+                        }}
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                    <StatusBadge status={project.status} />
+                  </div>
                 </div>
                 <CardDescription className="text-gray-400 line-clamp-2">
                   {project.description || 'No description available'}
@@ -313,6 +331,17 @@ export default function PublicProjectsPage() {
                     >
                       <DollarSign className="w-4 h-4 mr-2" />
                       Invest
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 border-gray-700 bg-gray-800/30 text-white hover:bg-pink-900/20 hover:text-pink-400"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/donate?project=${project.id}`);
+                      }}
+                    >
+                      <Heart className="w-4 h-4 mr-2" />
+                      Donate
                     </Button>
                   </div>
                   <Button 
