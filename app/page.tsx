@@ -70,35 +70,47 @@ export default function Home() {
             </Link>
           </Button>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="leonardo-card p-6">
               <BarChart2 className="h-12 w-12 text-blue-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">Real-Time Financial Analytics</h3>
               <p className="text-gray-300">
-                Access cutting-edge analytics tools to track your investments and project performance in real-time.
+                Track investments and project performance with advanced analytics and real-time reporting tools.
               </p>
             </div>
             <div className="leonardo-card p-6">
               <Briefcase className="h-12 w-12 text-purple-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Project Actions</h3>
+              <h3 className="text-xl font-semibold mb-2">Project Management</h3>
               <p className="text-gray-300">
-                Create, manage, or view projects with ease.
+                Create, manage, and track projects with comprehensive tools for milestones and team collaboration.
               </p>
             </div>
             <div className="leonardo-card p-6">
-              <FolderKanban className="h-12 w-12 text-green-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Project Management Dashboard</h3>
+              <Globe className="h-12 w-12 text-green-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Global Opportunities</h3>
               <p className="text-gray-300">
-                Track and manage all your projects with our comprehensive dashboard featuring milestones, team
-                collaboration, and financial metrics.
+                Discover and connect with investment opportunities and partners from around the world.
               </p>
             </div>
             <div className="leonardo-card p-6">
-              <Zap className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Secure Partner Payouts</h3>
+              <Users className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Team Collaboration</h3>
               <p className="text-gray-300">
-                Access our robust payment system with multiple withdrawal options including bank transfers, PayPal, and
-                debit cards for seamless fund management.
+                Work seamlessly with team members, partners, and stakeholders through integrated collaboration tools.
+              </p>
+            </div>
+            <div className="leonardo-card p-6">
+              <Shield className="h-12 w-12 text-red-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Secure Transactions</h3>
+              <p className="text-gray-300">
+                Manage investments and payments with enterprise-grade security and multiple withdrawal options.
+              </p>
+            </div>
+            <div className="leonardo-card p-6">
+              <Target className="h-12 w-12 text-indigo-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Flexible Account Types</h3>
+              <p className="text-gray-300">
+                Choose from multiple account tiers with features tailored to your investment and project needs.
               </p>
             </div>
           </div>
