@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -50,7 +50,7 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-export default function DonatePage() {
+function DonatePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [searchQuery, setSearchQuery] = useState("")
@@ -233,5 +233,17 @@ export default function DonatePage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function DonatePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    }>
+      <DonatePageContent />
+    </Suspense>
   )
 } 
