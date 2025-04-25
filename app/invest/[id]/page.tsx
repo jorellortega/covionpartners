@@ -147,287 +147,287 @@ export default function InvestmentDetailsPage({ params }: { params: Promise<{ id
   return (
     <>
       <DevelopmentBanner />
-      <div className="min-h-screen">
-        <main className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                className="text-gray-400 hover:text-purple-400"
-                onClick={() => router.back()}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold">Investment Details</h1>
-                <p className="text-gray-400">Review and confirm your investment</p>
-              </div>
+    <div className="min-h-screen">
+      <main className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              className="text-gray-400 hover:text-purple-400"
+              onClick={() => router.back()}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Investment Details</h1>
+              <p className="text-gray-400">Review and confirm your investment</p>
             </div>
           </div>
+        </div>
 
-          {/* Project Information */}
-          <Card className="mb-6">
-            <CardHeader>
-              <div className="flex items-center gap-4">
-                {project.media_files && project.media_files.length > 0 ? (
-                  <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                    <img 
-                      src={project.media_files[0].url} 
-                      alt={project.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <Building2 className="w-12 h-12 text-purple-400" />
-                )}
-                <div>
-                  <div className="flex items-center gap-2">
-                    <CardTitle>{project.name}</CardTitle>
-                  </div>
-                  <CardDescription>{project.description}</CardDescription>
+        {/* Project Information */}
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center gap-4">
+              {project.media_files && project.media_files.length > 0 ? (
+                <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                  <img 
+                    src={project.media_files[0].url} 
+                    alt={project.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <Building2 className="w-12 h-12 text-purple-400" />
+              )}
+              <div>
+                <div className="flex items-center gap-2">
+                  <CardTitle>{project.name}</CardTitle>
+                </div>
+                <CardDescription>{project.description}</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-gray-400">Status</Label>
+                <div className="text-white font-medium">
+                  <StatusBadge status={project.status} />
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-gray-400">Status</Label>
-                  <div className="text-white font-medium">
-                    <StatusBadge status={project.status} />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-gray-400">Funding Goal</Label>
-                  <div className="text-white font-medium">
-                    ${project.funding_goal?.toLocaleString() || '0'}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-gray-400">Current Funding</Label>
-                  <div className="text-white font-medium">
-                    ${project.current_funding?.toLocaleString() || '0'}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-gray-400">Projected ROI</Label>
-                  <div className="text-white font-medium">
-                    {project.roi ? `${project.roi}%` : 'N/A'}
-                  </div>
+              <div className="space-y-2">
+                <Label className="text-gray-400">Funding Goal</Label>
+                <div className="text-white font-medium">
+                  ${project.funding_goal?.toLocaleString() || '0'}
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              <div className="space-y-2">
+                <Label className="text-gray-400">Current Funding</Label>
+                <div className="text-white font-medium">
+                  ${project.current_funding?.toLocaleString() || '0'}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-gray-400">Projected ROI</Label>
+                <div className="text-white font-medium">
+                  {project.roi ? `${project.roi}%` : 'N/A'}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Investment Tools */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            {/* ROI Calculator */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Calculator className="w-5 h-5 text-purple-400" />
-                  <CardTitle>ROI Calculator</CardTitle>
-                </div>
-                <CardDescription>Estimate your potential returns</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="investmentAmount">Investment Amount ($)</Label>
-                      <Input
-                        id="investmentAmount"
-                        type="number"
-                        value={investmentAmount}
-                        onChange={(e) => setInvestmentAmount(e.target.value)}
-                        placeholder="Enter amount"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="roiYears">Investment Period (Years)</Label>
-                      <Input
-                        id="roiYears"
-                        type="number"
-                        value={roiYears}
-                        onChange={(e) => setRoiYears(e.target.value)}
-                        min="1"
-                        max="10"
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                  {estimatedRoi !== null && (
-                    <div className="p-4 bg-gray-800/30 rounded-lg">
-                      <div className="text-gray-400 mb-1">Estimated Return</div>
-                      <div className="text-2xl font-bold text-purple-400">
-                        ${estimatedRoi.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                      </div>
-                      <div className="text-sm text-gray-400 mt-1">
-                        Based on {roiYears} year{Number(roiYears) > 1 ? 's' : ''} at {project.roi}% ROI
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Risk Assessment */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-purple-400" />
-                  <CardTitle>Risk Assessment</CardTitle>
-                </div>
-                <CardDescription>Evaluate investment risks</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 bg-gray-800/30 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-gray-400">Risk Level</div>
-                      <Badge variant="outline" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
-                        Moderate
-                      </Badge>
-                    </div>
-                    <div className="text-sm text-gray-400 mb-4">
-                      This project carries moderate risk. Please review the risk factors below.
-                    </div>
-                    <Button
-                      variant={riskAssessmentCompleted ? "default" : "outline"}
-                      className="w-full"
-                      onClick={() => setRiskAssessmentCompleted(!riskAssessmentCompleted)}
-                    >
-                      {riskAssessmentCompleted ? "Assessment Completed" : "Complete Assessment"}
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Market Analysis */}
-          <Card className="mb-6">
+        {/* Investment Tools */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* ROI Calculator */}
+          <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <LineChart className="w-5 h-5 text-purple-400" />
-                <CardTitle>Market Analysis</CardTitle>
+                <Calculator className="w-5 h-5 text-purple-400" />
+                <CardTitle>ROI Calculator</CardTitle>
               </div>
-              <CardDescription>Review market trends and projections</CardDescription>
+              <CardDescription>Estimate your potential returns</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4">
-                    <TrendingUp className="w-5 h-5" />
-                    <span className="text-sm">Market Trends</span>
-                  </Button>
-                  <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4">
-                    <FileSpreadsheet className="w-5 h-5" />
-                    <span className="text-sm">Financial Projections</span>
-                  </Button>
-                  <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4">
-                    <Users className="w-5 h-5" />
-                    <span className="text-sm">Competitor Analysis</span>
-                  </Button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="investmentAmount">Investment Amount ($)</Label>
+                    <Input
+                      id="investmentAmount"
+                      type="number"
+                      value={investmentAmount}
+                      onChange={(e) => setInvestmentAmount(e.target.value)}
+                      placeholder="Enter amount"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="roiYears">Investment Period (Years)</Label>
+                    <Input
+                      id="roiYears"
+                      type="number"
+                      value={roiYears}
+                      onChange={(e) => setRoiYears(e.target.value)}
+                      min="1"
+                      max="10"
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
+                {estimatedRoi !== null && (
+                  <div className="p-4 bg-gray-800/30 rounded-lg">
+                    <div className="text-gray-400 mb-1">Estimated Return</div>
+                    <div className="text-2xl font-bold text-purple-400">
+                      ${estimatedRoi.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-sm text-gray-400 mt-1">
+                      Based on {roiYears} year{Number(roiYears) > 1 ? 's' : ''} at {project.roi}% ROI
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Legal Documents */}
-          <Card className="mb-6">
+          {/* Risk Assessment */}
+          <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <FileSignature className="w-5 h-5 text-purple-400" />
-                <CardTitle>Legal Documents</CardTitle>
+                <Shield className="w-5 h-5 text-purple-400" />
+                <CardTitle>Risk Assessment</CardTitle>
               </div>
-              <CardDescription>Review and sign required documents</CardDescription>
+              <CardDescription>Evaluate investment risks</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="p-4 bg-gray-800/30 rounded-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <FileCheck className="w-5 h-5 text-purple-400" />
-                      <div>
-                        <div className="font-medium">Investment Agreement</div>
-                        <div className="text-sm text-gray-400">Required for all investments</div>
-                      </div>
-                    </div>
-                    <Button
-                      variant={documentsSigned ? "default" : "outline"}
-                      onClick={() => setDocumentsSigned(!documentsSigned)}
-                    >
-                      {documentsSigned ? "Signed" : "Review & Sign"}
-                    </Button>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-gray-400">Risk Level</div>
+                    <Badge variant="outline" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
+                      Moderate
+                    </Badge>
                   </div>
-                  <div className="text-sm text-gray-400">
-                    By signing this agreement, you acknowledge that you have read and understood all terms and conditions.
+                  <div className="text-sm text-gray-400 mb-4">
+                    This project carries moderate risk. Please review the risk factors below.
                   </div>
+                  <Button
+                    variant={riskAssessmentCompleted ? "default" : "outline"}
+                    className="w-full"
+                    onClick={() => setRiskAssessmentCompleted(!riskAssessmentCompleted)}
+                  >
+                    {riskAssessmentCompleted ? "Assessment Completed" : "Complete Assessment"}
+                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
+        </div>
 
-          {/* Payment Method */}
-          <Card className="mb-6">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-purple-400" />
-                <CardTitle>Payment Method</CardTitle>
-              </div>
-              <CardDescription>Choose how you want to invest</CardDescription>
-            </CardHeader>
-            <CardContent>
+        {/* Market Analysis */}
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <LineChart className="w-5 h-5 text-purple-400" />
+              <CardTitle>Market Analysis</CardTitle>
+            </div>
+            <CardDescription>Review market trends and projections</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button
-                  variant={selectedPaymentMethod === "credit" ? "default" : "outline"}
-                  className="flex flex-col items-center gap-2 h-auto py-4"
-                  onClick={() => setSelectedPaymentMethod("credit")}
-                >
-                  <CreditCard className="w-5 h-5" />
-                  <span className="text-sm">Credit Card</span>
+                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4">
+                  <TrendingUp className="w-5 h-5" />
+                  <span className="text-sm">Market Trends</span>
                 </Button>
-                <Button
-                  variant={selectedPaymentMethod === "bank" ? "default" : "outline"}
-                  className="flex flex-col items-center gap-2 h-auto py-4"
-                  onClick={() => setSelectedPaymentMethod("bank")}
-                >
-                  <Banknote className="w-5 h-5" />
-                  <span className="text-sm">Bank Transfer</span>
+                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4">
+                  <FileSpreadsheet className="w-5 h-5" />
+                  <span className="text-sm">Financial Projections</span>
                 </Button>
-                <Button
-                  variant={selectedPaymentMethod === "crypto" ? "default" : "outline"}
-                  className="flex flex-col items-center gap-2 h-auto py-4"
-                  onClick={() => setSelectedPaymentMethod("crypto")}
-                >
-                  <Bitcoin className="w-5 h-5" />
-                  <span className="text-sm">Cryptocurrency</span>
+                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4">
+                  <Users className="w-5 h-5" />
+                  <span className="text-sm">Competitor Analysis</span>
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-4">
-            <Button
-              variant="outline"
-              onClick={() => router.back()}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleInvest}
-              className="bg-blue-600 hover:bg-blue-700"
-              disabled={!documentsSigned || !riskAssessmentCompleted}
-            >
-              Confirm Investment
-            </Button>
-          </div>
-        </main>
-      </div>
+        {/* Legal Documents */}
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <FileSignature className="w-5 h-5 text-purple-400" />
+              <CardTitle>Legal Documents</CardTitle>
+            </div>
+            <CardDescription>Review and sign required documents</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-800/30 rounded-lg">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <FileCheck className="w-5 h-5 text-purple-400" />
+                    <div>
+                      <div className="font-medium">Investment Agreement</div>
+                      <div className="text-sm text-gray-400">Required for all investments</div>
+                    </div>
+                  </div>
+                  <Button
+                    variant={documentsSigned ? "default" : "outline"}
+                    onClick={() => setDocumentsSigned(!documentsSigned)}
+                  >
+                    {documentsSigned ? "Signed" : "Review & Sign"}
+                  </Button>
+                </div>
+                <div className="text-sm text-gray-400">
+                  By signing this agreement, you acknowledge that you have read and understood all terms and conditions.
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Payment Method */}
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-purple-400" />
+              <CardTitle>Payment Method</CardTitle>
+            </div>
+            <CardDescription>Choose how you want to invest</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Button
+                variant={selectedPaymentMethod === "credit" ? "default" : "outline"}
+                className="flex flex-col items-center gap-2 h-auto py-4"
+                onClick={() => setSelectedPaymentMethod("credit")}
+              >
+                <CreditCard className="w-5 h-5" />
+                <span className="text-sm">Credit Card</span>
+              </Button>
+              <Button
+                variant={selectedPaymentMethod === "bank" ? "default" : "outline"}
+                className="flex flex-col items-center gap-2 h-auto py-4"
+                onClick={() => setSelectedPaymentMethod("bank")}
+              >
+                <Banknote className="w-5 h-5" />
+                <span className="text-sm">Bank Transfer</span>
+              </Button>
+              <Button
+                variant={selectedPaymentMethod === "crypto" ? "default" : "outline"}
+                className="flex flex-col items-center gap-2 h-auto py-4"
+                onClick={() => setSelectedPaymentMethod("crypto")}
+              >
+                <Bitcoin className="w-5 h-5" />
+                <span className="text-sm">Cryptocurrency</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-4">
+          <Button
+            variant="outline"
+            onClick={() => router.back()}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleInvest}
+            className="bg-blue-600 hover:bg-blue-700"
+            disabled={!documentsSigned || !riskAssessmentCompleted}
+          >
+            Confirm Investment
+          </Button>
+        </div>
+      </main>
+    </div>
     </>
   )
 } 

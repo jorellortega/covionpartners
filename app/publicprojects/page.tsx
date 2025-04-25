@@ -226,7 +226,7 @@ export default function PublicProjectsPage() {
                         <Settings className="w-3.5 h-3.5" />
                       </Button>
                     )}
-                    <StatusBadge status={project.status} />
+                  <StatusBadge status={project.status} />
                   </div>
                 </div>
                 <CardDescription className="text-gray-400 line-clamp-2">

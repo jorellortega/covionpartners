@@ -1156,6 +1156,16 @@ export default function PartnerDashboard() {
                 <CardTitle className="text-xl">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                {user?.role === "admin" && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                    onClick={() => router.push('/createorganization')}
+                  >
+                    <Building2 className="w-4 h-4 mr-2" />
+                    Create Organization
+                  </Button>
+                )}
                 <Button 
                   variant="outline" 
                   className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"

@@ -123,7 +123,7 @@ function ForSalePageContent() {
     <div className="min-h-screen bg-gray-950">
       <DevelopmentBanner />
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+          {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Button
@@ -134,14 +134,14 @@ function ForSalePageContent() {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
-            <div>
+          <div>
               <h1 className="text-2xl font-bold text-white">Projects For Sale</h1>
               <p className="text-gray-400">Browse acquisition opportunities and investment listings</p>
             </div>
           </div>
-        </div>
+          </div>
 
-        {/* Search and Filters */}
+          {/* Search and Filters */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="flex-1">
             <div className="relative">
@@ -163,19 +163,19 @@ function ForSalePageContent() {
               <SortAsc className="h-4 w-4 mr-2" />
               Sort
             </Button>
+            </div>
           </div>
-        </div>
 
         {/* Listings Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredListings.map((listing) => (
-            <Card
+              <Card 
               key={listing.id}
               className="border-gray-800 hover:border-purple-500/50 transition-colors"
-            >
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
+              >
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
                     <CardTitle className="text-xl mb-2">{listing.name}</CardTitle>
                     <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">
                       {listing.industry}
@@ -191,8 +191,8 @@ function ForSalePageContent() {
                 <CardDescription className="mt-4 text-gray-400">
                   {listing.description}
                 </CardDescription>
-              </CardHeader>
-              <CardContent>
+                </CardHeader>
+                <CardContent>
                 <div className="space-y-6">
                   {/* Key Metrics */}
                   <div className="grid grid-cols-3 gap-4">
@@ -242,7 +242,7 @@ function ForSalePageContent() {
                   </div>
 
                   {/* Additional Info */}
-                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <div className="flex items-center text-gray-400">
                         <BarChart className="w-4 h-4 mr-2" />
@@ -266,8 +266,8 @@ function ForSalePageContent() {
                         <span>Location:</span>
                         <span className="ml-2 text-white">{listing.location}</span>
                       </div>
+                      </div>
                     </div>
-                  </div>
 
                   {/* Action Buttons */}
                   <div className="flex gap-3">
@@ -286,14 +286,14 @@ function ForSalePageContent() {
                       View Details
                     </Button>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
         {filteredListings.length === 0 && (
-          <div className="text-center py-12">
+            <div className="text-center py-12">
             <div className="mx-auto w-24 h-24 bg-gray-800/30 rounded-full flex items-center justify-center mb-4">
               <Tag className="w-12 h-12 text-gray-400" />
             </div>
@@ -305,10 +305,10 @@ function ForSalePageContent() {
                 ? "Try adjusting your search terms"
                 : "Check back later for new opportunities"}
             </p>
-          </div>
-        )}
+            </div>
+          )}
       </main>
-    </div>
+        </div>
   )
 }
 
