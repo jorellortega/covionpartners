@@ -4,6 +4,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Check, Star, Zap, Building2, Users, Briefcase, Target, DollarSign, Shield, FileText, BarChart3 } from "lucide-react"
 import Link from "next/link"
+import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { SubscriptionCheckout } from "@/components/subscription-checkout"
 
 const features = [
   {
@@ -101,7 +104,8 @@ const tiers = [
     features: features.filter(f => f.public),
     cta: "Get Started",
     href: "/login?tab=signup",
-    popular: false
+    popular: false,
+    priceId: null
   },
   {
     name: "Investor Account",
@@ -112,7 +116,8 @@ const tiers = [
     features: features.filter(f => f.investor),
     cta: "Sign Up Now",
     href: "/login?tab=signup",
-    popular: true
+    popular: true,
+    priceId: null
   },
   {
     name: "Partner Account",
@@ -121,8 +126,9 @@ const tiers = [
     icon: Target,
     features: features.filter(f => f.partner),
     cta: "Upgrade Now",
-    href: "/contact",
-    popular: false
+    href: "#",
+    popular: false,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PARTNER_PRICE_ID
   },
   {
     name: "Enterprise Account",
@@ -131,12 +137,15 @@ const tiers = [
     icon: Building2,
     features: features.filter(f => f.enterprise),
     cta: "Contact Sales",
-    href: "/contact",
-    popular: false
+    href: "#",
+    popular: false,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID
   }
 ]
 
 export default function AccountTypesPage() {
+  const [selectedTier, setSelectedTier] = useState<string | null>(null)
+
   return (
     <div className="min-h-screen bg-gray-950">
       <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
@@ -185,11 +194,33 @@ export default function AccountTypesPage() {
                 </ul>
               </CardContent>
               <CardFooter className="pt-6">
-                <Link href={tier.href} className="w-full">
-                  <Button className={`w-full ${tier.popular ? 'bg-purple-500 hover:bg-purple-600' : 'gradient-button'}`}>
-                    {tier.cta}
-                  </Button>
-                </Link>
+                {tier.priceId ? (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button className={`w-full ${tier.popular ? 'bg-purple-500 hover:bg-purple-600' : 'gradient-button'}`}>
+                        {tier.cta}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Subscribe to {tier.name}</DialogTitle>
+                        <CardDescription>
+                          Complete your subscription to access all {tier.name} features.
+                        </CardDescription>
+                      </DialogHeader>
+                      <SubscriptionCheckout 
+                        priceId={tier.priceId} 
+                        onSuccess={() => setSelectedTier(null)}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                ) : (
+                  <Link href={tier.href} className="w-full">
+                    <Button className={`w-full ${tier.popular ? 'bg-purple-500 hover:bg-purple-600' : 'gradient-button'}`}>
+                      {tier.cta}
+                    </Button>
+                  </Link>
+                )}
               </CardFooter>
             </Card>
           ))}

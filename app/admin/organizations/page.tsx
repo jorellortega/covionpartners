@@ -104,12 +104,12 @@ export default function AdminOrganizations() {
           totalProjects: projects.length,
           totalMembers: members.length,
         })
-      } catch (error) {
+    } catch (error) {
         console.error("Error fetching data:", error)
         toast.error("Failed to load organizations")
       } finally {
         setLoading(false)
-      }
+  }
     }
 
     fetchData()
@@ -138,10 +138,10 @@ export default function AdminOrganizations() {
             </p>
           </div>
           <Link href="/admin/organizations/create">
-            <Button className="bg-purple-600 hover:bg-purple-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Organization
-            </Button>
+              <Button className="bg-purple-600 hover:bg-purple-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Organization
+              </Button>
           </Link>
         </div>
 

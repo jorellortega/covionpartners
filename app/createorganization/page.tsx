@@ -143,7 +143,7 @@ export default function CreateOrganization() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     try {
       if (!user) {
         toast.error("Please log in to continue")
@@ -398,7 +398,7 @@ export default function CreateOrganization() {
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button
+              <Button 
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-red-500 hover:text-red-600"
@@ -481,8 +481,8 @@ export default function CreateOrganization() {
                               >
                                 <X className="h-4 w-4" />
                               </Button>
-                            </>
-                          ) : (
+                  </>
+                ) : (
                             <Select
                               value={selectedProject}
                               onValueChange={(value) => {
@@ -501,7 +501,7 @@ export default function CreateOrganization() {
                                 ))}
                               </SelectContent>
                             </Select>
-                          )}
+                )}
                         </div>
                       </div>
                     </div>

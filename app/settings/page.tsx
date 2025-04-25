@@ -11,8 +11,24 @@ import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { Loader2, Upload, User } from "lucide-react"
+import {
+  CreditCard,
+  Settings,
+  Bell,
+  Lock,
+  User,
+  DollarSign,
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  Upload,
+} from 'lucide-react'
 import Image from "next/image"
+import { useAuth } from '@/hooks/useAuth'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { SubscriptionCheckout } from '@/components/subscription-checkout'
 
 interface UserSettings {
   notifications_email: boolean
@@ -35,9 +51,23 @@ interface Profile {
   location: string;
 }
 
+const tiers = {
+  'price_partner': {
+    name: 'Partner Account',
+    price: '$25/month',
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PARTNER_PRICE_ID,
+  },
+  'price_enterprise': {
+    name: 'Enterprise Account',
+    price: '$45/month',
+    priceId: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID,
+  },
+}
+
 export default function SettingsPage() {
   const supabase = createClientComponentClient()
   const router = useRouter()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [profile, setProfile] = useState<Profile>({
@@ -59,6 +89,9 @@ export default function SettingsPage() {
     language: "en",
     timezone: "UTC"
   })
+  const [subscription, setSubscription] = useState<any>(null)
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false)
+  const [selectedTier, setSelectedTier] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -111,6 +144,23 @@ export default function SettingsPage() {
 
     fetchUserData()
   }, [supabase, router])
+
+  useEffect(() => {
+    fetchSubscriptionDetails()
+  }, [])
+
+  const fetchSubscriptionDetails = async () => {
+    try {
+      const response = await fetch('/api/subscriptions/get', {
+        method: 'GET',
+      })
+      const data = await response.json()
+      setSubscription(data.subscription)
+    } catch (error) {
+      console.error('Error fetching subscription:', error)
+      toast.error('Failed to load subscription details')
+    }
+  }
 
   const handleProfileUpdate = async () => {
     try {
@@ -208,6 +258,77 @@ export default function SettingsPage() {
     }
   }
 
+  const handleCancelSubscription = async () => {
+    try {
+      const response = await fetch('/api/subscriptions/cancel', {
+        method: 'POST',
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to cancel subscription')
+      }
+
+      toast.success('Subscription cancelled successfully')
+      fetchSubscriptionDetails()
+    } catch (error) {
+      console.error('Error cancelling subscription:', error)
+      toast.error('Failed to cancel subscription')
+    }
+  }
+
+  const handlePauseSubscription = async () => {
+    try {
+      const response = await fetch('/api/subscriptions/pause', {
+        method: 'POST',
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to pause subscription')
+      }
+
+      toast.success('Subscription paused successfully')
+      fetchSubscriptionDetails()
+    } catch (error) {
+      console.error('Error pausing subscription:', error)
+      toast.error('Failed to pause subscription')
+    }
+  }
+
+  const handleResumeSubscription = async () => {
+    try {
+      const response = await fetch('/api/subscriptions/resume', {
+        method: 'POST',
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to resume subscription')
+      }
+
+      toast.success('Subscription resumed successfully')
+      fetchSubscriptionDetails()
+    } catch (error) {
+      console.error('Error resuming subscription:', error)
+      toast.error('Failed to resume subscription')
+    }
+  }
+
+  const getSubscriptionStatus = () => {
+    if (!subscription) return null
+
+    switch (subscription.status) {
+      case 'active':
+        return <Badge className="bg-green-500/20 text-green-400">Active</Badge>
+      case 'canceled':
+        return <Badge className="bg-red-500/20 text-red-400">Cancelled</Badge>
+      case 'paused':
+        return <Badge className="bg-yellow-500/20 text-yellow-400">Paused</Badge>
+      case 'past_due':
+        return <Badge className="bg-orange-500/20 text-orange-400">Past Due</Badge>
+      default:
+        return <Badge className="bg-gray-500/20 text-gray-400">{subscription.status}</Badge>
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -226,6 +347,7 @@ export default function SettingsPage() {
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="subscription">Subscription</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -474,7 +596,160 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="subscription">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-4">
+                <div className="rounded-full bg-purple-500/10 p-3">
+                  <CreditCard className="h-6 w-6 text-purple-400" />
+                </div>
+                <div>
+                  <CardTitle>Subscription Management</CardTitle>
+                  <CardDescription>Manage your subscription and billing</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+                </div>
+              ) : subscription ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-gray-800/30 rounded-lg">
+                      <div className="text-gray-400 mb-1">Current Plan</div>
+                      <div className="text-xl font-medium text-white">
+                        {subscription.tier_name || 'Unknown Plan'}
+                      </div>
+                    </div>
+                    <div className="p-4 bg-gray-800/30 rounded-lg">
+                      <div className="text-gray-400 mb-1">Status</div>
+                      <div>{getSubscriptionStatus()}</div>
+                    </div>
+                  </div>
+
+                  {subscription.status === 'active' && (
+                    <div className="space-y-4">
+                      <div className="flex gap-4">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" className="flex-1">
+                              Change Plan
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Change Subscription Plan</DialogTitle>
+                              <DialogDescription>
+                                Choose a new plan for your subscription
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 mt-4">
+                              {Object.entries(tiers).map(([key, tier]) => (
+                                <Button
+                                  key={key}
+                                  variant="outline"
+                                  className="w-full justify-between"
+                                  onClick={() => {
+                                    setSelectedTier(tier.priceId!)
+                                    setShowUpgradeDialog(true)
+                                  }}
+                                >
+                                  <span>{tier.name}</span>
+                                  <span>{tier.price}</span>
+                                </Button>
+                              ))}
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={handlePauseSubscription}
+                        >
+                          Pause Subscription
+                        </Button>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        className="w-full"
+                        onClick={handleCancelSubscription}
+                      >
+                        Cancel Subscription
+                      </Button>
+                    </div>
+                  )}
+
+                  {subscription.status === 'paused' && (
+                    <Button
+                      className="w-full gradient-button"
+                      onClick={handleResumeSubscription}
+                    >
+                      Resume Subscription
+                    </Button>
+                  )}
+
+                  {subscription.status === 'canceled' && (
+                    <div className="space-y-4">
+                      <Alert className="bg-yellow-500/10 border-yellow-500/20">
+                        <AlertTriangle className="h-4 w-4 text-yellow-400" />
+                        <AlertDescription className="text-yellow-400">
+                          Your subscription has been cancelled and will end on{' '}
+                          {new Date(subscription.current_period_end * 1000).toLocaleDateString()}
+                        </AlertDescription>
+                      </Alert>
+                      <Button
+                        className="w-full gradient-button"
+                        onClick={() => setShowUpgradeDialog(true)}
+                      >
+                        Resubscribe
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Alert className="bg-blue-500/10 border-blue-500/20">
+                    <CheckCircle2 className="h-4 w-4 text-blue-400" />
+                    <AlertDescription className="text-blue-400">
+                      You are currently on the free plan. Upgrade to access premium features.
+                    </AlertDescription>
+                  </Alert>
+                  <Button
+                    className="w-full gradient-button"
+                    onClick={() => router.push('/account-types')}
+                  >
+                    View Plans
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Upgrade Dialog */}
+      <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upgrade Subscription</DialogTitle>
+            <DialogDescription>
+              Complete your subscription upgrade
+            </DialogDescription>
+          </DialogHeader>
+          {selectedTier && (
+            <SubscriptionCheckout
+              priceId={selectedTier}
+              onSuccess={() => {
+                setShowUpgradeDialog(false)
+                fetchSubscriptionDetails()
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 
