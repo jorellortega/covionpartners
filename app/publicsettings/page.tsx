@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,7 +16,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { ArrowLeft, DollarSign, Target, Eye } from "lucide-react"
 import { toast } from "sonner"
 
-export default function PublicSettingsPage() {
+function PublicSettingsPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
@@ -292,5 +292,17 @@ export default function PublicSettingsPage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function PublicSettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    }>
+      <PublicSettingsPageContent />
+    </Suspense>
   )
 } 
