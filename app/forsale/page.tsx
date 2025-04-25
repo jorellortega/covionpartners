@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -107,7 +107,7 @@ const mockListings = [
   }
 ]
 
-export default function ForSalePage() {
+function ForSalePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [searchQuery, setSearchQuery] = useState("")
@@ -309,5 +309,17 @@ export default function ForSalePage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function ForSalePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    }>
+      <ForSalePageContent />
+    </Suspense>
   )
 } 
