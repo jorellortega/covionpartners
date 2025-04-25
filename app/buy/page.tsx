@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -81,7 +81,7 @@ const mockListings = [
   }
 ]
 
-export default function BuyPage() {
+function BuyPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
@@ -371,5 +371,17 @@ export default function BuyPage() {
         </Dialog>
       </main>
     </div>
+  )
+}
+
+export default function BuyPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    }>
+      <BuyPageContent />
+    </Suspense>
   )
 } 
