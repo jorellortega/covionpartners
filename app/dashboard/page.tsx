@@ -699,33 +699,6 @@ export default function PartnerDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
-        {/* Admin-only Organization Management Card */}
-        {user?.role === "admin" && (
-          <Card className="mb-8 border border-purple-500/20 bg-purple-500/5">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-purple-400" />
-                    <h3 className="text-lg font-semibold text-purple-400">Admin Controls</h3>
-                  </div>
-                  <p className="text-sm text-gray-400">
-                    Manage enterprise organizations and their access levels
-                  </p>
-                  <Button 
-                    className="mt-4 bg-purple-600 hover:bg-purple-700"
-                    onClick={() => router.push('/admin/organizations')}
-                  >
-                    Organization Management
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-                <Building2 className="h-16 w-16 text-purple-400/20" />
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Welcome Banner */}
         <div className="leonardo-card p-4 sm:p-6 mb-6 bg-gradient-to-r from-gray-800/50 to-gray-900/50">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -1156,16 +1129,6 @@ export default function PartnerDashboard() {
                 <CardTitle className="text-xl">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {user?.role === "admin" && (
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
-                    onClick={() => router.push('/createorganization')}
-                  >
-                    <Building2 className="w-4 h-4 mr-2" />
-                    Create Organization
-                  </Button>
-                )}
                 <Button 
                   variant="outline" 
                   className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
@@ -1234,146 +1197,6 @@ export default function PartnerDashboard() {
             </Card>
           </div>
         </div>
-
-        {/* Upcoming Deadlines Section */}
-        <Card className="leonardo-card border-gray-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Calendar className="w-5 h-5 mr-2 text-blue-400" />
-                Upcoming Deadlines
-              </div>
-              <Button
-                variant="ghost"
-                className="text-blue-400 hover:text-blue-300"
-                onClick={() => router.push('/deadlines')}
-              >
-                View All
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {loadingMyProjects ? (
-                <div className="text-center py-4">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                </div>
-              ) : (
-                <>
-                  {/* Project Deadlines */}
-                  {myProjects
-                    .filter(project => project.deadline)
-                    .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
-                    .slice(0, 3)
-                    .map(project => (
-                      <div 
-                        key={project.id}
-                        className="p-3 bg-gray-800/30 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-800/50 transition-colors"
-                        onClick={() => router.push(`/projects/${project.id}`)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                              <Briefcase className="w-4 h-4 text-blue-400" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-white">{project.name}</p>
-                              <p className="text-xs text-gray-400">Project Deadline</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm text-white">
-                              {new Date(project.deadline!).toLocaleDateString()}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              {Math.ceil((new Date(project.deadline!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days left
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  }
-
-                  {/* Recent Updates */}
-                  {updates
-                    .filter(update => update.date)
-                    .sort((a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime())
-                    .slice(0, 3)
-                    .map(update => (
-                      <div 
-                        key={update.id}
-                        className="p-3 bg-gray-800/30 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-800/50 transition-colors"
-                        onClick={() => router.push(`/updates/${update.id}`)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-                              <Bell className="w-4 h-4 text-purple-400" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-white">{update.title}</p>
-                              <p className="text-xs text-gray-400">Update Due</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm text-white">
-                              {new Date(update.date!).toLocaleDateString()}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              {Math.ceil((new Date(update.date!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days left
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  }
-
-                  {/* Messages with Due Dates */}
-                  {recentMessages
-                    .filter(message => message.due_date)
-                    .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
-                    .slice(0, 3)
-                    .map(message => (
-                      <div 
-                        key={message.id}
-                        className="p-3 bg-gray-800/30 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-800/50 transition-colors"
-                        onClick={() => router.push(`/messages/${message.id}`)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                              <MessageSquare className="w-4 h-4 text-green-400" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-white">{message.subject}</p>
-                              <p className="text-xs text-gray-400">Message Response Due</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm text-white">
-                              {new Date(message.due_date!).toLocaleDateString()}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              {Math.ceil((new Date(message.due_date!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days left
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  }
-
-                  {(myProjects.filter(p => p.deadline).length === 0 && 
-                    updates.filter(u => u.date).length === 0 && 
-                    recentMessages.filter(m => m.due_date).length === 0) && (
-                    <div className="text-center py-4 text-gray-400">
-                      No upcoming deadlines
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Platform Navigation Card - Only visible to partners and admins */}
         {(user?.role === 'partner' || user?.role === 'admin') && (

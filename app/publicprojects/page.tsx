@@ -28,7 +28,9 @@ import {
   ExternalLink,
   Download,
   Settings,
-  Heart
+  Heart,
+  Eye,
+  Globe
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useProjects } from "@/hooks/useProjects"
@@ -226,19 +228,41 @@ export default function PublicProjectsPage() {
                         <div className="flex items-center gap-2">
                           {/* Settings Button - Only show if user owns the project */}
                           {user && project.owner_id === user.id && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 p-0.5 hover:bg-gray-800/50 text-gray-400 hover:text-purple-400"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push(`/publicsettings?project=${project.id}`);
-                              }}
-                            >
-                              <Settings className="w-3.5 h-3.5" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 p-0.5 hover:bg-gray-800/50 text-gray-400 hover:text-purple-400"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/projects/${project.id}`);
+                                }}
+                              >
+                                <Settings className="w-3.5 h-3.5" />
+                              </Button>
+                              <a
+                                href={`/publicsettings?project=${project.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                className="h-6 w-6 p-0.5 flex items-center justify-center hover:bg-gray-800/50 text-gray-400 hover:text-blue-400 rounded"
+                                title="View Public Settings"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </a>
+                              <a
+                                href={`/publicprojects/${project.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                className="h-6 w-6 p-0.5 flex items-center justify-center hover:bg-gray-800/50 text-gray-400 hover:text-green-400 rounded"
+                                title="View Public Project"
+                              >
+                                <Globe className="w-4 h-4" />
+                              </a>
+                            </>
                           )}
-                        <StatusBadge status={project.status} />
+                          <StatusBadge status={project.status} />
                         </div>
                       </div>
                       <CardDescription className="text-gray-400 line-clamp-2">
@@ -321,52 +345,72 @@ export default function PublicProjectsPage() {
                           </div>
                         </div>
 
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            className="flex-1 border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/makedeal?project=${project.id}`);
-                            }}
-                          >
-                            <Handshake className="w-4 h-4 mr-2" />
-                            Make Deal
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            className="flex-1 border-gray-700 bg-gray-800/30 text-white hover:bg-green-900/20 hover:text-green-400"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/invest?project=${project.id}`);
-                            }}
-                          >
-                            <DollarSign className="w-4 h-4 mr-2" />
-                            Invest
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            className="flex-1 border-gray-700 bg-gray-800/30 text-white hover:bg-pink-900/20 hover:text-pink-400"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/donate?project=${project.id}`);
-                            }}
-                          >
-                            <Heart className="w-4 h-4 mr-2" />
-                            Donate
-                          </Button>
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-emerald-900/20 hover:text-emerald-400"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/forsale?project=${project.id}`);
-                          }}
-                        >
-                          <Tag className="w-4 h-4 mr-2" />
-                          For Sale
-                        </Button>
+                        {/* Action Buttons - Responsive Layout */}
+                        {(() => {
+                          const actionButtons = [
+                            {
+                              label: 'Make Deal',
+                              icon: <Handshake className="w-4 h-4 mr-2" />,
+                              onClick: (e: any) => {
+                                e.stopPropagation();
+                                router.push(`/makedeal?project=${project.id}`);
+                              },
+                              color: 'hover:bg-purple-900/20 hover:text-purple-400',
+                            },
+                            {
+                              label: 'Invest',
+                              icon: <DollarSign className="w-4 h-4 mr-2" />,
+                              onClick: (e: any) => {
+                                e.stopPropagation();
+                                router.push(`/invest?project=${project.id}`);
+                              },
+                              color: 'hover:bg-green-900/20 hover:text-green-400',
+                            },
+                            {
+                              label: 'Donate',
+                              icon: <Heart className="w-4 h-4 mr-2" />,
+                              onClick: (e: any) => {
+                                e.stopPropagation();
+                                router.push(`/donate?project=${project.id}`);
+                              },
+                              color: 'hover:bg-pink-900/20 hover:text-pink-400',
+                            },
+                            {
+                              label: 'Collaborate',
+                              icon: <Users className="w-4 h-4 mr-2" />,
+                              onClick: (e: any) => {
+                                e.stopPropagation();
+                                router.push(`/collaborations/${project.id}`);
+                              },
+                              color: 'hover:bg-blue-900/20 hover:text-blue-400',
+                            },
+                            {
+                              label: 'For Sale',
+                              icon: <Tag className="w-4 h-4 mr-2" />,
+                              onClick: (e: any) => {
+                                e.stopPropagation();
+                                router.push(`/forsale?project=${project.id}`);
+                              },
+                              color: 'hover:bg-emerald-900/20 hover:text-emerald-400',
+                            },
+                          ];
+                          const gridClass = actionButtons.length > 3 ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2';
+                          return (
+                            <div className={gridClass}>
+                              {actionButtons.map((btn, idx) => (
+                                <Button
+                                  key={btn.label}
+                                  variant="outline"
+                                  className={`border-gray-700 bg-gray-800/30 text-white ${btn.color} w-full flex items-center justify-center`}
+                                  onClick={btn.onClick}
+                                >
+                                  {btn.icon}
+                                  {btn.label}
+                                </Button>
+                              ))}
+                            </div>
+                          );
+                        })()}
 
                         {/* Project Resources */}
                         {(project.media_files?.some(file => !file.type.startsWith('image/')) || (project.external_links?.length ?? 0) > 0) && (
@@ -395,36 +439,22 @@ export default function PublicProjectsPage() {
 
                             {/* External Links */}
                             {project.external_links?.map((link: any, index: number) => (
-                              <div 
+                              <Button
                                 key={index}
-                                className="flex items-center justify-between p-2 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors"
-                                onClick={(e) => e.stopPropagation()}
+                                variant="ghost"
+                                size="sm"
+                                className="flex items-center gap-2 text-gray-400 hover:text-blue-400 px-2 py-1 text-sm w-fit"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(formatUrl(link.url), '_blank');
+                                }}
                               >
-                                <div className="flex items-center space-x-2 min-w-0">
-                                  <ExternalLink className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                  <span className="text-sm text-gray-300 truncate">{link.title || link.url}</span>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-gray-400 hover:text-blue-400"
-                                  onClick={() => window.open(formatUrl(link.url), '_blank')}
-                                >
-                                  <ExternalLink className="w-4 h-4" />
-                                </Button>
-                              </div>
+                                <ExternalLink className="w-4 h-4" />
+                                Link
+                              </Button>
                             ))}
                           </div>
                         )}
-
-                        <Link
-                          href={`/collaborations/${project.id}`}
-                          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Users className="w-4 h-4" />
-                          Collaborate
-                        </Link>
                       </div>
                     </CardContent>
                   </div>

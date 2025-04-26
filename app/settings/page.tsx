@@ -49,6 +49,7 @@ interface Profile {
   bio: string;
   website: string;
   location: string;
+  balance?: number;
 }
 
 const tiers = {
@@ -128,7 +129,8 @@ export default function SettingsPage() {
           position: profileData?.position || "",
           bio: profileData?.bio || "",
           website: profileData?.website || "",
-          location: profileData?.location || ""
+          location: profileData?.location || "",
+          balance: profileData?.balance
         })
 
         if (settingsData) {
@@ -348,6 +350,7 @@ export default function SettingsPage() {
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="subscription">Subscription</TabsTrigger>
+          <TabsTrigger value="banking">Banking</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -725,6 +728,42 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="banking">
+          <Card>
+            <CardHeader>
+              <CardTitle>Banking Information</CardTitle>
+              <CardDescription>
+                View your current balance and request withdrawals. Payments and withdrawals are managed by the platform.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* User Balance */}
+              <div className="p-4 bg-gray-800/30 rounded-lg flex items-center justify-between">
+                <span className="text-gray-400">Current Balance</span>
+                <span className="text-2xl font-bold text-green-400">${profile.balance?.toLocaleString() ?? '0.00'}</span>
+              </div>
+              {/* Withdrawal Request Form */}
+              <form className="space-y-4" onSubmit={e => { e.preventDefault(); /* TODO: handle withdrawal */ }}>
+                <Label htmlFor="withdraw-amount">Withdraw Amount</Label>
+                <Input
+                  id="withdraw-amount"
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  placeholder="Enter amount to withdraw"
+                  // TODO: bind value and onChange
+                />
+                <Button type="submit" className="w-full">Request Withdrawal</Button>
+              </form>
+              {/* Past Withdrawals (Placeholder) */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-300 mb-2">Withdrawal History</h3>
+                <div className="text-gray-400 text-sm">(Coming soon: List of your past withdrawals will appear here.)</div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
