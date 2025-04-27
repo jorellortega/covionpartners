@@ -108,7 +108,7 @@ const tiers = [
     priceId: null
   },
   {
-    name: "Investor Account",
+    name: "Partner Account",
     description: "For active investors and project supporters",
     price: "Free",
     priceDetail: "2% of successful investments",
@@ -120,7 +120,7 @@ const tiers = [
     priceId: null
   },
   {
-    name: "Partner Account",
+    name: "Manager Account",
     description: "Complete project creation and management",
     price: "$25/month",
     icon: Target,
@@ -131,7 +131,7 @@ const tiers = [
     priceId: process.env.NEXT_PUBLIC_STRIPE_PARTNER_PRICE_ID
   },
   {
-    name: "Enterprise Account",
+    name: "Business Account",
     description: "Full platform access with advanced features",
     price: "$45/month",
     icon: Building2,
