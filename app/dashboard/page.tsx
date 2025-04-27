@@ -133,11 +133,11 @@ function StatusBadge({ status }: { status: string }) {
 function getTierName(role: string) {
   switch (role.toLowerCase()) {
     case "admin":
-      return "Enterprise Account"
+      return "Business Account"
     case "partner":
-      return "Partner Account"
+      return "Manager Account"
     case "investor":
-      return "Investor Account"
+      return "Partner Account"
     case "viewer":
       return "Public Account"
     default:
@@ -1074,6 +1074,12 @@ export default function PartnerDashboard() {
                   <Link href="/payments">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
                       <Wallet className="w-4 h-4 mr-2" />
+                      Payments & Methods
+                    </Button>
+                  </Link>
+                  <Link href="/withdraw">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <Wallet className="w-4 h-4 mr-2" />
                       Withdraw Funds
                     </Button>
                   </Link>
@@ -1081,6 +1087,42 @@ export default function PartnerDashboard() {
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
                       <DollarSign className="w-4 h-4 mr-2" />
                       Funding Settings
+                    </Button>
+                  </Link>
+                  <Link href="/calculator">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <Calculator className="w-4 h-4 mr-2" />
+                      Investment Calculator
+                    </Button>
+                  </Link>
+                  <Link href="/portfolio">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <BarChart2 className="w-4 h-4 mr-2" />
+                      Portfolio
+                    </Button>
+                  </Link>
+                  <Link href="/invest">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <TrendingUp className="w-4 h-4 mr-2" />
+                      Invest
+                    </Button>
+                  </Link>
+                  <Link href="/donate">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <Heart className="w-4 h-4 mr-2" />
+                      Donate
+                    </Button>
+                  </Link>
+                  <Link href="/forsale">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <Store className="w-4 h-4 mr-2" />
+                      For Sale
+                    </Button>
+                  </Link>
+                  <Link href="/buy">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <Store className="w-4 h-4 mr-2" />
+                      Buy
                     </Button>
                   </Link>
                     </>
