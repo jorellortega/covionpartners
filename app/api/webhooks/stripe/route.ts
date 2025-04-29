@@ -1,113 +1,81 @@
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
-import { verifyWebhookSignature } from '@/lib/stripe';
-import { createClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-03-31.basil',
+});
+
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(req: Request) {
+  try {
   const body = await req.text();
-  const signature = req.headers.get('stripe-signature');
+    const headerList = headers();
+    const signature = headerList.get('stripe-signature');
 
   if (!signature) {
-    return new NextResponse('No signature', { status: 400 });
+      return NextResponse.json(
+        { error: 'No signature provided' },
+        { status: 400 }
+      );
   }
 
+    let event: Stripe.Event;
+
   try {
-    const event = await verifyWebhookSignature(
+      event = stripe.webhooks.constructEvent(
       body,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
+        webhookSecret
+      );
+    } catch (err: any) {
+      console.error('Webhook signature verification failed:', err.message);
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 400 }
+      );
+    }
 
-    // Set up Supabase client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    // Handle the event
+    // Handle different event types
     switch (event.type) {
+      case 'payment_method.attached':
+        const paymentMethod = event.data.object as Stripe.PaymentMethod;
+        console.log('Payment method attached:', paymentMethod.id);
+        break;
+
+      case 'payment_method.detached':
+        const detachedMethod = event.data.object as Stripe.PaymentMethod;
+        console.log('Payment method detached:', detachedMethod.id);
+        break;
+
       case 'customer.subscription.created':
+        const subscription = event.data.object as Stripe.Subscription;
+        console.log('Subscription created:', subscription.id);
+        break;
+
       case 'customer.subscription.updated':
-        const subscription = event.data.object;
-        const customerId = subscription.customer as string;
-
-        // Get the user record
-        const { data: user } = await supabase
-          .from('users')
-          .select('id')
-          .eq('stripe_customer_id', customerId)
-          .single();
-
-        if (user) {
-          // Update the user's subscription status
-          await supabase
-            .from('users')
-            .update({
-              subscription_status: subscription.status,
-              subscription_id: subscription.id,
-              subscription_tier: subscription.items.data[0].price.product,
-            })
-            .eq('id', user.id);
-        }
+        const updatedSub = event.data.object as Stripe.Subscription;
+        console.log('Subscription updated:', updatedSub.id);
         break;
 
       case 'customer.subscription.deleted':
-        const deletedSubscription = event.data.object;
-        const deletedCustomerId = deletedSubscription.customer as string;
-
-        // Get the user record
-        const { data: deletedUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('stripe_customer_id', deletedCustomerId)
-          .single();
-
-        if (deletedUser) {
-          // Clear the user's subscription data
-          await supabase
-            .from('users')
-            .update({
-              subscription_status: 'canceled',
-              subscription_id: null,
-              subscription_tier: null,
-            })
-            .eq('id', deletedUser.id);
-        }
+        const deletedSub = event.data.object as Stripe.Subscription;
+        console.log('Subscription deleted:', deletedSub.id);
         break;
 
-      case 'payment_intent.succeeded':
-        const paymentIntent = event.data.object;
-        // Handle successful payment
-        console.log('PaymentIntent was successful!', paymentIntent);
-        break;
-
-      case 'payment_intent.payment_failed':
-        const failedPaymentIntent = event.data.object;
-        // Handle failed payment
-        console.log('PaymentIntent failed!', failedPaymentIntent);
-        break;
+      // Add more event types as needed
 
       default:
-        console.log(`Unhandled event type ${event.type}`);
+        console.log(`Unhandled event type: ${event.type}`);
     }
 
-    return new NextResponse(JSON.stringify({ received: true }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    return NextResponse.json({ received: true });
   } catch (err) {
     console.error('Webhook error:', err);
-    return new NextResponse(
-      JSON.stringify({ error: 'Webhook signature verification failed' }),
-      {
-        status: 400,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
+    return NextResponse.json(
+      { error: 'Webhook handler failed' },
+      { status: 500 }
     );
   }
 } 

@@ -4,9 +4,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Check, Star, Zap, Building2, Users, Briefcase, Target, DollarSign, Shield, FileText, BarChart3 } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { SubscriptionCheckout } from "@/components/subscription-checkout"
+import { useAuth } from "@/hooks/useAuth"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 const features = [
   {
@@ -102,8 +105,8 @@ const tiers = [
     price: "Free",
     icon: Users,
     features: features.filter(f => f.public),
-    cta: "Get Started",
-    href: "/login?tab=signup",
+    cta: "Sign Up Now",
+    href: "/login?tab=signup&type=public",
     popular: false,
     priceId: null
   },
@@ -115,7 +118,7 @@ const tiers = [
     icon: DollarSign,
     features: features.filter(f => f.investor),
     cta: "Sign Up Now",
-    href: "/login?tab=signup",
+    href: "/login?tab=signup&type=partner",
     popular: true,
     priceId: null
   },
@@ -123,32 +126,152 @@ const tiers = [
     name: "Manager Account",
     description: "Complete project creation and management",
     price: "$25/month",
+    priceDetail: "7-day free trial, no credit card required",
     icon: Target,
     features: features.filter(f => f.partner),
-    cta: "Upgrade Now",
+    cta: "Start Free Trial",
     href: "#",
     popular: false,
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PARTNER_PRICE_ID
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PARTNER_PRICE_ID,
+    trial_period_days: 7
   },
   {
     name: "Business Account",
     description: "Full platform access with advanced features",
     price: "$45/month",
+    priceDetail: "7-day free trial, no credit card required",
     icon: Building2,
     features: features.filter(f => f.enterprise),
-    cta: "Contact Sales",
+    cta: "Start Free Trial",
     href: "#",
     popular: false,
-    priceId: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID
+    priceId: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID,
+    trial_period_days: 7
   }
 ]
 
 export default function AccountTypesPage() {
   const [selectedTier, setSelectedTier] = useState<string | null>(null)
+  const [currentSubscription, setCurrentSubscription] = useState<any>(null)
+  const { user } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      if (!user) {
+        console.log('No user found')
+        return
+      }
+      
+      try {
+        console.log('Fetching subscription data...')
+        const response = await fetch('/api/subscriptions/get')
+        const data = await response.json()
+        console.log('Subscription data:', data)
+        setCurrentSubscription(data.subscription)
+      } catch (error) {
+        console.error('Error fetching subscription:', error)
+      }
+    }
+
+    fetchSubscription()
+  }, [user])
+
+  useEffect(() => {
+    console.log('Current user:', user)
+    console.log('Current subscription:', currentSubscription)
+  }, [user, currentSubscription])
+
+  const getCtaText = (tier: any) => {
+    if (!user) return "Sign Up Now"
+    
+    if (!currentSubscription) return "Upgrade Now"
+    
+    const currentTier = tiers.find(t => t.name === currentSubscription.role)
+    if (!currentTier) return "Upgrade Now"
+    
+    const currentIndex = tiers.findIndex(t => t.name === currentTier.name)
+    const targetIndex = tiers.findIndex(t => t.name === tier.name)
+    
+    if (currentIndex === targetIndex) return "Current Plan"
+    if (currentIndex < targetIndex) return "Upgrade Now"
+    return "Downgrade Now"
+  }
+
+  const handleSubscription = async (tier: any) => {
+    if (!user) {
+      // If not logged in, redirect to signup with account type
+      const type = tier.name.toLowerCase().replace(' account', '')
+      router.push(`/login?tab=signup&type=${type}`)
+      return
+    }
+
+    // For paid tiers, handle subscription with trial
+    if (tier.priceId) {
+      try {
+        const response = await fetch('/api/subscriptions/create-checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            priceId: tier.priceId,
+            trial_period_days: tier.trial_period_days
+          }),
+        })
+
+        const data = await response.json()
+        
+        if (data.sessionUrl) {
+          window.location.href = data.sessionUrl
+        }
+      } catch (error) {
+        console.error('Error creating checkout session:', error)
+        toast.error('Failed to start subscription process')
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-950">
       <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
+        {user && (
+          <div className="mb-12 p-6 bg-gray-800/30 rounded-lg border border-purple-500/20 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-2">Your Current Plan</h2>
+                <div className="flex items-center gap-3">
+                  <div className="text-3xl font-bold text-purple-400">
+                    {currentSubscription ? 
+                      (currentSubscription.role ? 
+                        currentSubscription.role.charAt(0).toUpperCase() + currentSubscription.role.slice(1) 
+                        : 'Free Plan')
+                      : 'Free Plan'
+                    }
+                  </div>
+                  {currentSubscription && currentSubscription.status && (
+                    <span className={`px-3 py-1 text-sm rounded-full ${
+                      currentSubscription.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                      currentSubscription.status === 'paused' ? 'bg-yellow-500/20 text-yellow-400' :
+                      'bg-red-500/20 text-red-400'
+                    }`}>
+                      {currentSubscription.status.charAt(0).toUpperCase() + currentSubscription.status.slice(1)}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-gray-400 mb-1">Next Billing Date</div>
+                <div className="text-white font-medium">
+                  {currentSubscription?.current_period_end ? 
+                    new Date(currentSubscription.current_period_end * 1000).toLocaleDateString() : 
+                    'N/A'
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="text-center">
           <h1 className="text-4xl font-bold text-white mb-4">Choose Your Account Type</h1>
           <p className="text-xl text-gray-400 mb-12">
@@ -194,33 +317,12 @@ export default function AccountTypesPage() {
                 </ul>
               </CardContent>
               <CardFooter className="pt-6">
-                {tier.priceId ? (
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button className={`w-full ${tier.popular ? 'bg-purple-500 hover:bg-purple-600' : 'gradient-button'}`}>
-                        {tier.cta}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                      <DialogHeader>
-                        <DialogTitle>Subscribe to {tier.name}</DialogTitle>
-                        <CardDescription>
-                          Complete your subscription to access all {tier.name} features.
-                        </CardDescription>
-                      </DialogHeader>
-                      <SubscriptionCheckout 
-                        priceId={tier.priceId} 
-                        onSuccess={() => setSelectedTier(null)}
-                      />
-                    </DialogContent>
-                  </Dialog>
-                ) : (
-                  <Link href={tier.href} className="w-full">
-                    <Button className={`w-full ${tier.popular ? 'bg-purple-500 hover:bg-purple-600' : 'gradient-button'}`}>
-                      {tier.cta}
-                    </Button>
-                  </Link>
-                )}
+                <Button 
+                  className={`w-full ${tier.popular ? 'bg-purple-500 hover:bg-purple-600' : 'gradient-button'}`}
+                  onClick={() => handleSubscription(tier)}
+                >
+                  {getCtaText(tier)}
+                </Button>
               </CardFooter>
             </Card>
           ))}

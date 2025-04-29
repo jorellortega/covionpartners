@@ -24,7 +24,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { useProjects } from "@/hooks/useProjects"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
-import { DevelopmentBanner } from "@/components/ui/development-banner"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -91,7 +90,6 @@ function DonatePageContent() {
 
   return (
     <div className="min-h-screen">
-      <DevelopmentBanner />
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">

@@ -145,6 +145,15 @@ export function useAuth() {
         }
       }
 
+      if (data.session) {
+        // Set the cookie for SSR/API routes
+        await fetch('/auth/callback', {
+          method: 'POST',
+          body: JSON.stringify({ event: 'SIGNED_IN', session: data.session }),
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
       return { data, error: null }
     } catch (error) {
       console.log('Sign in catch block error:', error)
@@ -158,9 +167,9 @@ export function useAuth() {
     }
   }
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (email: string, password: string, name: string, phone: string) => {
     try {
-      console.log('Starting signup process for:', { email, name })
+      console.log('Starting signup process for:', { email, name, phone })
       
       // Create the auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -169,7 +178,8 @@ export function useAuth() {
         options: {
           data: {
             name,
-            role: 'viewer'
+            role: 'viewer',
+            phone_number: phone
           }
         }
       })
@@ -195,7 +205,8 @@ export function useAuth() {
           id: authData.user.id,
           email: email,
           name: name,
-          role: 'viewer'
+          role: 'viewer',
+          phone_number: phone
         })
 
       if (profileError) {
@@ -222,10 +233,20 @@ export function useAuth() {
 
   const signOut = async () => {
     try {
+      // Clear all local storage and session storage
+      localStorage.clear()
+      sessionStorage.clear()
+      
+      // Sign out from Supabase
       const { error } = await supabase.auth.signOut()
       if (error) throw error
+      
+      // Clear the user state
+      setUser(null)
+      
       return { error: null }
     } catch (error) {
+      console.error('Error signing out:', error)
       return { error }
     }
   }

@@ -33,7 +33,6 @@ import {
   Target,
 } from "lucide-react"
 import { toast } from "sonner"
-import { DevelopmentBanner } from "@/components/ui/development-banner"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -156,7 +155,6 @@ function InvestorDashboardContent() {
 
   return (
     <>
-      <DevelopmentBanner />
     <div className="min-h-screen">
       <main className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* Header */}

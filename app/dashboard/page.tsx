@@ -62,7 +62,9 @@ import {
   LineChart,
   CheckSquare,
   ExternalLink as LinkIcon,
-  Heart
+  Heart,
+  ArrowDownToLine,
+  History
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -104,6 +106,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { toast } from "sonner"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -263,14 +266,16 @@ export default function PartnerDashboard() {
     if (!authLoading) {
       if (!user) {
          console.log('Dashboard: Auth check complete, no user found. Redirecting to login.')
-         router.push('/login')
+        // Force a hard redirect to ensure session is cleared
+        window.location.href = '/login'
+        return
       } else {
         console.log('Dashboard: Auth check complete, user found:', user.email)
       }
     } else {
       console.log('Dashboard: Auth check in progress...')
     }
-  }, [user, authLoading, router])
+  }, [user, authLoading])
 
   // Fetch projects where user has a role
   useEffect(() => {
@@ -688,8 +693,38 @@ export default function PartnerDashboard() {
             <Button 
               variant="outline" 
               className="border-gray-700 bg-gray-800/30 text-white hover:bg-red-900/20 hover:text-red-400 w-full sm:w-auto"
-              onClick={() => {
-                router.push("/login")
+              onClick={async () => {
+                try {
+                  // Clear all local storage and session storage
+                  if (typeof window !== 'undefined') {
+                    window.localStorage.clear()
+                    window.sessionStorage.clear()
+                    // Clear all cookies
+                    document.cookie.split(";").forEach(function(c) { 
+                      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                    })
+                  }
+                  
+                  // Sign out from Supabase
+                  const { error } = await supabase.auth.signOut()
+                  if (error) throw error
+                  
+                  // Clear any remaining auth state
+                  await supabase.auth.setSession({
+                    access_token: '',
+                    refresh_token: ''
+                  })
+                  
+                  // Force a hard redirect to login page with cache busting
+                  window.location.href = '/login?' + new Date().getTime()
+                } catch (error) {
+                  console.error('Error signing out:', error)
+                  toast({
+                    title: 'Error',
+                    description: 'Failed to sign out',
+                    variant: 'destructive'
+                  })
+                }
               }}
             >
               Logout
@@ -1065,66 +1100,72 @@ export default function PartnerDashboard() {
                     </div>
                   ) : (
                     <>
-                  <Link href="/managepayments">
-                    <Button className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600">
-                      <Calculator className="w-4 h-4 mr-2" />
-                      Manage Payments
-                    </Button>
-                  </Link>
-                  <Link href="/payments">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <Wallet className="w-4 h-4 mr-2" />
-                      Payments & Methods
-                    </Button>
-                  </Link>
-                  <Link href="/withdraw">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <Wallet className="w-4 h-4 mr-2" />
-                      Withdraw Funds
-                    </Button>
-                  </Link>
-                  <Link href="/funding-settings">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <DollarSign className="w-4 h-4 mr-2" />
-                      Funding Settings
-                    </Button>
-                  </Link>
-                  <Link href="/calculator">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <Calculator className="w-4 h-4 mr-2" />
-                      Investment Calculator
-                    </Button>
-                  </Link>
-                  <Link href="/portfolio">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <BarChart2 className="w-4 h-4 mr-2" />
-                      Portfolio
-                    </Button>
-                  </Link>
-                  <Link href="/invest">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <TrendingUp className="w-4 h-4 mr-2" />
-                      Invest
-                    </Button>
-                  </Link>
-                  <Link href="/donate">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <Heart className="w-4 h-4 mr-2" />
-                      Donate
-                    </Button>
-                  </Link>
-                  <Link href="/forsale">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <Store className="w-4 h-4 mr-2" />
-                      For Sale
-                    </Button>
-                  </Link>
-                  <Link href="/buy">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <Store className="w-4 h-4 mr-2" />
-                      Buy
-                    </Button>
-                  </Link>
+                      <Link href="/managepayments">
+                        <Button className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600">
+                          <Calculator className="w-4 h-4 mr-2" />
+                          Manage Payments
+                        </Button>
+                      </Link>
+                      <Link href="/payments">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                          <Wallet className="w-4 h-4 mr-2" />
+                          Payment Methods
+                        </Button>
+                      </Link>
+                      <Link href="/savepayments">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                          <CheckSquare className="w-4 h-4 mr-2" />
+                          Saved Payments
+                        </Button>
+                      </Link>
+                      <Link href="/bank-accounts">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                          <Building2 className="w-4 h-4 mr-2" />
+                          Bank Accounts
+                        </Button>
+                      </Link>
+                      <Link href="/withdraw">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                          <ArrowDownToLine className="w-4 h-4 mr-2" />
+                          Withdraw Funds
+                        </Button>
+                      </Link>
+                      <Link href="/funding-settings">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                          <Settings className="w-4 h-4 mr-2" />
+                          Funding Settings
+                        </Button>
+                      </Link>
+                      <Link href="/calculator">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                          <Calculator className="w-4 h-4 mr-2" />
+                          Investment Calculator
+                        </Button>
+                      </Link>
+                      <Link href="/portfolio">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                          <BarChart2 className="w-4 h-4 mr-2" />
+                          Portfolio
+                        </Button>
+                      </Link>
+                      <Link href="/invest">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                          <TrendingUp className="w-4 h-4 mr-2" />
+                          Invest
+                        </Button>
+                      </Link>
+                      <Link href="/transactions">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                          <History className="w-4 h-4 mr-2" />
+                          Transaction History
+                        </Button>
+                      </Link>
+                      <Link href="/tax-documents">
+                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                          <FileText className="w-4 h-4 mr-2" />
+                          Tax Documents
+                        </Button>
+                      </Link>
                     </>
                   )}
                 </CardContent>
@@ -1202,6 +1243,14 @@ export default function PartnerDashboard() {
                 >
                   <Settings className="w-4 h-4 mr-2" />
                   Settings
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                  onClick={() => router.push('/subscription')}
+                >
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Manage Subscription
                 </Button>
               </CardContent>
             </Card>
@@ -1310,6 +1359,18 @@ export default function PartnerDashboard() {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/payments')} className="hover:bg-gray-800">
                       <Wallet className="w-4 h-4 mr-2" /> Payments
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/savepayments')} className="hover:bg-gray-800">
+                      <CheckSquare className="w-4 h-4 mr-2" />
+                      Saved Payments
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/bank-accounts')} className="hover:bg-gray-800">
+                      <Building2 className="w-4 h-4 mr-2" />
+                      Bank Accounts
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/withdraw')} className="hover:bg-gray-800">
+                      <ArrowDownToLine className="w-4 h-4 mr-2" />
+                      Withdraw Funds
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/funding-settings')} className="hover:bg-gray-800">
                       <Settings className="w-4 h-4 mr-2" /> Funding Settings
@@ -1473,6 +1534,30 @@ export default function PartnerDashboard() {
                     onClick={() => router.push('/payments')}
                   >
                     <Wallet className="w-4 h-4 mr-2" /> Payments
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400"
+                    onClick={() => router.push('/savepayments')}
+                  >
+                    <CheckSquare className="w-4 h-4 mr-2" />
+                    Saved Payments
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400"
+                    onClick={() => router.push('/bank-accounts')}
+                  >
+                    <Building2 className="w-4 h-4 mr-2" />
+                    Bank Accounts
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400"
+                    onClick={() => router.push('/withdraw')}
+                  >
+                    <ArrowDownToLine className="w-4 h-4 mr-2" />
+                    Withdraw Funds
                   </Button>
                   <Button 
                     variant="outline" 

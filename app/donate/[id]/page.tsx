@@ -30,7 +30,6 @@ import { useProjects } from "@/hooks/useProjects"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
-import { DevelopmentBanner } from "@/components/ui/development-banner"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -120,7 +119,6 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
 
   return (
     <div className="min-h-screen">
-      <DevelopmentBanner />
       <main className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">

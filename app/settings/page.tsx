@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Loader2,
   Upload,
+  Plus,
 } from 'lucide-react'
 import Image from "next/image"
 import { useAuth } from '@/hooks/useAuth'
@@ -29,6 +30,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { SubscriptionCheckout } from '@/components/subscription-checkout'
+import { loadStripe } from '@stripe/stripe-js'
 
 interface UserSettings {
   notifications_email: boolean
@@ -52,6 +54,18 @@ interface Profile {
   balance?: number;
 }
 
+interface PaymentMethod {
+  id: string
+  type: string
+  card: {
+    brand: string
+    last4: string
+    exp_month: number
+    exp_year: number
+  }
+  isDefault: boolean
+}
+
 const tiers = {
   'price_partner': {
     name: 'Partner Account',
@@ -65,10 +79,18 @@ const tiers = {
   },
 }
 
+// Add mapping for user-friendly names
+const planNames: Record<string, string> = {
+  free_basic: "Free Basic",
+  free_plus: "Free Plus",
+  pro: "Pro",
+  enterprise: "Enterprise",
+};
+
 export default function SettingsPage() {
   const supabase = createClientComponentClient()
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [profile, setProfile] = useState<Profile>({
@@ -93,6 +115,9 @@ export default function SettingsPage() {
   const [subscription, setSubscription] = useState<any>(null)
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false)
   const [selectedTier, setSelectedTier] = useState<string | null>(null)
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
+  const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(true)
+  const [stripePromise, setStripePromise] = useState<any>(null)
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -161,6 +186,28 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error fetching subscription:', error)
       toast.error('Failed to load subscription details')
+    }
+  }
+
+  useEffect(() => {
+    // Initialize Stripe
+    setStripePromise(loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!))
+    fetchPaymentMethods()
+  }, [])
+
+  const fetchPaymentMethods = async () => {
+    try {
+      setLoadingPaymentMethods(true)
+      const response = await fetch('/api/payment-methods/list', {
+        method: 'GET',
+      })
+      const data = await response.json()
+      setPaymentMethods(data.paymentMethods)
+    } catch (error) {
+      console.error('Error fetching payment methods:', error)
+      toast.error('Failed to load payment methods')
+    } finally {
+      setLoadingPaymentMethods(false)
     }
   }
 
@@ -331,6 +378,64 @@ export default function SettingsPage() {
     }
   }
 
+  const handleAddPaymentMethod = async () => {
+    try {
+      const response = await fetch('/api/payment-methods/create-setup-intent', {
+        method: 'POST',
+      })
+      const { clientSecret } = await response.json()
+      
+      const stripe = await stripePromise
+      const { error } = await stripe.confirmCardSetup(clientSecret)
+      
+      if (error) {
+        throw error
+      }
+      
+      toast.success('Payment method added successfully')
+      fetchPaymentMethods()
+    } catch (error) {
+      console.error('Error adding payment method:', error)
+      toast.error('Failed to add payment method')
+    }
+  }
+
+  const handleSetDefaultPaymentMethod = async (paymentMethodId: string) => {
+    try {
+      await fetch('/api/payment-methods/set-default', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ paymentMethodId }),
+      })
+      
+      toast.success('Default payment method updated')
+      fetchPaymentMethods()
+    } catch (error) {
+      console.error('Error setting default payment method:', error)
+      toast.error('Failed to update default payment method')
+    }
+  }
+
+  const handleRemovePaymentMethod = async (paymentMethodId: string) => {
+    try {
+      await fetch('/api/payment-methods/remove', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ paymentMethodId }),
+      })
+      
+      toast.success('Payment method removed')
+      fetchPaymentMethods()
+    } catch (error) {
+      console.error('Error removing payment method:', error)
+      toast.error('Failed to remove payment method')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -351,6 +456,7 @@ export default function SettingsPage() {
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="subscription">Subscription</TabsTrigger>
           <TabsTrigger value="banking">Banking</TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -588,9 +694,34 @@ export default function SettingsPage() {
               <Button
                 variant="destructive"
                 onClick={async () => {
+                  try {
+                    // Clear all local storage and session storage
+                    if (typeof window !== 'undefined') {
+                      // Clear all localStorage items
+                      window.localStorage.clear()
+                      // Clear all sessionStorage items
+                      window.sessionStorage.clear()
+                      // Clear all cookies
+                      document.cookie.split(";").forEach(function(c) { 
+                        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                      })
+                    }
+                    
+                    // Sign out from Supabase
                   const { error } = await supabase.auth.signOut()
-                  if (!error) {
-                    router.push("/login")
+                    if (error) throw error
+                    
+                    // Clear any remaining auth state
+                    await supabase.auth.setSession({
+                      access_token: '',
+                      refresh_token: ''
+                    })
+                    
+                    // Force a hard redirect to login page with cache busting
+                    window.location.href = '/login?' + new Date().getTime()
+                  } catch (error) {
+                    console.error('Error signing out:', error)
+                    toast.error('Failed to sign out')
                   }
                 }}
               >
@@ -622,10 +753,20 @@ export default function SettingsPage() {
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-gray-800/30 rounded-lg">
-                      <div className="text-gray-400 mb-1">Current Plan</div>
+                      <div className="text-gray-400 mb-1">Account Type</div>
                       <div className="text-xl font-medium text-white">
-                        {subscription.tier_name || 'Unknown Plan'}
+                        {planNames[subscription.role] || (subscription.role ? subscription.role.charAt(0).toUpperCase() + subscription.role.slice(1) : 'Unknown')}
                       </div>
+                      <div className="text-gray-400 mb-1 mt-2">Subscription Plan</div>
+                      <div className="text-lg text-white">
+                        {planNames[subscription.plan] || (subscription.plan ? subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1) : 'Unknown')}
+                      </div>
+                      {subscription.provider && (
+                        <div className="text-sm text-gray-400 mt-1">Provider: {subscription.provider}</div>
+                      )}
+                      {subscription.promo_code && (
+                        <div className="text-sm text-gray-400 mt-1">Promo: {subscription.promo_code}</div>
+                      )}
                     </div>
                     <div className="p-4 bg-gray-800/30 rounded-lg">
                       <div className="text-gray-400 mb-1">Status</div>
@@ -764,6 +905,77 @@ export default function SettingsPage() {
                 <h3 className="text-lg font-semibold text-gray-300 mb-2">Withdrawal History</h3>
                 <div className="text-gray-400 text-sm">(Coming soon: List of your past withdrawals will appear here.)</div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="billing">
+          <Card className="leonardo-card border-gray-800">
+            <CardHeader>
+              <CardTitle>Payment Methods</CardTitle>
+              <CardDescription>Manage your payment methods for subscriptions and purchases</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingPaymentMethods ? (
+                <div className="flex justify-center items-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {(paymentMethods || []).length > 0 ? (
+                    (paymentMethods || []).map((method) => (
+                      <div
+                        key={method.id}
+                        className="flex items-center justify-between p-4 rounded-lg border border-gray-800 bg-gray-900"
+                      >
+                        <div className="flex items-center">
+                          <CreditCard className="w-8 h-8 text-blue-400 mr-4" />
+                          <div>
+                            <p className="font-medium text-white">
+                              {method.card.brand} •••• {method.card.last4}
+                            </p>
+                            <p className="text-sm text-gray-400">
+                              Expires {method.card.exp_month}/{method.card.exp_year}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {method.isDefault && (
+                            <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
+                              Default
+                            </span>
+                          )}
+                          {!method.isDefault && (
+                            <Button
+                              variant="outline"
+                              className="border-gray-700"
+                              onClick={() => handleSetDefaultPaymentMethod(method.id)}
+                            >
+                              Set as Default
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            className="border-gray-700"
+                            onClick={() => handleRemovePaymentMethod(method.id)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-gray-400 text-center py-4">No payment methods found.</div>
+                  )}
+                  <Button
+                    className="w-full gradient-button mt-4"
+                    onClick={handleAddPaymentMethod}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Payment Method
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

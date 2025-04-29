@@ -114,7 +114,8 @@ export default function LoginPage() {
       const { error: signUpError } = await signUp(
         signupData.email,
         signupData.password,
-        signupData.name
+        signupData.name,
+        signupData.phone
       )
 
       if (signUpError) {

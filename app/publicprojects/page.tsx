@@ -229,17 +229,17 @@ export default function PublicProjectsPage() {
                           {/* Settings Button - Only show if user owns the project */}
                           {user && project.owner_id === user.id && (
                             <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 p-0.5 hover:bg-gray-800/50 text-gray-400 hover:text-purple-400"
-                                onClick={(e) => {
-                                  e.stopPropagation();
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 p-0.5 hover:bg-gray-800/50 text-gray-400 hover:text-purple-400"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                   router.push(`/projects/${project.id}`);
-                                }}
-                              >
-                                <Settings className="w-3.5 h-3.5" />
-                              </Button>
+                              }}
+                            >
+                              <Settings className="w-3.5 h-3.5" />
+                            </Button>
                               <a
                                 href={`/publicsettings?project=${project.id}`}
                                 target="_blank"
@@ -262,7 +262,7 @@ export default function PublicProjectsPage() {
                               </a>
                             </>
                           )}
-                          <StatusBadge status={project.status} />
+                        <StatusBadge status={project.status} />
                         </div>
                       </div>
                       <CardDescription className="text-gray-400 line-clamp-2">
@@ -352,8 +352,8 @@ export default function PublicProjectsPage() {
                               label: 'Make Deal',
                               icon: <Handshake className="w-4 h-4 mr-2" />,
                               onClick: (e: any) => {
-                                e.stopPropagation();
-                                router.push(`/makedeal?project=${project.id}`);
+                              e.stopPropagation();
+                              router.push(`/makedeal?project=${project.id}`);
                               },
                               color: 'hover:bg-purple-900/20 hover:text-purple-400',
                             },
@@ -361,8 +361,8 @@ export default function PublicProjectsPage() {
                               label: 'Invest',
                               icon: <DollarSign className="w-4 h-4 mr-2" />,
                               onClick: (e: any) => {
-                                e.stopPropagation();
-                                router.push(`/invest?project=${project.id}`);
+                              e.stopPropagation();
+                              router.push(`/invest?project=${project.id}`);
                               },
                               color: 'hover:bg-green-900/20 hover:text-green-400',
                             },
@@ -370,8 +370,8 @@ export default function PublicProjectsPage() {
                               label: 'Donate',
                               icon: <Heart className="w-4 h-4 mr-2" />,
                               onClick: (e: any) => {
-                                e.stopPropagation();
-                                router.push(`/donate?project=${project.id}`);
+                              e.stopPropagation();
+                              router.push(`/donate?project=${project.id}`);
                               },
                               color: 'hover:bg-pink-900/20 hover:text-pink-400',
                             },
@@ -388,8 +388,8 @@ export default function PublicProjectsPage() {
                               label: 'For Sale',
                               icon: <Tag className="w-4 h-4 mr-2" />,
                               onClick: (e: any) => {
-                                e.stopPropagation();
-                                router.push(`/forsale?project=${project.id}`);
+                            e.stopPropagation();
+                            router.push(`/forsale?project=${project.id}`);
                               },
                               color: 'hover:bg-emerald-900/20 hover:text-emerald-400',
                             },
@@ -406,7 +406,7 @@ export default function PublicProjectsPage() {
                                 >
                                   {btn.icon}
                                   {btn.label}
-                                </Button>
+                        </Button>
                               ))}
                             </div>
                           );
@@ -448,10 +448,10 @@ export default function PublicProjectsPage() {
                                   e.stopPropagation();
                                   window.open(formatUrl(link.url), '_blank');
                                 }}
-                              >
-                                <ExternalLink className="w-4 h-4" />
+                                >
+                                  <ExternalLink className="w-4 h-4" />
                                 Link
-                              </Button>
+                                </Button>
                             ))}
                           </div>
                         )}

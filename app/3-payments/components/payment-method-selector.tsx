@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { LinkIcon, CreditCard } from "lucide-react"
+import { LinkIcon, CreditCard, Banknote, Wallet, Store, FileText } from "lucide-react"
 
 // Custom PayPal icon
 function CustomPaypalIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -177,6 +177,45 @@ export function PaymentMethodSelector({
         return null
     }
   }
+
+  const paymentMethods = [
+    {
+      id: 'plaid',
+      name: 'Plaid',
+      description: 'Direct bank transfer with 1-2 business days processing time',
+      icon: <LinkIcon className="h-6 w-6" />,
+    },
+    {
+      id: 'paypal',
+      name: 'PayPal',
+      description: 'Instant transfers with PayPal account',
+      icon: <Wallet className="h-6 w-6" />,
+    },
+    {
+      id: 'stripe',
+      name: 'Stripe',
+      description: 'Secure credit card processing with 2-3 business days processing time',
+      icon: <Store className="h-6 w-6" />,
+    },
+    {
+      id: 'wire',
+      name: 'Wire Transfer',
+      description: 'International wire transfers with 3-5 business days processing time',
+      icon: <Banknote className="h-6 w-6" />,
+    },
+    {
+      id: 'ach',
+      name: 'ACH Transfer',
+      description: 'Direct ACH transfers with 1-3 business days processing time',
+      icon: <Banknote className="h-6 w-6" />,
+    },
+    {
+      id: 'check',
+      name: 'Paper Check',
+      description: 'Traditional paper check with 5-7 business days processing time',
+      icon: <FileText className="h-6 w-6" />,
+    },
+  ];
 
   return (
     <div className="mb-4">

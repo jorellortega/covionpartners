@@ -97,14 +97,7 @@ export default function GroupChatPage() {
       </header>
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 relative">
-        {/* Under Development Banner */}
-        <div className="absolute top-0 left-0 right-0 z-10">
-          <div className="bg-yellow-500/20 text-yellow-400 text-center py-2 px-4 rounded-lg mx-4">
-            <span className="font-medium">Under Development</span> - This feature is currently in development. Mock data is shown for demonstration purposes.
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 opacity-50">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Teams List */}
           <Card className="leonardo-card border-gray-800 lg:col-span-1">
             <CardHeader className="pb-3">
