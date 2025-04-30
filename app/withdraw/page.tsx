@@ -172,19 +172,19 @@ export default function PaymentsPage() {
       }
 
       const amount = Number.parseFloat(withdrawalAmount);
-      if (isNaN(amount) || amount <= 0) {
+    if (isNaN(amount) || amount <= 0) {
         throw new Error('Please enter a valid amount');
-      }
+    }
 
-      // Check withdrawal limits
+    // Check withdrawal limits
       const limits = WITHDRAWAL_LIMITS[withdrawMethod];
       if (amount < limits.min || amount > limits.max) {
         throw new Error(`Amount must be between $${limits.min} and $${limits.max}`);
       }
 
-      if (amount > balance) {
+    if (amount > balance) {
         throw new Error('Insufficient funds');
-      }
+    }
 
       // Calculate fee for instant transfers
       const fee = withdrawMethod === 'instant' ? amount * WITHDRAWAL_LIMITS.instant.fee : 0;
@@ -192,7 +192,7 @@ export default function PaymentsPage() {
 
       if (totalAmount > balance) {
         throw new Error('Insufficient funds to cover transfer fee');
-      }
+    }
 
       if (payoutProvider === 'stripe') {
         // Process via Stripe
@@ -275,7 +275,7 @@ export default function PaymentsPage() {
       );
     }
 
-    return (
+        return (
       <div className="space-y-4">
         <Tabs defaultValue="card" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -327,11 +327,11 @@ export default function PaymentsPage() {
                     </div>
                 ))}
               </div>
-              <p className="text-xs text-white/70 mt-2">
+            <p className="text-xs text-white/70 mt-2">
                 Instant transfers to debit cards incur a 1% fee (minimum $0.50).
                 Funds typically arrive within 30 minutes.
-              </p>
-            </div>
+            </p>
+          </div>
           </TabsContent>
 
           <TabsContent value="bank" className="space-y-4">
@@ -362,8 +362,8 @@ export default function PaymentsPage() {
                             </p>
                             <p className="text-sm text-gray-400">
                               {payment.account_type}
-                            </p>
-                          </div>
+            </p>
+          </div>
                         </div>
                         {payment.is_default && (
                           <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
@@ -371,13 +371,13 @@ export default function PaymentsPage() {
                           </span>
                         )}
                       </div>
-                    </div>
+                </div>
                 ))}
               </div>
-              <p className="text-xs text-white/70 mt-2">
+            <p className="text-xs text-white/70 mt-2">
                 Standard bank transfers are free and typically arrive in 2-3 business days.
-              </p>
-            </div>
+            </p>
+          </div>
           </TabsContent>
         </Tabs>
       </div>
@@ -436,13 +436,13 @@ export default function PaymentsPage() {
                   required
                 />
                 {withdrawMethod && (
-                  <p className="text-xs text-white/70 mt-1">
+                <p className="text-xs text-white/70 mt-1">
                     Min: ${WITHDRAWAL_LIMITS[withdrawMethod].min} | Max: $
                     {Math.min(balance, WITHDRAWAL_LIMITS[withdrawMethod].max)}
                     {withdrawMethod === 'instant' && (
                       <> | Fee: ${(Number(withdrawalAmount || 0) * WITHDRAWAL_LIMITS.instant.fee).toFixed(2)}</>
                     )}
-                  </p>
+                </p>
                 )}
               </div>
 
@@ -456,8 +456,8 @@ export default function PaymentsPage() {
                 className="gradient-button w-full" 
                 disabled={isLoading || !payoutProvider || !withdrawMethod}
               >
-                {isLoading ? "Processing..." : "Confirm Withdrawal"}
-              </Button>
+                  {isLoading ? "Processing..." : "Confirm Withdrawal"}
+                </Button>
             </form>
             <div className="text-center mt-4">
               <Button

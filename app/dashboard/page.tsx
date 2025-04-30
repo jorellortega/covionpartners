@@ -107,6 +107,7 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { toast } from "sonner"
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -261,6 +262,9 @@ export default function PartnerDashboard() {
 
   const [editingMember, setEditingMember] = useState<ProjectWithRole | null>(null)
   const [selectedRole, setSelectedRole] = useState('member')
+
+  const [balance, setBalance] = useState<number | null>(null)
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     if (!authLoading) {
@@ -562,6 +566,23 @@ export default function PartnerDashboard() {
     }
   }
 
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('cvnpartners_user_balances')
+        .select('balance')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) {
+        setBalance(0);
+      } else {
+        setBalance(data?.balance ?? 0);
+      }
+    };
+    if (user) fetchBalance();
+  }, [user, supabase]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -859,15 +880,18 @@ export default function PartnerDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10">
+          <Card 
+            className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10 cursor-pointer hover:border-green-500/50 transition-colors"
+            onClick={() => router.push('/managepayments')}
+          >
             <CardContent className="p-3 sm:pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm text-gray-400">Active Deals</p>
-                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{deals.length}</h3>
+                  <p className="text-xs sm:text-sm text-gray-400">Balance</p>
+                  <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">{balance === null ? '—' : `$${Number(balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</h3>
                 </div>
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <Handshake className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+                  <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
                 </div>
               </div>
             </CardContent>
@@ -1100,72 +1124,68 @@ export default function PartnerDashboard() {
                     </div>
                   ) : (
                     <>
-                      <Link href="/managepayments">
-                        <Button className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600">
-                          <Calculator className="w-4 h-4 mr-2" />
-                          Manage Payments
-                        </Button>
-                      </Link>
-                      <Link href="/payments">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                          <Wallet className="w-4 h-4 mr-2" />
-                          Payment Methods
-                        </Button>
-                      </Link>
-                      <Link href="/savepayments">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                          <CheckSquare className="w-4 h-4 mr-2" />
-                          Saved Payments
-                        </Button>
-                      </Link>
-                      <Link href="/bank-accounts">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                          <Building2 className="w-4 h-4 mr-2" />
-                          Bank Accounts
-                        </Button>
-                      </Link>
-                      <Link href="/withdraw">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                          <ArrowDownToLine className="w-4 h-4 mr-2" />
-                          Withdraw Funds
-                        </Button>
-                      </Link>
-                      <Link href="/funding-settings">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                          <Settings className="w-4 h-4 mr-2" />
-                          Funding Settings
-                        </Button>
-                      </Link>
-                      <Link href="/calculator">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                          <Calculator className="w-4 h-4 mr-2" />
-                          Investment Calculator
-                        </Button>
-                      </Link>
-                      <Link href="/portfolio">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                          <BarChart2 className="w-4 h-4 mr-2" />
-                          Portfolio
-                        </Button>
-                      </Link>
-                      <Link href="/invest">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                          <TrendingUp className="w-4 h-4 mr-2" />
-                          Invest
-                        </Button>
-                      </Link>
-                      <Link href="/transactions">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                          <History className="w-4 h-4 mr-2" />
-                          Transaction History
-                        </Button>
-                      </Link>
-                      <Link href="/tax-documents">
-                        <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                          <FileText className="w-4 h-4 mr-2" />
-                          Tax Documents
-                        </Button>
-                      </Link>
+                  <Link href="/managepayments">
+                    <Button className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600">
+                      <Calculator className="w-4 h-4 mr-2" />
+                      Manage Payments
+                    </Button>
+                  </Link>
+                  <Link href="/pay">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      Pay
+                    </Button>
+                  </Link>
+                  <Link href="/payments">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <Wallet className="w-4 h-4 mr-2" /> Payments
+                    </Button>
+                  </Link>
+                  <Link href="/savepayments">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <CheckSquare className="w-4 h-4 mr-2" /> Saved Payments
+                    </Button>
+                  </Link>
+                  <Link href="/bank-accounts">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <Building2 className="w-4 h-4 mr-2" /> Bank Accounts
+                    </Button>
+                  </Link>
+                  <Link href="/withdraw">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <ArrowDownToLine className="w-4 h-4 mr-2" /> Withdraw Funds
+                    </Button>
+                  </Link>
+                  <Link href="/funding-settings">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <Settings className="w-4 h-4 mr-2" /> Funding Settings
+                    </Button>
+                  </Link>
+                  <Link href="/calculator">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <Calculator className="w-4 h-4 mr-2" /> Investment Calculator
+                    </Button>
+                  </Link>
+                  <Link href="/portfolio">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <BarChart2 className="w-4 h-4 mr-2" /> Portfolio
+                    </Button>
+                  </Link>
+                  <Link href="/invest">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <TrendingUp className="w-4 h-4 mr-2" /> Invest
+                    </Button>
+                  </Link>
+                  <Link href="/transactions">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <History className="w-4 h-4 mr-2" /> Transaction History
+                    </Button>
+                  </Link>
+                  <Link href="/tax-documents">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <FileText className="w-4 h-4 mr-2" /> Tax Documents
+                    </Button>
+                  </Link>
                     </>
                   )}
                 </CardContent>
@@ -1184,8 +1204,7 @@ export default function PartnerDashboard() {
                 <CardContent className="space-y-2">
                   <Link href="/messages">
                     <Button className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600">
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Messages
+                      <MessageSquare className="w-4 h-4 mr-2" /> Messages
                     </Button>
                   </Link>
                   <Link href="/updates">
@@ -1195,8 +1214,36 @@ export default function PartnerDashboard() {
                   </Link>
                   <Link href="/groupchat">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400">
-                      <Users className="w-4 h-4 mr-2" />
-                      Group Chat
+                      <Users className="w-4 h-4 mr-2" /> Group Chat
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* Business & Client Pages Card */}
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-pink-500/5 to-purple-500/5 hover:from-pink-500/10 hover:to-purple-500/10 transition-colors">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-xl">
+                    <div className="w-8 h-8 rounded-full bg-pink-500/20 flex items-center justify-center mr-3">
+                      <Briefcase className="w-5 h-5 text-pink-400" />
+                    </div>
+                    Business & Client Pages
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Link href="/businessprofile">
+                    <Button className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600">
+                      <Briefcase className="w-4 h-4 mr-2" /> Create/Edit Business Profile
+                    </Button>
+                  </Link>
+                  <Link href="/business/123">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-pink-900/20 hover:text-pink-400">
+                      <Briefcase className="w-4 h-4 mr-2" /> View Business Profile
+                    </Button>
+                  </Link>
+                  <Link href="/client/123">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-pink-900/20 hover:text-pink-400">
+                      <Users className="w-4 h-4 mr-2" /> Client Booking Page
                     </Button>
                   </Link>
                 </CardContent>
@@ -1357,6 +1404,9 @@ export default function PartnerDashboard() {
                     <DropdownMenuItem onClick={() => router.push('/managepayments')} className="hover:bg-gray-800">
                       <Calculator className="w-4 h-4 mr-2" /> Manage Payments
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/pay')} className="hover:bg-gray-800">
+                      <DollarSign className="w-4 h-4 mr-2" /> Pay
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/payments')} className="hover:bg-gray-800">
                       <Wallet className="w-4 h-4 mr-2" /> Payments
                     </DropdownMenuItem>
@@ -1365,8 +1415,7 @@ export default function PartnerDashboard() {
                       Saved Payments
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/bank-accounts')} className="hover:bg-gray-800">
-                      <Building2 className="w-4 h-4 mr-2" />
-                      Bank Accounts
+                      <Building2 className="w-4 h-4 mr-2" /> Bank Accounts
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/withdraw')} className="hover:bg-gray-800">
                       <ArrowDownToLine className="w-4 h-4 mr-2" />
@@ -1527,6 +1576,13 @@ export default function PartnerDashboard() {
                     onClick={() => router.push('/managepayments')}
                   >
                     <Calculator className="w-4 h-4 mr-2" /> Manage Payments
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400"
+                    onClick={() => router.push('/pay')}
+                  >
+                    <DollarSign className="w-4 h-4 mr-2" /> Pay
                   </Button>
                   <Button 
                     variant="outline" 

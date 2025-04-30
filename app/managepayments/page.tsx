@@ -163,9 +163,9 @@ export default function ManagePaymentsPage() {
       const { data: { session } } = await supabase.auth.getSession()
       setSession(session)
       if (!session) {
-        router.push('/login')
-        return
-      }
+      router.push('/login')
+      return
+    }
       fetchBalance(session.user.id)
       fetchPaymentMethods()
     }
@@ -176,7 +176,7 @@ export default function ManagePaymentsPage() {
       setSession(session)
       if (!session) {
         router.push('/login')
-      } else {
+    } else {
         fetchBalance(session.user.id)
       }
     })
@@ -451,7 +451,7 @@ export default function ManagePaymentsPage() {
               <CardContent>
                 <Elements stripe={stripePromise}>
                   <PaymentForm />
-                </Elements>
+                      </Elements>
               </CardContent>
             </Card>
           </TabsContent>
@@ -699,8 +699,8 @@ export default function ManagePaymentsPage() {
                                     Connect Bank Account
                                   </>
                                 )}
-                              </Button>
-                            </div>
+                        </Button>
+                      </div>
 
                             {error && (
                               <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500 text-red-400">
@@ -717,7 +717,7 @@ export default function ManagePaymentsPage() {
                               </div>
                             </div>
                           </form>
-                        </div>
+                    </div>
                         <p className="text-xs text-white/70 mt-2">
                           Standard bank transfers are free and typically arrive in 2-3 business days.
                         </p>

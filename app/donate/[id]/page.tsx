@@ -30,6 +30,7 @@ import { useProjects } from "@/hooks/useProjects"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
+import PaymentMethodSelector from "../../components/payments/PaymentMethodSelector"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -106,16 +107,62 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
 
     setIsProcessing(true)
     try {
-      // TODO: Implement actual donation logic here
-      await new Promise(resolve => setTimeout(resolve, 1500)) // Simulated delay
+      const fees = calculateFees(donationAmount)
+      
+      const response = await fetch('/api/donations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId: project.id,
+          amount: parseFloat(donationAmount),
+          processingFee: parseFloat(fees.stripeFee),
+          platformFee: parseFloat(fees.platformFee),
+          totalAmount: parseFloat(fees.total),
+          paymentMethodId: selectedPaymentMethod,
+          message,
+          isAnonymous: !user // Mark as anonymous if user is not logged in
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to process donation')
+      }
+
       toast.success(`Thank you for your donation of $${donationAmount} to ${project.name}!`)
       router.push("/donate")
     } catch (error) {
-      toast.error("Failed to process donation. Please try again.")
+      console.error('Donation error:', error)
+      toast.error(error instanceof Error ? error.message : "Failed to process donation. Please try again.")
     } finally {
       setIsProcessing(false)
     }
   }
+
+  // Calculate fees based on donation amount
+  const calculateFees = (amount: string) => {
+    const donationAmount = parseFloat(amount) || 0;
+    
+    // Stripe fee: 2.9% + $0.30
+    const stripeFee = donationAmount > 0 ? (donationAmount * 0.029) + 0.30 : 0;
+    
+    // Platform fee: 2%
+    const platformFee = donationAmount * 0.02;
+    
+    // Total amount including fees
+    const total = donationAmount + stripeFee + platformFee;
+    
+    return {
+      stripeFee: stripeFee.toFixed(2),
+      platformFee: platformFee.toFixed(2),
+      total: total.toFixed(2)
+    };
+  };
+
+  const fees = calculateFees(donationAmount);
 
   return (
     <div className="min-h-screen">
@@ -240,35 +287,10 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                   </div>
 
                   {/* Payment Methods */}
-                  <div className="space-y-4">
-                    <h3 className="font-medium">Payment Method</h3>
-                    <div className="grid grid-cols-3 gap-4">
-                      <Button
-                        variant={selectedPaymentMethod === "card" ? "default" : "outline"}
-                        className="flex flex-col items-center gap-2 h-auto py-4"
-                        onClick={() => setSelectedPaymentMethod("card")}
-                      >
-                        <CreditCard className="w-5 h-5" />
-                        <span className="text-sm">Credit Card</span>
-                      </Button>
-                      <Button
-                        variant={selectedPaymentMethod === "bank" ? "default" : "outline"}
-                        className="flex flex-col items-center gap-2 h-auto py-4"
-                        onClick={() => setSelectedPaymentMethod("bank")}
-                      >
-                        <Banknote className="w-5 h-5" />
-                        <span className="text-sm">Bank Transfer</span>
-                      </Button>
-                      <Button
-                        variant={selectedPaymentMethod === "crypto" ? "default" : "outline"}
-                        className="flex flex-col items-center gap-2 h-auto py-4"
-                        onClick={() => setSelectedPaymentMethod("crypto")}
-                      >
-                        <Bitcoin className="w-5 h-5" />
-                        <span className="text-sm">Cryptocurrency</span>
-                      </Button>
-                    </div>
-                  </div>
+                  <PaymentMethodSelector 
+                    onPaymentMethodSelected={setSelectedPaymentMethod}
+                    selectedMethod={selectedPaymentMethod}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -288,21 +310,31 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                     <span className="font-medium">${donationAmount || '0'}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-800">
-                    <span className="text-gray-400">Processing Fee</span>
-                    <span className="font-medium">$0</span>
+                    <div className="flex items-center">
+                      <span className="text-gray-400">Processing Fee</span>
+                      <span className="text-xs text-gray-500 ml-1">(2.9% + $0.30)</span>
+                    </div>
+                    <span className="font-medium">${fees.stripeFee}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                    <div className="flex items-center">
+                      <span className="text-gray-400">Platform Fee</span>
+                      <span className="text-xs text-gray-500 ml-1">(2%)</span>
+                    </div>
+                    <span className="font-medium">${fees.platformFee}</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="font-medium">Total</span>
-                    <span className="font-medium text-lg">${donationAmount || '0'}</span>
+                    <span className="font-medium text-lg">${fees.total}</span>
                   </div>
 
                   <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                     <div className="flex items-start gap-3">
                       <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5" />
                       <div>
-                        <h4 className="font-medium text-blue-400 mb-1">100% Goes to Project</h4>
+                        <h4 className="font-medium text-blue-400 mb-1">Fee Breakdown</h4>
                         <p className="text-sm text-gray-300">
-                          We cover all processing fees. Your entire donation goes directly to supporting this project.
+                          The processing fee covers secure payment handling, while the platform fee helps maintain and improve our services.
                         </p>
                       </div>
                     </div>
