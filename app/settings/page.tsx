@@ -31,6 +31,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { SubscriptionCheckout } from '@/components/subscription-checkout'
 import { loadStripe } from '@stripe/stripe-js'
+import { Elements } from '@stripe/react-stripe-js'
+import SavedPaymentsList from '../components/payments/SavedPaymentsList'
+import PaymentForm from '../components/payments/PaymentForm'
 
 interface UserSettings {
   notifications_email: boolean
@@ -52,6 +55,7 @@ interface Profile {
   website: string;
   location: string;
   balance?: number;
+  role?: string;
 }
 
 interface PaymentMethod {
@@ -66,6 +70,47 @@ interface PaymentMethod {
   isDefault: boolean
 }
 
+// Tiers copied from /account-types for display name mapping
+const accountTypeTiers = [
+  {
+    name: "Public Account",
+    key: "public",
+  },
+  {
+    name: "Partner Account",
+    key: "partner",
+  },
+  {
+    name: "Manager Account",
+    key: "manager",
+  },
+  {
+    name: "Business Account",
+    key: "business",
+  }
+];
+
+function getAccountTypeDisplayName(subscription: any) {
+  const plan = subscription?.plan?.toLowerCase();
+  const role = subscription?.role?.toLowerCase();
+  if (plan === "business") return "Business Account";
+  if (plan === "manager") return "Manager Account";
+  if (plan === "partner") return "Partner Account";
+  if (role === "business") return "Business Account";
+  if (role === "manager") return "Manager Account";
+  if (role === "partner") return "Partner Account";
+  return "Public Account";
+}
+
+// Add mapping for user-friendly names
+const planNames: Record<string, string> = {
+  free_basic: "Free Basic",
+  free_plus: "Free Plus",
+  pro: "Pro",
+  enterprise: "Enterprise",
+};
+
+// Restore the original tiers object for plan upgrades and pricing
 const tiers = {
   'price_partner': {
     name: 'Partner Account',
@@ -77,15 +122,23 @@ const tiers = {
     price: '$45/month',
     priceId: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID,
   },
-}
-
-// Add mapping for user-friendly names
-const planNames: Record<string, string> = {
-  free_basic: "Free Basic",
-  free_plus: "Free Plus",
-  pro: "Pro",
-  enterprise: "Enterprise",
 };
+
+function getTierName(role: string | undefined) {
+  if (!role) return "Public Account";
+  switch (role.toLowerCase()) {
+    case "admin":
+      return "Business Account";
+    case "partner":
+      return "Manager Account";
+    case "investor":
+      return "Partner Account";
+    case "viewer":
+      return "Public Account";
+    default:
+      return role.charAt(0).toUpperCase() + role.slice(1);
+  }
+}
 
 export default function SettingsPage() {
   const supabase = createClientComponentClient()
@@ -118,59 +171,87 @@ export default function SettingsPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(true)
   const [stripePromise, setStripePromise] = useState<any>(null)
+  const [balance, setBalance] = useState<number | null>(null)
+  const [pendingBalance, setPendingBalance] = useState<number | null>(null)
+
+  const fetchBalance = async (userId: string) => {
+    try {
+      console.log('Fetching balance for user:', userId);
+      const { data, error } = await supabase
+        .from('cvnpartners_user_balances')
+        .select('balance, pending_balance')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      console.log('Balance query result:', { data, error });
+      
+      if (error) {
+        console.error('Error fetching balance:', error);
+        setBalance(0);
+        setPendingBalance(0);
+      } else {
+        console.log('Setting balance to:', data?.balance);
+        setBalance(data?.balance ?? 0);
+        setPendingBalance(data?.pending_balance ?? 0);
+      }
+    } catch (err) {
+      console.error('Error in fetchBalance:', err);
+      setBalance(0);
+      setPendingBalance(0);
+    }
+  }
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
-        if (authError) throw authError
-        if (!user) {
-          router.push("/login")
-          return
-        }
-
-        // Fetch profile data
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single()
-        if (profileError) throw profileError
-
-        // Fetch settings
-        const { data: settingsData, error: settingsError } = await supabase
-          .from("user_settings")
-          .select("*")
-          .eq("user_id", user.id)
-          .single()
-        if (settingsError && settingsError.code !== "PGRST116") throw settingsError
-
-        setProfile({
-          full_name: profileData?.full_name || "",
-          email: user.email || "",
-          avatar_url: profileData?.avatar_url || "",
-          phone_number: profileData?.phone_number || "",
-          company: profileData?.company || "",
-          position: profileData?.position || "",
-          bio: profileData?.bio || "",
-          website: profileData?.website || "",
-          location: profileData?.location || "",
-          balance: profileData?.balance
-        })
-
-        if (settingsData) {
-          setSettings(settingsData)
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error)
-        toast.error("Failed to load user data")
-      } finally {
-        setLoading(false)
+    const checkSessionAndFetch = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
       }
-    }
+      await fetchBalance(session.user.id);
 
-    fetchUserData()
-  }, [supabase, router])
+      // Fetch profile data
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .single();
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+      }
+      setProfile({
+        full_name: profileData?.full_name || "",
+        email: session.user.email || "",
+        avatar_url: profileData?.avatar_url || "",
+        phone_number: profileData?.phone_number || "",
+        company: profileData?.company || "",
+        position: profileData?.position || "",
+        bio: profileData?.bio || "",
+        website: profileData?.website || "",
+        location: profileData?.location || "",
+        role: profileData?.role || undefined
+      });
+
+      // Fetch settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from("user_settings")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .single();
+      if (settingsError && settingsError.code !== "PGRST116") {
+        console.error('Error fetching settings:', settingsError);
+      } else if (settingsData) {
+        setSettings(settingsData);
+      }
+      setLoading(false);
+    };
+    checkSessionAndFetch();
+  }, [supabase, router]);
+
+  // Add a debug effect to monitor balance changes
+  useEffect(() => {
+    console.log('Balance state changed:', balance);
+  }, [balance]);
 
   useEffect(() => {
     fetchSubscriptionDetails()
@@ -732,6 +813,36 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="subscription">
+          <Card className="mb-6 p-6 bg-gray-800/30 rounded-lg border border-purple-500/20 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-2">Your Current Plan</h2>
+                <div className="flex items-center gap-3">
+                  <div className="text-3xl font-bold text-purple-400">
+                    {getTierName(user?.role)}
+                  </div>
+                  {subscription && subscription.status && (
+                    <span className={`px-3 py-1 text-sm rounded-full ${
+                      subscription.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                      subscription.status === 'paused' ? 'bg-yellow-500/20 text-yellow-400' :
+                      'bg-red-500/20 text-red-400'
+                    }`}>
+                      {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-gray-400 mb-1">Next Billing Date</div>
+                <div className="text-white font-medium">
+                  {subscription?.current_period_end ?
+                    new Date(subscription.current_period_end * 1000).toLocaleDateString() :
+                    'N/A'
+                  }
+                </div>
+              </div>
+            </div>
+          </Card>
           <Card>
             <CardHeader>
               <div className="flex items-center gap-4">
@@ -885,8 +996,11 @@ export default function SettingsPage() {
               {/* User Balance */}
               <div className="p-4 bg-gray-800/30 rounded-lg flex items-center justify-between">
                 <span className="text-gray-400">Current Balance</span>
-                <span className="text-2xl font-bold text-green-400">${profile.balance?.toLocaleString() ?? '0.00'}</span>
+                <span className="text-2xl font-bold text-green-400">
+                  {balance === null ? '—' : `$${Number(balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                </span>
               </div>
+              <div className="text-sm text-gray-400 mt-1">Last updated: Today</div>
               {/* Withdrawal Request Form */}
               <form className="space-y-4" onSubmit={e => { e.preventDefault(); /* TODO: handle withdrawal */ }}>
                 <Label htmlFor="withdraw-amount">Withdraw Amount</Label>
@@ -912,70 +1026,22 @@ export default function SettingsPage() {
         <TabsContent value="billing">
           <Card className="leonardo-card border-gray-800">
             <CardHeader>
-              <CardTitle>Payment Methods</CardTitle>
-              <CardDescription>Manage your payment methods for subscriptions and purchases</CardDescription>
+              <CardTitle>Saved Payment Methods</CardTitle>
+              <CardDescription>View and manage your saved payment methods</CardDescription>
             </CardHeader>
             <CardContent>
-              {loadingPaymentMethods ? (
-                <div className="flex justify-center items-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {(paymentMethods || []).length > 0 ? (
-                    (paymentMethods || []).map((method) => (
-                      <div
-                        key={method.id}
-                        className="flex items-center justify-between p-4 rounded-lg border border-gray-800 bg-gray-900"
-                      >
-                        <div className="flex items-center">
-                          <CreditCard className="w-8 h-8 text-blue-400 mr-4" />
-                          <div>
-                            <p className="font-medium text-white">
-                              {method.card.brand} •••• {method.card.last4}
-                            </p>
-                            <p className="text-sm text-gray-400">
-                              Expires {method.card.exp_month}/{method.card.exp_year}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {method.isDefault && (
-                            <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                              Default
-                            </span>
-                          )}
-                          {!method.isDefault && (
-                            <Button
-                              variant="outline"
-                              className="border-gray-700"
-                              onClick={() => handleSetDefaultPaymentMethod(method.id)}
-                            >
-                              Set as Default
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            className="border-gray-700"
-                            onClick={() => handleRemovePaymentMethod(method.id)}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-gray-400 text-center py-4">No payment methods found.</div>
-                  )}
-                  <Button
-                    className="w-full gradient-button mt-4"
-                    onClick={handleAddPaymentMethod}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Payment Method
-                  </Button>
-                </div>
-              )}
+              <SavedPaymentsList />
+            </CardContent>
+          </Card>
+          <Card className="leonardo-card border-gray-800 mt-6">
+            <CardHeader>
+              <CardTitle>Add New Payment Method</CardTitle>
+              <CardDescription>Securely save a new payment method for future transactions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Elements stripe={stripePromise}>
+                <PaymentForm />
+              </Elements>
             </CardContent>
           </Card>
         </TabsContent>

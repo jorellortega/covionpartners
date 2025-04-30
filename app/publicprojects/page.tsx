@@ -352,8 +352,8 @@ export default function PublicProjectsPage() {
                               label: 'Make Deal',
                               icon: <Handshake className="w-4 h-4 mr-2" />,
                               onClick: (e: any) => {
-                              e.stopPropagation();
-                              router.push(`/makedeal?project=${project.id}`);
+                                e.stopPropagation();
+                                router.push(`/makedeal?project=${project.id}`);
                               },
                               color: 'hover:bg-purple-900/20 hover:text-purple-400',
                             },
@@ -361,20 +361,20 @@ export default function PublicProjectsPage() {
                               label: 'Invest',
                               icon: <DollarSign className="w-4 h-4 mr-2" />,
                               onClick: (e: any) => {
-                              e.stopPropagation();
-                              router.push(`/invest?project=${project.id}`);
+                                e.stopPropagation();
+                                router.push(`/invest?project=${project.id}`);
                               },
                               color: 'hover:bg-green-900/20 hover:text-green-400',
                             },
-                            {
+                            ...(project.accepts_donations ? [{
                               label: 'Donate',
                               icon: <Heart className="w-4 h-4 mr-2" />,
                               onClick: (e: any) => {
-                              e.stopPropagation();
-                              router.push(`/donate?project=${project.id}`);
+                                e.stopPropagation();
+                                router.push(`/donate?project=${project.id}`);
                               },
                               color: 'hover:bg-pink-900/20 hover:text-pink-400',
-                            },
+                            }] : []),
                             {
                               label: 'Collaborate',
                               icon: <Users className="w-4 h-4 mr-2" />,
@@ -383,15 +383,6 @@ export default function PublicProjectsPage() {
                                 router.push(`/collaborations/${project.id}`);
                               },
                               color: 'hover:bg-blue-900/20 hover:text-blue-400',
-                            },
-                            {
-                              label: 'For Sale',
-                              icon: <Tag className="w-4 h-4 mr-2" />,
-                              onClick: (e: any) => {
-                            e.stopPropagation();
-                            router.push(`/forsale?project=${project.id}`);
-                              },
-                              color: 'hover:bg-emerald-900/20 hover:text-emerald-400',
                             },
                           ];
                           const gridClass = actionButtons.length > 3 ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2';
