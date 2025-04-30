@@ -16,24 +16,57 @@ import {
   CheckCircle,
   XCircle,
   Filter,
-  SortAsc
+  SortAsc,
+  Pencil,
+  Trash2
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { useDeals } from "@/hooks/useDeals"
 import { useAuth } from "@/hooks/useAuth"
+import { useToast } from "@/components/ui/use-toast"
+import { supabase } from "@/lib/supabase"
 
 export default function DealsPage() {
   const router = useRouter()
   const { user } = useAuth()
   const { deals, loading, error } = useDeals()
   const [searchQuery, setSearchQuery] = useState("")
+  const { toast } = useToast()
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
 
   // Filter deals based on search query
   const filteredDeals = deals?.filter(deal =>
     deal.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     deal.description?.toLowerCase().includes(searchQuery.toLowerCase())
   ) || []
+
+  // Delete deal handler
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this deal?")) return
+    setUpdatingId(id)
+    const { error } = await supabase.from('deals').delete().eq('id', id)
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" })
+    } else {
+      toast({ title: "Deleted", description: "Deal deleted successfully" })
+      router.refresh()
+    }
+    setUpdatingId(null)
+  }
+
+  // Change visibility handler
+  const handleChangeVisibility = async (id: string, newLevel: string) => {
+    setUpdatingId(id)
+    const { error } = await supabase.from('deals').update({ confidentiality_level: newLevel }).eq('id', id)
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" })
+    } else {
+      toast({ title: "Updated", description: "Visibility updated" })
+      router.refresh()
+    }
+    setUpdatingId(null)
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white p-8">
@@ -107,7 +140,6 @@ export default function DealsPage() {
                   <div
                     key={deal.id}
                     className="p-4 bg-gray-800/30 rounded-lg border border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer"
-                    onClick={() => router.push(`/deals/${deal.id}`)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -139,6 +171,16 @@ export default function DealsPage() {
                             >
                               {deal.confidentiality_level}
                             </Badge>
+                            <select
+                              className="ml-2 bg-gray-900 border border-gray-700 text-white rounded px-2 py-1 text-xs"
+                              value={deal.confidentiality_level}
+                              disabled={updatingId === deal.id}
+                              onChange={e => handleChangeVisibility(deal.id, e.target.value)}
+                            >
+                              <option value="public">Public</option>
+                              <option value="private">Private</option>
+                              <option value="confidential">Confidential</option>
+                            </select>
                           </div>
                         </div>
                       </div>
@@ -162,6 +204,12 @@ export default function DealsPage() {
                         >
                           {deal.status}
                         </Badge>
+                        <Button size="icon" variant="outline" className="border-gray-700" onClick={() => router.push(`/deals/${deal.id}`)} title="Edit">
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="destructive" onClick={() => handleDelete(deal.id)} disabled={updatingId === deal.id} title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   </div>

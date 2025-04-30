@@ -995,13 +995,13 @@ export default function PublicProjectDetails() {
                       For Sale
                     </Button>
                     {project.accepts_donations && (
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={handleDonate}
-                      >
-                        <Heart className="w-4 h-4 mr-2" />
-                        Donate
-                      </Button>
+                    <Button 
+                      className="w-full gradient-button"
+                      onClick={handleDonate}
+                    >
+                      <Heart className="w-4 h-4 mr-2" />
+                      Donate
+                    </Button>
                     )}
                   </div>
                 </CardContent>

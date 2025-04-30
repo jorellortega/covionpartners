@@ -16,12 +16,13 @@ import { Badge } from "@/components/ui/badge"
 import { useProjects } from "@/hooks/useProjects"
 import { Project } from "@/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DevelopmentBanner } from "@/components/ui/development-banner"
+import { useAuth } from "@/hooks/useAuth"
 
 function MakeDealPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
+  const { user, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [projectKey, setProjectKey] = useState("")
@@ -34,11 +35,6 @@ function MakeDealPageContent() {
     description: "",
     deal_type: "",
     custom_type: "",
-    requirements: "",
-    terms: "",
-    budget: "",
-    equity_share: "",
-    roi_expectation: "",
     confidentiality_level: "private",
     project_id: searchParams.get('project') || ""
   })
@@ -130,27 +126,77 @@ function MakeDealPageContent() {
     e.preventDefault()
     setLoading(true)
 
-    if (!dealData.project_id) {
+    // Validate required fields
+    if (!dealData.title || !dealData.deal_type || !dealData.project_id) {
       toast({
         title: "Error",
-        description: "Please select a project for the deal",
+        description: "Please fill in all required fields (title, deal type, project).",
         variant: "destructive"
       })
       setLoading(false)
       return
     }
+    if (!user || !user.id) {
+      toast({
+        title: "Error",
+        description: "You must be signed in to create a deal.",
+        variant: "destructive"
+      })
+      setLoading(false)
+      return
+    }
+    // Validate deal_type
+    const validDealTypes = ["investment", "partnership", "collaboration", "acquisition", "custom"]
+    if (!validDealTypes.includes(dealData.deal_type)) {
+      toast({
+        title: "Error",
+        description: "Deal type is invalid.",
+        variant: "destructive"
+      })
+      setLoading(false)
+      return
+    }
+    // If custom, require custom_type
+    if (dealData.deal_type === "custom" && !dealData.custom_type) {
+      toast({
+        title: "Error",
+        description: "Please specify a custom deal type.",
+        variant: "destructive"
+      })
+      setLoading(false)
+      return
+    }
+    // Validate project_id as UUID
+    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+    if (!uuidRegex.test(dealData.project_id)) {
+      toast({
+        title: "Error",
+        description: "Project ID is not a valid UUID.",
+        variant: "destructive"
+      })
+      setLoading(false)
+      return
+    }
+    // Build payload with optional custom_type
+    const payload: any = {
+      ...dealData,
+      requirements: {},
+      confidentiality_level: dealData.confidentiality_level,
+      initiator_id: user.id
+    }
+    // Remove custom_type if not needed
+    if (payload.deal_type !== "custom" || !payload.custom_type) {
+      delete payload.custom_type;
+    }
+    const logObject = Object.fromEntries(
+      Object.entries(payload).map(([k, v]) => [k, { value: v, type: typeof v }])
+    )
+    console.log("Deal insert payload (values and types):", logObject)
 
     try {
       const { data, error } = await supabase
         .from('deals')
-        .insert([{
-          ...dealData,
-          requirements: dealData.requirements ? JSON.parse(dealData.requirements) : {},
-          terms: dealData.terms ? JSON.parse(dealData.terms) : {},
-          budget: parseFloat(dealData.budget) || null,
-          equity_share: parseFloat(dealData.equity_share) || null,
-          roi_expectation: parseFloat(dealData.roi_expectation) || null
-        }])
+        .insert([payload])
         .select()
         .single()
 
@@ -161,11 +207,11 @@ function MakeDealPageContent() {
         description: "Deal created successfully"
       })
 
-      router.push(`/deals/${data.id}`)
+      router.push(`/deals`)
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || JSON.stringify(error),
         variant: "destructive"
       })
     } finally {
@@ -175,7 +221,6 @@ function MakeDealPageContent() {
 
   return (
     <>
-      <DevelopmentBanner />
       <div className="min-h-screen bg-gray-950 text-white p-8">
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex items-center space-x-4">
@@ -374,54 +419,6 @@ function MakeDealPageContent() {
                       />
                     </div>
                   )}
-
-                  <div>
-                    <Label>Requirements (JSON format)</Label>
-                    <Textarea
-                      placeholder='{"requirement1": "value1", "requirement2": "value2"}'
-                      value={dealData.requirements}
-                      onChange={(e) => setDealData({ ...dealData, requirements: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Terms (JSON format)</Label>
-                    <Textarea
-                      placeholder='{"term1": "value1", "term2": "value2"}'
-                      value={dealData.terms}
-                      onChange={(e) => setDealData({ ...dealData, terms: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Budget ($)</Label>
-                    <Input
-                      type="number"
-                      placeholder="Enter budget"
-                      value={dealData.budget}
-                      onChange={(e) => setDealData({ ...dealData, budget: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Equity Share (%)</Label>
-                    <Input
-                      type="number"
-                      placeholder="Enter equity share percentage"
-                      value={dealData.equity_share}
-                      onChange={(e) => setDealData({ ...dealData, equity_share: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Expected ROI (%)</Label>
-                    <Input
-                      type="number"
-                      placeholder="Enter expected ROI percentage"
-                      value={dealData.roi_expectation}
-                      onChange={(e) => setDealData({ ...dealData, roi_expectation: e.target.value })}
-                    />
-                  </div>
 
                   <div>
                     <Label>Confidentiality Level</Label>

@@ -1063,7 +1063,19 @@ export default function PartnerDashboard() {
                   <Link href="/deals">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
                       <Globe className="w-4 h-4 mr-2" />
-                      Active Deals
+                      Deals
+                    </Button>
+                  </Link>
+                  <Link href="/dealsrequest">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <Handshake className="w-4 h-4 mr-2" />
+                      Deal Requests
+                    </Button>
+                  </Link>
+                  <Link href="/negotiate">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Negotiate
                     </Button>
                   </Link>
                   <Link href="/publicprojects">
@@ -1379,7 +1391,13 @@ export default function PartnerDashboard() {
                       <Handshake className="w-4 h-4 mr-2" /> Make Deal
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/deals')} className="hover:bg-gray-800">
-                      <Globe className="w-4 h-4 mr-2" /> Active Deals
+                      <Globe className="w-4 h-4 mr-2" /> Deals
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/dealsrequest')} className="hover:bg-gray-800">
+                      <Handshake className="w-4 h-4 mr-2" /> Deal Requests
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/negotiate')} className="hover:bg-gray-800">
+                      <MessageSquare className="w-4 h-4 mr-2" /> Negotiate
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/invest')} className="hover:bg-gray-800">
                       <DollarSign className="w-4 h-4 mr-2" /> Invest

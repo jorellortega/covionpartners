@@ -175,7 +175,7 @@ export default function SettingsPage() {
   const [pendingBalance, setPendingBalance] = useState<number | null>(null)
 
   const fetchBalance = async (userId: string) => {
-    try {
+      try {
       console.log('Fetching balance for user:', userId);
       const { data, error } = await supabase
         .from('cvnpartners_user_balances')
@@ -207,28 +207,28 @@ export default function SettingsPage() {
       if (!session) {
         router.push('/login');
         return;
-      }
+        }
       await fetchBalance(session.user.id);
 
-      // Fetch profile data
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
+        // Fetch profile data
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
         .eq("id", session.user.id)
         .single();
       if (profileError) {
         console.error('Error fetching profile:', profileError);
       }
-      setProfile({
-        full_name: profileData?.full_name || "",
+        setProfile({
+          full_name: profileData?.full_name || "",
         email: session.user.email || "",
-        avatar_url: profileData?.avatar_url || "",
-        phone_number: profileData?.phone_number || "",
-        company: profileData?.company || "",
-        position: profileData?.position || "",
-        bio: profileData?.bio || "",
-        website: profileData?.website || "",
-        location: profileData?.location || "",
+          avatar_url: profileData?.avatar_url || "",
+          phone_number: profileData?.phone_number || "",
+          company: profileData?.company || "",
+          position: profileData?.position || "",
+          bio: profileData?.bio || "",
+          website: profileData?.website || "",
+          location: profileData?.location || "",
         role: profileData?.role || undefined
       });
 
