@@ -137,9 +137,8 @@ export default function ManagePaymentsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [currentTab, setCurrentTab] = useState("transactions")
   const [page, setPage] = useState(1)
-  const [allTransactions, setAllTransactions] = useState<Transaction[]>([])
   const { data, isLoading } = useTransactions({
-    limit: 5,
+    limit: 10,
     page
   })
 
@@ -445,20 +444,6 @@ export default function ManagePaymentsPage() {
     )
   }
 
-  // Update allTransactions when new data arrives
-  useEffect(() => {
-    if (data?.transactions) {
-      setAllTransactions(prevTransactions => {
-        if (page === 1) {
-          return data.transactions;
-        }
-        const existingIds = new Set(prevTransactions.map(t => t.id));
-        const newTransactions = data.transactions.filter(t => !existingIds.has(t.id));
-        return [...prevTransactions, ...newTransactions];
-      });
-    }
-  }, [data, page]);
-
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md">
@@ -608,14 +593,18 @@ export default function ManagePaymentsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {isLoading && page === 1 ? (
+                  {isLoading ? (
                     <div className="text-center py-12">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
+                    </div>
+                  ) : !data?.transactions?.length ? (
+                    <div className="text-center py-12">
+                      <p className="text-gray-400">No transactions found</p>
                     </div>
                   ) : (
                     <>
                       <div className="space-y-4">
-                        {allTransactions.map((transaction) => (
+                        {data.transactions.map((transaction) => (
                           <div
                             key={transaction.id}
                             className="bg-gray-900/50 rounded-lg p-4 hover:bg-gray-900/70 transition-all"
@@ -653,9 +642,7 @@ export default function ManagePaymentsPage() {
                       {data.hasMore && (
                         <div className="flex justify-center mt-6">
                           <Button
-                            onClick={() => {
-                              setPage(prev => prev + 1)
-                            }}
+                            onClick={() => setPage(prev => prev + 1)}
                             className="gradient-button"
                             disabled={isLoading}
                           >
