@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Home, CreditCard, Wallet, DollarSign, Plus, ArrowRight, Calendar, RefreshCw, Loader2, LinkIcon, ShieldCheck } from "lucide-react"
+import { Home, CreditCard, Wallet, DollarSign, Plus, ArrowRight, Calendar, RefreshCw, Loader2, LinkIcon, ShieldCheck, Receipt, Banknote, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useRouter } from "next/navigation"
@@ -17,6 +17,9 @@ import { Elements, CardElement, useStripe, useElements } from "@stripe/react-str
 import type { Appearance } from '@stripe/stripe-js'
 import SavedPaymentsList from '../components/payments/SavedPaymentsList'
 import PaymentForm from '../components/payments/PaymentForm'
+import { useTransactions, Transaction } from "@/hooks/useTransactions"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
 // Mock data for payment methods and transactions
 const mockPaymentMethods = [
@@ -123,6 +126,7 @@ export default function ManagePaymentsPage() {
   const [session, setSession] = useState<any>(null)
   const [balance, setBalance] = useState<number | null>(null)
   const [pendingBalance, setPendingBalance] = useState<number | null>(null)
+  const [userData, setUserData] = useState<{ stripe_customer_id: string | null } | null>(null)
   const [bankForm, setBankForm] = useState({
     account_holder_name: '',
     account_holder_type: 'individual',
@@ -131,6 +135,13 @@ export default function ManagePaymentsPage() {
     bank_account_type: 'checking'
   });
   const [submitting, setSubmitting] = useState(false);
+  const [currentTab, setCurrentTab] = useState("transactions")
+  const [page, setPage] = useState(1)
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([])
+  const { data, isLoading } = useTransactions({
+    limit: 5,
+    page
+  })
 
   // Add Stripe Elements appearance configuration
   const appearance: Appearance = {
@@ -163,11 +174,12 @@ export default function ManagePaymentsPage() {
       const { data: { session } } = await supabase.auth.getSession()
       setSession(session)
       if (!session) {
-      router.push('/login')
-      return
-    }
+        router.push('/login')
+        return
+      }
       fetchBalance(session.user.id)
       fetchPaymentMethods()
+      fetchUserData(session.user.id)
     }
 
     checkSession()
@@ -176,8 +188,9 @@ export default function ManagePaymentsPage() {
       setSession(session)
       if (!session) {
         router.push('/login')
-    } else {
+      } else {
         fetchBalance(session.user.id)
+        fetchUserData(session.user.id)
       }
     })
 
@@ -220,6 +233,51 @@ export default function ManagePaymentsPage() {
     } catch (err) {
       setBalance(0);
       setPendingBalance(0);
+    }
+  }
+
+  const fetchUserData = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('stripe_customer_id')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        console.error('Error fetching user data:', error)
+        toast.error('Failed to load user data')
+        return
+      }
+
+      setUserData(data)
+    } catch (err) {
+      console.error('Error:', err)
+      toast.error('Failed to load user data')
+    }
+  }
+
+  const handleCreateCustomerId = async () => {
+    if (!session?.user) return
+
+    try {
+      setProcessingAction('creating-customer')
+      const response = await fetch('/api/payment-methods/create-customer', {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create customer')
+      }
+
+      const data = await response.json()
+      setUserData(prev => ({ ...prev, stripe_customer_id: data.customerId }))
+      toast.success('Stripe customer ID created successfully')
+    } catch (error) {
+      console.error('Error creating customer:', error)
+      toast.error('Failed to create Stripe customer ID')
+    } finally {
+      setProcessingAction(null)
     }
   }
 
@@ -351,6 +409,56 @@ export default function ManagePaymentsPage() {
     }
   };
 
+  const formatAmount = (amount: number, type: string) => {
+    const formatted = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(Math.abs(amount))
+    
+    return type === 'refund' ? `-${formatted}` : `+${formatted}`
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return 'bg-emerald-500/10 text-emerald-500'
+      case 'pending':
+        return 'bg-yellow-500/10 text-yellow-500'
+      case 'failed':
+        return 'bg-red-500/10 text-red-500'
+      case 'processing':
+        return 'bg-blue-500/10 text-blue-500'
+      default:
+        return 'bg-gray-500/10 text-gray-500'
+    }
+  }
+
+  const getTransactionIcon = (type: string) => {
+    return type === 'refund' ? (
+      <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+        <ArrowLeft className="w-5 h-5 text-red-500" />
+      </div>
+    ) : (
+      <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+        <ArrowRight className="w-5 h-5 text-emerald-500" />
+      </div>
+    )
+  }
+
+  // Update allTransactions when new data arrives
+  useEffect(() => {
+    if (data?.transactions) {
+      setAllTransactions(prevTransactions => {
+        if (page === 1) {
+          return data.transactions;
+        }
+        const existingIds = new Set(prevTransactions.map(t => t.id));
+        const newTransactions = data.transactions.filter(t => !existingIds.has(t.id));
+        return [...prevTransactions, ...newTransactions];
+      });
+    }
+  }, [data, page]);
+
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md">
@@ -404,19 +512,54 @@ export default function ManagePaymentsPage() {
           <Card className="leonardo-card border-gray-800">
             <CardHeader>
               <CardTitle className="text-lg flex items-center">
-                <DollarSign className="w-5 h-5 mr-2 text-purple-400" />
-                Monthly Revenue
+                <Banknote className="w-5 h-5 mr-2 text-blue-400" />
+                Covion Partners Banking
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-white">$600,000.00</p>
-              <p className="text-sm text-gray-400 mt-1">March 2024</p>
+              {loading ? (
+                <div className="flex items-center space-x-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Loading...</span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <code className="px-2 py-1 bg-gray-900 rounded text-sm">
+                      {userData?.stripe_customer_id ? 'Active' : 'Inactive'}
+                    </code>
+                    {userData?.stripe_customer_id && (
+                      <ShieldCheck className="w-4 h-4 text-green-500" />
+                    )}
+                  </div>
+                  {!userData?.stripe_customer_id && (
+                    <Button
+                      onClick={handleCreateCustomerId}
+                      disabled={processingAction === 'creating-customer'}
+                      className="gradient-button w-full mt-2"
+                      size="sm"
+                    >
+                      {processingAction === 'creating-customer' ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Activating...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Activate Banking
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
           <TabsList className="bg-gray-900 border-gray-800">
             <TabsTrigger value="payment-methods" className="data-[state=active]:bg-gray-800">
               Payment Methods
@@ -451,7 +594,7 @@ export default function ManagePaymentsPage() {
               <CardContent>
                 <Elements stripe={stripePromise}>
                   <PaymentForm />
-                      </Elements>
+                </Elements>
               </CardContent>
             </Card>
           </TabsContent>
@@ -464,54 +607,74 @@ export default function ManagePaymentsPage() {
                 <CardDescription>View your payment history</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {mockTransactions.map((transaction) => (
-                    <div
-                      key={transaction.id}
-                      className="flex items-center justify-between p-4 rounded-lg border border-gray-800 bg-gray-900"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div
-                          className={`p-2 rounded-full ${
-                            transaction.type === "incoming"
-                              ? "bg-green-500/20 text-green-400"
-                              : "bg-red-500/20 text-red-400"
-                          }`}
-                        >
-                          {transaction.type === "incoming" ? (
-                            <ArrowRight className="w-4 h-4" />
-                          ) : (
-                            <ArrowRight className="w-4 h-4 transform rotate-180" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium text-white">{transaction.description}</p>
-                          <p className="text-sm text-gray-400">
-                            {new Date(transaction.date).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <span
-                          className={`text-lg font-medium ${
-                            transaction.type === "incoming" ? "text-green-400" : "text-red-400"
-                          }`}
-                        >
-                          {transaction.type === "incoming" ? "+" : "-"}$
-                          {Math.abs(transaction.amount).toFixed(2)}
-                        </span>
-                        <span
-                          className={`text-xs px-2 py-1 rounded ${
-                            transaction.status === "completed"
-                              ? "bg-green-500/20 text-green-400"
-                              : "bg-yellow-500/20 text-yellow-400"
-                          }`}
-                        >
-                          {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                        </span>
-                      </div>
+                <div className="space-y-6">
+                  {isLoading && page === 1 ? (
+                    <div className="text-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
                     </div>
-                  ))}
+                  ) : (
+                    <>
+                      <div className="space-y-4">
+                        {allTransactions.map((transaction) => (
+                          <div
+                            key={transaction.id}
+                            className="bg-gray-900/50 rounded-lg p-4 hover:bg-gray-900/70 transition-all"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                {getTransactionIcon(transaction.type)}
+                                <div>
+                                  <h3 className="text-white font-medium">
+                                    {transaction.project?.name || 'Project Payment'}
+                                  </h3>
+                                  <p className="text-sm text-gray-400">
+                                    {format(new Date(transaction.created_at), 'M/d/yyyy')}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <span className={cn(
+                                  "text-xl font-medium",
+                                  transaction.type === 'refund' ? 'text-red-500' : 'text-emerald-500'
+                                )}>
+                                  {formatAmount(transaction.amount, transaction.type)}
+                                </span>
+                                <span className={cn(
+                                  "px-3 py-1 rounded-full text-xs font-medium",
+                                  getStatusColor(transaction.status)
+                                )}>
+                                  {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {data.hasMore && (
+                        <div className="flex justify-center mt-6">
+                          <Button
+                            onClick={() => {
+                              setPage(prev => prev + 1)
+                            }}
+                            className="gradient-button"
+                            disabled={isLoading}
+                          >
+                            {isLoading ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                                Load More
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -699,8 +862,8 @@ export default function ManagePaymentsPage() {
                                     Connect Bank Account
                                   </>
                                 )}
-                        </Button>
-                      </div>
+                            </Button>
+                          </div>
 
                             {error && (
                               <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500 text-red-400">
@@ -717,7 +880,7 @@ export default function ManagePaymentsPage() {
                               </div>
                             </div>
                           </form>
-                    </div>
+                        </div>
                         <p className="text-xs text-white/70 mt-2">
                           Standard bank transfers are free and typically arrive in 2-3 business days.
                         </p>
