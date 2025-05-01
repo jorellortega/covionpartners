@@ -17,7 +17,7 @@ import { Elements, CardElement, useStripe, useElements } from "@stripe/react-str
 import type { Appearance } from '@stripe/stripe-js'
 import SavedPaymentsList from '../components/payments/SavedPaymentsList'
 import PaymentForm from '../components/payments/PaymentForm'
-import { useTransactions, Transaction } from "@/hooks/useTransactions"
+import { useTransactions, Transaction } from "../hooks/useTransactions"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 
