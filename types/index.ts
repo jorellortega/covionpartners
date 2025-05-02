@@ -13,33 +13,34 @@ export interface TeamMember {
   project_id: string
   user_id: string
   role: 'lead' | 'member' | 'advisor' | 'consultant'
+  status: 'active' | 'inactive' | 'pending'
   joined_at: string
-  status: 'active' | 'inactive'
   created_at: string
   updated_at: string
+  user?: User
 }
 
 export interface Project {
   id: string
   name: string
-  description: string
-  status: string
+  description?: string
   type: string
-  deadline: string
+  status: 'active' | 'inactive' | 'completed'
+  progress: number
+  deadline?: string
+  budget?: number
+  invested?: number
+  roi?: number
   created_at: string
   updated_at: string
-  is_private: boolean
   owner_id: string
+  is_private: boolean
   owner_name?: string
   owner?: {
     id: string
     name: string
     email: string
   }
-  invested?: number | null
-  roi?: number | null
-  progress?: number | null
-  budget?: number | null
   media_files?: MediaFile[] | null
   project_key?: string | null
   visibility: 'private' | 'public'
