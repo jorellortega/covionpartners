@@ -6,6 +6,9 @@ export interface TeamMemberWithUser extends TeamMember {
   user: User
 }
 
+type UserRole = 'partner' | 'admin' | 'investor' | 'viewer'
+type TeamMemberRole = 'lead' | 'member' | 'advisor' | 'consultant'
+
 export function useTeamMembers(projectId: string) {
   const [teamMembers, setTeamMembers] = useState<TeamMemberWithUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -21,54 +24,86 @@ export function useTeamMembers(projectId: string) {
     setLoading(true);
     setError(null);
     try {
-      // 1. Fetch basic team member data
+      // 1. Fetch project owner first
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .select('owner_id')
+        .eq('id', projectId)
+        .single();
+
+      if (projectError) throw projectError;
+
+      // 2. Fetch basic team member data
       const { data: membersData, error: membersError } = await supabase
         .from('team_members')
-        .select('*') // Select all columns from team_members
+        .select('*')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
 
       if (membersError) throw membersError;
-      if (!membersData) {
-        setTeamMembers([]);
-        setLoading(false);
-        return;
-      }
 
-      // Extract user IDs, filtering out any null/undefined IDs
-      const userIds = membersData
-        .map((member) => member.user_id)
-        .filter((id): id is string => id !== null && id !== undefined);
+      // Combine owner ID with team member IDs
+      const userIds = [
+        projectData.owner_id,
+        ...(membersData || []).map((member) => member.user_id)
+      ].filter((id): id is string => id !== null && id !== undefined);
 
       let usersData: User[] = [];
       if (userIds.length > 0) {
-        // 2. Fetch corresponding users from auth.users
+        // 3. Fetch corresponding users
         const { data: fetchedUsers, error: usersError } = await supabase
-          .from('users') // Explicitly target the public.users table IF it exists and is intended
-          // If you mean auth.users, adjust this line:
-          // .schema('auth') 
-          // .from('users')
-          .select('id, name, email') // Adjust columns as needed from your users table
+          .from('users')
+          .select('id, name, email, avatar_url, role, created_at, updated_at')
           .in('id', userIds);
 
         if (usersError) {
-           console.warn("Could not fetch user details:", usersError.message);
-           // Proceed without user details if fetch fails, or throw error if essential
-           // throw usersError; 
+          console.warn("Could not fetch user details:", usersError.message);
         } else {
           usersData = fetchedUsers || [];
         }
       }
 
-      // 3. Combine the data
-      const combinedData = membersData.map((member) => {
-        const userDetail = usersData.find((user) => user.id === member.user_id);
-        return {
-          ...member,
-          // Ensure the user property matches the TeamMemberWithUser interface
-          user: userDetail || { id: member.user_id, name: 'N/A', email: 'N/A' } // Provide default user structure if not found
-        };
-      });
+      // 4. Create owner team member entry
+      const ownerUser = usersData.find(user => user.id === projectData.owner_id);
+      const ownerTeamMember: TeamMemberWithUser = {
+        id: 'owner-' + projectData.owner_id,
+        project_id: projectId,
+        user_id: projectData.owner_id,
+        role: 'lead' as TeamMemberRole,
+        status: 'active',
+        joined_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        user: ownerUser || {
+          id: projectData.owner_id,
+          name: 'N/A',
+          email: 'N/A',
+          avatar_url: null,
+          role: 'partner' as UserRole,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      };
+
+      // 5. Combine the data
+      const combinedData = [
+        ownerTeamMember,
+        ...(membersData || []).map((member) => {
+          const userDetail = usersData.find((user) => user.id === member.user_id);
+          return {
+            ...member,
+            user: userDetail || {
+              id: member.user_id,
+              name: 'N/A',
+              email: 'N/A',
+              avatar_url: null,
+              role: 'partner' as UserRole,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+          };
+        })
+      ];
 
       setTeamMembers(combinedData);
 
