@@ -28,23 +28,8 @@ export function MainNav() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48 bg-gray-900 border border-gray-800">
           <DropdownMenuItem className="cursor-pointer hover:bg-blue-500/20 hover:text-blue-400">
-            <Link href="/projects/my" className="w-full">
-              My Projects
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer hover:bg-blue-500/20 hover:text-blue-400">
             <Link href="/publicprojects" className="w-full">
               Public Projects
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer hover:bg-blue-500/20 hover:text-blue-400">
-            <Link href="/publicfunding" className="w-full">
-              Public Funding
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer hover:bg-blue-500/20 hover:text-blue-400">
-            <Link href="/funding-settings" className="w-full">
-              Funding Settings
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem className="cursor-pointer hover:bg-blue-500/20 hover:text-blue-400">
