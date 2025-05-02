@@ -126,7 +126,10 @@ export default function ManagePaymentsPage() {
   const [session, setSession] = useState<any>(null)
   const [balance, setBalance] = useState<number | null>(null)
   const [pendingBalance, setPendingBalance] = useState<number | null>(null)
-  const [userData, setUserData] = useState<{ stripe_customer_id: string | null } | null>(null)
+  const [userData, setUserData] = useState<{ 
+    stripe_customer_id: string | null,
+    stripe_connect_account_id: string | null 
+  } | null>(null)
   const [bankForm, setBankForm] = useState({
     account_holder_name: '',
     account_holder_type: 'individual',
@@ -173,9 +176,9 @@ export default function ManagePaymentsPage() {
       const { data: { session } } = await supabase.auth.getSession()
       setSession(session)
       if (!session) {
-        router.push('/login')
-        return
-      }
+      router.push('/login')
+      return
+    }
       fetchBalance(session.user.id)
       fetchPaymentMethods()
       fetchUserData(session.user.id)
@@ -187,7 +190,7 @@ export default function ManagePaymentsPage() {
       setSession(session)
       if (!session) {
         router.push('/login')
-      } else {
+    } else {
         fetchBalance(session.user.id)
         fetchUserData(session.user.id)
       }
@@ -237,10 +240,13 @@ export default function ManagePaymentsPage() {
 
   const fetchUserData = async (userId: string) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
       const { data, error } = await supabase
         .from('users')
-        .select('stripe_customer_id')
-        .eq('id', userId)
+        .select('stripe_customer_id, stripe_connect_account_id')
+        .eq('id', user.id)
         .single()
 
       if (error) {
@@ -270,11 +276,38 @@ export default function ManagePaymentsPage() {
       }
 
       const data = await response.json()
-      setUserData(prev => ({ ...prev, stripe_customer_id: data.customerId }))
+      setUserData(prev => ({ 
+        ...prev, 
+        stripe_customer_id: data.customerId,
+        stripe_connect_account_id: prev?.stripe_connect_account_id || null 
+      }))
       toast.success('Stripe customer ID created successfully')
     } catch (error) {
       console.error('Error creating customer:', error)
       toast.error('Failed to create Stripe customer ID')
+    } finally {
+      setProcessingAction(null)
+    }
+  }
+
+  const handleCreateConnectAccount = async () => {
+    if (!session?.user) return
+
+    try {
+      setProcessingAction('creating-connect')
+      const response = await fetch('/api/stripe/connect/create-account', {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create Stripe Connect account')
+      }
+
+      const { url } = await response.json()
+      window.location.href = url // Redirect to Stripe Connect onboarding
+    } catch (error) {
+      console.error('Error creating Stripe Connect account:', error)
+      toast.error('Failed to create Stripe Connect account')
     } finally {
       setProcessingAction(null)
     }
@@ -508,35 +541,79 @@ export default function ManagePaymentsPage() {
                   <span>Loading...</span>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <code className="px-2 py-1 bg-gray-900 rounded text-sm">
-                      {userData?.stripe_customer_id ? 'Active' : 'Inactive'}
-                    </code>
-                    {userData?.stripe_customer_id && (
-                      <ShieldCheck className="w-4 h-4 text-green-500" />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <code className="px-2 py-1 bg-gray-900 rounded text-sm">
+                        {userData?.stripe_customer_id ? 'Payment Methods Active' : 'Payment Methods Inactive'}
+                      </code>
+                      {userData?.stripe_customer_id && (
+                        <ShieldCheck className="w-4 h-4 text-green-500" />
+                      )}
+                    </div>
+                    {!userData?.stripe_customer_id && (
+                      <Button
+                        onClick={handleCreateCustomerId}
+                        disabled={processingAction === 'creating-customer'}
+                        className="gradient-button w-full mt-2"
+                        size="sm"
+                      >
+                        {processingAction === 'creating-customer' ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Activating...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Activate Payment Methods
+                          </>
+                        )}
+                      </Button>
                     )}
                   </div>
-                  {!userData?.stripe_customer_id && (
-                    <Button
-                      onClick={handleCreateCustomerId}
-                      disabled={processingAction === 'creating-customer'}
-                      className="gradient-button w-full mt-2"
-                      size="sm"
-                    >
-                      {processingAction === 'creating-customer' ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Activating...
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-4 h-4 mr-2" />
-                          Activate Banking
-                        </>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <code className="px-2 py-1 bg-gray-900 rounded text-sm">
+                        {userData?.stripe_connect_account_id ? 'Receiving Active' : 'Receiving Inactive'}
+                      </code>
+                      {userData?.stripe_connect_account_id && (
+                        <ShieldCheck className="w-4 h-4 text-green-500" />
                       )}
-                    </Button>
-                  )}
+                    </div>
+                    {!userData?.stripe_connect_account_id && (
+                      <Button
+                        onClick={handleCreateConnectAccount}
+                        disabled={processingAction === 'creating-connect'}
+                        className="gradient-button w-full mt-2"
+                        size="sm"
+                      >
+                        {processingAction === 'creating-connect' ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Activating...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Activate Receiving
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    {/* Step 3: Complete Stripe Onboarding */}
+                    {userData?.stripe_connect_account_id && (
+                      <Button
+                        onClick={() => router.push('/covionbank')}
+                        className="gradient-button w-full mt-2"
+                        size="sm"
+                      >
+                        <ArrowRight className="w-4 h-4 mr-2" />
+                        Complete Stripe Onboarding
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -579,7 +656,7 @@ export default function ManagePaymentsPage() {
               <CardContent>
                 <Elements stripe={stripePromise}>
                   <PaymentForm />
-                </Elements>
+                      </Elements>
               </CardContent>
             </Card>
           </TabsContent>
@@ -603,41 +680,41 @@ export default function ManagePaymentsPage() {
                     </div>
                   ) : (
                     <>
-                      <div className="space-y-4">
+                <div className="space-y-4">
                         {data.transactions.map((transaction) => (
-                          <div
-                            key={transaction.id}
+                    <div
+                      key={transaction.id}
                             className="bg-gray-900/50 rounded-lg p-4 hover:bg-gray-900/70 transition-all"
-                          >
+                    >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4">
                                 {getTransactionIcon(transaction.type)}
-                                <div>
+                        <div>
                                   <h3 className="text-white font-medium">
                                     {transaction.project?.name || 'Project Payment'}
                                   </h3>
-                                  <p className="text-sm text-gray-400">
+                          <p className="text-sm text-gray-400">
                                     {format(new Date(transaction.created_at), 'M/d/yyyy')}
-                                  </p>
-                                </div>
-                              </div>
+                          </p>
+                        </div>
+                      </div>
                               <div className="flex items-center gap-4">
                                 <span className={cn(
                                   "text-xl font-medium",
                                   transaction.type === 'refund' ? 'text-red-500' : 'text-emerald-500'
                                 )}>
                                   {formatAmount(transaction.amount, transaction.type)}
-                                </span>
+                        </span>
                                 <span className={cn(
                                   "px-3 py-1 rounded-full text-xs font-medium",
                                   getStatusColor(transaction.status)
                                 )}>
-                                  {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                                </span>
+                          {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                        </span>
                               </div>
-                            </div>
-                          </div>
-                        ))}
+                      </div>
+                    </div>
+                  ))}
                       </div>
                       {data.hasMore && (
                         <div className="flex justify-center mt-6">
@@ -849,8 +926,8 @@ export default function ManagePaymentsPage() {
                                     Connect Bank Account
                                   </>
                                 )}
-                            </Button>
-                          </div>
+                        </Button>
+                      </div>
 
                             {error && (
                               <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500 text-red-400">
@@ -867,7 +944,7 @@ export default function ManagePaymentsPage() {
                               </div>
                             </div>
                           </form>
-                        </div>
+                    </div>
                         <p className="text-xs text-white/70 mt-2">
                           Standard bank transfers are free and typically arrive in 2-3 business days.
                         </p>
