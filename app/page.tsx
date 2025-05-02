@@ -60,7 +60,7 @@ export default function Home() {
         <div className="max-w-4xl w-full space-y-12 text-center">
           <h2 className="text-5xl font-extrabold gradient-text mt-8">COVION PARTNERS</h2>
           <p className="text-xl text-white/90">
-            Investment opportunities, projects, collaborations, and partnership management
+            Business management, dealmaking, investments, project management, and secure payments for modern partnerships
           </p>
 
           <Button asChild className="gradient-button group text-lg py-6 px-8" size="lg">
