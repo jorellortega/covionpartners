@@ -144,6 +144,11 @@ export default function ManagePaymentsPage() {
     limit: 10,
     page
   })
+  const [stripeStatus, setStripeStatus] = useState<null | {
+    charges_enabled: boolean;
+    payouts_enabled: boolean;
+    details_submitted: boolean;
+  }>(null);
 
   // Add Stripe Elements appearance configuration
   const appearance: Appearance = {
@@ -200,6 +205,12 @@ export default function ManagePaymentsPage() {
       subscription.unsubscribe()
     }
   }, [router, supabase])
+
+  useEffect(() => {
+    fetch("/api/stripe/connect/account-status")
+      .then(res => res.json())
+      .then(data => setStripeStatus(data));
+  }, []);
 
   const fetchPaymentMethods = async () => {
     try {
@@ -582,28 +593,13 @@ export default function ManagePaymentsPage() {
                         <ShieldCheck className="w-4 h-4 text-green-500" />
                       )}
                     </div>
-                    {!userData?.stripe_connect_account_id && (
-                      <Button
-                        onClick={handleCreateConnectAccount}
-                        disabled={processingAction === 'creating-connect'}
-                        className="gradient-button w-full mt-2"
-                        size="sm"
-                      >
-                        {processingAction === 'creating-connect' ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Activating...
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-4 h-4 mr-2" />
-                            Activate Receiving
-                          </>
-                        )}
-                      </Button>
+                    {/* Stripe Onboarding Status Logic */}
+                    {userData?.stripe_connect_account_id && stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled && (
+                      <div className="p-2 bg-green-100 text-green-800 rounded text-center font-medium mt-2">
+                        Stripe account enabled! You can receive payouts.
+                      </div>
                     )}
-                    {/* Step 3: Complete Stripe Onboarding */}
-                    {userData?.stripe_connect_account_id && (
+                    {userData?.stripe_connect_account_id && (!stripeStatus?.charges_enabled || !stripeStatus?.payouts_enabled) && (
                       <Button
                         onClick={() => router.push('/covionbank')}
                         className="gradient-button w-full mt-2"
