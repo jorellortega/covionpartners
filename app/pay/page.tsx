@@ -36,8 +36,7 @@ export default function PayPage() {
       const { data: teamMemberships, error: teamError } = await supabase
         .from('team_members')
         .select('project_id')
-        .eq('user_id', session.user.id)
-        .eq('status', 'active');
+        .eq('user_id', session.user.id);
       let memberProjects: any[] = [];
       if (teamMemberships && teamMemberships.length > 0) {
         const projectIds = teamMemberships.map((tm: any) => tm.project_id);
