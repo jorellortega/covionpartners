@@ -19,16 +19,24 @@ export async function POST(request: Request) {
 
     const { amount, recipientId, paymentMethodId, projectId } = await request.json()
 
-    // Get recipient's Stripe Connect account ID
+    // Get recipient's data
     const { data: recipient } = await supabase
       .from('users')
-      .select('stripe_connect_account_id')
+      .select('stripe_connect_account_id, stripe_customer_id')
       .eq('id', recipientId)
       .single()
 
-    if (!recipient?.stripe_connect_account_id) {
+    if (!recipient) {
       return NextResponse.json(
-        { error: 'Recipient has not set up payments' },
+        { error: 'Recipient not found' },
+        { status: 400 }
+      )
+    }
+
+    // Check if recipient has activated their Covion banking
+    if (!recipient.stripe_connect_account_id || !recipient.stripe_customer_id) {
+      return NextResponse.json(
+        { error: 'Recipient has not activated their Covion banking. Please ask them to visit /managepayments to set up their account.' },
         { status: 400 }
       )
     }
