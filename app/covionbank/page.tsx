@@ -3,8 +3,12 @@
 export default function CovionBank() {
   const handleClick = async () => {
     const res = await fetch("/api/stripe/connect/get-onboarding-link");
-    const { url } = await res.json();
-    window.location.href = url;
+    const data = await res.json();
+    if (!res.ok || !data.url) {
+      alert(data.error || "Failed to get Stripe onboarding link. Please try again or contact support.");
+      return;
+    }
+    window.location.href = data.url;
   };
 
   return (

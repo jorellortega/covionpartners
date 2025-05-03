@@ -596,38 +596,35 @@ export default function ManagePaymentsPage() {
                         <ShieldCheck className="w-4 h-4 text-green-500" />
                       )}
                     </div>
-                    {(!userData?.stripe_connect_account_id || !stripeStatus?.charges_enabled || !stripeStatus?.payouts_enabled) && (
-                      <>
-                        <Button
-                          onClick={() => router.push('/covionbank')}
-                          className="gradient-button w-full mt-2"
-                          size="sm"
-                        >
-                          <ArrowRight className="w-4 h-4 mr-2" />
-                          {!userData?.stripe_connect_account_id ? 'Set Up Covion Banking' : 'Complete Stripe Onboarding'}
-                        </Button>
-                        {stripeStatus && stripeStatus.requirements && Array.isArray(stripeStatus.requirements.currently_due) && stripeStatus.requirements.currently_due.length > 0 && (
-                          <div className="mt-2 p-2 bg-yellow-900/60 text-yellow-200 rounded text-sm">
-                            <div className="mb-1 font-medium">Action Required:</div>
-                            <div className="mb-1">Additional information is required to enable payouts. Please complete your onboarding.</div>
-                            <Button
-                              variant="link"
-                              className="text-yellow-300 underline p-0 h-auto min-h-0"
-                              onClick={() => router.push('/covionbank')}
-                            >
-                              Go to Stripe to resolve
-                            </Button>
-                          </div>
+                    {!userData?.stripe_connect_account_id ? (
+                      <Button
+                        onClick={handleCreateConnectAccount}
+                        disabled={processingAction === 'creating-connect'}
+                        className="gradient-button w-full mt-2"
+                        size="sm"
+                      >
+                        {processingAction === 'creating-connect' ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Creating Stripe Account...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Create Stripe Account
+                          </>
                         )}
-                      </>
-                    )}
-                    {userData?.stripe_connect_account_id && stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled && (
-                      <span className="flex items-center space-x-2">
-                        <code className="px-2 py-1 bg-gray-900 rounded text-sm text-white">
-                          Account Enabled
-                        </code>
-                        <ShieldCheck className="w-4 h-4 text-green-500" />
-                      </span>
+                      </Button>
+                    ) :
+                    (!stripeStatus?.charges_enabled || !stripeStatus?.payouts_enabled) && (
+                      <Button
+                        onClick={() => router.push('/covionbank')}
+                        className="gradient-button w-full mt-2"
+                        size="sm"
+                      >
+                        <ArrowRight className="w-4 h-4 mr-2" />
+                        Complete Stripe Onboarding
+                      </Button>
                     )}
                   </div>
                 </div>

@@ -392,14 +392,14 @@ export default function AccountTypesPage() {
               </CardContent>
               <CardFooter className="pt-6">
                 <div className="flex items-center justify-between">
-                  <Button
-                    onClick={() => handleSubscription(tier)}
+                <Button 
+                  onClick={() => handleSubscription(tier)}
                     className="w-full"
                     variant={tier.popular ? "default" : "outline"}
                     disabled={getCtaText(tier) === "Current Plan"}
-                  >
-                    {getCtaText(tier)}
-                  </Button>
+                >
+                  {getCtaText(tier)}
+                </Button>
                   {tier.name === "Manager Account" && (
                     <span className="ml-2 px-2 py-1 rounded-full bg-yellow-500/20 text-yellow-600 text-xs font-semibold">
                       7-day Free Trial

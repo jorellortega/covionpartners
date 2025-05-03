@@ -17,20 +17,20 @@ export async function POST(req: Request) {
   const body = await req.text();
   const signature = req.headers.get('stripe-signature')!;
 
-  let event: Stripe.Event;
+    let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
+      event = stripe.webhooks.constructEvent(
       body,
       signature,
-      webhookSecret
-    );
+        webhookSecret
+      );
   } catch (err) {
-    return NextResponse.json(
+      return NextResponse.json(
       { error: 'Webhook signature verification failed' },
-      { status: 400 }
-    );
-  }
+        { status: 400 }
+      );
+    }
 
   try {
     switch (event.type) {
