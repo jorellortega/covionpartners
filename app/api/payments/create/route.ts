@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
     const { amount, recipientId, paymentMethodId, projectId } = await request.json()
@@ -72,6 +72,35 @@ export async function POST(request: Request) {
         recipient_id: recipientId,
       },
     })
+
+    // Get recipient's current balance
+    const { data: recipientBalance, error: balanceError } = await supabase
+      .from('cvnpartners_user_balances')
+      .select('balance')
+      .eq('user_id', recipientId)
+      .single()
+
+    if (balanceError && balanceError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      throw balanceError
+    }
+
+    const currentBalance = recipientBalance?.balance || 0
+
+    // Update or create recipient's balance record
+    const { error: updateError } = await supabase
+      .from('cvnpartners_user_balances')
+      .upsert({
+        user_id: recipientId,
+        balance: currentBalance + amount,
+        currency: 'USD',
+        status: 'active',
+        last_updated: new Date().toISOString()
+      })
+
+    if (updateError) {
+      console.error('Error updating recipient balance:', updateError)
+      // Don't throw here since the payment was successful
+    }
 
     // Record the transaction in the database
     const { error: transactionError } = await supabase

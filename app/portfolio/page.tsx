@@ -152,45 +152,72 @@ export default function PortfolioPage() {
         <div className="max-w-7xl mx-auto py-6">
           {/* Analytics Card */}
           <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-2xl p-6 flex flex-col md:flex-row items-center gap-6 shadow">
-              <div className="flex-1 min-w-0">
-                <h2 className="text-lg font-bold mb-2 text-green-400">Portfolio Analytics</h2>
-                <div className="flex flex-wrap gap-4 mb-2">
+            <div className="leonardo-card border-gray-800">
+              <div className="p-6">
+                <div className="flex items-center mb-6">
+                  <TrendingUp className="w-5 h-5 mr-2 text-green-400" />
+                  <h2 className="text-lg font-medium text-white">Portfolio Analytics</h2>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-6">
                   <div>
-                    <div className="text-gray-400 text-xs">Investments</div>
-                    <div className="text-xl font-bold text-white">{investments.length}</div>
+                    <p className="text-sm text-gray-400">Total Investments</p>
+                    <p className="text-2xl font-bold text-white">{investments.length}</p>
                   </div>
                   <div>
-                    <div className="text-gray-400 text-xs">Avg. ROI</div>
-                    <div className="text-xl font-bold text-green-400">{(averageROI * 100).toFixed(1)}%</div>
+                    <p className="text-sm text-gray-400">Average ROI</p>
+                    <p className="text-2xl font-bold text-green-400">{(averageROI * 100).toFixed(1)}%</p>
                   </div>
                   <div>
-                    <div className="text-gray-400 text-xs">Best Performer</div>
-                    <div className="text-sm font-semibold text-green-400">{bestPerformer?.projectName || '-'}</div>
+                    <p className="text-sm text-gray-400">Best Performer</p>
+                    <p className="text-base font-medium text-green-400">{bestPerformer?.projectName || '-'}</p>
                   </div>
                   <div>
-                    <div className="text-gray-400 text-xs">Worst Performer</div>
-                    <div className="text-sm font-semibold text-red-400">{worstPerformer?.projectName || '-'}</div>
+                    <p className="text-sm text-gray-400">Worst Performer</p>
+                    <p className="text-base font-medium text-red-400">{worstPerformer?.projectName || '-'}</p>
                   </div>
                 </div>
+                <div className="w-full h-32">
+                  <Line data={chartData} options={chartOptions} />
               </div>
-              <div className="w-full md:w-56 h-32">
-                <Line data={chartData} options={chartOptions} />
               </div>
             </div>
             {/* Portfolio Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gray-900 rounded-lg p-6 text-center shadow">
-                <div className="text-2xl font-bold text-yellow-400">${totalInvested.toLocaleString()}</div>
-                <div className="text-gray-400 text-sm mt-1">Total Invested</div>
+              <div className="leonardo-card border-gray-800">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <Briefcase className="w-5 h-5 mr-2 text-blue-400" />
+                    <h2 className="text-lg font-medium text-white">Total Invested</h2>
+                  </div>
+                  <p className="text-3xl font-bold text-white">${totalInvested.toLocaleString()}</p>
+                  <p className="text-sm text-gray-400 mt-1">Last updated: Today</p>
+                </div>
               </div>
-              <div className="bg-gray-900 rounded-lg p-6 text-center shadow">
-                <div className="text-2xl font-bold text-blue-400">${totalCurrent.toLocaleString()}</div>
-                <div className="text-gray-400 text-sm mt-1">Current Value</div>
+              <div className="leonardo-card border-gray-800">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <TrendingUp className="w-5 h-5 mr-2 text-green-400" />
+                    <h2 className="text-lg font-medium text-white">Current Value</h2>
+                  </div>
+                  <p className="text-3xl font-bold text-white">${totalCurrent.toLocaleString()}</p>
+                  <p className="text-sm text-gray-400 mt-1">Portfolio valuation</p>
+                </div>
               </div>
-              <div className="bg-gray-900 rounded-lg p-6 text-center shadow">
-                <div className={`text-2xl font-bold ${totalGainLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>{totalGainLoss >= 0 ? '+' : ''}${totalGainLoss.toLocaleString()} ({(totalGainLossPct * 100).toFixed(1)}%)</div>
-                <div className="text-gray-400 text-sm mt-1">Total Gain/Loss</div>
+              <div className="leonardo-card border-gray-800">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    {totalGainLoss >= 0 ? (
+                      <TrendingUp className="w-5 h-5 mr-2 text-green-400" />
+                    ) : (
+                      <TrendingDown className="w-5 h-5 mr-2 text-red-400" />
+                    )}
+                    <h2 className="text-lg font-medium text-white">Total Gain/Loss</h2>
+                  </div>
+                  <p className={`text-3xl font-bold ${totalGainLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {totalGainLoss >= 0 ? '+' : ''}{totalGainLoss.toLocaleString()} ({(totalGainLossPct * 100).toFixed(1)}%)
+                  </p>
+                  <p className="text-sm text-gray-400 mt-1">Overall performance</p>
+                </div>
               </div>
             </div>
           </div>

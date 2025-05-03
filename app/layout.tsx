@@ -3,12 +3,14 @@ import type { Metadata } from "next"
 import "./globals.css"
 import { Inter } from "next/font/google"
 import { SiteHeader } from "@/components/site-header"
+import { Toaster } from "sonner"
+import Providers from "./providers"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "COVION PARTNERS",
-  description: "Investment opportunities, projects, collaborations, and partnership management",
+  title: "Covion Partners",
+  description: "Covion Partners Platform",
 }
 
 export default function RootLayout({
@@ -19,8 +21,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+        <Providers>
         <SiteHeader />
         {children}
+          <Toaster />
+        </Providers>
       </body>
     </html>
   )

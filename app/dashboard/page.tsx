@@ -385,16 +385,16 @@ export default function PartnerDashboard() {
             hint: error.hint,
             code: error.code
           })
-          throw error
+          throw new Error(error.message || 'Failed to fetch deals')
         }
         
         console.log('Fetched deals:', data)
         setDeals(data || [])
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching deals:', error)
         toast({
           title: "Error",
-          description: "Failed to fetch deals. Please try again later.",
+          description: error.message || "Failed to fetch deals. Please try again later.",
           variant: "destructive"
         })
       } finally {

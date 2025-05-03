@@ -280,52 +280,62 @@ export default function AccountTypesPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {tiers.map((tier) => (
-            <Card 
-              key={tier.name}
-              className={`leonardo-card border-gray-800 ${tier.popular ? 'border-purple-500/50' : ''}`}
-            >
-              <CardHeader className="pb-4 pt-6">
-                <div className="flex items-center gap-3">
-                  <tier.icon className="w-6 h-6 text-purple-400" />
-                  <CardTitle className="text-xl">{tier.name}</CardTitle>
-                </div>
-                <CardDescription className="text-gray-400 mt-2">
-                  {tier.description}
-                </CardDescription>
-                <div className="mt-4">
-                  <div className="text-2xl font-bold text-white">
-                    {tier.price}
+          {tiers.map((tier) => {
+            const isBusiness = tier.name === "Business Account";
+            const isPartner = tier.name === "Partner Account";
+            return (
+              <Card 
+                key={tier.name}
+                className={`leonardo-card border-gray-800 ${tier.popular ? 'border-purple-500/50' : ''} ${isBusiness || isPartner ? 'opacity-50 pointer-events-none relative' : ''}`}
+              >
+                <CardHeader className="pb-4 pt-6">
+                  <div className="flex items-center gap-3">
+                    <tier.icon className="w-6 h-6 text-purple-400" />
+                    <CardTitle className="text-xl">{tier.name}</CardTitle>
                   </div>
-                  {tier.priceDetail && (
-                    <div className="text-sm text-purple-400 mt-1">
-                      {tier.priceDetail}
+                  <CardDescription className="text-gray-400 mt-2">
+                    {tier.description}
+                  </CardDescription>
+                  <div className="mt-4">
+                    <div className="text-2xl font-bold text-white">
+                      {tier.price}
                     </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ul className="space-y-3">
-                  {tier.features.map((feature) => (
-                    <li key={feature.name} className="flex items-center gap-2 text-sm">
-                      <Check className="w-4 h-4 text-green-500" />
-                      <span className={`text-gray-300 ${feature.name === "Create Projects" ? "text-purple-400 font-medium" : ""}`}>
-                        {feature.name}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-              <CardFooter className="pt-6">
-                <Button 
-                  className={`w-full ${tier.popular ? 'bg-purple-500 hover:bg-purple-600' : 'gradient-button'}`}
-                  onClick={() => handleSubscription(tier)}
-                >
-                  {getCtaText(tier)}
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+                    {tier.priceDetail && (
+                      <div className="text-sm text-purple-400 mt-1">
+                        {tier.priceDetail}
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <ul className="space-y-3">
+                    {tier.features.map((feature) => (
+                      <li key={feature.name} className="flex items-center gap-2 text-sm">
+                        <Check className="w-4 h-4 text-green-500" />
+                        <span className={`text-gray-300 ${feature.name === "Create Projects" ? "text-purple-400 font-medium" : ""}`}>
+                          {feature.name}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                <CardFooter className="pt-6">
+                  <Button 
+                    className={`w-full ${tier.popular ? 'bg-purple-500 hover:bg-purple-600' : 'gradient-button'}`}
+                    onClick={() => handleSubscription(tier)}
+                    disabled={isBusiness || isPartner}
+                  >
+                    {getCtaText(tier)}
+                  </Button>
+                </CardFooter>
+                {(isBusiness || isPartner) && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-lg">
+                    <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 text-transparent bg-clip-text">Under Development</span>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
         </div>
 
         <div className="mt-16 text-center">

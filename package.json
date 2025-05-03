@@ -42,6 +42,7 @@
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "latest",
+    "@tanstack/react-query": "^5.74.11",
     "autoprefixer": "^10.4.20",
     "chart.js": "^4.4.9",
     "class-variance-authority": "^0.7.1",

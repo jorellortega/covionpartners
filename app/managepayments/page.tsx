@@ -148,6 +148,9 @@ export default function ManagePaymentsPage() {
     charges_enabled: boolean;
     payouts_enabled: boolean;
     details_submitted: boolean;
+    requirements?: {
+      currently_due?: string[];
+    };
   }>(null);
 
   // Add Stripe Elements appearance configuration
@@ -603,14 +606,29 @@ export default function ManagePaymentsPage() {
                       </span>
                     )}
                     {userData?.stripe_connect_account_id && (!stripeStatus?.charges_enabled || !stripeStatus?.payouts_enabled) && (
-                      <Button
-                        onClick={() => router.push('/covionbank')}
-                        className="gradient-button w-full mt-2"
-                        size="sm"
-                      >
-                        <ArrowRight className="w-4 h-4 mr-2" />
-                        Complete Stripe Onboarding
-                      </Button>
+                      <>
+                        <Button
+                          onClick={() => router.push('/covionbank')}
+                          className="gradient-button w-full mt-2"
+                          size="sm"
+                        >
+                          <ArrowRight className="w-4 h-4 mr-2" />
+                          Complete Stripe Onboarding
+                        </Button>
+                        {stripeStatus && stripeStatus.requirements && Array.isArray(stripeStatus.requirements.currently_due) && stripeStatus.requirements.currently_due.length > 0 && (
+                          <div className="mt-2 p-2 bg-yellow-900/60 text-yellow-200 rounded text-sm">
+                            <div className="mb-1 font-medium">Action Required:</div>
+                            <div className="mb-1">Additional information is required to enable payouts. Please complete your onboarding.</div>
+                            <Button
+                              variant="link"
+                              className="text-yellow-300 underline p-0 h-auto min-h-0"
+                              onClick={() => router.push('/covionbank')}
+                            >
+                              Go to Stripe to resolve
+                            </Button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

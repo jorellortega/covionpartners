@@ -36,7 +36,6 @@ export function useUserProjects(userId: string) {
         .from('team_members')
         .select('project_id')
         .eq('user_id', userId)
-        .eq('status', 'active')
       
       if (teamError) throw teamError
       

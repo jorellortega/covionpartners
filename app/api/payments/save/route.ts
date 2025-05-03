@@ -31,15 +31,40 @@ export async function POST(req: Request) {
 
   const { paymentMethodId } = await req.json();
 
-  // Get or create Stripe customer ID
-  let stripeCustomerId = user.user_metadata?.stripe_customer_id;
+  try {
+    // Get user's current stripe_customer_id
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('stripe_customer_id')
+      .eq('id', user.id)
+      .single();
+
+    if (userError) {
+      console.error('Error fetching user:', userError);
+      return NextResponse.json({ error: 'Failed to fetch user data' }, { status: 500 });
+    }
+
+    let stripeCustomerId = userData?.stripe_customer_id;
+
+    // If no Stripe customer ID exists, create one
   if (!stripeCustomerId) {
+      console.log('Creating new Stripe customer for user:', user.id);
     const customer = await stripe.customers.create({
       email: user.email,
       metadata: { supabase_user_id: user.id }
     });
     stripeCustomerId = customer.id;
-    await supabase.auth.updateUser({ data: { stripe_customer_id: stripeCustomerId } });
+
+      // Update user with new Stripe customer ID
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ stripe_customer_id: stripeCustomerId })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('Error updating user with Stripe customer ID:', updateError);
+        return NextResponse.json({ error: 'Failed to update user with Stripe customer ID' }, { status: 500 });
+      }
   }
 
   // Attach the payment method to the customer
@@ -85,4 +110,11 @@ export async function POST(req: Request) {
       last4: paymentMethod.card?.last4
     }
   });
+  } catch (error) {
+    console.error('Stripe error:', error);
+    return NextResponse.json({ 
+      error: 'Failed to process payment method',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
 } 

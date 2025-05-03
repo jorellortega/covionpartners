@@ -6,9 +6,21 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { toast } from "sonner";
+
+interface PaymentMethod {
+  id: string;
+  type: string;
+  card: {
+    brand: string;
+    last4: string;
+    exp_month: number;
+    exp_year: number;
+  };
+}
 
 export default function PayPage() {
-  const [recipient, setRecipient] = useState("");
+  const [recipientId, setRecipientId] = useState("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -17,30 +29,34 @@ export default function PayPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
   const supabase = createClientComponentClient();
   const { teamMembers, loading: loadingTeamMembers } = useTeamMembers(selectedProject);
 
-  // Fetch user's projects on mount
+  // Fetch user's projects and payment methods on mount
   useEffect(() => {
-    const fetchProjects = async () => {
+    const fetchData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       setCurrentUserId(session.user.id);
-      // Get projects where user is owner
-      const { data: ownedProjects, error: ownedError } = await supabase
+
+      // Fetch projects
+      const { data: ownedProjects } = await supabase
         .from('projects')
         .select('*')
         .eq('owner_id', session.user.id)
         .order('name');
-      // Get projects where user is a team member
-      const { data: teamMemberships, error: teamError } = await supabase
+
+      const { data: teamMemberships } = await supabase
         .from('team_members')
         .select('project_id')
         .eq('user_id', session.user.id);
+
       let memberProjects: any[] = [];
       if (teamMemberships && teamMemberships.length > 0) {
         const projectIds = teamMemberships.map((tm: any) => tm.project_id);
-        const { data: joinedProjects, error: joinedError } = await supabase
+        const { data: joinedProjects } = await supabase
           .from('projects')
           .select('*')
           .in('id', projectIds)
@@ -49,7 +65,7 @@ export default function PayPage() {
           memberProjects = joinedProjects;
         }
       }
-      // Combine and dedupe
+
       const allProjects = [...(ownedProjects || []), ...memberProjects];
       const uniqueProjects = allProjects.filter((project, index, self) =>
         index === self.findIndex((p) => p.id === project.id)
@@ -58,9 +74,50 @@ export default function PayPage() {
       if (uniqueProjects.length > 0) {
         setSelectedProject(uniqueProjects[0].id);
       }
+
+      // Fetch payment methods
+      const response = await fetch('/api/payment-methods/list');
+      if (response.ok) {
+        const data = await response.json();
+        setPaymentMethods(data.paymentMethods || []);
+        if (data.paymentMethods?.length > 0) {
+          setSelectedPaymentMethod(data.paymentMethods[0].id);
+        }
+      }
     };
-    fetchProjects();
+
+    fetchData();
   }, [supabase]);
+
+  // Fetch team members with Stripe Connect status
+  const [teamMembersWithStripe, setTeamMembersWithStripe] = useState<any[]>([]);
+  useEffect(() => {
+    const fetchStripeStatus = async () => {
+      if (!selectedProject) return;
+      const { data: members } = await supabase
+        .from('team_members')
+        .select('user_id')
+        .eq('project_id', selectedProject);
+      if (!members) return;
+      const userIds = members.map((m: any) => m.user_id);
+      // Also add project owner
+      const { data: project } = await supabase
+        .from('projects')
+        .select('owner_id')
+        .eq('id', selectedProject)
+        .single();
+      if (project && !userIds.includes(project.owner_id)) {
+        userIds.push(project.owner_id);
+      }
+      // Fetch users with stripe_connect_account_id
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, name, email, stripe_connect_account_id')
+        .in('id', userIds);
+      setTeamMembersWithStripe(users || []);
+    };
+    fetchStripeStatus();
+  }, [selectedProject, supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,8 +126,8 @@ export default function PayPage() {
     setError(null);
 
     try {
-      if (!currentUserId || !recipient) {
-        throw new Error('Please select a recipient');
+      if (!currentUserId || !recipientId || !selectedPaymentMethod) {
+        throw new Error('Please fill in all required fields');
       }
 
       const transferAmount = parseFloat(amount);
@@ -78,66 +135,29 @@ export default function PayPage() {
         throw new Error('Please enter a valid amount');
       }
 
-      // Get sender's current balance
-      const { data: senderBalance, error: senderError } = await supabase
-        .from('cvnpartners_user_balances')
-        .select('balance')
-        .eq('user_id', currentUserId)
-        .single();
-
-      if (senderError) throw new Error('Could not fetch your balance');
-      if (!senderBalance) throw new Error('No balance record found');
-
-      if (senderBalance.balance < transferAmount) {
-        throw new Error(`Insufficient funds. Your balance: $${senderBalance.balance}`);
-      }
-
-      // Get recipient's user ID from the selected team member
-      const recipientMember = teamMembers.find(member => member.user.email === recipient);
-      if (!recipientMember?.user?.id) {
+      // Get recipient's user data
+      const recipientMember = teamMembers.find(member => member.user.id === recipientId);
+      if (!recipientMember?.user) {
         throw new Error('Invalid recipient');
       }
 
-      // Deduct from sender
-      const { error: deductError } = await supabase
-        .from('cvnpartners_user_balances')
-        .update({
-          balance: senderBalance.balance - transferAmount,
-          last_updated: new Date().toISOString()
-        })
-        .eq('user_id', currentUserId);
+      // Make the payment
+      const response = await fetch('/api/payments/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: transferAmount,
+          recipientId: recipientId,
+          paymentMethodId: selectedPaymentMethod,
+          projectId: selectedProject,
+        }),
+      });
 
-      if (deductError) throw new Error('Failed to deduct from your balance');
-
-      // Add to recipient - first check if they have a balance record
-      const { data: recipientBalance, error: recipientError } = await supabase
-        .from('cvnpartners_user_balances')
-        .select('balance')
-        .eq('user_id', recipientMember.user.id)
-        .single();
-
-      // If recipient has no balance record, create one. If they do, update it
-      const { error: addError } = await supabase
-        .from('cvnpartners_user_balances')
-        .upsert({
-          user_id: recipientMember.user.id,
-          balance: recipientBalance ? recipientBalance.balance + transferAmount : transferAmount,
-          currency: 'USD',
-          status: 'active',
-          last_updated: new Date().toISOString()
-        });
-
-      if (addError) {
-        // Rollback the deduction if adding to recipient fails
-        await supabase
-          .from('cvnpartners_user_balances')
-          .update({
-            balance: senderBalance.balance,
-            last_updated: new Date().toISOString()
-          })
-          .eq('user_id', currentUserId);
-        
-        throw new Error('Failed to transfer to recipient. Your balance has been restored.');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to process payment');
       }
 
       setSuccess(`Successfully sent $${transferAmount} to ${recipientMember.user.email}`);
@@ -176,26 +196,60 @@ export default function PayPage() {
                 ))}
               </select>
             </div>
+
             <div>
               <label htmlFor="recipient" className="block text-sm font-medium mb-1">Recipient</label>
               <select
                 id="recipient"
-                value={recipient}
-                onChange={e => setRecipient(e.target.value)}
+                value={recipientId}
+                onChange={e => setRecipientId(e.target.value)}
                 required
                 className="w-full p-2 border rounded bg-white text-black"
                 disabled={!selectedProject || loadingTeamMembers}
               >
                 <option value="" disabled>{loadingTeamMembers ? "Loading team members..." : "Select a team member"}</option>
-                {teamMembers
-                  .filter(member => member.user && member.user.id !== currentUserId)
+                {teamMembersWithStripe
+                  .filter(member => member.id !== currentUserId)
                   .map(member => (
-                    <option key={member.user.id} value={member.user.email}>
-                      {member.user.name || member.user.email} ({member.user.email})
+                    <option key={member.id} value={member.id}>
+                      {member.name || member.email} ({member.email})
                     </option>
                   ))}
               </select>
+              {recipientId && (() => {
+                const selected = teamMembersWithStripe.find(m => m.id === recipientId);
+                if (!selected) return null;
+                return (
+                  <div className="mt-2 flex items-center space-x-2 text-sm">
+                    <span className="font-medium">Covion Bank Status:</span>
+                    {selected.stripe_connect_account_id ? (
+                      <span className="px-2 py-1 bg-gray-900 rounded text-green-400">Active</span>
+                    ) : (
+                      <span className="px-2 py-1 bg-gray-900 rounded text-red-400">Inactive</span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
+
+            <div>
+              <label htmlFor="paymentMethod" className="block text-sm font-medium mb-1">Payment Method</label>
+              <select
+                id="paymentMethod"
+                value={selectedPaymentMethod}
+                onChange={e => setSelectedPaymentMethod(e.target.value)}
+                required
+                className="w-full p-2 border rounded bg-white text-black"
+              >
+                <option value="" disabled>Select a payment method</option>
+                {paymentMethods.map((method) => (
+                  <option key={method.id} value={method.id}>
+                    {method.card.brand.toUpperCase()} ending in {method.card.last4} (Expires {method.card.exp_month}/{method.card.exp_year})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label htmlFor="amount" className="block text-sm font-medium mb-1">Amount</label>
               <Input
@@ -209,6 +263,7 @@ export default function PayPage() {
                 placeholder="0.00"
               />
             </div>
+
             <div>
               <label htmlFor="note" className="block text-sm font-medium mb-1">Note (optional)</label>
               <Input
@@ -219,8 +274,10 @@ export default function PayPage() {
                 placeholder="For lunch, project, etc."
               />
             </div>
+
             {success && <div className="text-green-500 text-sm">{success}</div>}
             {error && <div className="text-red-500 text-sm">{error}</div>}
+
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? "Processing..." : "Send Payment"}
             </Button>
