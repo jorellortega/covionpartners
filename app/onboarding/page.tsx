@@ -13,6 +13,7 @@ export default function OnboardingPage() {
   const [userData, setUserData] = useState<any>(null);
   const [processing, setProcessing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -46,6 +47,16 @@ export default function OnboardingPage() {
     setProcessing(false);
     if (data.url) {
       window.location.href = data.url;
+    }
+  };
+
+  const handleOpenExpressDashboard = async () => {
+    setDashboardLoading(true);
+    const res = await fetch("/api/stripe/connect/express-dashboard-link");
+    const data = await res.json();
+    setDashboardLoading(false);
+    if (data.url) {
+      window.open(data.url, "_blank");
     }
   };
 
@@ -244,18 +255,13 @@ export default function OnboardingPage() {
                 <div className="flex gap-2">
                   {accountStatus?.stripe_connect_account_id && (
                     <Button
-                      asChild
                       size="sm"
                       variant="secondary"
                       className="text-xs"
+                      onClick={handleOpenExpressDashboard}
+                      disabled={dashboardLoading}
                     >
-                      <a
-                        href={`https://dashboard.stripe.com/acct_${accountStatus.stripe_connect_account_id}/dashboard`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Open Stripe Dashboard
-                      </a>
+                      {dashboardLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Open Stripe Dashboard"}
                     </Button>
                   )}
                   <Button size="sm" variant="outline" onClick={handleRefresh} disabled={refreshing}>
