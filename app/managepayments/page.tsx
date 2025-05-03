@@ -545,7 +545,7 @@ export default function ManagePaymentsPage() {
             <CardHeader>
               <CardTitle className="text-lg flex items-center justify-between">
                 <span className="flex items-center">
-                  <Banknote className="w-5 h-5 mr-2 text-blue-400" />
+                <Banknote className="w-5 h-5 mr-2 text-blue-400" />
                   <span
                     className="cursor-pointer hover:underline hover:text-blue-400 transition-colors"
                     onClick={async (e) => {
@@ -557,7 +557,7 @@ export default function ManagePaymentsPage() {
                       }
                     }}
                   >
-                    Covion Partners Banking
+                Covion Partners Banking
                   </span>
                 </span>
                 <Button
@@ -637,17 +637,17 @@ export default function ManagePaymentsPage() {
                             Create Stripe Account
                           </>
                         )}
-                      </Button>
+                        </Button>
                     ) :
                     (!stripeStatus?.charges_enabled || !stripeStatus?.payouts_enabled) && (
-                      <Button
-                        onClick={() => router.push('/covionbank')}
+                            <Button
+                              onClick={() => router.push('/covionbank')}
                         className="gradient-button w-full mt-2"
                         size="sm"
-                      >
+                            >
                         <ArrowRight className="w-4 h-4 mr-2" />
                         Complete Stripe Onboarding
-                      </Button>
+                            </Button>
                     )}
                   </div>
                 </div>

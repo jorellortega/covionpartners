@@ -4,7 +4,7 @@ import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
-export default function PaymentForm() {
+export default function PaymentForm({ onSuccess, accountType }: { onSuccess?: () => void, accountType?: string }) {
   const router = useRouter();
   const stripe = useStripe();
   const elements = useElements();
@@ -42,6 +42,7 @@ export default function PaymentForm() {
         },
         body: JSON.stringify({
           paymentMethodId: paymentMethod.id,
+          accountType,
         }),
         credentials: 'include',
       });
@@ -53,8 +54,11 @@ export default function PaymentForm() {
       }
 
       toast.success('Payment method saved successfully');
-      // Refresh the page to show the new payment method
-      window.location.reload();
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        window.location.reload();
+      }
     } catch (err: any) {
       console.error('Error saving payment:', err);
       setError(err.message || 'Failed to save payment method');

@@ -125,8 +125,7 @@ const tiers = [
   {
     name: "Manager Account",
     description: "Complete project creation and management",
-    price: "$25/month",
-    priceDetail: "7-day free trial, no credit card required",
+    price: "$1/month",
     icon: Target,
     features: features.filter(f => f.partner),
     cta: "Start Free Trial",
@@ -139,7 +138,6 @@ const tiers = [
     name: "Business Account",
     description: "Full platform access with advanced features",
     price: "$45/month",
-    priceDetail: "7-day free trial, no credit card required",
     icon: Building2,
     features: features.filter(f => f.enterprise),
     cta: "Start Free Trial",
@@ -200,10 +198,10 @@ export default function AccountTypesPage() {
 
   const handleSubscription = async (tier: any) => {
     if (!user) {
-      // If not logged in, redirect to signup with account type
-      const type = tier.name.toLowerCase().replace(' account', '')
-      router.push(`/login?tab=signup&type=${type}`)
-      return
+      // If not logged in, redirect to signup page with account type
+      const type = tier.name.toLowerCase().replace(' account', '');
+      router.push(`/signup?type=${type}`);
+      return;
     }
 
     // For paid tiers, handle subscription with trial
@@ -400,16 +398,6 @@ export default function AccountTypesPage() {
                 >
                   {getCtaText(tier)}
                 </Button>
-                  {tier.name === "Manager Account" && (
-                    <span className="ml-2 px-2 py-1 rounded-full bg-yellow-500/20 text-yellow-600 text-xs font-semibold">
-                      7-day Free Trial
-                    </span>
-                  )}
-                  {tier.name === "Manager Account" && currentSubscription?.status === "trialing" && currentSubscription?.trial_end && (
-                    <div className="text-yellow-400 text-xs mt-2">
-                      Free trial ends on {new Date(currentSubscription.trial_end * 1000).toLocaleDateString()}
-                    </div>
-                  )}
                   {getSubscriptionStatus(tier) && (
                     <span className={`ml-2 text-sm ${getSubscriptionStatus(tier)?.color}`}>
                       {getSubscriptionStatus(tier)?.text}

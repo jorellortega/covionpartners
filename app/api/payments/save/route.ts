@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'No user in session' }, { status: 401 });
   }
 
-  const { paymentMethodId } = await req.json();
+  const { paymentMethodId, accountType } = await req.json();
 
   try {
     // Get user's current stripe_customer_id
@@ -47,13 +47,13 @@ export async function POST(req: Request) {
     let stripeCustomerId = userData?.stripe_customer_id;
 
     // If no Stripe customer ID exists, create one
-  if (!stripeCustomerId) {
+    if (!stripeCustomerId) {
       console.log('Creating new Stripe customer for user:', user.id);
-    const customer = await stripe.customers.create({
-      email: user.email,
-      metadata: { supabase_user_id: user.id }
-    });
-    stripeCustomerId = customer.id;
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: { supabase_user_id: user.id }
+      });
+      stripeCustomerId = customer.id;
 
       // Update user with new Stripe customer ID
       const { error: updateError } = await supabase
@@ -65,51 +65,111 @@ export async function POST(req: Request) {
         console.error('Error updating user with Stripe customer ID:', updateError);
         return NextResponse.json({ error: 'Failed to update user with Stripe customer ID' }, { status: 500 });
       }
-  }
+    }
 
-  // Attach the payment method to the customer
-  const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, {
-    customer: stripeCustomerId,
-  });
-
-  // Set as default payment method
-  await stripe.customers.update(stripeCustomerId, {
-    invoice_settings: { default_payment_method: paymentMethod.id },
-  });
-
-  // Save payment method details to Supabase
-  const { error: dbError } = await supabase
-    .from('payment_methods')
-    .insert({
-      user_id: user.id,
-      type: 'stripe',
-      status: 'active',
-      stripe_payment_method_id: paymentMethod.id,
-      card_brand: paymentMethod.card?.brand,
-      card_last4: paymentMethod.card?.last4,
-      card_exp_month: paymentMethod.card?.exp_month,
-      card_exp_year: paymentMethod.card?.exp_year,
-      is_default: true,
-      details: {
-        card: paymentMethod.card,
-        type: paymentMethod.type,
-        billing_details: paymentMethod.billing_details
-      }
+    // Attach the payment method to the customer
+    const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, {
+      customer: stripeCustomerId,
     });
 
-  if (dbError) {
-    console.error('Database error:', dbError);
-    return NextResponse.json({ error: 'Failed to save payment method', details: dbError }, { status: 500 });
-  }
+    // Set as default payment method
+    await stripe.customers.update(stripeCustomerId, {
+      invoice_settings: { default_payment_method: paymentMethod.id },
+    });
 
-  return NextResponse.json({
-    success: true,
-    paymentMethod: {
-      id: paymentMethod.id,
-      brand: paymentMethod.card?.brand,
-      last4: paymentMethod.card?.last4
+    // Save payment method details to Supabase
+    const { error: dbError } = await supabase
+      .from('payment_methods')
+      .insert({
+        user_id: user.id,
+        type: 'stripe',
+        status: 'active',
+        stripe_payment_method_id: paymentMethod.id,
+        card_brand: paymentMethod.card?.brand,
+        card_last4: paymentMethod.card?.last4,
+        card_exp_month: paymentMethod.card?.exp_month,
+        card_exp_year: paymentMethod.card?.exp_year,
+        is_default: true,
+        details: {
+          card: paymentMethod.card,
+          type: paymentMethod.type,
+          billing_details: paymentMethod.billing_details
+        }
+      });
+
+    if (dbError) {
+      console.error('Database error:', dbError);
+      return NextResponse.json({ error: 'Failed to save payment method', details: dbError }, { status: 500 });
     }
-  });
+
+    // If accountType is 'manager', create a Stripe subscription for $1/month
+    if (accountType === 'manager') {
+      const priceId = process.env.NEXT_PUBLIC_STRIPE_PARTNER_PRICE_ID;
+      if (!priceId) {
+        console.error('Stripe priceId not configured for manager subscription');
+        // Continue without creating subscription
+        return NextResponse.json({
+          success: true,
+          paymentMethod: {
+            id: paymentMethod.id,
+            brand: paymentMethod.card?.brand,
+            last4: paymentMethod.card?.last4
+          },
+          warning: 'Subscription not created: Price ID not configured'
+        });
+      }
+      // Check if user already has a subscription (optional: implement this logic if needed)
+      // Create the subscription
+      try {
+        const subscription = await stripe.subscriptions.create({
+          customer: stripeCustomerId,
+          items: [{ price: priceId }],
+          default_payment_method: paymentMethod.id,
+          payment_behavior: 'default_incomplete',
+          payment_settings: {
+            payment_method_types: ['card'],
+            save_default_payment_method: 'on_subscription',
+          },
+          expand: ['latest_invoice'],
+        });
+
+        // Check if the subscription requires payment
+        if (subscription.status === 'incomplete') {
+          const invoice = subscription.latest_invoice as Stripe.Invoice & { payment_intent?: Stripe.PaymentIntent };
+          if (invoice.payment_intent) {
+            if (invoice.payment_intent.status === 'requires_action') {
+              return NextResponse.json({
+                success: true,
+                requires_action: true,
+                payment_intent_client_secret: invoice.payment_intent.client_secret,
+                subscription_id: subscription.id
+              });
+            }
+          }
+        }
+
+        return NextResponse.json({
+          success: true,
+          subscription_id: subscription.id,
+          status: subscription.status
+        });
+      } catch (subError) {
+        console.error('Stripe subscription error:', subError);
+        return NextResponse.json({ 
+          error: 'Failed to create subscription', 
+          details: subError instanceof Error ? subError.message : 'Unknown error' 
+        }, { status: 500 });
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      paymentMethod: {
+        id: paymentMethod.id,
+        brand: paymentMethod.card?.brand,
+        last4: paymentMethod.card?.last4
+      }
+    });
   } catch (error) {
     console.error('Stripe error:', error);
     return NextResponse.json({ 

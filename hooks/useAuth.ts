@@ -167,7 +167,7 @@ export function useAuth() {
     }
   }
 
-  const signUp = async (email: string, password: string, name: string, phone: string) => {
+  const signUp = async (email: string, password: string, name: string, phone: string, role: string = 'viewer') => {
     try {
       console.log('Starting signup process for:', { email, name, phone })
       
@@ -178,7 +178,7 @@ export function useAuth() {
         options: {
           data: {
             name,
-            role: 'viewer',
+            role,
             phone_number: phone
           }
         }

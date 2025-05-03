@@ -30,13 +30,13 @@ export async function GET() {
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
   try {
-    const accountLink = await stripe.accountLinks.create({
-      account: data.stripe_connect_account_id,
-      refresh_url: `${baseUrl}/managepayments?refresh=true`,
-      return_url: `${baseUrl}/managepayments?success=true`,
-      type: 'account_onboarding',
-    })
-    return NextResponse.json({ url: accountLink.url })
+  const accountLink = await stripe.accountLinks.create({
+    account: data.stripe_connect_account_id,
+    refresh_url: `${baseUrl}/managepayments?refresh=true`,
+    return_url: `${baseUrl}/managepayments?success=true`,
+    type: 'account_onboarding',
+  })
+  return NextResponse.json({ url: accountLink.url })
   } catch (err) {
     return NextResponse.json({ error: 'Failed to create Stripe onboarding link' }, { status: 500 })
   }
