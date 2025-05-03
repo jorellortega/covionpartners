@@ -152,6 +152,8 @@ export default function ManagePaymentsPage() {
       currently_due?: string[];
     };
   }>(null);
+  const [subscription, setSubscription] = useState<any>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
   // Add Stripe Elements appearance configuration
   const appearance: Appearance = {
@@ -213,6 +215,23 @@ export default function ManagePaymentsPage() {
     fetch("/api/stripe/connect/account-status")
       .then(res => res.json())
       .then(data => setStripeStatus(data));
+  }, []);
+
+  useEffect(() => {
+    // Fetch subscription info
+    const fetchSubscription = async () => {
+      setSubscriptionLoading(true);
+      try {
+        const res = await fetch('/api/subscriptions/get', { credentials: 'include' });
+        const data = await res.json();
+        setSubscription(data.subscription);
+      } catch (err) {
+        setSubscription(null);
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+    fetchSubscription();
   }, []);
 
   const fetchPaymentMethods = async () => {
@@ -785,57 +804,54 @@ export default function ManagePaymentsPage() {
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <CardTitle>Active Subscriptions</CardTitle>
-                  <Button className="gradient-button">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Subscription
-                  </Button>
+                  <CardTitle>Active Subscription</CardTitle>
+                  {/* You can add a button for managing subscription here */}
                 </div>
-                <CardDescription>Manage your recurring subscriptions and billing</CardDescription>
+                <CardDescription>Manage your recurring subscription and billing</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {mockSubscriptions.map((subscription) => (
-                    <div
-                      key={subscription.id}
-                      className="flex items-center justify-between p-4 rounded-lg border border-gray-800 bg-gray-900"
-                    >
-                      <div className="flex items-center">
-                        <div className="p-2 rounded-full bg-blue-500/20 text-blue-400 mr-4">
-                          <Calendar className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-white">{subscription.name}</p>
-                          <p className="text-sm text-gray-400">
-                            ${subscription.amount.toFixed(2)}/{subscription.interval}
-                          </p>
-                        </div>
+                {subscriptionLoading ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                    <p className="text-gray-400 mt-2">Loading subscription...</p>
+                  </div>
+                ) : !subscription ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400">No active subscription found.</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between p-4 rounded-lg border border-gray-800 bg-gray-900">
+                    <div className="flex items-center">
+                      <div className="p-2 rounded-full bg-blue-500/20 text-blue-400 mr-4">
+                        <Calendar className="w-5 h-5" />
                       </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="text-right">
-                          <p className="text-sm text-gray-400">Next billing</p>
-                          <p className="text-white">
-                            {new Date(subscription.nextBilling).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span
-                            className={`text-xs px-2 py-1 rounded ${
-                              subscription.status === "active"
-                                ? "bg-green-500/20 text-green-400"
-                                : "bg-red-500/20 text-red-400"
-                            }`}
-                          >
-                            {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
-                          </span>
-                          <Button variant="outline" className="border-gray-700">
-                            {subscription.status === "active" ? "Cancel" : "Reactivate"}
-                          </Button>
-                        </div>
+                      <div>
+                        <p className="font-medium text-white">{subscription.tier_name}</p>
+                        <p className="text-sm text-gray-400">Plan ID: {subscription.price_id}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="flex items-center space-x-4">
+                      <div className="text-right">
+                        <p className="text-sm text-gray-400">Next billing</p>
+                        <p className="text-white">
+                          {subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toLocaleDateString() : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span
+                          className={`text-xs px-2 py-1 rounded ${
+                            subscription.status === "active"
+                              ? "bg-green-500/20 text-green-400"
+                              : "bg-red-500/20 text-red-400"
+                          }`}
+                        >
+                          {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+                        </span>
+                        {/* Add cancel/reactivate logic here if needed */}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

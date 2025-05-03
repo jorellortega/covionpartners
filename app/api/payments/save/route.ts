@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     // Get user's current stripe_customer_id
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, name')
       .eq('id', user.id)
       .single();
 
@@ -51,6 +51,7 @@ export async function POST(req: Request) {
       console.log('Creating new Stripe customer for user:', user.id);
       const customer = await stripe.customers.create({
         email: user.email,
+        name: userData?.name || undefined,
         metadata: { supabase_user_id: user.id }
       });
       stripeCustomerId = customer.id;
@@ -138,6 +139,13 @@ export async function POST(req: Request) {
           const invoice = subscription.latest_invoice as Stripe.Invoice & { payment_intent?: Stripe.PaymentIntent };
           if (invoice.payment_intent) {
             if (invoice.payment_intent.status === 'requires_action') {
+              // Update user with subscription info even if payment requires action
+              await supabase.from('users').update({
+                subscription_id: subscription.id,
+                subscription_tier: 'manager',
+                subscription_status: subscription.status,
+                trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null
+              }).eq('id', user.id);
               return NextResponse.json({
                 success: true,
                 requires_action: true,
@@ -147,6 +155,14 @@ export async function POST(req: Request) {
             }
           }
         }
+
+        // Update user with subscription info after successful subscription
+        await supabase.from('users').update({
+          subscription_id: subscription.id,
+          subscription_tier: 'manager',
+          subscription_status: subscription.status,
+          trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null
+        }).eq('id', user.id);
 
         return NextResponse.json({
           success: true,

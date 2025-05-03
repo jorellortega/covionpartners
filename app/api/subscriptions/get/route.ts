@@ -1,23 +1,25 @@
-import { createClient } from "@supabase/supabase-js"
-import { cookies } from "next/headers"
-import { NextResponse } from "next/server"
-import { stripe } from "@/lib/stripe"
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
+import { stripe } from '@/lib/stripe';
 
 export async function GET() {
   try {
-    // Set up Supabase client
-    const cookieStore = cookies()
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    // Use correct cookies/session handling
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
-    // Get authenticated user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    console.log('Fetched user:', user)
-
+    // Get authenticated user session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      return NextResponse.json({ error: 'Session error', details: sessionError }, { status: 401 });
+    }
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const user = session.user;
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get user's subscription details from the database
@@ -25,19 +27,16 @@ export async function GET() {
       .from('users')
       .select('subscription_id, subscription_status, subscription_tier')
       .eq('id', user.id)
-      .single()
-
-    console.log('Fetched userData:', userData)
+      .single();
 
     if (!userData?.subscription_id) {
-      return NextResponse.json({ subscription: null })
+      return NextResponse.json({ subscription: null });
     }
 
     // Get subscription details from Stripe
-    const subscription = await stripe.subscriptions.retrieve(userData.subscription_id)
-
+    const subscription = await stripe.subscriptions.retrieve(userData.subscription_id);
     // Get the product details for the subscription
-    const product = await stripe.products.retrieve(subscription.items.data[0].price.product as string)
+    const product = await stripe.products.retrieve(subscription.items.data[0].price.product as string);
 
     return NextResponse.json({
       subscription: {
@@ -48,12 +47,12 @@ export async function GET() {
         tier_name: product.name,
         price_id: subscription.items.data[0].price.id,
       },
-    })
+    });
   } catch (err) {
-    console.error('Error fetching subscription:', err)
+    console.error('Error fetching subscription:', err);
     return NextResponse.json(
       { error: 'Failed to fetch subscription' },
       { status: 500 }
-    )
+    );
   }
 } 
