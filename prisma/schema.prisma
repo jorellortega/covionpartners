@@ -1,0 +1,66 @@
+model Transaction {
+  id          String    @id @default(uuid())
+  amount      Float
+  type        String    // transaction type
+  status      String    @default("pending")
+  user_id     String
+  project_id  String?
+  created_at  DateTime  @default(now())
+  profile_id  String?
+  
+  // Relations
+  user        User      @relation(fields: [user_id], references: [id])
+  project     Project   @relation(fields: [project_id], references: [id])
+  profile     Profile?  @relation(fields: [profile_id], references: [id])
+
+  @@index([user_id])
+  @@index([project_id])
+  @@index([profile_id])
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum TransactionType {
+  PAYMENT
+  REFUND
+  WITHDRAWAL
+  DEPOSIT
+  FEE
+  ADJUSTMENT
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  BANK_TRANSFER
+  WIRE
+  CRYPTO
+  OTHER
+}
+
+// Add relation to User model
+model User {
+  id            String        @id @default(uuid())
+  transactions  Transaction[]
+}
+
+// Add relation to Deal model
+model Deal {
+  transactions Transaction[]
+}
+
+model Project {
+  id            String        @id @default(uuid())
+  transactions  Transaction[]
+}
+
+model Profile {
+  id            String        @id @default(uuid())
+  transactions  Transaction[]
+} 
