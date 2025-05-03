@@ -546,7 +546,19 @@ export default function ManagePaymentsPage() {
               <CardTitle className="text-lg flex items-center justify-between">
                 <span className="flex items-center">
                   <Banknote className="w-5 h-5 mr-2 text-blue-400" />
-                  Covion Partners Banking
+                  <span
+                    className="cursor-pointer hover:underline hover:text-blue-400 transition-colors"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const res = await fetch('/api/stripe/connect/express-dashboard-link');
+                      const data = await res.json();
+                      if (data.url) {
+                        window.open(data.url, '_blank');
+                      }
+                    }}
+                  >
+                    Covion Partners Banking
+                  </span>
                 </span>
                 <Button
                   size="icon"
