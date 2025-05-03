@@ -18,7 +18,7 @@ export async function GET() {
 
   const { data } = await supabase
     .from('users')
-    .select('stripe_connect_account_id')
+    .select('stripe_connect_account_id, stripe_customer_id')
     .eq('id', user.id)
     .single()
 
@@ -32,5 +32,7 @@ export async function GET() {
     payouts_enabled: account.payouts_enabled,
     details_submitted: account.details_submitted,
     requirements: account.requirements,
+    stripe_connect_account_id: data.stripe_connect_account_id,
+    stripe_customer_id: data.stripe_customer_id,
   })
 } 

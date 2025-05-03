@@ -38,6 +38,16 @@ export default function OnboardingPage() {
     }
   };
 
+  const handleFreshOnboardingLink = async () => {
+    setProcessing(true);
+    const res = await fetch("/api/stripe/connect/get-onboarding-link");
+    const data = await res.json();
+    setProcessing(false);
+    if (data.url) {
+      window.location.href = data.url;
+    }
+  };
+
   const statusBadge = () => {
     if (!accountStatus || accountStatus.error) return <Badge variant="destructive">No Account</Badge>;
     if (accountStatus.charges_enabled && accountStatus.payouts_enabled) return <Badge variant="default">Enabled</Badge>;
@@ -55,6 +65,63 @@ export default function OnboardingPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Advanced status table for account/customer IDs */}
+          <div className="mb-6">
+            <table className="min-w-full text-sm border border-gray-200 rounded overflow-hidden">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-4 py-2 text-left">Type</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                  <th className="px-4 py-2 text-left">ID</th>
+                  <th className="px-4 py-2 text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="px-4 py-2 font-medium">Stripe Connect Account</td>
+                  <td className="px-4 py-2">
+                    {accountStatus?.stripe_connect_account_id ? (
+                      <Badge variant="default">Exists</Badge>
+                    ) : (
+                      <Badge variant="destructive">Missing</Badge>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 font-mono">
+                    {accountStatus?.stripe_connect_account_id || <span className="text-gray-400">—</span>}
+                  </td>
+                  <td className="px-4 py-2 space-x-2">
+                    {!accountStatus?.stripe_connect_account_id && (
+                      <Button size="sm" onClick={handleCreateAccount} disabled={processing}>
+                        {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />} Create
+                      </Button>
+                    )}
+                    {accountStatus?.stripe_connect_account_id && (
+                      <Button size="sm" variant="outline" onClick={handleFreshOnboardingLink}>
+                        Edit
+                      </Button>
+                    )}
+                    {/* Optionally, add a delete button here if you want to support account deletion */}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2 font-medium">Stripe Customer</td>
+                  <td className="px-4 py-2">
+                    {accountStatus?.stripe_customer_id ? (
+                      <Badge variant="default">Exists</Badge>
+                    ) : (
+                      <Badge variant="destructive">Missing</Badge>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 font-mono">
+                    {accountStatus?.stripe_customer_id || <span className="text-gray-400">—</span>}
+                  </td>
+                  <td className="px-4 py-2 space-x-2">
+                    {/* You can add create/edit/delete actions for customer here if needed */}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           {loading ? (
             <div className="flex items-center space-x-2"><Loader2 className="animate-spin" /> Loading...</div>
           ) : (
@@ -72,21 +139,66 @@ export default function OnboardingPage() {
                   <ShieldCheck className="w-5 h-5" /> Your account is fully enabled for payouts and charges.
                 </div>
               )}
-              {accountStatus && accountStatus.requirements?.currently_due?.length > 0 && (
+              {accountStatus?.requirements && (
                 <div className="mb-4 p-3 rounded bg-yellow-100 text-yellow-800">
-                  <div className="font-medium mb-1">Action Required:</div>
-                  <ul className="list-disc ml-5">
-                    {accountStatus.requirements.currently_due.map((item: string) => (
-                      <li key={item}>{item.replace(/_/g, ' ')}</li>
-                    ))}
-                  </ul>
-                  <Button
-                    className="mt-3"
-                    onClick={() => router.push("/covionbank")}
-                    variant="default"
-                  >
-                    Continue Onboarding
-                  </Button>
+                  <div className="font-medium mb-1">Stripe Requirements</div>
+                  {accountStatus.requirements.disabled_reason && (
+                    <div className="mb-2">
+                      <span className="font-semibold">Restriction Reason: </span>
+                      {accountStatus.requirements.disabled_reason.replace(/_/g, ' ')}
+                    </div>
+                  )}
+                  {accountStatus.requirements.errors && accountStatus.requirements.errors.length > 0 && (
+                    <div className="mb-2">
+                      <span className="font-semibold">Errors:</span>
+                      <ul className="list-disc ml-5">
+                        {accountStatus.requirements.errors.map((err: any, idx: number) => (
+                          <li key={idx}>
+                            <span className="font-semibold">{err.code}:</span> {err.reason} ({err.requirement.replace(/_/g, ' ')})
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {accountStatus.requirements.currently_due?.length > 0 && (
+                    <>
+                      <div className="font-semibold">Currently Due:</div>
+                      <ul className="list-disc ml-5">
+                        {accountStatus.requirements.currently_due.map((item: string, idx: number) => (
+                          <li key={idx}>{item.replace(/_/g, ' ')}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  {accountStatus.requirements.eventually_due?.length > 0 && (
+                    <>
+                      <div className="font-semibold mt-2">Eventually Due:</div>
+                      <ul className="list-disc ml-5">
+                        {accountStatus.requirements.eventually_due.map((item: string, idx: number) => (
+                          <li key={idx}>{item.replace(/_/g, ' ')}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  {accountStatus.requirements.past_due?.length > 0 && (
+                    <>
+                      <div className="font-semibold mt-2">Past Due:</div>
+                      <ul className="list-disc ml-5">
+                        {accountStatus.requirements.past_due.map((item: string, idx: number) => (
+                          <li key={idx}>{item.replace(/_/g, ' ')}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  {accountStatus.requirements.disabled_reason || accountStatus.requirements.currently_due?.length > 0 || accountStatus.requirements.past_due?.length > 0 ? (
+                    <Button
+                      className="mt-3"
+                      onClick={handleFreshOnboardingLink}
+                      disabled={processing}
+                    >
+                      {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4 mr-2" />} Fix Now (Open Stripe Onboarding)
+                    </Button>
+                  ) : null}
                 </div>
               )}
               <div className="mb-4">
