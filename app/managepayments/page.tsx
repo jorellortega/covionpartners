@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Home, CreditCard, Wallet, DollarSign, Plus, ArrowRight, Calendar, RefreshCw, Loader2, LinkIcon, ShieldCheck, Receipt, Banknote, ArrowLeft } from "lucide-react"
+import { Home, CreditCard, Wallet, DollarSign, Plus, ArrowRight, Calendar, RefreshCw, Loader2, LinkIcon, ShieldCheck, Receipt, Banknote, ArrowLeft, Settings } from "lucide-react"
 import Link from "next/link"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useRouter } from "next/navigation"
@@ -543,9 +543,20 @@ export default function ManagePaymentsPage() {
 
           <Card className="leonardo-card border-gray-800">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <Banknote className="w-5 h-5 mr-2 text-blue-400" />
-                Covion Partners Banking
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span className="flex items-center">
+                  <Banknote className="w-5 h-5 mr-2 text-blue-400" />
+                  Covion Partners Banking
+                </span>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="ml-2"
+                  aria-label="Onboarding Settings"
+                  onClick={() => router.push('/onboarding')}
+                >
+                  <Settings className="w-5 h-5" />
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>

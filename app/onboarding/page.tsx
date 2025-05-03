@@ -14,6 +14,7 @@ export default function OnboardingPage() {
   const [processing, setProcessing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -55,6 +56,16 @@ export default function OnboardingPage() {
     const res = await fetch("/api/stripe/connect/express-dashboard-link");
     const data = await res.json();
     setDashboardLoading(false);
+    if (data.url) {
+      window.open(data.url, "_blank");
+    }
+  };
+
+  const handleResendEmail = async () => {
+    setResendingEmail(true);
+    const res = await fetch("/api/stripe/connect/express-dashboard-link");
+    const data = await res.json();
+    setResendingEmail(false);
     if (data.url) {
       window.open(data.url, "_blank");
     }
@@ -270,8 +281,17 @@ export default function OnboardingPage() {
                 </div>
               </div>
               {emailRequired() && (
-                <div className="mb-4 p-3 rounded bg-blue-100 text-blue-900 border border-blue-300">
+                <div className="mb-4 p-3 rounded bg-blue-100 text-blue-900 border border-blue-300 flex flex-col gap-2">
                   <b>Email confirmation required:</b> Please check your email inbox and confirm your address to complete Stripe onboarding. If you don't see the email, check your spam folder or click the onboarding button again to resend.
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleResendEmail}
+                    disabled={resendingEmail}
+                    className="w-fit"
+                  >
+                    {resendingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : "Resend Email Confirmation"}
+                  </Button>
                 </div>
               )}
             </>
