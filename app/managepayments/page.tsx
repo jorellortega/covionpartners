@@ -595,9 +595,12 @@ export default function ManagePaymentsPage() {
                     </div>
                     {/* Stripe Onboarding Status Logic */}
                     {userData?.stripe_connect_account_id && stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled && (
-                      <div className="p-2 bg-green-100 text-green-800 rounded text-center font-medium mt-2">
-                        Stripe account enabled! You can receive payouts.
-                      </div>
+                      <span className="flex items-center space-x-2">
+                        <code className="px-2 py-1 bg-gray-900 rounded text-sm text-white">
+                          Account Enabled
+                        </code>
+                        <ShieldCheck className="w-4 h-4 text-green-500" />
+                      </span>
                     )}
                     {userData?.stripe_connect_account_id && (!stripeStatus?.charges_enabled || !stripeStatus?.payouts_enabled) && (
                       <Button
