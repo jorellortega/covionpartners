@@ -241,9 +241,27 @@ export default function OnboardingPage() {
               )}
               <div className="mb-6 flex items-center justify-between">
                 <span></span>
-                <Button size="sm" variant="outline" onClick={handleRefresh} disabled={refreshing}>
-                  {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Refresh Status"}
-                </Button>
+                <div className="flex gap-2">
+                  {accountStatus?.stripe_connect_account_id && (
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="secondary"
+                      className="text-xs"
+                    >
+                      <a
+                        href={`https://dashboard.stripe.com/acct_${accountStatus.stripe_connect_account_id}/dashboard`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Open Stripe Dashboard
+                      </a>
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={handleRefresh} disabled={refreshing}>
+                    {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Refresh Status"}
+                  </Button>
+                </div>
               </div>
               {emailRequired() && (
                 <div className="mb-4 p-3 rounded bg-blue-100 text-blue-900 border border-blue-300">
