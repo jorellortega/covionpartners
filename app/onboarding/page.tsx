@@ -12,6 +12,7 @@ export default function OnboardingPage() {
   const [accountStatus, setAccountStatus] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
   const [processing, setProcessing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -53,6 +54,24 @@ export default function OnboardingPage() {
     if (accountStatus.charges_enabled && accountStatus.payouts_enabled) return <Badge variant="default">Enabled</Badge>;
     if (accountStatus.requirements?.currently_due?.length) return <Badge variant="secondary">Restricted</Badge>;
     return <Badge variant="secondary">Pending</Badge>;
+  };
+
+  // Helper to check if email confirmation is required
+  const emailRequired = () => {
+    if (!accountStatus?.requirements) return false;
+    const { currently_due = [], past_due = [], errors = [] } = accountStatus.requirements;
+    const allDue = [...currently_due, ...past_due];
+    if (allDue.some((item) => item.includes('email'))) return true;
+    if (errors.some((err: any) => err.requirement && err.requirement.includes('email'))) return true;
+    return false;
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    const res = await fetch("/api/stripe/connect/account-status");
+    const data = await res.json();
+    setAccountStatus(data);
+    setRefreshing(false);
   };
 
   return (
@@ -219,6 +238,17 @@ export default function OnboardingPage() {
                 >
                   {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />} Create Stripe Account
                 </Button>
+              )}
+              <div className="mb-6 flex items-center justify-between">
+                <span></span>
+                <Button size="sm" variant="outline" onClick={handleRefresh} disabled={refreshing}>
+                  {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Refresh Status"}
+                </Button>
+              </div>
+              {emailRequired() && (
+                <div className="mb-4 p-3 rounded bg-blue-100 text-blue-900 border border-blue-300">
+                  <b>Email confirmation required:</b> Please check your email inbox and confirm your address to complete Stripe onboarding. If you don't see the email, check your spam folder or click the onboarding button again to resend.
+                </div>
               )}
             </>
           )}
