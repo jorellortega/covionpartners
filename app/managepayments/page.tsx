@@ -596,16 +596,7 @@ export default function ManagePaymentsPage() {
                         <ShieldCheck className="w-4 h-4 text-green-500" />
                       )}
                     </div>
-                    {/* Stripe Onboarding Status Logic */}
-                    {userData?.stripe_connect_account_id && stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled && (
-                      <span className="flex items-center space-x-2">
-                        <code className="px-2 py-1 bg-gray-900 rounded text-sm text-white">
-                          Account Enabled
-                        </code>
-                        <ShieldCheck className="w-4 h-4 text-green-500" />
-                      </span>
-                    )}
-                    {userData?.stripe_connect_account_id && (!stripeStatus?.charges_enabled || !stripeStatus?.payouts_enabled) && (
+                    {(!userData?.stripe_connect_account_id || !stripeStatus?.charges_enabled || !stripeStatus?.payouts_enabled) && (
                       <>
                         <Button
                           onClick={() => router.push('/covionbank')}
@@ -613,7 +604,7 @@ export default function ManagePaymentsPage() {
                           size="sm"
                         >
                           <ArrowRight className="w-4 h-4 mr-2" />
-                          Complete Stripe Onboarding
+                          {!userData?.stripe_connect_account_id ? 'Set Up Covion Banking' : 'Complete Stripe Onboarding'}
                         </Button>
                         {stripeStatus && stripeStatus.requirements && Array.isArray(stripeStatus.requirements.currently_due) && stripeStatus.requirements.currently_due.length > 0 && (
                           <div className="mt-2 p-2 bg-yellow-900/60 text-yellow-200 rounded text-sm">
@@ -629,6 +620,14 @@ export default function ManagePaymentsPage() {
                           </div>
                         )}
                       </>
+                    )}
+                    {userData?.stripe_connect_account_id && stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled && (
+                      <span className="flex items-center space-x-2">
+                        <code className="px-2 py-1 bg-gray-900 rounded text-sm text-white">
+                          Account Enabled
+                        </code>
+                        <ShieldCheck className="w-4 h-4 text-green-500" />
+                      </span>
                     )}
                   </div>
                 </div>
