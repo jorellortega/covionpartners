@@ -209,7 +209,7 @@ export default function AccountTypesPage() {
     // For paid tiers, handle subscription with trial
     if (tier.priceId) {
       try {
-        const response = await fetch('/api/subscriptions/create-checkout', {
+        const response = await fetch(`/api/subscriptions/create-checkout?userId=${user.id}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -220,16 +220,87 @@ export default function AccountTypesPage() {
           }),
         })
 
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to create checkout session')
+        }
+
         const data = await response.json()
         
         if (data.sessionUrl) {
           window.location.href = data.sessionUrl
+        } else {
+          throw new Error('No session URL returned')
         }
       } catch (error) {
         console.error('Error creating checkout session:', error)
-        toast.error('Failed to start subscription process')
+        toast.error(error instanceof Error ? error.message : 'Failed to start subscription process')
+      }
+    } else {
+      // For free tiers, just update the role
+      try {
+        // Map the tier name to the correct role enum value
+        const roleMap: { [key: string]: string } = {
+          'public account': 'viewer',
+          'partner account': 'investor',
+          'manager account': 'partner',
+          'business account': 'admin'
+        }
+        
+        const role = roleMap[tier.name.toLowerCase()]
+        if (!role) {
+          throw new Error('Invalid account type')
+        }
+
+        const response = await fetch('/api/users/update-role', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            role
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to update role')
+        }
+
+        toast.success(`Successfully updated to ${tier.name}`)
+        router.refresh()
+      } catch (error) {
+        console.error('Error updating role:', error)
+        toast.error(error instanceof Error ? error.message : 'Failed to update account type')
       }
     }
+  }
+
+  const getSubscriptionStatus = (tier: any) => {
+    if (!user || !currentSubscription) return null
+
+    if (currentSubscription.role === tier.name.toLowerCase().replace(' account', '')) {
+      if (currentSubscription.status === 'trialing') {
+        return {
+          text: 'In Trial',
+          color: 'text-yellow-400'
+        }
+      }
+      if (currentSubscription.status === 'active') {
+        return {
+          text: 'Active',
+          color: 'text-green-400'
+        }
+      }
+      if (currentSubscription.status === 'canceled') {
+        return {
+          text: 'Canceled',
+          color: 'text-red-400'
+        }
+      }
+    }
+    return null
   }
 
   return (
@@ -320,13 +391,31 @@ export default function AccountTypesPage() {
                 </ul>
               </CardContent>
               <CardFooter className="pt-6">
-                <Button 
-                  className={`w-full ${tier.popular ? 'bg-purple-500 hover:bg-purple-600' : 'gradient-button'}`}
-                  onClick={() => handleSubscription(tier)}
-                    disabled={isBusiness || isPartner}
-                >
-                  {getCtaText(tier)}
-                </Button>
+                <div className="flex items-center justify-between">
+                  <Button
+                    onClick={() => handleSubscription(tier)}
+                    className="w-full"
+                    variant={tier.popular ? "default" : "outline"}
+                    disabled={getCtaText(tier) === "Current Plan"}
+                  >
+                    {getCtaText(tier)}
+                  </Button>
+                  {tier.name === "Manager Account" && (
+                    <span className="ml-2 px-2 py-1 rounded-full bg-yellow-500/20 text-yellow-600 text-xs font-semibold">
+                      7-day Free Trial
+                    </span>
+                  )}
+                  {tier.name === "Manager Account" && currentSubscription?.status === "trialing" && currentSubscription?.trial_end && (
+                    <div className="text-yellow-400 text-xs mt-2">
+                      Free trial ends on {new Date(currentSubscription.trial_end * 1000).toLocaleDateString()}
+                    </div>
+                  )}
+                  {getSubscriptionStatus(tier) && (
+                    <span className={`ml-2 text-sm ${getSubscriptionStatus(tier)?.color}`}>
+                      {getSubscriptionStatus(tier)?.text}
+                    </span>
+                  )}
+                </div>
               </CardFooter>
                 {(isBusiness || isPartner) && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-lg">

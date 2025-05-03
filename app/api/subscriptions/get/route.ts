@@ -14,6 +14,8 @@ export async function GET() {
       data: { user },
     } = await supabase.auth.getUser()
 
+    console.log('Fetched user:', user)
+
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -24,6 +26,8 @@ export async function GET() {
       .select('subscription_id, subscription_status, subscription_tier')
       .eq('id', user.id)
       .single()
+
+    console.log('Fetched userData:', userData)
 
     if (!userData?.subscription_id) {
       return NextResponse.json({ subscription: null })

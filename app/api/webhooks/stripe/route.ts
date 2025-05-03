@@ -1,44 +1,77 @@
-import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-03-31.basil',
+  apiVersion: '2025-03-31.basil'
 });
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(req: Request) {
-  try {
   const body = await req.text();
-    const headerList = headers();
-    const signature = headerList.get('stripe-signature');
+  const signature = req.headers.get('stripe-signature')!;
 
-  if (!signature) {
-      return NextResponse.json(
-        { error: 'No signature provided' },
-        { status: 400 }
-      );
-  }
-
-    let event: Stripe.Event;
+  let event: Stripe.Event;
 
   try {
-      event = stripe.webhooks.constructEvent(
+    event = stripe.webhooks.constructEvent(
       body,
       signature,
-        webhookSecret
-      );
-    } catch (err: any) {
-      console.error('Webhook signature verification failed:', err.message);
-      return NextResponse.json(
-        { error: 'Invalid signature' },
-        { status: 400 }
-      );
-    }
+      webhookSecret
+    );
+  } catch (err) {
+    return NextResponse.json(
+      { error: 'Webhook signature verification failed' },
+      { status: 400 }
+    );
+  }
 
-    // Handle different event types
+  try {
     switch (event.type) {
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const userId = subscription.metadata.userId;
+        const role = subscription.metadata.role;
+
+        if (userId && role) {
+          await supabase
+            .from('users')
+            .update({ 
+              role,
+              subscription_status: subscription.status,
+              subscription_id: subscription.id,
+              subscription_tier: role,
+              trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null
+            })
+            .eq('id', userId);
+        }
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const userId = subscription.metadata.userId;
+
+        if (userId) {
+          await supabase
+            .from('users')
+            .update({ 
+              role: 'public',
+              subscription_status: 'canceled',
+              subscription_id: null
+            })
+            .eq('id', userId);
+        }
+        break;
+      }
+
       case 'payment_method.attached':
         const paymentMethod = event.data.object as Stripe.PaymentMethod;
         console.log('Payment method attached:', paymentMethod.id);
@@ -49,21 +82,6 @@ export async function POST(req: Request) {
         console.log('Payment method detached:', detachedMethod.id);
         break;
 
-      case 'customer.subscription.created':
-        const subscription = event.data.object as Stripe.Subscription;
-        console.log('Subscription created:', subscription.id);
-        break;
-
-      case 'customer.subscription.updated':
-        const updatedSub = event.data.object as Stripe.Subscription;
-        console.log('Subscription updated:', updatedSub.id);
-        break;
-
-      case 'customer.subscription.deleted':
-        const deletedSub = event.data.object as Stripe.Subscription;
-        console.log('Subscription deleted:', deletedSub.id);
-        break;
-
       // Add more event types as needed
 
       default:
@@ -71,10 +89,10 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ received: true });
-  } catch (err) {
-    console.error('Webhook error:', err);
+  } catch (error) {
+    console.error('Error processing webhook:', error);
     return NextResponse.json(
-      { error: 'Webhook handler failed' },
+      { error: 'Error processing webhook' },
       { status: 500 }
     );
   }
