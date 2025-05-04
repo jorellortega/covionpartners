@@ -34,16 +34,58 @@ const features = [
     enterprise: true
   },
   {
-    name: "Basic Analytics",
+    name: "Create Projects (2)",
     public: true,
+    investor: false,
+    partner: false,
+    enterprise: false
+  },
+  {
+    name: "Join a Project",
+    public: true,
+    investor: false,
+    partner: false,
+    enterprise: false
+  },
+  {
+    name: "Project Management",
+    public: true,
+    investor: false,
+    partner: false,
+    enterprise: false
+  },
+  {
+    name: "Basic Analytics",
+    public: false,
     investor: true,
-    partner: true,
+    partner: false,
     enterprise: true
   },
   {
     name: "Project Funding",
     public: false,
     investor: true,
+    partner: false,
+    enterprise: true
+  },
+  {
+    name: "Advanced Analytics",
+    public: false,
+    investor: true,
+    partner: false,
+    enterprise: true
+  },
+  {
+    name: "Custom Reports",
+    public: false,
+    investor: false,
+    partner: false,
+    enterprise: true
+  },
+  {
+    name: "Create Projects (Unlimited)",
+    public: false,
+    investor: false,
     partner: true,
     enterprise: true
   },
@@ -51,34 +93,6 @@ const features = [
     name: "Team Collaboration",
     public: false,
     investor: true,
-    partner: true,
-    enterprise: true
-  },
-  {
-    name: "Advanced Analytics",
-    public: false,
-    investor: true,
-    partner: true,
-    enterprise: true
-  },
-  {
-    name: "Create Projects",
-    public: false,
-    investor: false,
-    partner: true,
-    enterprise: true
-  },
-  {
-    name: "Project Management",
-    public: false,
-    investor: false,
-    partner: true,
-    enterprise: true
-  },
-  {
-    name: "Custom Reports",
-    public: false,
-    investor: false,
     partner: true,
     enterprise: true
   },
@@ -95,13 +109,34 @@ const features = [
     investor: false,
     partner: false,
     enterprise: true
-  }
+  },
+  {
+    name: "Communication Hub",
+    public: true,
+    investor: true,
+    partner: true,
+    enterprise: true
+  },
+  {
+    name: "Workflow",
+    public: true,
+    investor: true,
+    partner: true,
+    enterprise: true
+  },
+  {
+    name: "Task Management",
+    public: true,
+    investor: true,
+    partner: true,
+    enterprise: true
+  },
 ]
 
 const tiers = [
   {
     name: "Public Account",
-    description: "Perfect for exploring and supporting projects",
+    description: "Free account to try our features. Join projects with a key from a project owner.",
     price: "Free",
     icon: Users,
     features: features.filter(f => f.public),
@@ -349,7 +384,7 @@ export default function AccountTypesPage() {
         <div className="text-center">
           <h1 className="text-4xl font-bold text-white mb-4">Choose Your Account Type</h1>
           <p className="text-xl text-gray-400 mb-12">
-            Select the perfect plan for your project funding and management needs
+            Choose the right account for collaboration and project success
           </p>
         </div>
 
@@ -386,9 +421,13 @@ export default function AccountTypesPage() {
                   {tier.features.map((feature) => (
                     <li key={feature.name} className="flex items-center gap-2 text-sm">
                       <Check className="w-4 h-4 text-green-500" />
-                      <span className={`text-gray-300 ${feature.name === "Create Projects" ? "text-purple-400 font-medium" : ""}`}>
-                        {feature.name}
-                      </span>
+                      {feature.name.startsWith("Create Projects (Unlimited)") ? (
+                        <span>
+                          <span className="text-purple-400 font-medium">Create Projects</span> <span className="text-white font-medium">(Unlimited)</span>
+                        </span>
+                      ) : (
+                        <span className={`text-gray-300 ${feature.name === "Create Projects (2)" ? "text-purple-400 font-medium" : ""}`}>{feature.name}</span>
+                      )}
                     </li>
                   ))}
                 </ul>

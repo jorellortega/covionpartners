@@ -221,113 +221,12 @@ export default function Home() {
               </Button>
             </div>
           </div>
-
-          {/* Account Types Section */}
-          <div className="mt-24 mb-16">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold mb-4">Choose Your Account Type</h2>
-              <p className="text-gray-400 text-lg">Select the perfect plan for your project funding and management needs</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {[
-                {
-                  name: "Public Account",
-                  description: "Perfect for exploring and supporting projects",
-                  price: "Free",
-                  icon: Users,
-                  features: ["View Public Projects", "Support Projects", "Project Discovery", "Basic Analytics"],
-                  cta: "Get Started",
-                  href: "/login?tab=signup",
-                  popular: false
-                },
-                {
-                  name: "Partner Account",
-                  description: "For active investors and project supporters",
-                  price: "Free",
-                  priceDetail: "2% of successful investments",
-                  icon: DollarSign,
-                  features: ["Project Funding", "Team Collaboration", "Advanced Analytics", "Investment Tracking"],
-                  cta: "Sign Up Now",
-                  href: "/login?tab=signup",
-                  popular: true
-                },
-                {
-                  name: "Manager Account",
-                  description: "Complete project creation and management",
-                  price: "$25/month",
-                  icon: Target,
-                  features: ["Create Projects", "Project Management", "Custom Reports", "Priority Support"],
-                  cta: "Upgrade Now",
-                  href: "/account-types",
-                  popular: false
-                },
-                {
-                  name: "Business Account",
-                  description: "Full platform access with advanced features",
-                  price: "$45/month",
-                  icon: Building2,
-                  features: ["API Access", "White Label Solutions", "Dedicated Support", "Custom Integration"],
-                  cta: "Contact Sales",
-                  href: "/account-types",
-                  popular: false
-                }
-              ].map((tier) => (
-                <Card 
-                  key={tier.name}
-                  className={`leonardo-card border-gray-800 ${tier.popular ? 'border-purple-500/50' : ''}`}
-                >
-                  <CardHeader className="pb-4 pt-6">
-                    <div className="flex items-center gap-3">
-                      <tier.icon className="w-6 h-6 text-purple-400" />
-                      <CardTitle className="text-xl">{tier.name}</CardTitle>
-                    </div>
-                    <CardDescription className="text-gray-400 mt-2">
-                      {tier.description}
-                    </CardDescription>
-                    <div className="mt-4">
-                      <div className="text-2xl font-bold text-white">
-                        {tier.price}
-                      </div>
-                      {tier.priceDetail && (
-                        <div className="text-sm text-purple-400 mt-1">
-                          {tier.priceDetail}
-                        </div>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <ul className="space-y-3">
-                      {tier.features.map((feature) => (
-                        <li key={feature} className="flex items-center gap-2 text-sm">
-                          <Check className="w-4 h-4 text-green-500" />
-                          <span className="text-gray-300">
-                            {feature}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                  <CardFooter className="pt-6">
-                    <Button 
-                      asChild
-                      className={`w-full ${tier.popular ? 'bg-purple-500 hover:bg-purple-600' : 'gradient-button'}`}
-                    >
-                      <Link href={tier.href}>
-                        {tier.cta}
-                      </Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          </div>
         </div>
 
         <div className="mt-12 space-y-6">
           <p className="text-sm text-white/80">
             New to COVION PARTNERS?{" "}
-            <Link href="/login?tab=signup" className="font-medium text-blue-300 hover:text-blue-200">
+            <Link href="/account-types" className="font-medium text-blue-300 hover:text-blue-200">
               Create an account
             </Link>
           </p>

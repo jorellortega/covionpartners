@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { LogIn, Send } from "lucide-react"
+import { LogIn, Send, Users, DollarSign, Target, Building2 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
@@ -210,105 +210,63 @@ export default function LoginPage() {
 
             <TabsContent value="signup">
               <div className="space-y-1 text-center mb-4 sm:mb-6">
-                <h1 className="text-xl sm:text-2xl font-bold gradient-text">Create Account</h1>
-                <p className="text-sm sm:text-base text-white/70">Fill out the form below to create your account</p>
+                <h1 className="text-xl sm:text-2xl font-bold gradient-text">Choose Account Type</h1>
+                <p className="text-sm sm:text-base text-white/70">Select your account type to continue to signup</p>
               </div>
 
               {error && activeTab === "signup" && (
                 <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded mb-4 text-sm">{error}</div>
               )}
 
-              <form onSubmit={handleSignupSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name" className="text-white/90">
-                    Full Name
-                  </Label>
-                  <Input
-                    id="signup-name"
-                    name="name"
-                    placeholder="John Doe"
-                    value={signupData.name}
-                    onChange={handleSignupChange}
-                    className="leonardo-input"
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email" className="text-white/90">
-                    Email
-                  </Label>
-                  <Input
-                    id="signup-email"
-                    name="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={signupData.email}
-                    onChange={handleSignupChange}
-                    className="leonardo-input"
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-phone" className="text-white/90">
-                    Phone Number
-                  </Label>
-                  <Input
-                    id="signup-phone"
-                    name="phone"
-                    type="tel"
-                    placeholder="+1 (555) 123-4567"
-                    value={signupData.phone}
-                    onChange={handleSignupChange}
-                    className="leonardo-input"
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password" className="text-white/90">
-                    Password
-                  </Label>
-                  <Input
-                    id="signup-password"
-                    name="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={signupData.password}
-                    onChange={handleSignupChange}
-                    className="leonardo-input"
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-confirm-password" className="text-white/90">
-                    Confirm Password
-                  </Label>
-                  <Input
-                    id="signup-confirm-password"
-                    name="confirmPassword"
-                    type="password"
-                    placeholder="••••••••"
-                    value={signupData.confirmPassword}
-                    onChange={handleSignupChange}
-                    className="leonardo-input"
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-                <Button type="submit" className="gradient-button w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <LoadingSpinner size={20} className="mr-2" />
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      Create Account
-                    </>
-                  )}
+              {/* Account Type Selector */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  className="flex flex-col items-center justify-center h-24 border-gray-800 hover:border-purple-500/50"
+                  onClick={() => router.push('/signup?type=viewer')}
+                >
+                  <Users className="w-6 h-6 mb-2 text-purple-400" />
+                  <span className="text-sm font-medium">Public</span>
+                  <span className="text-xs text-gray-400">Free</span>
                 </Button>
-              </form>
+                <div className="relative">
+                  <Button
+                    variant="outline"
+                    className="flex flex-col items-center justify-center h-24 border-gray-800 opacity-50 pointer-events-none"
+                    disabled
+                  >
+                    <DollarSign className="w-6 h-6 mb-2 text-purple-400" />
+                    <span className="text-sm font-medium">Partner</span>
+                    <span className="text-xs text-gray-400">Free + 2%</span>
+                  </Button>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg">
+                    <span className="text-sm font-bold bg-gradient-to-r from-purple-400 to-purple-600 text-transparent bg-clip-text">Under Development</span>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  className="flex flex-col items-center justify-center h-24 border-gray-800 hover:border-purple-500/50"
+                  onClick={() => router.push('/signup?type=manager')}
+                >
+                  <Target className="w-6 h-6 mb-2 text-purple-400" />
+                  <span className="text-sm font-medium">Manager</span>
+                  <span className="text-xs text-gray-400">$1/mo</span>
+                </Button>
+                <div className="relative">
+                  <Button
+                    variant="outline"
+                    className="flex flex-col items-center justify-center h-24 border-gray-800 opacity-50 pointer-events-none"
+                    disabled
+                  >
+                    <Building2 className="w-6 h-6 mb-2 text-purple-400" />
+                    <span className="text-sm font-medium">Business</span>
+                    <span className="text-xs text-gray-400">$45/mo</span>
+                  </Button>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg">
+                    <span className="text-sm font-bold bg-gradient-to-r from-purple-400 to-purple-600 text-transparent bg-clip-text">Under Development</span>
+                  </div>
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </div>

@@ -160,7 +160,6 @@ export default function SignupPageContent() {
               className="w-full py-6 text-lg font-semibold bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white flex items-center justify-center gap-2"
               disabled={loading}
             >
-              <span className="material-icons">send</span>
               {loading ? "Creating..." : "Create Account"}
             </Button>
           </form>

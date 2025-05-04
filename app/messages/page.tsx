@@ -37,6 +37,7 @@ interface Message {
   receiver: {
     name: string | null
   } | null
+  parent_id?: number
 }
 
 export default function MessagesPage() {
@@ -50,6 +51,8 @@ export default function MessagesPage() {
     subject: "",
     content: ""
   })
+  const [replyTo, setReplyTo] = useState<Message | null>(null)
+  const [replyContent, setReplyContent] = useState("")
 
   useEffect(() => {
     if (user) {
@@ -198,6 +201,28 @@ export default function MessagesPage() {
       toast.error('Failed to update message')
     }
   }
+
+  const handleSendReply = async (parentMessage: Message) => {
+    if (!replyContent.trim() || !user) return;
+    try {
+      const { error } = await supabase.from('messages').insert([
+        {
+          subject: parentMessage.subject || null,
+          content: replyContent,
+          sender_id: user.id,
+          receiver_id: parentMessage.sender_id === user.id ? parentMessage.receiver_id : parentMessage.sender_id,
+          parent_id: parentMessage.id,
+        },
+      ]);
+      if (error) throw error;
+      toast.success('Reply sent');
+      setReplyContent("");
+      setReplyTo(null);
+      fetchMessages();
+    } catch (error) {
+      toast.error('Failed to send reply');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -370,6 +395,41 @@ export default function MessagesPage() {
                         )}
                       </div>
                     </div>
+                    {/* Show replied-to message snippet if present */}
+                    {message.parent_id && (
+                      <div className="mt-2 p-2 rounded bg-gray-800 text-gray-400 text-xs">
+                        Replying to: {messages.find(m => m.id === message.parent_id)?.content?.slice(0, 100) || 'Message'}
+                      </div>
+                    )}
+                    {/* Reply UI */}
+                    {replyTo?.id === message.id ? (
+                      <div className="mt-4">
+                        <Textarea
+                          value={replyContent}
+                          onChange={e => setReplyContent(e.target.value)}
+                          className="bg-gray-800 border-gray-700 text-white min-h-[60px]"
+                          placeholder="Type your reply..."
+                          autoFocus
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <Button size="sm" className="bg-blue-500 hover:bg-blue-600" onClick={() => handleSendReply(message)}>
+                            Send Reply
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => { setReplyTo(null); setReplyContent(""); }}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="mt-2 text-gray-400 hover:text-blue-400 hover:bg-blue-400/10"
+                        onClick={() => { setReplyTo(message); setReplyContent(""); }}
+                      >
+                        Reply
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               ))
