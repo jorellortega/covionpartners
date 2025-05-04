@@ -1158,16 +1158,6 @@ export default function PartnerDashboard() {
                       <CheckSquare className="w-4 h-4 mr-2" /> Saved Payments
                     </Button>
                   </Link>
-                  <Link href="/bank-accounts">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <Building2 className="w-4 h-4 mr-2" /> Bank Accounts
-                    </Button>
-                  </Link>
-                  <Link href="/withdraw">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <ArrowDownToLine className="w-4 h-4 mr-2" /> Withdraw Funds
-                    </Button>
-                  </Link>
                   <Link href="/funding-settings">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
                       <Settings className="w-4 h-4 mr-2" /> Funding Settings
@@ -1186,16 +1176,6 @@ export default function PartnerDashboard() {
                   <Link href="/invest">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
                       <TrendingUp className="w-4 h-4 mr-2" /> Invest
-                    </Button>
-                  </Link>
-                  <Link href="/transactions">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <History className="w-4 h-4 mr-2" /> Transaction History
-                    </Button>
-                  </Link>
-                  <Link href="/tax-documents">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
-                      <FileText className="w-4 h-4 mr-2" /> Tax Documents
                     </Button>
                   </Link>
                     </>
@@ -1243,6 +1223,18 @@ export default function PartnerDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
+                  {user?.role === 'viewer' ? (
+                    <div className="text-center py-4">
+                      <p className="text-gray-400 mb-4">Upgrade your account to access business and client page features</p>
+                      <Button 
+                        className="w-full gradient-button"
+                        onClick={() => router.push('/account-types')}
+                      >
+                        Upgrade Account
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
                   <Link href="/businessprofile">
                     <Button className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600">
                       <Briefcase className="w-4 h-4 mr-2" /> Create/Edit Business Profile
@@ -1258,6 +1250,8 @@ export default function PartnerDashboard() {
                       <Users className="w-4 h-4 mr-2" /> Client Booking Page
                     </Button>
                   </Link>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -1294,14 +1288,6 @@ export default function PartnerDashboard() {
                 >
                   <Settings className="w-4 h-4 mr-2" />
                   Settings
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
-                  onClick={() => router.push('/subscription')}
-                >
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Manage Subscription
                 </Button>
               </CardContent>
             </Card>

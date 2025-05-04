@@ -69,9 +69,17 @@ export default function FundingSettingsPage() {
 
   return (
     <div className="min-h-screen">
-      <main className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <main className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8 relative">
+        {/* Under Development Banner */}
+        <div className="absolute left-0 right-0 top-0 z-20 flex justify-center">
+          <div className="bg-yellow-400 text-black font-semibold px-6 py-2 rounded-b-lg shadow-lg text-center text-base">
+            🚧 This page is under development. Some features may not work yet.
+          </div>
+        </div>
+        {/* Fade Overlay */}
+        <div className="absolute inset-0 bg-black/60 z-10 pointer-events-none rounded-lg" />
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 relative z-30">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
