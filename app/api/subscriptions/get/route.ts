@@ -1,7 +1,9 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function GET() {
   try {
@@ -34,7 +36,7 @@ export async function GET() {
     }
 
     // Get subscription details from Stripe
-    const subscription = await stripe.subscriptions.retrieve(userData.subscription_id);
+    const subscription = await stripe.subscriptions.retrieve(userData.subscription_id) as Stripe.Subscription;
     // Get the product details for the subscription
     const product = await stripe.products.retrieve(subscription.items.data[0].price.product as string);
 
@@ -42,7 +44,7 @@ export async function GET() {
       subscription: {
         id: subscription.id,
         status: subscription.status,
-        current_period_end: subscription.current_period_end,
+        current_period_end: (subscription as any).current_period_end || null,
         cancel_at_period_end: subscription.cancel_at_period_end,
         tier_name: product.name,
         price_id: subscription.items.data[0].price.id,

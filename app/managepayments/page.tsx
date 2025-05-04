@@ -154,6 +154,8 @@ export default function ManagePaymentsPage() {
   }>(null);
   const [subscription, setSubscription] = useState<any>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const [allTransactions, setAllTransactions] = useState<any[]>([]);
+  const [allTransactionsLoading, setAllTransactionsLoading] = useState(true);
 
   // Add Stripe Elements appearance configuration
   const appearance: Appearance = {
@@ -232,6 +234,32 @@ export default function ManagePaymentsPage() {
       }
     };
     fetchSubscription();
+  }, []);
+
+  useEffect(() => {
+    const fetchAllTransactions = async () => {
+      setAllTransactionsLoading(true);
+      try {
+        // 1. Fetch your own DB transactions
+        const dbRes = await fetch('/api/your-transactions-endpoint'); // Replace with your actual endpoint
+        const dbData = await dbRes.json();
+        const dbTransactions = dbData.transactions || [];
+
+        // 2. Fetch Stripe transactions
+        const stripeRes = await fetch('/api/stripe/transactions', { credentials: 'include' });
+        const stripeData = await stripeRes.json();
+        const stripeTransactions = stripeData.transactions || [];
+
+        // 3. Merge and sort by date (descending)
+        const merged = [...dbTransactions, ...stripeTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setAllTransactions(merged);
+      } catch (err) {
+        setAllTransactions([]);
+      } finally {
+        setAllTransactionsLoading(false);
+      }
+    };
+    fetchAllTransactions();
   }, []);
 
   const fetchPaymentMethods = async () => {
@@ -510,6 +538,45 @@ export default function ManagePaymentsPage() {
     )
   }
 
+  const handleCancelSubscription = async () => {
+    if (!subscription) return;
+    if (!window.confirm('Are you sure you want to cancel your subscription? It will remain active until the end of the billing period.')) return;
+    setProcessingAction('cancel-subscription');
+    try {
+      const res = await fetch('/api/subscriptions/cancel', { method: 'POST', credentials: 'include' });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success('Subscription canceled. It will remain active until the end of the billing period.');
+        setSubscription((prev: any) => prev ? { ...prev, status: 'canceled' } : prev);
+        // Optionally, refetch subscription info
+      } else {
+        toast.error(data.error || 'Failed to cancel subscription');
+      }
+    } catch (err) {
+      toast.error('Failed to cancel subscription');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const handleReactivateSubscription = async () => {
+    setProcessingAction('reactivate-subscription');
+    try {
+      const res = await fetch('/api/subscriptions/reactivate', { method: 'POST', credentials: 'include' });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success('Subscription reactivated!');
+        setSubscription((prev: any) => prev ? { ...prev, status: 'active', cancel_at_period_end: false } : prev);
+      } else {
+        toast.error(data.error || 'Failed to reactivate subscription');
+      }
+    } catch (err) {
+      toast.error('Failed to reactivate subscription');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md">
@@ -725,73 +792,52 @@ export default function ManagePaymentsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {isLoading ? (
+                  {allTransactionsLoading ? (
                     <div className="text-center py-12">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
                     </div>
-                  ) : !data?.transactions?.length ? (
+                  ) : !allTransactions.length ? (
                     <div className="text-center py-12">
                       <p className="text-gray-400">No transactions found</p>
                     </div>
                   ) : (
                     <>
-                <div className="space-y-4">
-                        {data.transactions.map((transaction) => (
-                    <div
-                      key={transaction.id}
+                      <div className="space-y-4">
+                        {allTransactions.map((transaction) => (
+                          <div
+                            key={transaction.id}
                             className="bg-gray-900/50 rounded-lg p-4 hover:bg-gray-900/70 transition-all"
-                    >
+                          >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4">
                                 {getTransactionIcon(transaction.type)}
-                        <div>
+                                <div>
                                   <h3 className="text-white font-medium">
-                                    {transaction.project?.name || 'Project Payment'}
+                                    {transaction.project?.name || transaction.description || 'Transaction'}
                                   </h3>
-                          <p className="text-sm text-gray-400">
-                                    {format(new Date(transaction.created_at), 'M/d/yyyy')}
-                          </p>
-                        </div>
-                      </div>
+                                  <p className="text-sm text-gray-400">
+                                    {format(new Date(transaction.date || transaction.created_at), 'M/d/yyyy')}
+                                  </p>
+                                </div>
+                              </div>
                               <div className="flex items-center gap-4">
                                 <span className={cn(
                                   "text-xl font-medium",
                                   transaction.type === 'refund' ? 'text-red-500' : 'text-emerald-500'
                                 )}>
                                   {formatAmount(transaction.amount, transaction.type)}
-                        </span>
+                                </span>
                                 <span className={cn(
                                   "px-3 py-1 rounded-full text-xs font-medium",
                                   getStatusColor(transaction.status)
                                 )}>
-                          {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                        </span>
+                                  {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                                </span>
                               </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  ))}
-                      </div>
-                      {data.hasMore && (
-                        <div className="flex justify-center mt-6">
-                          <Button
-                            onClick={() => setPage(prev => prev + 1)}
-                            className="gradient-button"
-                            disabled={isLoading}
-                          >
-                            {isLoading ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Loading...
-                              </>
-                            ) : (
-                              <>
-                                <RefreshCw className="w-4 h-4 mr-2" />
-                                Load More
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      )}
                     </>
                   )}
                 </div>
@@ -805,7 +851,48 @@ export default function ManagePaymentsPage() {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle>Active Subscription</CardTitle>
-                  {/* You can add a button for managing subscription here */}
+                  {subscription && subscription.status === 'active' && subscription.cancel_at_period_end && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      disabled={processingAction === 'reactivate-subscription'}
+                      onClick={handleReactivateSubscription}
+                    >
+                      {processingAction === 'reactivate-subscription' ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Reactivating...</>
+                      ) : (
+                        'Reactivate Subscription'
+                      )}
+                    </Button>
+                  )}
+                  {subscription && subscription.status === 'canceled' && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      disabled={processingAction === 'reactivate-subscription'}
+                      onClick={handleReactivateSubscription}
+                    >
+                      {processingAction === 'reactivate-subscription' ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Starting...</>
+                      ) : (
+                        'Start New Subscription'
+                      )}
+                    </Button>
+                  )}
+                  {subscription && subscription.status === 'active' && !subscription.cancel_at_period_end && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={processingAction === 'cancel-subscription'}
+                      onClick={handleCancelSubscription}
+                    >
+                      {processingAction === 'cancel-subscription' ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Canceling...</>
+                      ) : (
+                        'Cancel Subscription'
+                      )}
+                    </Button>
+                  )}
                 </div>
                 <CardDescription>Manage your recurring subscription and billing</CardDescription>
               </CardHeader>
@@ -821,36 +908,36 @@ export default function ManagePaymentsPage() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-between p-4 rounded-lg border border-gray-800 bg-gray-900">
-                    <div className="flex items-center">
-                      <div className="p-2 rounded-full bg-blue-500/20 text-blue-400 mr-4">
-                        <Calendar className="w-5 h-5" />
-                      </div>
-                      <div>
+                      <div className="flex items-center">
+                        <div className="p-2 rounded-full bg-blue-500/20 text-blue-400 mr-4">
+                          <Calendar className="w-5 h-5" />
+                        </div>
+                        <div>
                         <p className="font-medium text-white">{subscription.tier_name}</p>
                         <p className="text-sm text-gray-400">Plan ID: {subscription.price_id}</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
-                        <p className="text-sm text-gray-400">Next billing</p>
-                        <p className="text-white">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-right">
+                          <p className="text-sm text-gray-400">Next billing</p>
+                          <p className="text-white">
                           {subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toLocaleDateString() : 'N/A'}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span
-                          className={`text-xs px-2 py-1 rounded ${
-                            subscription.status === "active"
-                              ? "bg-green-500/20 text-green-400"
-                              : "bg-red-500/20 text-red-400"
-                          }`}
-                        >
-                          {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
-                        </span>
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span
+                            className={`text-xs px-2 py-1 rounded ${
+                              subscription.status === "active"
+                                ? "bg-green-500/20 text-green-400"
+                                : "bg-red-500/20 text-red-400"
+                            }`}
+                          >
+                            {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+                          </span>
                         {/* Add cancel/reactivate logic here if needed */}
+                        </div>
                       </div>
                     </div>
-                  </div>
                 )}
               </CardContent>
             </Card>

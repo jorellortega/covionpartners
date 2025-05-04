@@ -57,7 +57,7 @@ export default function PaymentForm({ onSuccess, accountType }: { onSuccess?: ()
       if (onSuccess) {
         onSuccess();
       } else {
-        window.location.reload();
+      window.location.reload();
       }
     } catch (err: any) {
       console.error('Error saving payment:', err);

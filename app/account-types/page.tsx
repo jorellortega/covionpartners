@@ -151,50 +151,56 @@ const tiers = [
 export default function AccountTypesPage() {
   const [selectedTier, setSelectedTier] = useState<string | null>(null)
   const [currentSubscription, setCurrentSubscription] = useState<any>(null)
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true)
   const { user } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     const fetchSubscription = async () => {
+      setSubscriptionLoading(true);
       if (!user) {
-        console.log('No user found')
-        return
+        setSubscriptionLoading(false);
+        return;
       }
-      
       try {
-        console.log('Fetching subscription data...')
-        const response = await fetch('/api/subscriptions/get')
-        const data = await response.json()
-        console.log('Subscription data:', data)
-        setCurrentSubscription(data.subscription)
+        const response = await fetch('/api/subscriptions/get', { credentials: 'include' });
+        const data = await response.json();
+        setCurrentSubscription(data.subscription);
       } catch (error) {
-        console.error('Error fetching subscription:', error)
+        setCurrentSubscription(null);
+      } finally {
+        setSubscriptionLoading(false);
       }
-    }
-
-    fetchSubscription()
-  }, [user])
+    };
+    fetchSubscription();
+  }, [user]);
 
   useEffect(() => {
     console.log('Current user:', user)
     console.log('Current subscription:', currentSubscription)
   }, [user, currentSubscription])
 
+  // Helper to normalize plan names for comparison
+  const tierOrder = [
+    "public account",
+    "partner account",
+    "manager account",
+    "business account"
+  ];
+  const normalize = (str: string) => str.toLowerCase().replace(/( account| subscription)/, '').trim() + " account";
+
   const getCtaText = (tier: any) => {
-    if (!user) return "Sign Up Now"
-    
-    if (!currentSubscription) return "Upgrade Now"
-    
-    const currentTier = tiers.find(t => t.name === currentSubscription.role)
-    if (!currentTier) return "Upgrade Now"
-    
-    const currentIndex = tiers.findIndex(t => t.name === currentTier.name)
-    const targetIndex = tiers.findIndex(t => t.name === tier.name)
-    
-    if (currentIndex === targetIndex) return "Current Plan"
-    if (currentIndex < targetIndex) return "Upgrade Now"
-    return "Downgrade Now"
-  }
+    if (!user) return "Sign Up Now";
+    if (!currentSubscription) return "Upgrade Now";
+    const currentTierName = currentSubscription.tier_name ? normalize(currentSubscription.tier_name) : "";
+    const targetTierName = normalize(tier.name);
+    const currentIndex = tierOrder.indexOf(currentTierName);
+    const targetIndex = tierOrder.indexOf(targetTierName);
+    if (currentIndex === targetIndex) return "Current Plan";
+    if (currentIndex < targetIndex) return "Upgrade Now";
+    if (currentIndex > targetIndex) return "Downgrade Now";
+    return "Upgrade Now";
+  };
 
   const handleSubscription = async (tier: any) => {
     if (!user) {
@@ -301,6 +307,10 @@ export default function AccountTypesPage() {
     return null
   }
 
+  // Display current subscription/account type at the top (restored look)
+  const currentTierLabel = currentSubscription?.tier_name || 'Free Plan';
+  const currentStatusLabel = currentSubscription?.status ? currentSubscription.status.charAt(0).toUpperCase() + currentSubscription.status.slice(1) : 'N/A';
+
   return (
     <div className="min-h-screen bg-gray-950">
       <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
@@ -311,12 +321,7 @@ export default function AccountTypesPage() {
                 <h2 className="text-2xl font-bold text-white mb-2">Your Current Plan</h2>
                 <div className="flex items-center gap-3">
                   <div className="text-3xl font-bold text-purple-400">
-                    {currentSubscription ? 
-                      (currentSubscription.role ? 
-                        currentSubscription.role.charAt(0).toUpperCase() + currentSubscription.role.slice(1) 
-                        : 'Free Plan')
-                      : 'Free Plan'
-                    }
+                    {subscriptionLoading ? 'Loading...' : currentTierLabel}
                   </div>
                   {currentSubscription && currentSubscription.status && (
                     <span className={`px-3 py-1 text-sm rounded-full ${
@@ -324,7 +329,7 @@ export default function AccountTypesPage() {
                       currentSubscription.status === 'paused' ? 'bg-yellow-500/20 text-yellow-400' :
                       'bg-red-500/20 text-red-400'
                     }`}>
-                      {currentSubscription.status.charAt(0).toUpperCase() + currentSubscription.status.slice(1)}
+                      {currentStatusLabel}
                     </span>
                   )}
                 </div>
