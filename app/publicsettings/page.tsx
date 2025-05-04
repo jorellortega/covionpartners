@@ -158,7 +158,7 @@ function PublicSettingsPageContent() {
                   </div>
                   <Button
                     variant="outline"
-                    className={`flex-1 min-w-[200px] justify-center items-center gap-2 ${
+                    className={`w-full md:w-auto justify-center items-center gap-2 ${
                       projects?.find(p => p.id === selectedProject)?.visibility === 'public'
                         ? 'bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30'
                         : 'bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30'
@@ -212,7 +212,7 @@ function PublicSettingsPageContent() {
                   </div>
                   <Button
                     variant="outline"
-                    className={`flex-1 min-w-[200px] justify-center items-center gap-2 ${
+                    className={`w-full md:w-auto justify-center items-center gap-2 ${
                       projects?.find(p => p.id === selectedProject)?.accepts_donations
                         ? 'bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30'
                         : 'bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30'

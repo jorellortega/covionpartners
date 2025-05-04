@@ -100,7 +100,7 @@ export default function NegotiatePage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-full md:max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <Card className="border-gray-800 bg-black mb-8">
           <CardHeader className="bg-gradient-to-r from-green-700 to-emerald-700 p-6 flex items-center gap-4 rounded-t-lg">
             <Handshake className="w-8 h-8 text-white" />
@@ -145,7 +145,7 @@ export default function NegotiatePage() {
             </div>
 
             {selectedDeal && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {/* Deal Details Section */}
                 <Card className="bg-gray-900/50 border border-gray-800">
                   <CardContent className="p-6">
@@ -185,12 +185,12 @@ export default function NegotiatePage() {
                               <p className="text-sm text-gray-400">Required for verification purposes</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
                             <input 
                               type="file" 
                               accept="image/*,application/pdf" 
                               onChange={handleFileChange}
-                              className="text-xs text-white w-36"
+                              className="text-xs text-white w-full sm:w-36"
                             />
                             {uploadedFile && (
                               <span className="text-green-400 text-xs truncate max-w-[100px]">
@@ -217,7 +217,7 @@ export default function NegotiatePage() {
                             type="file" 
                             accept=".pdf,.doc,.docx,.txt,image/*" 
                             onChange={handleFileChange}
-                            className="text-xs text-white w-36"
+                            className="text-xs text-white w-full sm:w-36"
                           />
                         </div>
                       </div>

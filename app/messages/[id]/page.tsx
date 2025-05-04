@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import * as React from "react"
 
 interface Message {
   id: number
@@ -44,6 +45,8 @@ interface Message {
 export default function MessagePage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const { user } = useAuth()
+  const paramsObj = React.use(params as any) as { id: string };
+  const { id } = paramsObj;
   const [message, setMessage] = useState<Message | null>(null)
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
@@ -56,7 +59,7 @@ export default function MessagePage({ params }: { params: { id: string } }) {
     if (user) {
       fetchMessage()
     }
-  }, [user, params.id])
+  }, [user, id])
 
   const fetchMessage = async () => {
     try {
@@ -65,7 +68,7 @@ export default function MessagePage({ params }: { params: { id: string } }) {
       const { data: messageData, error: messageError } = await supabase
         .from('messages')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', id)
         .single()
 
       if (messageError) throw messageError
@@ -105,7 +108,7 @@ export default function MessagePage({ params }: { params: { id: string } }) {
         const { error: updateError } = await supabase
           .from('messages')
           .update({ read: true })
-          .eq('id', params.id)
+          .eq('id', id)
 
         if (updateError) {
           console.error('Error marking message as read:', updateError)
@@ -215,7 +218,7 @@ export default function MessagePage({ params }: { params: { id: string } }) {
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md border-b border-gray-800">
-        <div className="max-w-7xl mx-auto py-3 sm:py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+        <div className="w-full px-4 sm:px-6 lg:px-8 max-w-full md:max-w-7xl mx-auto py-3 sm:py-4 flex justify-between items-center">
           <div className="flex items-center">
             <Button
               variant="ghost"
@@ -280,7 +283,7 @@ export default function MessagePage({ params }: { params: { id: string } }) {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto py-4 sm:py-6 px-3 sm:px-6">
+      <main className="w-full px-3 sm:px-6 max-w-full md:max-w-3xl mx-auto py-4 sm:py-6">
         <Card className="border-gray-800 bg-gray-900/50">
           <CardContent className="p-4 sm:p-6">
             {isEditing ? (

@@ -526,11 +526,11 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="w-full max-w-full md:container md:mx-auto py-8 px-4">
       <h1 className="text-4xl font-bold mb-8">Settings</h1>
       
       <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex flex-wrap gap-2">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="preferences">Preferences</TabsTrigger>

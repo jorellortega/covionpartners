@@ -71,7 +71,7 @@ export default function SavedPaymentsList() {
       {savedPayments.map((payment) => (
         <Card key={payment.id} className="bg-white/5">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-center space-x-4">
                 <CreditCard className="h-6 w-6 text-gray-400" />
                 <div>
@@ -83,7 +83,7 @@ export default function SavedPaymentsList() {
                 variant="ghost"
                 size="icon"
                 onClick={() => handleDeletePayment(payment.id)}
-                className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                className="text-red-500 hover:text-red-600 hover:bg-red-500/10 mt-4 md:mt-0"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

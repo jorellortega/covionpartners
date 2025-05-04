@@ -424,7 +424,7 @@ export default function AccountTypesPage() {
                       {feature.name.startsWith("Create Projects (Unlimited)") ? (
                         <span>
                           <span className="text-purple-400 font-medium">Create Projects</span> <span className="text-white font-medium">(Unlimited)</span>
-                        </span>
+                      </span>
                       ) : (
                         <span className={`text-gray-300 ${feature.name === "Create Projects (2)" ? "text-purple-400 font-medium" : ""}`}>{feature.name}</span>
                       )}

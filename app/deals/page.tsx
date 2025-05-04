@@ -69,8 +69,8 @@ export default function DealsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gray-950 text-white px-4 sm:px-8">
+      <div className="w-full max-w-full md:max-w-7xl mx-auto space-y-8">
         <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button
@@ -141,8 +141,8 @@ export default function DealsPage() {
                     key={deal.id}
                     className="p-4 bg-gray-800/30 rounded-lg border border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
                         {deal.confidentiality_level === 'public' ? (
                           <Globe className="w-5 h-5 text-blue-400" />
                         ) : deal.confidentiality_level === 'private' ? (
@@ -155,7 +155,7 @@ export default function DealsPage() {
                           <p className="text-sm text-gray-400 line-clamp-1">
                             {deal.description}
                           </p>
-                          <div className="flex items-center gap-2 mt-2">
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
                             <Badge variant="outline" className="capitalize">
                               {deal.deal_type}
                             </Badge>
@@ -172,7 +172,7 @@ export default function DealsPage() {
                               {deal.confidentiality_level}
                             </Badge>
                             <select
-                              className="ml-2 bg-gray-900 border border-gray-700 text-white rounded px-2 py-1 text-xs"
+                              className="ml-0 sm:ml-2 bg-gray-900 border border-gray-700 text-white rounded px-2 py-1 text-xs mt-2 sm:mt-0"
                               value={deal.confidentiality_level}
                               disabled={updatingId === deal.id}
                               onChange={e => handleChangeVisibility(deal.id, e.target.value)}
@@ -184,7 +184,7 @@ export default function DealsPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mt-4 sm:mt-0 flex-wrap">
                         {deal.status === 'pending' ? (
                           <Clock className="w-5 h-5 text-yellow-500" />
                         ) : deal.status === 'accepted' ? (

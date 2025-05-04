@@ -381,7 +381,7 @@ export default function UpdatesPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="w-full max-w-full md:max-w-5xl mx-auto py-8 px-4">
       <div className="flex flex-col gap-8">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -530,14 +530,14 @@ export default function UpdatesPage() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                   {filteredUpdates.map((update) => (
                     <Card 
                       key={update.id} 
                       className="hover:shadow-lg transition-shadow p-4"
                     >
                       <CardHeader>
-                        <div className="flex justify-between items-start">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                           <div>
                             <CardTitle>{update.title}</CardTitle>
                             {update.projects && (
@@ -550,11 +550,13 @@ export default function UpdatesPage() {
                             {update.status}
                           </Badge>
                         </div>
-                        <div className="flex gap-2">
-                          <Badge variant="outline">{update.category}</Badge>
-                          <span className="text-sm text-gray-500">
-                            {new Date(update.date).toLocaleDateString()}
-                          </span>
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
+                          <div className="flex gap-2">
+                            <Badge variant="outline">{update.category}</Badge>
+                            <span className="text-sm text-gray-500">
+                              {new Date(update.date).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -578,7 +580,7 @@ export default function UpdatesPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex justify-between items-center mt-4">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
                           <Button 
                             variant="ghost" 
                             onClick={() => router.push(`/updates/${update.id}`)}
@@ -647,14 +649,14 @@ export default function UpdatesPage() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                   {filteredUpdates.map((update) => (
                     <Card 
                       key={update.id} 
                       className="hover:shadow-lg transition-shadow p-4"
                     >
                       <CardHeader>
-                        <div className="flex justify-between items-start">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                           <div>
                             <CardTitle>{update.title}</CardTitle>
                             {update.projects && (
@@ -667,11 +669,13 @@ export default function UpdatesPage() {
                             {update.status}
                           </Badge>
                         </div>
-                        <div className="flex gap-2">
-                          <Badge variant="outline">{update.category}</Badge>
-                          <span className="text-sm text-gray-500">
-                            {new Date(update.date).toLocaleDateString()}
-                          </span>
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
+                          <div className="flex gap-2">
+                            <Badge variant="outline">{update.category}</Badge>
+                            <span className="text-sm text-gray-500">
+                              {new Date(update.date).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -695,7 +699,7 @@ export default function UpdatesPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex justify-between items-center mt-4">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
                           <Button 
                             variant="ghost" 
                             onClick={() => router.push(`/updates/${update.id}`)}
@@ -754,11 +758,11 @@ export default function UpdatesPage() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                   {joinRequests.map((request) => (
                     <Card key={request.id} className="hover:shadow-lg transition-shadow">
                       <CardHeader>
-                        <div className="flex justify-between items-start">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                           <CardTitle className="flex items-center gap-2">
                             <UserPlus className="h-5 w-5 text-purple-500" />
                             Join Request
@@ -777,7 +781,7 @@ export default function UpdatesPage() {
                             <p>Date: {new Date(request.created_at).toLocaleString()}</p>
                           </div>
                           
-                          <div className="flex gap-2 pt-2">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
                             <Button 
                               className="flex-1 bg-purple-600 hover:bg-purple-700"
                               onClick={() => handleApproveJoinRequest(request)}

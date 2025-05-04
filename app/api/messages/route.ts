@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,26 +28,19 @@ export async function GET(req: NextRequest) {
 }
 
 // Send a new message
-export async function POST(req: NextRequest) {
-  try {
-    const { subject, content, sender_id, receiver_id } = await req.json();
-    if (!content || !sender_id || !receiver_id) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-    const { error } = await supabase.from('messages').insert([
-      {
-        subject: subject || null,
-        content,
-        sender_id,
-        receiver_id,
-        read: false,
-      },
-    ]);
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    return NextResponse.json({ error: 'Server error.' }, { status: 500 });
+export async function POST(req: Request) {
+  const supabase = createRouteHandlerClient({ cookies })
+  const { subject, content, sender_id, receiver_id } = await req.json()
+
+  // Optionally, check sender_id === supabase.auth.getUser().id for extra safety
+  // But RLS will enforce this as well
+
+  const { error } = await supabase
+    .from('messages')
+    .insert([{ subject, content, sender_id, receiver_id, read: false }])
+
+  if (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
   }
+  return new Response(JSON.stringify({ success: true }))
 } 

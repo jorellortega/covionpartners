@@ -241,7 +241,7 @@ export default function LoginPage() {
                   </Button>
                   <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg">
                     <span className="text-sm font-bold bg-gradient-to-r from-purple-400 to-purple-600 text-transparent bg-clip-text">Under Development</span>
-                  </div>
+                </div>
                 </div>
                 <Button
                   variant="outline"
@@ -264,9 +264,9 @@ export default function LoginPage() {
                   </Button>
                   <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg">
                     <span className="text-sm font-bold bg-gradient-to-r from-purple-400 to-purple-600 text-transparent bg-clip-text">Under Development</span>
-                  </div>
                 </div>
-              </div>
+                </div>
+                </div>
             </TabsContent>
           </Tabs>
         </div>

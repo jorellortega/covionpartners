@@ -97,7 +97,7 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto py-12 px-4">
+    <div className="w-full px-4 max-w-full md:max-w-2xl mx-auto py-12">
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>Stripe Connect Onboarding</CardTitle>

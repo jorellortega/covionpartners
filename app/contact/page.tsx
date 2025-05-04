@@ -84,18 +84,25 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-gray-950 relative">
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 mt-12">
-        <div className="mb-6">
-          <Button
-            variant="ghost"
-            className="text-gray-400 hover:text-purple-400"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
+      <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              className="text-gray-400 hover:text-purple-400"
+              onClick={() => router.back()}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Contact Us</h1>
+              <p className="text-gray-400 text-sm">Send us a message and we'll get back to you as soon as possible.</p>
+            </div>
+          </div>
         </div>
-
+      </header>
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Contact Form */}
           <div className="lg:col-span-2">

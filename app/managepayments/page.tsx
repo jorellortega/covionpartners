@@ -580,7 +580,7 @@ export default function ManagePaymentsPage() {
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+        <div className="w-full px-4 sm:px-6 lg:px-8 max-w-full md:max-w-7xl mx-auto py-4 flex justify-between items-center">
           <div className="flex items-center">
             <Link
               href="/dashboard"
@@ -594,7 +594,7 @@ export default function ManagePaymentsPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <main className="w-full px-4 sm:px-6 lg:px-8 max-w-full md:max-w-7xl mx-auto py-6">
         {/* Payment Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="leonardo-card border-gray-800">
