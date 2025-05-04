@@ -201,13 +201,13 @@ export function useAuth() {
       // Create the public user profile with minimal data
       const { error: profileError } = await supabase
         .from('users')
-        .insert({
+        .upsert({
           id: authData.user.id,
           email: email,
           name: name,
-          role: 'viewer',
+          role: role,
           phone_number: phone
-        })
+        }, { onConflict: 'id' })
 
       if (profileError) {
         console.error('Error creating user profile:', profileError)

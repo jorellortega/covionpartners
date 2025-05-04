@@ -3,9 +3,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-03-31.basil',
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: Request) {
   // Correct cookies usage for Next.js 14/15
@@ -126,11 +124,6 @@ export async function POST(req: Request) {
           customer: stripeCustomerId,
           items: [{ price: priceId }],
           default_payment_method: paymentMethod.id,
-          payment_behavior: 'default_incomplete',
-          payment_settings: {
-            payment_method_types: ['card'],
-            save_default_payment_method: 'on_subscription',
-          },
           expand: ['latest_invoice'],
         });
 
