@@ -12,6 +12,13 @@ const features = [
     label: "Task & Workflow Management",
     icon: <FolderKanban className="w-6 h-6 mr-2 text-blue-400" />,
     description: "Organize, assign, and track tasks with powerful workflow tools designed to boost productivity and team collaboration.",
+    intro: "Stay on top of your projects with intuitive task boards and automated reminders.",
+    benefits: [
+      "Visualize project progress with Kanban boards",
+      "Assign and prioritize tasks easily",
+      "Automated reminders to keep everyone on track"
+    ],
+    useCase: "A project manager can assign tasks, set deadlines, and monitor progress in real time, ensuring nothing falls through the cracks.",
     mock: [
       { title: "Kanban Board", detail: "Visualize project tasks and progress." },
       { title: "Task Assignment", detail: "Assign tasks to team members and set deadlines." },
@@ -24,6 +31,13 @@ const features = [
     label: "Deal Making Hub",
     icon: <Handshake className="w-6 h-6 mr-2 text-purple-400" />,
     description: "Discover, negotiate, and close deals with partners and clients using powerful collaboration and transaction tools.",
+    intro: "Centralize all your deal negotiations and agreements in one place.",
+    benefits: [
+      "Streamline negotiations with real-time messaging",
+      "Track deal status and next steps",
+      "Secure digital contract signing"
+    ],
+    useCase: "Move from initial contact to signed agreement without leaving the platform.",
     mock: [
       { title: "Deal Pipeline", detail: "Track deals from negotiation to close." },
       { title: "Secure Messaging", detail: "Communicate with partners in real time." },
@@ -36,6 +50,13 @@ const features = [
     label: "Financial Hub",
     icon: <DollarSign className="w-6 h-6 mr-2 text-green-400" />,
     description: "Easily manage your payments, balances, and financial activity in one place with powerful tools and real-time insights.",
+    intro: "Get a complete overview of your finances and manage transactions effortlessly.",
+    benefits: [
+      "Monitor balances and cash flow in real time",
+      "Review transaction history and payouts",
+      "Instantly withdraw or transfer funds"
+    ],
+    useCase: "A business owner can track all incoming and outgoing payments, ensuring financial clarity and control.",
     mock: [
       { title: "Balance Overview", detail: "See all your accounts and balances at a glance." },
       { title: "Transaction History", detail: "Review all incoming and outgoing payments." },
@@ -48,6 +69,13 @@ const features = [
     label: "Project Management",
     icon: <Briefcase className="w-6 h-6 mr-2 text-purple-400" />,
     description: "Create, manage, and track projects with comprehensive tools for milestones and team collaboration.",
+    intro: "Keep your projects organized from start to finish with robust management tools.",
+    benefits: [
+      "Set and track project milestones",
+      "Store and share important documents",
+      "Assign roles and permissions to team members"
+    ],
+    useCase: "A team can collaborate on a project, upload files, and track progress toward key deliverables.",
     mock: [
       { title: "Milestone Tracking", detail: "Monitor project progress and deadlines." },
       { title: "Document Storage", detail: "Keep all project files organized and accessible." },
@@ -60,6 +88,13 @@ const features = [
     label: "Team Collaboration",
     icon: <Users className="w-6 h-6 mr-2 text-yellow-400" />,
     description: "Work seamlessly with team members, partners, and stakeholders through integrated collaboration tools.",
+    intro: "Enhance teamwork with real-time communication and shared resources.",
+    benefits: [
+      "Instant group chat and messaging",
+      "Shared calendars for meetings and deadlines",
+      "Easy feedback collection and review"
+    ],
+    useCase: "A distributed team can coordinate tasks, chat, and keep everyone aligned on project goals.",
     mock: [
       { title: "Group Chat", detail: "Communicate instantly with your team." },
       { title: "Shared Calendars", detail: "Coordinate meetings and deadlines." },
@@ -72,6 +107,13 @@ const features = [
     label: "Global Opportunities",
     icon: <Globe className="w-6 h-6 mr-2 text-green-400" />,
     description: "Discover and connect with investment opportunities and partners from around the world.",
+    intro: "Expand your reach and find new partners or projects worldwide.",
+    benefits: [
+      "Browse a global marketplace of projects",
+      "Transact in multiple currencies",
+      "Connect with international partners"
+    ],
+    useCase: "An investor can discover and join projects in different countries, diversifying their portfolio.",
     mock: [
       { title: "Marketplace", detail: "Browse global projects and deals." },
       { title: "International Payments", detail: "Transact in multiple currencies." },
@@ -84,6 +126,13 @@ const features = [
     label: "Secure Payments",
     icon: <Lock className="w-6 h-6 mr-2 text-red-400" />,
     description: "Process payments with enterprise-grade security and compliance.",
+    intro: "Protect your transactions with advanced security and compliance features.",
+    benefits: [
+      "PCI-compliant payment processing",
+      "Real-time fraud detection",
+      "End-to-end encryption for all data"
+    ],
+    useCase: "A user can confidently send and receive payments, knowing their data is protected.",
     mock: [
       { title: "PCI Compliance", detail: "All transactions are processed with the highest security standards." },
       { title: "Fraud Detection", detail: "Advanced algorithms monitor and prevent fraudulent activity." },
@@ -96,6 +145,13 @@ const features = [
     label: "Messaging & Group Chat",
     icon: <Users className="w-6 h-6 mr-2 text-cyan-400" />,
     description: "Communicate instantly with your team and partners using secure messaging and group chat features.",
+    intro: "Stay connected with direct messages and group chat rooms for every project.",
+    benefits: [
+      "Private and group messaging",
+      "File sharing in chat",
+      "Real-time notifications for new messages"
+    ],
+    useCase: "A team can quickly resolve issues and share updates in a dedicated group chat for each project.",
     mock: [
       { title: "Direct Messaging", detail: "Send private messages to any team member or partner." },
       { title: "Group Chat Rooms", detail: "Create and join group chats for projects or topics." },
@@ -108,6 +164,13 @@ const features = [
     label: "Document Management",
     icon: <FileText className="w-6 h-6 mr-2 text-yellow-400" />,
     description: "Store, share, and manage important documents securely.",
+    intro: "Keep all your important files organized and accessible in one place.",
+    benefits: [
+      "Version control for all documents",
+      "E-signature support",
+      "Granular sharing permissions"
+    ],
+    useCase: "A project team can upload, sign, and share documents securely with external partners.",
     mock: [
       { title: "Version Control", detail: "Keep track of document changes and history." },
       { title: "E-signatures", detail: "Sign documents electronically and securely." },
@@ -120,6 +183,13 @@ const features = [
     label: "Public Project Discovery",
     icon: <Globe className="w-6 h-6 mr-2 text-green-400" />,
     description: "Browse and join public projects and investment opportunities.",
+    intro: "Find and join exciting projects from around the world.",
+    benefits: [
+      "Advanced project search and filters",
+      "Easy join requests",
+      "Diverse opportunities across industries"
+    ],
+    useCase: "A user can browse, filter, and join public projects that match their interests.",
     mock: [
       { title: "Project Search", detail: "Find projects by category, location, or funding needs." },
       { title: "Filters", detail: "Narrow results with advanced filters." },
@@ -132,6 +202,13 @@ const features = [
     label: "Notifications & Alerts",
     icon: <Bell className="w-6 h-6 mr-2 text-purple-400" />,
     description: "Stay updated with real-time notifications and alerts.",
+    intro: "Never miss an important update with customizable notifications.",
+    benefits: [
+      "Email and in-app alerts",
+      "Activity summaries",
+      "Customizable notification settings"
+    ],
+    useCase: "A user receives instant alerts for new deals, messages, and project updates.",
     mock: [
       { title: "Email Alerts", detail: "Receive important updates directly to your inbox." },
       { title: "In-app Notifications", detail: "Get notified instantly within the platform." },
@@ -144,6 +221,13 @@ const features = [
     label: "Account & Access Control",
     icon: <Shield className="w-6 h-6 mr-2 text-blue-400" />,
     description: "Manage user roles, permissions, and account security.",
+    intro: "Control who can access what with robust account management tools.",
+    benefits: [
+      "Role-based access for users",
+      "Two-factor authentication",
+      "Comprehensive audit logs"
+    ],
+    useCase: "An admin can assign roles, enable 2FA, and review all account activity for compliance.",
     mock: [
       { title: "Role-based Access", detail: "Assign roles and permissions to control access." },
       { title: "Two-Factor Authentication", detail: "Enhance security with 2FA options." },
@@ -187,6 +271,21 @@ export default function FeaturesPage() {
             <TabsContent key={f.key} value={f.key} className="bg-gray-900 rounded-xl p-8">
               <h2 className="text-2xl font-bold text-white mb-2 flex items-center">{f.icon}{f.label}</h2>
               <p className="text-gray-300 mb-6">{f.description}</p>
+              <div className="mb-6">
+                <p className="text-white/90 mb-2 font-medium">{f.intro}</p>
+                <div className="mb-2">
+                  <span className="font-semibold text-white">Key Benefits:</span>
+                  <ul className="list-disc list-inside text-gray-300 ml-4">
+                    {f.benefits.map((b, i) => (
+                      <li key={i}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <span className="font-semibold text-white">Use Case:</span>
+                  <span className="text-gray-300 ml-2">{f.useCase}</span>
+                </div>
+              </div>
               <ul className="mb-8 space-y-3">
                 {f.mock.map((item, i) => (
                   <li key={i} className="bg-gray-800 rounded-lg px-4 py-3 text-white/90">
