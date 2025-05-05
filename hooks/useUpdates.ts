@@ -81,7 +81,7 @@ export function useUpdates() {
 
         const teamProjectIds = userProjects?.map(p => p.project_id) || []
 
-        // Build the query
+        // Build the query (no join)
         let query = supabase
           .from('updates')
           .select(`
@@ -110,7 +110,23 @@ export function useUpdates() {
           throw new Error(`Failed to fetch updates: ${fetchError.message}`)
         }
 
-        setUpdates(data || [])
+        // Two-step fetch: get user names for all unique created_by IDs
+        const updatesRaw = data || [];
+        const userIds = [...new Set(updatesRaw.map(u => u.created_by).filter(Boolean))];
+        let userMap: Record<string, string> = {};
+        if (userIds.length > 0) {
+          const { data: users, error: userError } = await supabase
+            .from('users')
+            .select('id, name')
+            .in('id', userIds);
+          if (!userError && users) {
+            userMap = Object.fromEntries(users.map(u => [u.id, u.name]));
+          }
+        }
+        setUpdates(updatesRaw.map(update => ({
+          ...update,
+          user_name: userMap[update.created_by] || update.user_name || 'Unknown User'
+        })));
       } catch (err) {
         console.error('Error in fetchUpdates:', err)
         setError(err instanceof Error ? err.message : 'Failed to load updates')
@@ -125,9 +141,7 @@ export function useUpdates() {
   const createUpdate = async (input: CreateUpdateInput) => {
     try {
       if (!user) throw new Error('User must be authenticated')
-      if (!['partner', 'admin'].includes(user.role)) {
-        throw new Error('Only partners and admins can create updates')
-      }
+      // All authenticated users can create updates
 
       const { data, error: createError } = await supabase
         .from('updates')
@@ -148,9 +162,7 @@ export function useUpdates() {
   const updateUpdate = async (input: UpdateUpdateInput) => {
     try {
       if (!user) throw new Error('User must be authenticated')
-      if (!['partner', 'admin'].includes(user.role)) {
-        throw new Error('Only partners and admins can update updates')
-      }
+      // All authenticated users can update updates
 
       console.log('Attempting to update update with input:', input)
       console.log('Current user:', user)
@@ -188,9 +200,7 @@ export function useUpdates() {
   const deleteUpdate = async (id: number) => {
     try {
       if (!user) throw new Error('User must be authenticated')
-      if (!['partner', 'admin'].includes(user.role)) {
-        throw new Error('Only partners and admins can delete updates')
-      }
+      // All authenticated users can delete updates
 
       const { error: deleteError } = await supabase
         .from('updates')
@@ -254,7 +264,23 @@ export function useUpdates() {
           
           if (fetchError) throw new Error(`Failed to fetch updates: ${fetchError.message}`)
 
-          setUpdates(data || [])
+          // Two-step fetch: get user names for all unique created_by IDs
+          const updatesRaw = data || [];
+          const userIds = [...new Set(updatesRaw.map(u => u.created_by).filter(Boolean))];
+          let userMap: Record<string, string> = {};
+          if (userIds.length > 0) {
+            const { data: users, error: userError } = await supabase
+              .from('users')
+              .select('id, name')
+              .in('id', userIds);
+            if (!userError && users) {
+              userMap = Object.fromEntries(users.map(u => [u.id, u.name]));
+            }
+          }
+          setUpdates(updatesRaw.map(update => ({
+            ...update,
+            user_name: userMap[update.created_by] || update.user_name || 'Unknown User'
+          })));
         } catch (err) {
           console.error('Error in fetchUpdates:', err)
           setError(err instanceof Error ? err.message : 'Failed to load updates')

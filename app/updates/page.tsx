@@ -33,6 +33,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatDate } from "@/lib/utils"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 // Join request notification type
 interface JoinRequest {
@@ -86,7 +87,7 @@ export default function UpdatesPage() {
     description: '',
     status: 'new',
     date: new Date().toISOString().split('T')[0],
-    category: '',
+    category: 'project',
     full_content: '',
     project_id: '',
     project_name: ''
@@ -332,7 +333,7 @@ export default function UpdatesPage() {
         description: '',
         status: 'new',
         date: new Date().toISOString().split('T')[0],
-        category: '',
+        category: 'project',
         full_content: '',
         project_id: '',
         project_name: ''
@@ -358,7 +359,7 @@ export default function UpdatesPage() {
     setShowDeleteConfirm(true);
   };
 
-  const canManageUpdates = user?.role === 'partner' || user?.role === 'admin'
+  const canManageUpdates = user && ['partner', 'admin', 'public', 'viewer'].includes(user.role)
 
   if (loading) {
     return (
@@ -399,97 +400,109 @@ export default function UpdatesPage() {
           </div>
 
           <div className="flex justify-end gap-2 mb-4">
-            {canManageUpdates && (
-              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Update
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Update</DialogTitle>
-                    <DialogDescription>
-                      Create a new update to share with your team.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div>
-                      <label className="text-sm font-medium">Title</label>
-                      <Input
-                        value={newUpdate.title}
-                        onChange={(e) => setNewUpdate(prev => ({ ...prev, title: e.target.value }))}
-                        placeholder="Enter a descriptive title for your update"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Category</label>
-                      <select
-                        value={newUpdate.category}
-                        onChange={(e) => setNewUpdate(prev => ({ ...prev, category: e.target.value }))}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <option value="">Select a category</option>
-                        <option value="project">Project Update</option>
-                        <option value="general">General Update</option>
-                        <option value="announcement">Announcement</option>
-                      </select>
-                    </div>
-                    
-                    {newUpdate.category === 'project' && (
-                      <div>
-                        <label className="text-sm font-medium">Select Project</label>
-                        <select
-                          value={newUpdate.project_id}
-                          onChange={(e) => {
-                            const project = projects.find(p => p.id === e.target.value)
-                            setNewUpdate(prev => ({
-                              ...prev,
-                              project_id: e.target.value,
-                              project_name: project ? project.name : ''
-                            }))
-                          }}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Dialog open={showCreateDialog} onOpenChange={canManageUpdates ? setShowCreateDialog : undefined}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="default"
+                          className="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-2 rounded-lg shadow"
+                          disabled={!canManageUpdates}
+                          onClick={() => canManageUpdates && setShowCreateDialog(true)}
                         >
-                          <option value="">Select a project</option>
-                          {projects.map((project) => (
-                            <option key={project.id} value={project.id}>
-                              {project.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                    <div>
-                      <label className="text-sm font-medium">Brief Description</label>
-                      <Input
-                        value={newUpdate.description}
-                        onChange={(e) => setNewUpdate(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="Enter a short summary of the update"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Full Content</label>
-                      <textarea
-                        value={newUpdate.full_content}
-                        onChange={(e) => setNewUpdate(prev => ({ ...prev, full_content: e.target.value }))}
-                        placeholder="Enter the complete details of your update"
-                        className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleCreateUpdate}>
-                      Create Update
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
+                          + Create Update
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Create New Update</DialogTitle>
+                          <DialogDescription>
+                            Create a new update to share with your team.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div>
+                            <label className="text-sm font-medium">Title</label>
+                            <Input
+                              value={newUpdate.title}
+                              onChange={(e) => setNewUpdate(prev => ({ ...prev, title: e.target.value }))}
+                              placeholder="Enter a descriptive title for your update"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Category</label>
+                            <select
+                              value={newUpdate.category}
+                              onChange={(e) => setNewUpdate(prev => ({ ...prev, category: e.target.value }))}
+                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <option value="project">Project Update</option>
+                            </select>
+                          </div>
+                          
+                          {newUpdate.category === 'project' && (
+                            <div>
+                              <label className="text-sm font-medium">Select Project</label>
+                              <select
+                                value={newUpdate.project_id}
+                                onChange={(e) => {
+                                  const project = projects.find(p => p.id === e.target.value)
+                                  setNewUpdate(prev => ({
+                                    ...prev,
+                                    project_id: e.target.value,
+                                    project_name: project ? project.name : ''
+                                  }))
+                                }}
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <option value="">Select a project</option>
+                                {projects.map((project) => (
+                                  <option key={project.id} value={project.id}>
+                                    {project.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                          <div>
+                            <label className="text-sm font-medium">Brief Description</label>
+                            <Input
+                              value={newUpdate.description}
+                              onChange={(e) => setNewUpdate(prev => ({ ...prev, description: e.target.value }))}
+                              placeholder="Enter a short summary of the update"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Full Content</label>
+                            <textarea
+                              value={newUpdate.full_content}
+                              onChange={(e) => setNewUpdate(prev => ({ ...prev, full_content: e.target.value }))}
+                              placeholder="Enter the complete details of your update"
+                              className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={handleCreateUpdate}>
+                            Create Update
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </span>
+                </TooltipTrigger>
+                {!canManageUpdates && (
+                  <TooltipContent>
+                    Only partners and admins can create updates.
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
             <Button onClick={refreshUpdates} disabled={loading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh

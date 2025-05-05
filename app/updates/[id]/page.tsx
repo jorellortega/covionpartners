@@ -22,6 +22,7 @@ import {
 
 // Update status badge component
 function StatusBadge({ status }: { status: string }) {
+  if (!status) return null;
   const getStatusStyles = () => {
     switch (status.toLowerCase()) {
       case "new":
@@ -141,18 +142,41 @@ export default function UpdateDetailsPage() {
       if (updateError) throw updateError
       if (!updateData) throw new Error('Update not found in database.')
 
+      // If status is not null, set it to null
+      if (updateData.status !== null) {
+        await supabase
+          .from('updates')
+          .update({ status: null })
+          .eq('id', params.id)
+      }
+
+      // Fetch user name for created_by
+      let userName = 'Unknown User';
+      if (updateData.created_by) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('name')
+          .eq('id', updateData.created_by)
+          .single();
+        if (!userError && userData && userData.name) {
+          userName = userData.name;
+        }
+      }
+
       // Fetch associated documents
       console.log('UpdateDetailsPage: Fetching documents data...')
       const { data: documentsData, error: documentsError } = await supabase
         .from('documents')
         .select('*')
         .eq('update_id', params.id)
-        
+      
       console.log('UpdateDetailsPage: Documents fetch result:', { documentsData, documentsError })
       if (documentsError) throw documentsError
 
       setUpdate({
         ...updateData,
+        status: null, // reflect the change in local state
+        user_name: userName,
         documents: documentsData || []
       })
       console.log('UpdateDetailsPage: State updated successfully.')
