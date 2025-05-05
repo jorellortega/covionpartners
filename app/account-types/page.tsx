@@ -160,14 +160,13 @@ const tiers = [
   {
     name: "Manager Account",
     description: "Complete project creation and management",
-    price: "$1/month",
+    price: "$25/month",
     icon: Target,
     features: features.filter(f => f.partner),
     cta: "Start Free Trial",
     href: "#",
     popular: false,
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PARTNER_PRICE_ID,
-    trial_period_days: 7
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PARTNER_PRICE_ID
   },
   {
     name: "Business Account",
@@ -178,8 +177,7 @@ const tiers = [
     cta: "Start Free Trial",
     href: "#",
     popular: false,
-    priceId: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID,
-    trial_period_days: 7
+    priceId: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID
   }
 ]
 

@@ -3,7 +3,7 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FolderKanban, Handshake, DollarSign, Briefcase, Users, Globe, Lock, BarChart2, FileText, Bell, Shield } from "lucide-react";
+import { FolderKanban, Handshake, DollarSign, Briefcase, Users, Globe, Lock, BarChart2, FileText, Bell, Shield, ArrowRight } from "lucide-react";
 import { useState, Suspense } from "react";
 
 const features = [
@@ -317,7 +317,10 @@ function FeaturesContent() {
         </Tabs>
         {/* Account Types Card */}
         <div className="mt-12">
-          <div className="bg-gray-900 rounded-xl p-8 shadow-lg">
+          <div 
+            className="bg-gray-900 rounded-xl p-8 shadow-lg cursor-pointer hover:bg-gray-800/80 transition-all"
+            onClick={() => router.push('/account-types')}
+          >
             <h2 className="text-2xl font-bold text-white mb-6 text-center">Account Types</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
               <div className="flex flex-col items-center p-4 bg-gray-800 rounded-lg">
@@ -340,6 +343,12 @@ function FeaturesContent() {
                 <span className="font-semibold text-white">Business</span>
                 <span className="text-gray-400 text-sm text-center mt-1">Advanced analytics, team management, and enterprise features.</span>
               </div>
+            </div>
+            <div className="mt-6 text-center">
+              <Button className="gradient-button">
+                View All Account Types
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
