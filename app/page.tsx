@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, BarChart2, Briefcase, Zap, FolderKanban, Handshake, Users, Lock, FileText, Globe, Shield, Building2, Leaf, DollarSign, Clock, Check, Target } from "lucide-react"
+import { ArrowRight, BarChart2, Briefcase, Zap, FolderKanban, Handshake, Users, Lock, FileText, Globe, DollarSign, Shield, Building2, Leaf, Clock, Check, Target } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { toast } from "sonner"
 import { useProjects } from "@/hooks/useProjects"
@@ -43,6 +43,45 @@ export default function Home() {
     return shuffled.slice(0, 3)
   }, [projects])
 
+  const featureCards = [
+    {
+      key: "workflow",
+      icon: <FolderKanban className="h-12 w-12 text-blue-400 mx-auto mb-4" />,
+      title: "Task & Workflow Management",
+      desc: "Organize, assign, and track tasks with powerful workflow tools designed to boost productivity and team collaboration."
+    },
+    {
+      key: "deal",
+      icon: <Handshake className="h-12 w-12 text-purple-400 mx-auto mb-4" />,
+      title: "Deal Making Hub",
+      desc: "Discover, negotiate, and close deals with partners and clients using powerful collaboration and transaction tools."
+    },
+    {
+      key: "finance",
+      icon: <DollarSign className="h-12 w-12 text-green-400 mx-auto mb-4" />,
+      title: "Financial Hub",
+      desc: "Easily manage your payments, balances, and financial activity in one place with powerful tools and real-time insights."
+    },
+    {
+      key: "project",
+      icon: <Briefcase className="h-12 w-12 text-purple-400 mx-auto mb-4" />,
+      title: "Project Management",
+      desc: "Create, manage, and track projects with comprehensive tools for milestones and team collaboration."
+    },
+    {
+      key: "team",
+      icon: <Users className="h-12 w-12 text-yellow-400 mx-auto mb-4" />,
+      title: "Team Collaboration",
+      desc: "Work seamlessly with team members, partners, and stakeholders through integrated collaboration tools."
+    },
+    {
+      key: "global",
+      icon: <Globe className="h-12 w-12 text-green-400 mx-auto mb-4" />,
+      title: "Global Opportunities",
+      desc: "Discover and connect with investment opportunities and partners from around the world."
+    },
+  ];
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -60,7 +99,7 @@ export default function Home() {
         <div className="max-w-4xl w-full space-y-12 text-center">
           <h2 className="text-5xl font-extrabold gradient-text mt-8">COVION PARTNERS</h2>
           <p className="text-xl text-white/90">
-            Business management, dealmaking, investments, project management, and secure payments for modern partnerships
+            Business and partnership management, dealmaking, investments, secure payments, and project management
           </p>
 
           <Button asChild className="gradient-button group text-lg py-6 px-8" size="lg">
@@ -71,48 +110,20 @@ export default function Home() {
           </Button>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="leonardo-card p-6">
-              <BarChart2 className="h-12 w-12 text-blue-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Real-Time Financial Analytics</h3>
-              <p className="text-gray-300">
-                Track investments and project performance with advanced analytics and real-time reporting tools.
-              </p>
-            </div>
-            <div className="leonardo-card p-6">
-              <Briefcase className="h-12 w-12 text-purple-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Project Management</h3>
-              <p className="text-gray-300">
-                Create, manage, and track projects with comprehensive tools for milestones and team collaboration.
-              </p>
-            </div>
-            <div className="leonardo-card p-6">
-              <Globe className="h-12 w-12 text-green-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Global Opportunities</h3>
-              <p className="text-gray-300">
-                Discover and connect with investment opportunities and partners from around the world.
-              </p>
-            </div>
-            <div className="leonardo-card p-6">
-              <Users className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Team Collaboration</h3>
-              <p className="text-gray-300">
-                Work seamlessly with team members, partners, and stakeholders through integrated collaboration tools.
-              </p>
-            </div>
-            <div className="leonardo-card p-6">
-              <Shield className="h-12 w-12 text-red-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Secure Transactions</h3>
-              <p className="text-gray-300">
-                Manage investments and payments with enterprise-grade security and multiple withdrawal options.
-              </p>
-            </div>
-            <div className="leonardo-card p-6">
-              <Target className="h-12 w-12 text-indigo-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Flexible Account Types</h3>
-              <p className="text-gray-300">
-                Choose from multiple account tiers with features tailored to your investment and project needs.
-              </p>
-            </div>
+            {featureCards.map(card => (
+              <div
+                key={card.key}
+                className="leonardo-card p-6 cursor-pointer hover:shadow-lg transition-all"
+                onClick={() => router.push(`/features?tab=${card.key}`)}
+                tabIndex={0}
+                role="button"
+                aria-label={`Explore ${card.title}`}
+              >
+                {card.icon}
+                <h3 className="text-xl font-semibold mb-2">{card.title}</h3>
+                <p className="text-gray-300">{card.desc}</p>
+              </div>
+            ))}
           </div>
 
           {/* Public Projects Preview Section */}

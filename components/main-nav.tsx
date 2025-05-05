@@ -33,6 +33,11 @@ export function MainNav() {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem className="cursor-pointer hover:bg-blue-500/20 hover:text-blue-400">
+            <Link href="/features" className="w-full">
+              Features
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem className="cursor-pointer hover:bg-blue-500/20 hover:text-blue-400">
             <Link href="/account-types" className="w-full">
               Account Types
             </Link>

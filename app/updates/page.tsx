@@ -551,11 +551,11 @@ export default function UpdatesPage() {
                           </Badge>
                         </div>
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
-                          <div className="flex gap-2">
-                            <Badge variant="outline">{update.category}</Badge>
-                            <span className="text-sm text-gray-500">
-                              {new Date(update.date).toLocaleDateString()}
-                            </span>
+                        <div className="flex gap-2">
+                          <Badge variant="outline">{update.category}</Badge>
+                          <span className="text-sm text-gray-500">
+                            {new Date(update.date).toLocaleDateString()}
+                          </span>
                           </div>
                         </div>
                       </CardHeader>
@@ -670,11 +670,11 @@ export default function UpdatesPage() {
                           </Badge>
                         </div>
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
-                          <div className="flex gap-2">
-                            <Badge variant="outline">{update.category}</Badge>
-                            <span className="text-sm text-gray-500">
-                              {new Date(update.date).toLocaleDateString()}
-                            </span>
+                        <div className="flex gap-2">
+                          <Badge variant="outline">{update.category}</Badge>
+                          <span className="text-sm text-gray-500">
+                            {new Date(update.date).toLocaleDateString()}
+                          </span>
                           </div>
                         </div>
                       </CardHeader>
