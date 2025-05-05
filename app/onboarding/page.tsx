@@ -100,9 +100,9 @@ export default function OnboardingPage() {
     <div className="w-full px-4 max-w-full md:max-w-2xl mx-auto py-12">
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>Stripe Connect Onboarding</CardTitle>
+          <CardTitle>Covion and Stripe Settings</CardTitle>
           <CardDescription>
-            View and manage your Stripe Connect onboarding status. Complete all requirements to enable payouts.
+            View and manage your Covion and Stripe account settings. Complete all requirements to enable payouts and banking features.
           </CardDescription>
         </CardHeader>
         <CardContent>
