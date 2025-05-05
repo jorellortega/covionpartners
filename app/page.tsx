@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import Link from "next/link"
@@ -12,11 +12,13 @@ import { useProjects } from "@/hooks/useProjects"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import Image from "next/image"
 import React from "react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function Home() {
   const { user, loading } = useAuth()
   const router = useRouter()
   const { projects, loading: projectsLoading, error } = useProjects()
+  const [logoError, setLogoError] = useState(false)
 
   useEffect(() => {
     // Only redirect if user is authenticated and not in the process of logging out
@@ -96,18 +98,46 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-gray-950">
       <main className="flex-grow flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl w-full space-y-12 text-center">
-          <h2 className="text-5xl font-extrabold gradient-text mt-8">COVION PARTNERS</h2>
-          <p className="text-xl text-white/90">
-            Business and partnership management, dealmaking, investments, secure payments, and project management
-          </p>
+        <div className="max-w-4xl w-full text-center">
+          <div className="flex flex-col items-center justify-center">
+            <div className="flex justify-center mt-0 mb-2">
+              <img
+                src="https://uytqyfpjdevrqmwqfthk.supabase.co/storage/v1/object/public/partnerfiles/branding/handshake.png"
+                alt="Handshake"
+                width={200}
+                height={200}
+                style={{ display: 'block' }}
+              />
+            </div>
+            <h2 className="text-5xl font-extrabold gradient-text m-0 -mt-6">COVION PARTNERS</h2>
+          </div>
+          <svg width="0" height="0">
+            <defs>
+              <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style={{ stopColor: '#8B5CF6' }} />
+                <stop offset="50%" style={{ stopColor: '#EC4899' }} />
+                <stop offset="100%" style={{ stopColor: '#8B5CF6' }} />
+              </linearGradient>
+            </defs>
+          </svg>
 
-          <Button asChild className="gradient-button group text-lg py-6 px-8" size="lg">
-            <Link href="/login">
-              Access Partner Dashboard
-              <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </Button>
+          <div className="flex justify-center w-full mt-10 mb-10">
+            {user ? (
+              <Button asChild className="gradient-button group text-lg py-6 px-8" size="lg">
+                <Link href="/login">
+                  Access Partner Dashboard
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild className="gradient-button group text-lg py-6 px-8" size="lg">
+                <Link href="/account-types">
+                  Sign Up
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </Button>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {featureCards.map(card => (
@@ -122,7 +152,7 @@ export default function Home() {
                 {card.icon}
                 <h3 className="text-xl font-semibold mb-2">{card.title}</h3>
                 <p className="text-gray-300">{card.desc}</p>
-              </div>
+            </div>
             ))}
           </div>
 

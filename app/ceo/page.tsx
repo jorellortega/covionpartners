@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
+import Image from "next/image"
 
 export default function CEOPage() {
   const router = useRouter()
@@ -54,6 +55,10 @@ export default function CEOPage() {
   const liveFeedRef = useRef<HTMLDivElement>(null)
   const [devActivity, setDevActivity] = useState<any[]>([])
   const [devActivityLoading, setDevActivityLoading] = useState(true)
+  const [brandingLogo, setBrandingLogo] = useState("https://uytqyfpjdevrqmwqfthk.supabase.co/storage/v1/object/public/partnerfiles/branding/handshake.png")
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -347,6 +352,33 @@ export default function CEOPage() {
     }
   }
 
+  async function handleLogoUpload(e: React.FormEvent) {
+    e.preventDefault();
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("handshake", file);
+    const res = await fetch("/api/upload-handshake", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json();
+    if (data.url) {
+      setBrandingLogo(data.url + "?t=" + Date.now()); // bust cache
+    }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handleLogoDelete(e?: React.MouseEvent) {
+    if (e) e.preventDefault();
+    setDeleting(true);
+    await fetch("/api/delete-handshake", { method: "POST" });
+    setBrandingLogo("/handshake-placeholder.png");
+    setDeleting(false);
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
@@ -390,6 +422,7 @@ export default function CEOPage() {
             <TabsTrigger value="system">System Health</TabsTrigger>
             <TabsTrigger value="activity">Recent Activity</TabsTrigger>
             <TabsTrigger value="contact">Contact Messages</TabsTrigger>
+            <TabsTrigger value="branding">Branding</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -797,6 +830,33 @@ export default function CEOPage() {
                     </table>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="branding">
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle>Branding: Handshake Logo</CardTitle>
+                <CardDescription>Upload, preview, or delete the handshake logo used on the homepage (for CEO only).</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center gap-6">
+                  <img
+                    src={brandingLogo}
+                    alt="Handshake Logo"
+                    width={160}
+                    height={160}
+                    className="rounded-xl border border-gray-700 bg-white"
+                  />
+                  <form className="flex flex-col items-center gap-4" onSubmit={handleLogoUpload}>
+                    <input ref={fileInputRef} type="file" name="handshake" accept="image/*" className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" />
+                    <Button type="submit" className="gradient-button" disabled={uploading}>{uploading ? "Uploading..." : "Upload New Logo"}</Button>
+                  </form>
+                  <Button onClick={handleLogoDelete} variant="destructive" disabled={deleting} className="mt-2">
+                    {deleting ? "Deleting..." : "Delete Logo"}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
