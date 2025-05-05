@@ -4,7 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FolderKanban, Handshake, DollarSign, Briefcase, Users, Globe, Lock, BarChart2, FileText, Bell, Shield } from "lucide-react";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 
 const features = [
   {
@@ -238,10 +238,29 @@ const features = [
 ];
 
 export default function FeaturesPage() {
+  return (
+    <div className="min-h-screen bg-gray-950 text-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold mb-4">Platform Features</h1>
+          <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+            Discover the powerful tools and features that make Covion Partners the ultimate platform for business collaboration and growth.
+          </p>
+        </div>
+
+        <Suspense fallback={<div className="text-center">Loading features...</div>}>
+          <FeaturesContent />
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
+function FeaturesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialTab = searchParams.get('tab') || 'deal';
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const activeTab = searchParams.get("tab") || "workflow";
+  const [activeTabState, setActiveTab] = useState(activeTab);
   return (
     <div className="min-h-screen bg-gray-950 py-12 px-4 sm:px-8">
       <div className="max-w-3xl mx-auto">
@@ -251,7 +270,7 @@ export default function FeaturesPage() {
           {features.map((f) => (
             <div
               key={f.key}
-              className={`cursor-pointer rounded-xl p-6 flex flex-col items-center justify-center border transition-all leonardo-card ${activeTab === f.key ? 'border-blue-500/70 bg-gray-900/80' : 'border-gray-800 bg-gray-900/40 hover:border-blue-400/40'}`}
+              className={`cursor-pointer rounded-xl p-6 flex flex-col items-center justify-center border transition-all leonardo-card ${activeTabState === f.key ? 'border-blue-500/70 bg-gray-900/80' : 'border-gray-800 bg-gray-900/40 hover:border-blue-400/40'}`}
               onClick={() => setActiveTab(f.key)}
             >
               {f.icon}
@@ -259,7 +278,7 @@ export default function FeaturesPage() {
             </div>
           ))}
         </div>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTabState} onValueChange={setActiveTab} className="w-full">
           <TabsList className="flex flex-wrap gap-2 justify-center mb-6">
             {features.map((f) => (
               <TabsTrigger key={f.key} value={f.key} className="flex items-center justify-center">
