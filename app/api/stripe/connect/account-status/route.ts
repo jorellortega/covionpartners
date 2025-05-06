@@ -27,6 +27,36 @@ export async function GET() {
   }
 
   const account = await stripe.accounts.retrieve(data.stripe_connect_account_id)
+  let externalAccount = null;
+  if (account.external_accounts && account.external_accounts.data.length > 0) {
+    // Only show the first external account for now
+    const ext = account.external_accounts.data[0];
+    if (ext.object === 'bank_account') {
+      externalAccount = {
+        bank_name: ext.bank_name,
+        last4: ext.last4,
+        account_holder_name: ext.account_holder_name,
+        account_type: ext.account_type,
+        fingerprint: ext.fingerprint,
+        id: ext.id,
+        object: ext.object,
+        status: ext.status,
+        country: ext.country,
+        currency: ext.currency
+      };
+    } else {
+      // fallback for other types (e.g. card)
+      externalAccount = {
+        last4: ext.last4,
+        fingerprint: ext.fingerprint,
+        id: ext.id,
+        object: ext.object,
+        status: ext.status,
+        country: ext.country,
+        currency: ext.currency
+      };
+    }
+  }
   return NextResponse.json({
     charges_enabled: account.charges_enabled,
     payouts_enabled: account.payouts_enabled,
@@ -34,5 +64,6 @@ export async function GET() {
     requirements: account.requirements,
     stripe_connect_account_id: data.stripe_connect_account_id,
     stripe_customer_id: data.stripe_customer_id,
+    external_account: externalAccount
   })
 } 

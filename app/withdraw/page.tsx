@@ -38,8 +38,11 @@ function CustomPaypalIcon(props: React.SVGProps<SVGSVGElement>) {
 // Define withdrawal limits by payment method
 const WITHDRAWAL_LIMITS = {
   standard: { min: 1, max: 50000, fee: 0 },
-  instant: { min: 1, max: 10000, fee: 0.01 } // 1% fee
+  instant: { min: 1, max: 10000, fee: 0.01 } // 1% fee, minimum $1 to allow fee deduction
 };
+
+// Define Stripe payout fee (example: $0.25 flat fee)
+const STRIPE_PAYOUT_FEE = 0.25;
 
 // Define payment method interface
 interface SavedPaymentMethod {
@@ -78,6 +81,9 @@ export default function PaymentsPage() {
   })
   const [savedPayments, setSavedPayments] = useState<SavedPaymentMethod[]>([])
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null)
+  const [externalAccount, setExternalAccount] = useState<any>(null)
+  const [stripeAvailableBalance, setStripeAvailableBalance] = useState<number | null>(null);
+  const [stripeSummary, setStripeSummary] = useState<any>(null);
   
   const supabase = createClientComponentClient()
 
@@ -105,35 +111,50 @@ export default function PaymentsPage() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user?.id) return;
 
-        // Fetch saved payment methods
-        const response = await fetch('/api/payments/saved', {
-          credentials: 'include',
-        });
-        const paymentMethods = await response.json();
-        
-        if (!response.ok) {
-          throw new Error('Failed to load saved payments');
+        // Fetch Stripe payout summary
+        const summaryRes = await fetch('/api/stripe/connect/summary', { credentials: 'include' });
+        const summaryData = await summaryRes.json();
+        if (summaryRes.ok) {
+          setStripeSummary(summaryData);
+        } else {
+          setStripeSummary(null);
         }
 
-        console.log('Fetched payment methods:', paymentMethods); // Debug log
+        // Fetch actual Stripe available balance for payouts
+        const stripeBalanceRes = await fetch('/api/stripe/connect/available-balance', { credentials: 'include' });
+        const stripeBalanceData = await stripeBalanceRes.json();
+        if (stripeBalanceRes.ok && typeof stripeBalanceData.available === 'number') {
+          setStripeAvailableBalance(stripeBalanceData.available);
+        } else {
+          setStripeAvailableBalance(null);
+        }
 
-        setSavedPayments(paymentMethods);
+        // Get Stripe account status
+        const response = await fetch('/api/stripe/connect/account-status', {
+          credentials: 'include',
+        });
+        const accountData = await response.json();
+        
+        if (!response.ok) {
+          throw new Error('Failed to load Stripe account');
+        }
 
-        // Set available methods based on payment methods
+        setExternalAccount(accountData.external_account || null);
+
+        // Set available methods based on Stripe account
         const methods = {
-          hasBankAccount: paymentMethods.some((pm: SavedPaymentMethod) => pm.type === 'bank_account' && pm.status === 'active'),
-          hasDebitCard: paymentMethods.some((pm: SavedPaymentMethod) => pm.type === 'stripe' && pm.status === 'active')
+          hasBankAccount: accountData.payouts_enabled && accountData.charges_enabled,
+          hasDebitCard: false // We don't use cards for withdrawals
         };
 
         console.log('Available methods:', methods); // Debug log
 
         setAvailableMethods(methods);
 
-        // Auto-select method if only one is available
-        if (methods.hasBankAccount && !methods.hasDebitCard) {
+        // Auto-select standard method if bank account is available
+        if (methods.hasBankAccount) {
           setWithdrawMethod('standard');
-        } else if (!methods.hasBankAccount && methods.hasDebitCard) {
-          setWithdrawMethod('instant');
+          setPayoutProvider('stripe');
         }
 
         // Fetch balance
@@ -178,20 +199,15 @@ export default function PaymentsPage() {
 
     // Check withdrawal limits
       const limits = WITHDRAWAL_LIMITS[withdrawMethod];
+      const fee = withdrawMethod === 'instant' ? amount * WITHDRAWAL_LIMITS.instant.fee : 0;
+      const finalAmount = amount - fee;
+
       if (amount < limits.min || amount > limits.max) {
         throw new Error(`Amount must be between $${limits.min} and $${limits.max}`);
       }
 
     if (amount > balance) {
         throw new Error('Insufficient funds');
-    }
-
-      // Calculate fee for instant transfers
-      const fee = withdrawMethod === 'instant' ? amount * WITHDRAWAL_LIMITS.instant.fee : 0;
-      const totalAmount = amount + fee;
-
-      if (totalAmount > balance) {
-        throw new Error('Insufficient funds to cover transfer fee');
     }
 
       if (payoutProvider === 'stripe') {
@@ -202,15 +218,14 @@ export default function PaymentsPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            amount,
-            account_id: stripeAccountId,
-            method: withdrawMethod,
+            amount: finalAmount,
+            external_account_id: externalAccount?.id
           }),
         });
 
-        const data = await response.json();
-        if (data.error) {
-          throw new Error(data.error);
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to process withdrawal');
         }
       } else {
         // Process via direct transfer
@@ -236,15 +251,15 @@ export default function PaymentsPage() {
       const { error: updateError } = await supabase
         .from('cvnpartners_user_balances')
         .update({
-          balance: balance - totalAmount,
+          balance: balance - amount,
           last_updated: new Date().toISOString()
         })
         .eq('user_id', session.user.id);
 
       if (updateError) throw new Error('Failed to update balance');
 
-      setBalance(prev => prev - totalAmount);
-      setSuccess(`Withdrawal of $${amount.toFixed(2)} initiated. ${
+      setBalance(prev => prev - amount);
+      setSuccess(`Withdrawal of $${finalAmount.toFixed(2)} initiated. ${
         withdrawMethod === 'instant' 
           ? `Funds will arrive within minutes. Fee: $${fee.toFixed(2)}` 
           : 'Funds will arrive in 2-3 business days.'
@@ -258,128 +273,44 @@ export default function PaymentsPage() {
   };
 
   const renderWithdrawForm = () => {
-    if (!availableMethods.hasBankAccount && !availableMethods.hasDebitCard) {
+    if (!availableMethods.hasBankAccount) {
       return (
         <div className="space-y-4">
           <div className="bg-yellow-500/20 border border-yellow-500 text-yellow-400 p-3 rounded">
-            No payout methods found. Please add a bank account or debit card.
+            Your Stripe Express account needs to be fully enabled for payouts. Please complete the onboarding process.
           </div>
           <Button
             type="button"
-            onClick={() => router.push("/savedpayments")}
+            onClick={() => router.push("/onboarding")}
             className="w-full"
           >
-            Add Payment Method
+            Complete Onboarding
           </Button>
         </div>
       );
     }
 
-        return (
+    return (
       <div className="space-y-4">
-        <Tabs defaultValue="card" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="card">Debit Card</TabsTrigger>
-            <TabsTrigger value="bank">Bank Account</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="card" className="space-y-4">
-            <div className="space-y-2">
-              <Label className="block text-sm font-medium text-white/90">Select Debit Card</Label>
-              <div className="space-y-2">
-                {savedPayments
-                  .filter(payment => payment.type === 'stripe' && payment.status === 'active')
-                  .map((payment) => (
-                    <div
-                      key={payment.id}
-                      onClick={() => {
-                        setSelectedPaymentId(payment.id);
-                        setWithdrawMethod('instant');
-                      }}
-                      className={`cursor-pointer p-4 rounded-lg border ${
-                        selectedPaymentId === payment.id 
-                          ? 'border-blue-500 bg-blue-500/10' 
-                          : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800'
-                      } transition-colors`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <CreditCard className="h-5 w-5 text-gray-400" />
-                          <div>
-                            {payment.card && (
-                              <>
-                                <p className="font-medium text-white">
-                                  {payment.card.brand} •••• {payment.card.last4}
-                                </p>
-                                <p className="text-sm text-gray-400">
-                                  Expires {payment.card.exp_month}/{payment.card.exp_year}
-                                </p>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        {payment.is_default && (
-                          <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                            Default
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                ))}
+        <div className="space-y-2">
+          <Label className="block text-sm font-medium text-white/90">Bank Account</Label>
+          <div className="p-4 rounded-lg border border-gray-700 bg-gray-800/50">
+            <div className="flex items-center space-x-3">
+              <LinkIcon className="h-5 w-5 text-gray-400" />
+              <div>
+                <p className="font-medium text-white">
+                  {externalAccount?.bank_name || 'Bank'} •••• {externalAccount?.last4 || '----'}
+                </p>
+                <p className="text-sm text-gray-400">
+                  Funds will be sent to your connected bank account
+                </p>
               </div>
-            <p className="text-xs text-white/70 mt-2">
-                Instant transfers to debit cards incur a 1% fee (minimum $0.50).
-                Funds typically arrive within 30 minutes.
-            </p>
+            </div>
           </div>
-          </TabsContent>
-
-          <TabsContent value="bank" className="space-y-4">
-            <div className="space-y-2">
-              <Label className="block text-sm font-medium text-white/90">Select Bank Account</Label>
-              <div className="space-y-2">
-                {savedPayments
-                  .filter(payment => payment.type === 'bank_account' && payment.status === 'active')
-                  .map((payment) => (
-                    <div
-                      key={payment.id}
-                      onClick={() => {
-                        setSelectedPaymentId(payment.id);
-                        setWithdrawMethod('standard');
-                      }}
-                      className={`cursor-pointer p-4 rounded-lg border ${
-                        selectedPaymentId === payment.id 
-                          ? 'border-blue-500 bg-blue-500/10' 
-                          : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800'
-                      } transition-colors`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <LinkIcon className="h-5 w-5 text-gray-400" />
-                          <div>
-                            <p className="font-medium text-white">
-                              {payment.bank_name} •••• {payment.last4}
-                            </p>
-                            <p className="text-sm text-gray-400">
-                              {payment.account_type}
-            </p>
-          </div>
-                        </div>
-                        {payment.is_default && (
-                          <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                            Default
-                          </span>
-                        )}
-                      </div>
-                </div>
-                ))}
-              </div>
-            <p className="text-xs text-white/70 mt-2">
-                Standard bank transfers are free and typically arrive in 2-3 business days.
-            </p>
-          </div>
-          </TabsContent>
-        </Tabs>
+          <p className="text-xs text-white/70 mt-2">
+            Standard bank transfers typically arrive in 2-3 business days.
+          </p>
+        </div>
       </div>
     );
   };
@@ -404,11 +335,31 @@ export default function PaymentsPage() {
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-md w-full leonardo-card p-8">
+            {/* Stripe payout summary box */}
+            {stripeSummary && (
+              <div className="mb-6 p-4 rounded-lg border border-blue-700 bg-blue-900/10 text-blue-200">
+                <div className="font-bold text-blue-300 mb-2">Stripe Payout Summary</div>
+                <div className="flex flex-col gap-1 text-sm">
+                  <div>On the way to your bank: <span className="font-bold">${stripeSummary.in_transit.toFixed(2)}</span></div>
+                  <div>Upcoming payout (estimated): <span className="font-bold">${stripeSummary.upcoming_payout.toFixed(2)}</span>{stripeSummary.upcoming_payout_estimated_arrival && (
+                    <span> (arrives {new Date(stripeSummary.upcoming_payout_estimated_arrival).toLocaleDateString()})</span>
+                  )}</div>
+                  <div>Available in your balance: <span className="font-bold">${stripeSummary.available.toFixed(2)}</span></div>
+                  <div>Total balance: <span className="font-bold">${stripeSummary.total.toFixed(2)}</span></div>
+                  <div>Payouts go to: <span className="font-bold">{stripeSummary.payout_destination?.bank_name || 'Bank'} •••• {stripeSummary.payout_destination?.last4 || '----'}</span> ({stripeSummary.payout_schedule})</div>
+                </div>
+              </div>
+            )}
             <div>
               <h2 className="text-center text-3xl font-extrabold gradient-text">Withdraw Funds</h2>
               <p className="mt-2 text-center text-sm text-white/70">
                 Available Balance: <span className="font-bold text-green-400">${balance.toFixed(2)}</span>
               </p>
+              {stripeAvailableBalance !== null && (
+                <p className="mt-1 text-center text-xs text-blue-300">
+                  Stripe Available for Payout: <span className="font-bold">${stripeAvailableBalance.toFixed(2)}</span>
+                </p>
+              )}
             </div>
             {error && (
               <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded mb-4 text-center">{error}</div>
@@ -426,23 +377,34 @@ export default function PaymentsPage() {
                 <Input
                   id="withdrawal-amount"
                   type="number"
-                  step="0.01"
+                  step="1"
                   min={withdrawMethod ? WITHDRAWAL_LIMITS[withdrawMethod].min : 0}
-                  max={withdrawMethod ? Math.min(balance, WITHDRAWAL_LIMITS[withdrawMethod].max) : 0}
+                  max={withdrawMethod ? Math.min((stripeAvailableBalance ?? balance) - STRIPE_PAYOUT_FEE, WITHDRAWAL_LIMITS[withdrawMethod].max) : 0}
                   placeholder="Enter amount to withdraw"
                   value={withdrawalAmount}
                   onChange={(e) => setWithdrawalAmount(e.target.value)}
                   className="leonardo-input"
                   required
                 />
+                <p className="text-xs text-white/70 mt-1">
+                  Stripe payout fee: <span className="text-red-400 font-bold">${STRIPE_PAYOUT_FEE.toFixed(2)}</span>
+                </p>
                 {withdrawMethod && (
                 <p className="text-xs text-white/70 mt-1">
                     Min: ${WITHDRAWAL_LIMITS[withdrawMethod].min} | Max: $
-                    {Math.min(balance, WITHDRAWAL_LIMITS[withdrawMethod].max)}
-                    {withdrawMethod === 'instant' && (
-                      <> | Fee: ${(Number(withdrawalAmount || 0) * WITHDRAWAL_LIMITS.instant.fee).toFixed(2)}</>
-                    )}
+                    {Math.max(0, Math.min((stripeAvailableBalance ?? balance) - STRIPE_PAYOUT_FEE, WITHDRAWAL_LIMITS[withdrawMethod].max))}
                 </p>
+                )}
+                {withdrawMethod === 'instant' && withdrawalAmount && (
+                  <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <p className="text-sm text-white/90">Final Amount After Fee:</p>
+                    <p className="text-lg font-bold text-blue-400">
+                      ${(Number(withdrawalAmount) * (1 - WITHDRAWAL_LIMITS.instant.fee)).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-white/70 mt-1">
+                      Fee: ${(Number(withdrawalAmount) * WITHDRAWAL_LIMITS.instant.fee).toFixed(2)} (1%)
+                    </p>
+                  </div>
                 )}
               </div>
 

@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ShieldCheck, AlertTriangle, Plus, ArrowRight } from "lucide-react";
+import { Loader2, ShieldCheck, AlertTriangle, Plus, ArrowRight, Info } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function OnboardingPage() {
   const [loading, setLoading] = useState(true);
@@ -15,6 +16,8 @@ export default function OnboardingPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
+  const [stripeSummary, setStripeSummary] = useState<any>(null);
+  const [dashboardUrl, setDashboardUrl] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -29,6 +32,16 @@ export default function OnboardingPage() {
       .then(async (res) => {
         if (res.ok) setUserData(await res.json());
       });
+    // Fetch Stripe payout summary
+    fetch('/api/stripe/connect/summary', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => setStripeSummary(data))
+      .catch(() => setStripeSummary(null));
+    // Fetch Stripe Express Dashboard link
+    fetch('/api/stripe/connect/express-dashboard-link', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => setDashboardUrl(data.url || null))
+      .catch(() => setDashboardUrl(null));
   }, []);
 
   const handleCreateAccount = async () => {
@@ -98,6 +111,37 @@ export default function OnboardingPage() {
 
   return (
     <div className="w-full px-4 max-w-full md:max-w-2xl mx-auto py-12">
+      {/* Stripe payout summary box */}
+      {stripeSummary && (
+        <div className="mb-6 p-4 rounded-lg border border-blue-700 bg-blue-900/10 text-blue-200">
+          <div className="font-bold text-blue-300 mb-2 flex items-center gap-2">
+            Stripe Payout Summary
+            {dashboardUrl && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <a href={dashboardUrl} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-400 hover:text-blue-200">
+                      <Info className="inline w-4 h-4" />
+                    </a>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Open your Stripe Express Dashboard
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+          <div className="flex flex-col gap-1 text-sm">
+            <div>On the way to your bank: <span className="font-bold">${stripeSummary.in_transit.toFixed(2)}</span></div>
+            <div>Upcoming payout (estimated): <span className="font-bold">${stripeSummary.upcoming_payout.toFixed(2)}</span>{stripeSummary.upcoming_payout_estimated_arrival && (
+              <span> (arrives {new Date(stripeSummary.upcoming_payout_estimated_arrival).toLocaleDateString()})</span>
+            )}</div>
+            <div>Available in your balance: <span className="font-bold">${stripeSummary.available.toFixed(2)}</span></div>
+            <div>Total balance: <span className="font-bold">${stripeSummary.total.toFixed(2)}</span></div>
+            <div>Payouts go to: <span className="font-bold">{stripeSummary.payout_destination?.bank_name || 'Bank'} •••• {stripeSummary.payout_destination?.last4 || '----'}</span> ({stripeSummary.payout_schedule})</div>
+          </div>
+        </div>
+      )}
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>Covion and Stripe Settings</CardTitle>
