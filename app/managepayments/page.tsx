@@ -744,7 +744,7 @@ export default function ManagePaymentsPage() {
 
         {/* Main Content Tabs */}
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
-          <TabsList className="bg-gray-900 border-gray-800">
+          <TabsList className="bg-gray-900 border-gray-800 overflow-x-auto whitespace-nowrap -mx-4 px-4 scrollbar-hide">
             <TabsTrigger value="payment-methods" className="data-[state=active]:bg-gray-800">
               Payment Methods
             </TabsTrigger>
