@@ -1142,6 +1142,12 @@ export default function PartnerDashboard() {
                       Manage Payments
                     </Button>
                   </Link>
+                  <Link href="/withdraw">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      Withdraw
+                    </Button>
+                  </Link>
                   <Link href="/pay">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
                       <DollarSign className="w-4 h-4 mr-2" />
