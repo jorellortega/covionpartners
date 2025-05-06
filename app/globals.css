@@ -222,3 +222,12 @@ body {
   background: linear-gradient(to right, hsl(267, 83%, 60%), hsl(320, 80%, 64%));
 }
 
+/* Hide scrollbar utility */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
