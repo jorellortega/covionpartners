@@ -71,6 +71,15 @@ export default function SignupPageContent() {
         return;
       }
       setAccountCreated(true);
+      // For public accounts, create a Stripe customer ID immediately after signup
+      if (accountType === "public") {
+        try {
+          await fetch("/api/payment-methods/create-customer", { method: "POST" });
+        } catch (e) {
+          // Optionally handle error, but don't block user
+          console.error("Failed to create Stripe customer for public account", e);
+        }
+      }
     } catch (err: any) {
       setError(err.message || "Failed to create account. Please try again.");
     } finally {
@@ -164,14 +173,31 @@ export default function SignupPageContent() {
             </Button>
           </form>
         ) : (
+          <>
+            {accountType !== "public" ? (
           <div>
             <h2 className="text-2xl font-bold text-center mb-4 text-purple-400">Account Created!</h2>
             <p className="text-center text-gray-400 mb-6">Add your payment method to get started.</p>
+                {accountType === "manager" && (
+                  <div className="text-center mb-4">
+                    <span className="inline-block bg-purple-700/20 text-purple-300 px-4 py-2 rounded font-semibold text-lg">
+                      Manager Subscription: $25/month
+                    </span>
+                  </div>
+                )}
             <h3 className="text-lg font-semibold mb-2 text-white">Add Your Payment Method</h3>
             <Elements stripe={stripePromise}>
               <PaymentForm onSuccess={() => window.location.href = '/dashboard'} accountType={accountType || undefined} />
             </Elements>
           </div>
+            ) : (
+              <div>
+                <h2 className="text-2xl font-bold text-center mb-4 text-purple-400">Account Created!</h2>
+                <p className="text-center text-gray-400 mb-6">Welcome to Covion! You can now access your dashboard.</p>
+                <Button className="w-full" onClick={() => window.location.href = '/dashboard'}>Go to Dashboard</Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

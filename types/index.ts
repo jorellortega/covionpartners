@@ -2,7 +2,7 @@ export interface User {
   id: string
   email: string
   name: string
-  role: 'partner' | 'admin' | 'investor' | 'viewer'
+  role: 'partner' | 'admin' | 'investor' | 'viewer' | 'ceo'
   created_at: string
   updated_at: string
   avatar_url?: string | null

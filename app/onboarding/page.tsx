@@ -18,6 +18,7 @@ export default function OnboardingPage() {
   const [resendingEmail, setResendingEmail] = useState(false);
   const [stripeSummary, setStripeSummary] = useState<any>(null);
   const [dashboardUrl, setDashboardUrl] = useState<string | null>(null);
+  const [payoutDetails, setPayoutDetails] = useState<any>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -42,6 +43,11 @@ export default function OnboardingPage() {
       .then(res => res.json())
       .then(data => setDashboardUrl(data.url || null))
       .catch(() => setDashboardUrl(null));
+    // Fetch payout details for more express info
+    fetch('/api/stripe/payout-details')
+      .then(res => res.json())
+      .then(data => setPayoutDetails(data))
+      .catch(() => setPayoutDetails(null));
   }, []);
 
   const handleCreateAccount = async () => {
@@ -112,7 +118,11 @@ export default function OnboardingPage() {
   return (
     <div className="w-full px-4 max-w-full md:max-w-2xl mx-auto py-12">
       {/* Stripe payout summary box */}
-      {stripeSummary && (
+      {accountStatus?.charges_enabled && accountStatus?.payouts_enabled && stripeSummary &&
+        typeof stripeSummary.in_transit === 'number' &&
+        typeof stripeSummary.upcoming_payout === 'number' &&
+        typeof stripeSummary.available === 'number' &&
+        typeof stripeSummary.total === 'number' && (
         <div className="mb-6 p-4 rounded-lg border border-blue-700 bg-blue-900/10 text-blue-200">
           <div className="font-bold text-blue-300 mb-2 flex items-center gap-2">
             Stripe Payout Summary
@@ -132,6 +142,7 @@ export default function OnboardingPage() {
             )}
           </div>
           <div className="flex flex-col gap-1 text-sm">
+            <div>Status: <span className="font-bold">{accountStatus?.charges_enabled && accountStatus?.payouts_enabled ? 'Enabled' : 'Restricted'}</span></div>
             <div>On the way to your bank: <span className="font-bold">${stripeSummary.in_transit.toFixed(2)}</span></div>
             <div>Upcoming payout (estimated): <span className="font-bold">${stripeSummary.upcoming_payout.toFixed(2)}</span>{stripeSummary.upcoming_payout_estimated_arrival && (
               <span> (arrives {new Date(stripeSummary.upcoming_payout_estimated_arrival).toLocaleDateString()})</span>
@@ -139,8 +150,33 @@ export default function OnboardingPage() {
             <div>Available in your balance: <span className="font-bold">${stripeSummary.available.toFixed(2)}</span></div>
             <div>Total balance: <span className="font-bold">${stripeSummary.total.toFixed(2)}</span></div>
             <div>Payouts go to: <span className="font-bold">{stripeSummary.payout_destination?.bank_name || 'Bank'} •••• {stripeSummary.payout_destination?.last4 || '----'}</span> ({stripeSummary.payout_schedule})</div>
+            {stripeSummary.last_payout_date && (
+              <div>Last payout: <span className="font-bold">{new Date(stripeSummary.last_payout_date).toLocaleDateString()}</span></div>
+            )}
           </div>
         </div>
+      )}
+      {/* New card for more Stripe Express info */}
+      {payoutDetails && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Stripe Express Account Details</CardTitle>
+            <CardDescription>Key payout and account details from your Stripe Express dashboard.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-2 text-sm">
+              <div><span className="font-semibold">Bank:</span> {payoutDetails.bank_name} ••••{payoutDetails.last4}</div>
+              <div><span className="font-semibold">Account type:</span> {payoutDetails.account_holder_type}</div>
+              <div><span className="font-semibold">Status:</span> {payoutDetails.status}</div>
+              {payoutDetails.next_payout && (
+                <div><span className="font-semibold">Next payout:</span> ${Number(payoutDetails.next_payout).toFixed(2)}</div>
+              )}
+              {payoutDetails.next_payout_estimated_arrival && (
+                <div><span className="font-semibold">Expected to arrive:</span> {new Date(payoutDetails.next_payout_estimated_arrival).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
       <Card className="mb-8">
         <CardHeader>

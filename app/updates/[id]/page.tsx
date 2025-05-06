@@ -444,7 +444,7 @@ export default function UpdateDetailsPage() {
     )
   }
 
-  const canEdit = user && ['partner', 'admin'].includes(user.role)
+  const canEdit = user && ['partner', 'admin', 'ceo'].includes(user.role)
 
   return (
     <div className="min-h-screen bg-gray-950">

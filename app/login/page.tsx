@@ -250,7 +250,7 @@ export default function LoginPage() {
                 >
                   <Target className="w-6 h-6 mb-2 text-purple-400" />
                   <span className="text-sm font-medium">Manager</span>
-                  <span className="text-xs text-gray-400">$1/mo</span>
+                  <span className="text-xs text-gray-400">$25/mo</span>
                 </Button>
                 <div className="relative">
                   <Button

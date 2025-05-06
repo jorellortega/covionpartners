@@ -6,7 +6,7 @@ export interface TeamMemberWithUser extends TeamMember {
   user: User
 }
 
-type UserRole = 'partner' | 'admin' | 'investor' | 'viewer'
+type UserRole = 'partner' | 'admin' | 'investor' | 'viewer' | 'ceo'
 type TeamMemberRole = 'lead' | 'member' | 'advisor' | 'consultant'
 
 export function useTeamMembers(projectId: string) {

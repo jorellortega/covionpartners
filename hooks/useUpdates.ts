@@ -94,7 +94,7 @@ export function useUpdates() {
           .order('created_at', { ascending: false })
 
         // If user is not admin, apply filtering
-        if (user.role !== 'admin') {
+        if (user.role !== 'admin' && user.role !== 'ceo') {
           query = query.or(
             // Show non-project updates (global updates) that are either public or match user's role
             `and(project_id.is.null,or(target_roles.is.null,target_roles.cs.{${user.role}})),` +
@@ -250,7 +250,7 @@ export function useUpdates() {
             .order('created_at', { ascending: false })
 
           // If user is not admin, apply filtering
-          if (user.role !== 'admin') {
+          if (user.role !== 'admin' && user.role !== 'ceo') {
             query = query.or(
               // Show non-project updates (global updates) that are either public or match user's role
               `and(project_id.is.null,or(target_roles.is.null,target_roles.cs.{${user.role}})),` +

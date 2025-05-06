@@ -36,7 +36,7 @@ export default function EditUpdatePage() {
 
   useEffect(() => {
     async function fetchUpdate() {
-      if (!user || !['partner', 'admin'].includes(user.role)) {
+      if (!user || !['partner', 'admin', 'ceo'].includes(user.role)) {
         toast.error('You do not have permission to edit updates')
         router.push('/updates')
         return

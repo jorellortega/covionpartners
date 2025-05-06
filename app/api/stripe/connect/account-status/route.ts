@@ -22,8 +22,17 @@ export async function GET() {
     .eq('id', user.id)
     .single()
 
+  // If no connect account, still return customer ID and nulls for other fields
   if (!data?.stripe_connect_account_id) {
-    return NextResponse.json({ error: 'No Stripe Connect account found' }, { status: 400 })
+    return NextResponse.json({
+      charges_enabled: false,
+      payouts_enabled: false,
+      details_submitted: false,
+      requirements: null,
+      stripe_connect_account_id: null,
+      stripe_customer_id: data?.stripe_customer_id || null,
+      external_account: null
+    })
   }
 
   const account = await stripe.accounts.retrieve(data.stripe_connect_account_id)

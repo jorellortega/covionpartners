@@ -359,7 +359,7 @@ export default function UpdatesPage() {
     setShowDeleteConfirm(true);
   };
 
-  const canManageUpdates = user && ['partner', 'admin', 'public', 'viewer'].includes(user.role)
+  const canManageUpdates = user && ['partner', 'admin', 'ceo'].includes(user.role)
 
   if (loading) {
     return (

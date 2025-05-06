@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Home, CreditCard, Wallet, DollarSign, Plus, ArrowRight, Calendar, RefreshCw, Loader2, LinkIcon, ShieldCheck, Receipt, Banknote, ArrowLeft, Settings } from "lucide-react"
+import { Home, CreditCard, Wallet, DollarSign, Plus, ArrowRight, Calendar, RefreshCw, Loader2, LinkIcon, ShieldCheck, Receipt, Banknote, ArrowLeft, Settings, Building } from "lucide-react"
 import Link from "next/link"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useRouter } from "next/navigation"
@@ -157,6 +157,7 @@ export default function ManagePaymentsPage() {
   const [allTransactions, setAllTransactions] = useState<any[]>([]);
   const [allTransactionsLoading, setAllTransactionsLoading] = useState(true);
   const [stripeSummary, setStripeSummary] = useState<any>(null);
+  const [payoutDetails, setPayoutDetails] = useState<any>(null);
 
   // Add Stripe Elements appearance configuration
   const appearance: Appearance = {
@@ -271,6 +272,14 @@ export default function ManagePaymentsPage() {
       .catch(() => setStripeSummary(null));
   }, [router, supabase]);
 
+  useEffect(() => {
+    // Fetch payout details for next payout info
+    fetch('/api/stripe/payout-details')
+      .then(res => res.json())
+      .then(data => setPayoutDetails(data))
+      .catch(() => setPayoutDetails(null));
+  }, []);
+
   const fetchPaymentMethods = async () => {
     try {
       setLoading(true)
@@ -290,21 +299,20 @@ export default function ManagePaymentsPage() {
 
   const fetchBalance = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('cvnpartners_user_balances')
-        .select('balance, pending_balance')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (error) {
-        setBalance(0);
-        setPendingBalance(0);
-      } else {
-        setBalance(data?.balance ?? 0);
-        setPendingBalance(data?.pending_balance ?? 0);
+      // Fetch balance from Stripe
+      const response = await fetch('/api/stripe/balance')
+      if (!response.ok) {
+        throw new Error('Failed to fetch Stripe balance')
       }
+      const { available, pending } = await response.json()
+      
+      // Update both balances
+      setBalance(available / 100) // Convert from cents to dollars
+      setPendingBalance(pending / 100) // Convert from cents to dollars
     } catch (err) {
-      setBalance(0);
-      setPendingBalance(0);
+      console.error('Error fetching balance:', err)
+      setBalance(0)
+      setPendingBalance(0)
     }
   }
 
@@ -605,7 +613,11 @@ export default function ManagePaymentsPage() {
 
       <main className="w-full px-4 sm:px-6 lg:px-8 max-w-full md:max-w-7xl mx-auto py-6">
         {/* Stripe payout summary box */}
-        {stripeSummary && (
+        {stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled && stripeSummary &&
+          typeof stripeSummary.in_transit === 'number' &&
+          typeof stripeSummary.upcoming_payout === 'number' &&
+          typeof stripeSummary.available === 'number' &&
+          typeof stripeSummary.total === 'number' && (
           <div className="mb-6 p-4 rounded-lg border border-blue-700 bg-blue-900/10 text-blue-200">
             <div className="font-bold text-blue-300 mb-2">Stripe Payout Summary</div>
             <div className="flex flex-col gap-1 text-sm">
@@ -648,7 +660,14 @@ export default function ManagePaymentsPage() {
               <p className="text-3xl font-bold text-green-400">
                 {pendingBalance === null ? '—' : `$${Number(pendingBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </p>
-              <p className="text-sm text-gray-400 mt-1">Pending payments not yet available</p>
+              {payoutDetails && payoutDetails.next_payout && payoutDetails.next_payout_estimated_arrival ? (
+                <>
+                  <p className="text-sm text-gray-400 mt-1">Next upcoming payout (estimated): <span className="font-semibold text-white">${Number(payoutDetails.next_payout).toFixed(2)}</span></p>
+                  <p className="text-sm text-gray-400">Expected to arrive <span className="font-semibold text-white">{new Date(payoutDetails.next_payout_estimated_arrival).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span></p>
+                </>
+              ) : (
+                <p className="text-sm text-gray-400 mt-1">Pending payments not yet available</p>
+              )}
             </CardContent>
           </Card>
 
@@ -978,142 +997,69 @@ export default function ManagePaymentsPage() {
               <CardContent>
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label>Payout Methods</Label>
-                    <Tabs defaultValue="card" className="w-full">
-                      <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="card">Debit Card</TabsTrigger>
-                        <TabsTrigger value="bank">Bank Account</TabsTrigger>
-                      </TabsList>
-                      
-                      <TabsContent value="card" className="space-y-4">
-                        <div className="space-y-2">
-                          <Label className="block text-sm font-medium text-white/90">Select Debit Card</Label>
-                          <div className="space-y-2">
-                            <SavedPaymentsList />
-                          </div>
-                          <p className="text-xs text-white/70 mt-2">
-                            Instant transfers to debit cards incur a 1% fee (minimum $0.50).
-                            Funds typically arrive within 30 minutes.
-                          </p>
+                    <Label>Payout details</Label>
+                    <div className="p-4 rounded-lg border border-gray-800 bg-gray-900 flex flex-col gap-4">
+                      {loading ? (
+                        <div className="flex items-center space-x-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Loading payout details...</span>
                         </div>
-                      </TabsContent>
-
-                      <TabsContent value="bank" className="space-y-4">
-                        <div className="space-y-4">
-                          <Label className="block text-sm font-medium text-white/90">Bank Account Information</Label>
-                          <form onSubmit={handleBankSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="account_holder_name">Account Holder Name</Label>
-                              <Input
-                                id="account_holder_name"
-                                name="account_holder_name"
-                                value={bankForm.account_holder_name}
-                                onChange={handleBankFormChange}
-                                placeholder="Enter account holder name"
-                                className="bg-gray-900 border-gray-800"
-                                required
-                              />
-                            </div>
-
-                            <div className="space-y-2">
-                              <Label htmlFor="account_holder_type">Account Type</Label>
-                              <select
-                                id="account_holder_type"
-                                name="account_holder_type"
-                                value={bankForm.account_holder_type}
-                                onChange={handleBankFormChange}
-                                className="w-full px-3 py-2 bg-gray-900 border border-gray-800 rounded-md text-white"
-                                required
-                              >
-                                <option value="individual">Individual</option>
-                                <option value="company">Company</option>
-                              </select>
-                            </div>
-
-                            <div className="space-y-2">
-                              <Label htmlFor="routing_number">Routing Number</Label>
-                              <Input
-                                id="routing_number"
-                                name="routing_number"
-                                value={bankForm.routing_number}
-                                onChange={handleBankFormChange}
-                                placeholder="Enter 9-digit routing number"
-                                className="bg-gray-900 border-gray-800"
-                                maxLength={9}
-                                required
-                              />
-                            </div>
-
-                            <div className="space-y-2">
-                              <Label htmlFor="account_number">Account Number</Label>
-                              <Input
-                                id="account_number"
-                                name="account_number"
-                                type="password"
-                                value={bankForm.account_number}
-                                onChange={handleBankFormChange}
-                                placeholder="Enter account number"
-                                className="bg-gray-900 border-gray-800"
-                                required
-                              />
-                            </div>
-
-                            <div className="space-y-2">
-                              <Label htmlFor="bank_account_type">Account Type</Label>
-                              <select
-                                id="bank_account_type"
-                                name="bank_account_type"
-                                value={bankForm.bank_account_type}
-                                onChange={handleBankFormChange}
-                                className="w-full px-3 py-2 bg-gray-900 border border-gray-800 rounded-md text-white"
-                                required
-                              >
-                                <option value="checking">Checking</option>
-                                <option value="savings">Savings</option>
-                              </select>
-                            </div>
-
-                            <div className="pt-4">
-                              <Button 
-                                type="submit" 
-                                className="w-full gradient-button"
-                                disabled={submitting}
-                              >
-                                {submitting ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    Connecting Bank...
-                                  </>
-                                ) : (
-                                  <>
-                                    <LinkIcon className="w-4 h-4 mr-2" />
-                                    Connect Bank Account
-                                  </>
+                      ) : stripeSummary?.payout_destination ? (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-3">
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-white text-lg">{stripeSummary.payout_destination.bank_name} Bank</span>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-200 border border-gray-700">USD</span>
+                                {/* Show instant-eligible badge if available */}
+                                {stripeSummary.payout_destination.instant_eligible && (
+                                  <span className="text-xs px-2 py-0.5 rounded bg-green-200 text-green-800 border border-green-400 font-semibold">Instant-eligible</span>
                                 )}
-                        </Button>
-                      </div>
-
-                            {error && (
-                              <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500 text-red-400">
-                                {error}
-                              </div>
-                            )}
-
-                            <div className="mt-4 p-4 rounded-lg border border-gray-800 bg-gray-900/50">
-                              <div className="flex items-center space-x-2">
-                                <ShieldCheck className="w-5 h-5 text-green-400" />
-                                <p className="text-sm text-gray-400">
-                                  Your bank information is securely processed and stored by Stripe. We never see or store your full bank details.
-                                </p>
                               </div>
                             </div>
-                          </form>
+                            <a
+                              href="#"
+                              className="ml-auto text-blue-400 hover:underline font-medium"
+                              onClick={async (e) => {
+                                e.preventDefault();
+                                const res = await fetch('/api/stripe/connect/express-dashboard-link');
+                                const data = await res.json();
+                                if (data.url) {
+                                  window.open(data.url, '_blank');
+                                }
+                              }}
+                            >
+                              Edit
+                            </a>
+                          </div>
+                          <div className="flex items-center gap-4 mt-2">
+                            <span className="text-gray-400 text-sm">Account: ••••{stripeSummary.payout_destination.last4}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-white">No Bank Account Connected</p>
+                            <p className="text-sm text-gray-400">
+                              Connect a bank account to receive payouts
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            className="border-gray-700"
+                            onClick={async () => {
+                              const res = await fetch('/api/stripe/connect/express-dashboard-link');
+                              const data = await res.json();
+                              if (data.url) {
+                                window.open(data.url, '_blank');
+                              }
+                            }}
+                          >
+                            Connect Bank Account
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                        <p className="text-xs text-white/70 mt-2">
-                          Standard bank transfers are free and typically arrive in 2-3 business days.
-                        </p>
-                      </TabsContent>
-                    </Tabs>
                   </div>
 
                   <div className="space-y-2">
@@ -1124,7 +1070,17 @@ export default function ManagePaymentsPage() {
                           <p className="font-medium text-white">Automatic</p>
                           <p className="text-sm text-gray-400">Payouts processed when balance exceeds $1,000</p>
                         </div>
-                        <Button variant="outline" className="border-gray-700">
+                        <Button
+                          variant="outline"
+                          className="border-gray-700"
+                          onClick={async () => {
+                            const res = await fetch('/api/stripe/connect/express-dashboard-link');
+                            const data = await res.json();
+                            if (data.url) {
+                              window.open(data.url, '_blank');
+                            }
+                          }}
+                        >
                           Edit Schedule
                         </Button>
                       </div>
@@ -1139,7 +1095,17 @@ export default function ManagePaymentsPage() {
                           <p className="font-medium text-white">W-9 Form Required</p>
                           <p className="text-sm text-gray-400">Submit your W-9 form for tax purposes</p>
                         </div>
-                        <Button variant="outline" className="border-gray-700">
+                        <Button
+                          variant="outline"
+                          className="border-gray-700"
+                          onClick={async () => {
+                            const res = await fetch('/api/stripe/connect/express-dashboard-link');
+                            const data = await res.json();
+                            if (data.url) {
+                              window.open(data.url, '_blank');
+                            }
+                          }}
+                        >
                           Submit Form
                         </Button>
                       </div>

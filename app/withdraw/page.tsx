@@ -290,27 +290,27 @@ export default function PaymentsPage() {
       );
     }
 
-    return (
+        return (
       <div className="space-y-4">
-        <div className="space-y-2">
+            <div className="space-y-2">
           <Label className="block text-sm font-medium text-white/90">Bank Account</Label>
           <div className="p-4 rounded-lg border border-gray-700 bg-gray-800/50">
-            <div className="flex items-center space-x-3">
-              <LinkIcon className="h-5 w-5 text-gray-400" />
-              <div>
-                <p className="font-medium text-white">
+                        <div className="flex items-center space-x-3">
+                          <LinkIcon className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="font-medium text-white">
                   {externalAccount?.bank_name || 'Bank'} •••• {externalAccount?.last4 || '----'}
-                </p>
-                <p className="text-sm text-gray-400">
+                            </p>
+                            <p className="text-sm text-gray-400">
                   Funds will be sent to your connected bank account
-                </p>
-              </div>
-            </div>
+            </p>
           </div>
-          <p className="text-xs text-white/70 mt-2">
+                        </div>
+              </div>
+            <p className="text-xs text-white/70 mt-2">
             Standard bank transfers typically arrive in 2-3 business days.
-          </p>
-        </div>
+            </p>
+          </div>
       </div>
     );
   };
