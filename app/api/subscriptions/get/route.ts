@@ -44,7 +44,7 @@ export async function GET() {
       subscription: {
         id: subscription.id,
         status: subscription.status,
-        current_period_end: (subscription as any).current_period_end || null,
+        current_period_end: typeof (subscription as any).current_period_end === 'number' ? (subscription as any).current_period_end : null,
         cancel_at_period_end: subscription.cancel_at_period_end,
         tier_name: product.name,
         price_id: subscription.items.data[0].price.id,

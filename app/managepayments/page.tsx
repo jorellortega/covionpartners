@@ -666,7 +666,7 @@ export default function ManagePaymentsPage() {
                   <p className="text-sm text-gray-400">Expected to arrive <span className="font-semibold text-white">{new Date(payoutDetails.next_payout_estimated_arrival).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span></p>
                 </>
               ) : (
-                <p className="text-sm text-gray-400 mt-1">Pending payments not yet available</p>
+              <p className="text-sm text-gray-400 mt-1">Pending payments not yet available</p>
               )}
             </CardContent>
           </Card>
@@ -965,7 +965,16 @@ export default function ManagePaymentsPage() {
                         <div className="text-right">
                           <p className="text-sm text-gray-400">Next billing</p>
                           <p className="text-white">
-                          {subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toLocaleDateString() : 'N/A'}
+                            {(() => {
+                              console.log('Subscription object:', subscription); // Debug log
+                              if (subscription.current_period_end) {
+                                return new Date(subscription.current_period_end * 1000).toLocaleDateString();
+                              }
+                              if (subscription.status === 'active') {
+                                return 'Pending';
+                              }
+                              return 'N/A';
+                            })()}
                           </p>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -1003,7 +1012,7 @@ export default function ManagePaymentsPage() {
                         <div className="flex items-center space-x-2">
                           <Loader2 className="w-4 h-4 animate-spin" />
                           <span>Loading payout details...</span>
-                        </div>
+                          </div>
                       ) : stripeSummary?.payout_destination ? (
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center gap-3">
@@ -1015,7 +1024,7 @@ export default function ManagePaymentsPage() {
                                 {stripeSummary.payout_destination.instant_eligible && (
                                   <span className="text-xs px-2 py-0.5 rounded bg-green-200 text-green-800 border border-green-400 font-semibold">Instant-eligible</span>
                                 )}
-                              </div>
+                        </div>
                             </div>
                             <a
                               href="#"
@@ -1031,11 +1040,11 @@ export default function ManagePaymentsPage() {
                             >
                               Edit
                             </a>
-                          </div>
+                            </div>
                           <div className="flex items-center gap-4 mt-2">
                             <span className="text-gray-400 text-sm">Account: ••••{stripeSummary.payout_destination.last4}</span>
-                          </div>
-                        </div>
+                            </div>
+                            </div>
                       ) : (
                         <div className="flex items-center justify-between">
                           <div>
@@ -1043,8 +1052,8 @@ export default function ManagePaymentsPage() {
                             <p className="text-sm text-gray-400">
                               Connect a bank account to receive payouts
                             </p>
-                          </div>
-                          <Button
+                            </div>
+                              <Button 
                             variant="outline"
                             className="border-gray-700"
                             onClick={async () => {
@@ -1055,11 +1064,11 @@ export default function ManagePaymentsPage() {
                               }
                             }}
                           >
-                            Connect Bank Account
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+                                    Connect Bank Account
+                        </Button>
+                              </div>
+                            )}
+                              </div>
                   </div>
 
                   <div className="space-y-2">
