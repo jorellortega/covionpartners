@@ -40,11 +40,24 @@ export async function GET() {
     // Get the product details for the subscription
     const product = await stripe.products.retrieve(subscription.items.data[0].price.product as string);
 
+    // Extract current_period_end from the correct location
+    let currentPeriodEnd = null;
+    if (typeof (subscription as any).current_period_end === 'number') {
+      currentPeriodEnd = (subscription as any).current_period_end;
+    } else if (
+      subscription.items &&
+      subscription.items.data &&
+      subscription.items.data.length > 0 &&
+      typeof subscription.items.data[0].current_period_end === 'number'
+    ) {
+      currentPeriodEnd = subscription.items.data[0].current_period_end;
+    }
+
     return NextResponse.json({
       subscription: {
         id: subscription.id,
         status: subscription.status,
-        current_period_end: typeof (subscription as any).current_period_end === 'number' ? (subscription as any).current_period_end : null,
+        current_period_end: currentPeriodEnd,
         cancel_at_period_end: subscription.cancel_at_period_end,
         tier_name: product.name,
         price_id: subscription.items.data[0].price.id,
