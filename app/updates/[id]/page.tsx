@@ -169,7 +169,7 @@ export default function UpdateDetailsPage() {
         .from('documents')
         .select('*')
         .eq('update_id', params.id)
-      
+        
       console.log('UpdateDetailsPage: Documents fetch result:', { documentsData, documentsError })
       if (documentsError) throw documentsError
 

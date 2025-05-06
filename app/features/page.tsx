@@ -279,9 +279,13 @@ function FeaturesContent() {
           ))}
         </div>
         <Tabs value={activeTabState} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="flex flex-wrap gap-2 justify-center mb-6">
+          <TabsList className="flex flex-wrap gap-2 justify-center mb-6 p-1">
             {features.map((f) => (
-              <TabsTrigger key={f.key} value={f.key} className="flex items-center justify-center">
+              <TabsTrigger 
+                key={f.key} 
+                value={f.key} 
+                className="flex items-center justify-center p-2 sm:p-3 min-w-[40px] sm:min-w-[48px] h-[40px] sm:h-[48px] rounded-lg"
+              >
                 {f.icon}
               </TabsTrigger>
             ))}
