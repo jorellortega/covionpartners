@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, useRef } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -47,6 +47,10 @@ interface ProjectOwnerResponse {
 export default function NewMessagePage() {
   const router = useRouter()
   const { user } = useAuth()
+  const searchParams = useSearchParams();
+  const replyToId = searchParams.get('reply_to');
+  const projectIdParam = searchParams.get('project_id');
+  const receiverIdParam = searchParams.get('receiver_id');
   const [projects, setProjects] = useState<Project[]>([])
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(false)
@@ -58,21 +62,81 @@ export default function NewMessagePage() {
     content: ""
   })
   const [error, setError] = useState<string | null>(null)
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null)
+  const [linkUrl, setLinkUrl] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [parentMessage, setParentMessage] = useState<any>(null);
+  const [parentId, setParentId] = useState<string | null>(null);
+  const [parentProject, setParentProject] = useState<any>(null);
+  const [parentRecipient, setParentRecipient] = useState<any>(null);
 
   useEffect(() => {
     console.log('Fetching projects for user:', user?.id)
     if (user) {
       fetchProjects()
     }
-  }, [user])
+    // If replying, fetch the original message
+    if (replyToId && user) {
+      (async () => {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('id', replyToId)
+          .single();
+        if (!error && data) {
+          setParentMessage(data);
+          setParentId(data.id);
+          setFormData(prev => ({
+            ...prev,
+            project_id: data.project_id || projectIdParam || "",
+            receiver_id: user.id === data.sender_id ? data.receiver_id : data.sender_id || receiverIdParam || "",
+            subject: data.subject?.startsWith('Re:') ? data.subject : `Re: ${data.subject}`
+          }));
+          // Fetch project info
+          if (data.project_id) {
+            const { data: projectData } = await supabase
+              .from('projects')
+              .select('id, name')
+              .eq('id', data.project_id)
+              .single();
+            setParentProject(projectData);
+          }
+          // Fetch recipient info
+          const recipientId = user.id === data.sender_id ? data.receiver_id : data.sender_id;
+          const { data: recipientData } = await supabase
+            .from('users')
+            .select('id, name, email')
+            .eq('id', recipientId)
+            .single();
+          setParentRecipient(recipientData);
+        }
+      })();
+    } else if (projectIdParam || receiverIdParam) {
+      setFormData(prev => ({
+        ...prev,
+        project_id: projectIdParam || prev.project_id,
+        receiver_id: receiverIdParam || prev.receiver_id
+      }));
+    }
+  }, [user, replyToId, projectIdParam, receiverIdParam])
 
   useEffect(() => {
-    if (formData.project_id) {
+    if (replyToId && parentProject && parentRecipient) {
+      setFormData(prev => ({
+        ...prev,
+        project_id: parentProject.id,
+        receiver_id: parentRecipient.id
+      }))
+    }
+  }, [replyToId, parentProject, parentRecipient])
+
+  useEffect(() => {
+    if (formData.project_id && !replyToId) {
       fetchTeamMembers(formData.project_id)
-    } else {
+    } else if (!formData.project_id) {
       setTeamMembers([])
     }
-  }, [formData.project_id])
+  }, [formData.project_id, replyToId])
 
   const fetchProjects = async () => {
     if (!user) return
@@ -242,6 +306,32 @@ export default function NewMessagePage() {
     }
   }
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    const fileExt = file.name.split('.').pop()
+    const filePath = `messages-attachments/${user.id}/${Date.now()}.${fileExt}`
+    const { data, error } = await supabase.storage.from('partnerfiles').upload(filePath, file)
+    if (error) {
+      toast.error('Failed to upload attachment')
+      return
+    }
+    const { data: publicUrlData } = supabase.storage.from('partnerfiles').getPublicUrl(filePath)
+    setAttachmentUrl(publicUrlData.publicUrl)
+    toast.success('Attachment uploaded')
+  }
+
+  const handleAddLink = () => {
+    let url = prompt('Enter a link (e.g. https://example.com or www.example.com)')
+    if (url) {
+      url = url.trim()
+      if (!url.startsWith('http')) {
+        url = 'https://' + url
+      }
+      setLinkUrl(url)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -258,7 +348,11 @@ export default function NewMessagePage() {
           sender_id: user?.id,
           receiver_id: formData.receiver_id,
           subject: formData.subject.trim(),
-          content: formData.content.trim()
+          content: formData.content.trim(),
+          attachment_url: attachmentUrl,
+          link_url: linkUrl,
+          parent_id: parentId,
+          project_id: formData.project_id
         }])
 
       if (error) throw error
@@ -297,43 +391,53 @@ export default function NewMessagePage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-200">Project:</label>
-                <Select
-                  value={formData.project_id}
-                  onValueChange={(value) => {
-                    setFormData(prev => ({ ...prev, project_id: value, receiver_id: "" }))
-                  }}
-                >
-                  <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-white">
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {replyToId && parentProject ? (
+                  <div className="w-full bg-gray-800 border border-gray-700 text-white rounded px-3 py-2">{parentProject.name}</div>
+                ) : (
+                  <Select
+                    value={formData.project_id}
+                    onValueChange={(value) => {
+                      setFormData(prev => ({ ...prev, project_id: value, receiver_id: "" }))
+                    }}
+                  >
+                    <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-white">
+                      <SelectValue placeholder="Select project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-200">To:</label>
-                <Select
-                  value={formData.receiver_id}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, receiver_id: value }))}
-                  disabled={!formData.project_id}
-                >
-                  <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-white">
-                    <SelectValue placeholder={formData.project_id ? "Select recipient" : "Select a project first"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teamMembers.map((member) => (
-                      <SelectItem key={member.user_id} value={member.user_id}>
-                        {member.user.name || 'Unnamed User'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {replyToId && parentRecipient ? (
+                  <div className="w-full bg-gray-800 border border-gray-700 text-white rounded px-3 py-2">
+                    {parentRecipient.name} <span className="text-xs text-gray-400">({parentRecipient.email})</span>
+                  </div>
+                ) : (
+                  <Select
+                    value={formData.receiver_id}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, receiver_id: value }))}
+                    disabled={!formData.project_id}
+                  >
+                    <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-white">
+                      <SelectValue placeholder={formData.project_id ? "Select recipient" : "Select a project first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamMembers.map((member) => (
+                        <SelectItem key={member.user_id} value={member.user_id}>
+                          {member.user.name || 'Unnamed User'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -343,6 +447,7 @@ export default function NewMessagePage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
                   placeholder="Enter subject"
                   className="bg-gray-800 border-gray-700 text-white"
+                  disabled={!!replyToId}
                 />
               </div>
 
@@ -354,6 +459,35 @@ export default function NewMessagePage() {
                   placeholder="Type your message here..."
                   className="min-h-[200px] bg-gray-800 border-gray-700 text-white"
                 />
+              </div>
+
+              <div className="flex gap-2 items-center">
+                <button
+                  type="button"
+                  className="px-3 py-1 rounded border border-blue-500 text-blue-300 font-medium bg-transparent hover:bg-blue-500/10 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Attach File
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <button
+                  type="button"
+                  className="px-3 py-1 rounded border border-green-500 text-green-300 font-medium bg-transparent hover:bg-green-500/10 transition-colors"
+                  onClick={handleAddLink}
+                >
+                  Add Link
+                </button>
+                {attachmentUrl && (
+                  <span className="ml-2 text-xs text-blue-400">Attachment added</span>
+                )}
+                {linkUrl && (
+                  <span className="ml-2 text-xs text-green-400">Link added</span>
+                )}
               </div>
 
               <div className="pt-4">
