@@ -18,6 +18,8 @@ export interface TeamMember {
   created_at: string
   updated_at: string
   user?: User
+  position?: string
+  access_level?: number
 }
 
 export interface Project {

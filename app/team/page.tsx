@@ -63,6 +63,10 @@ export default function TeamPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deletingMember, setDeletingMember] = useState<TeamMemberWithUser | null>(null)
   const [newRole, setNewRole] = useState("")
+  const [newAccessLevel, setNewAccessLevel] = useState('1')
+  const [newPosition, setNewPosition] = useState('')
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [newMember, setNewMember] = useState({ name: '', email: '', position: '', access_level: '1' })
 
   useEffect(() => {
     if (authLoading) return
@@ -302,6 +306,8 @@ export default function TeamPage() {
   const handleEditMember = (member: TeamMemberWithUser) => {
     setEditingMember(member)
     setNewRole(member.role)
+    setNewAccessLevel(member.access_level || '1')
+    setNewPosition(member.position || '')
     setShowEditDialog(true)
   }
 
@@ -316,18 +322,18 @@ export default function TeamPage() {
     try {
       const { error } = await supabase
         .from('team_members')
-        .update({ role: newRole })
+        .update({ role: newRole, access_level: newAccessLevel, position: newPosition })
         .eq('id', editingMember.id)
         .eq('project_id', selectedProject)
 
       if (error) throw error
 
-      toast.success('Team member role updated successfully')
+      toast.success('Team member updated successfully')
       setShowEditDialog(false)
       fetchProjectTeamMembers() // Refresh the list
     } catch (error) {
       console.error('Error updating team member:', error)
-      toast.error('Failed to update team member role')
+      toast.error('Failed to update team member')
     }
   }
 
@@ -390,6 +396,10 @@ export default function TeamPage() {
             Invite Member
           </Button>
         </div>
+
+        <Button className="mb-4" onClick={() => setIsCreateDialogOpen(true)}>
+          Create Member
+        </Button>
 
         <Card className="leonardo-card border-gray-800 mb-6">
           <CardContent className="p-4 sm:p-6">
@@ -484,12 +494,14 @@ export default function TeamPage() {
                         <p className="text-sm font-medium text-white truncate">
                           {member.user.name || 'Unknown User'}
                         </p>
-                        <Badge 
-                          variant={member.status === 'active' ? 'default' : 'secondary'}
-                          className="mt-1"
-                        >
-                          {member.role}
-                        </Badge>
+                        {member.position && (
+                          <Badge variant={member.status === 'active' ? 'default' : 'secondary'} className="mt-1">
+                            {member.position}
+                          </Badge>
+                        )}
+                        {member.access_level && (
+                          <p className="text-xs text-gray-400">Access Level: {member.access_level}</p>
+                        )}
                         <div className="mt-2 flex flex-col space-y-1">
                           <a
                             href={`mailto:${member.user.email}`}
@@ -535,23 +547,37 @@ export default function TeamPage() {
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Team Member Role</DialogTitle>
+            <DialogTitle>Edit Team Member</DialogTitle>
             <DialogDescription>
-              Update the role for {editingMember?.user.name}
+              Update the details for {editingMember?.user.name}
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="role">Role</Label>
-            <Select value={newRole} onValueChange={setNewRole}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="member">Member</SelectItem>
-                <SelectItem value="viewer">Viewer</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="py-4 space-y-4">
+            <div>
+              <Label htmlFor="access_level">Access Level</Label>
+              <Select value={newAccessLevel} onValueChange={setNewAccessLevel}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select access level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
+                  <SelectItem value="3">3</SelectItem>
+                  <SelectItem value="4">4</SelectItem>
+                  <SelectItem value="5">5</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="position">Position</Label>
+              <Input
+                id="position"
+                type="text"
+                placeholder="e.g. Designer, Lead Developer"
+                value={newPosition}
+                onChange={e => setNewPosition(e.target.value)}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>
@@ -584,6 +610,49 @@ export default function TeamPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create Member Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create New Member</DialogTitle>
+            <DialogDescription>Fill in the details to create a new team member.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" value={newMember.name} onChange={e => setNewMember(prev => ({ ...prev, name: e.target.value }))} placeholder="Full Name" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" value={newMember.email} onChange={e => setNewMember(prev => ({ ...prev, email: e.target.value }))} placeholder="Email Address" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="position">Position</Label>
+              <Input id="position" value={newMember.position} onChange={e => setNewMember(prev => ({ ...prev, position: e.target.value }))} placeholder="e.g. Developer" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="access_level">Access Level</Label>
+              <Select value={newMember.access_level} onValueChange={val => setNewMember(prev => ({ ...prev, access_level: val }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select access level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
+                  <SelectItem value="3">3</SelectItem>
+                  <SelectItem value="4">4</SelectItem>
+                  <SelectItem value="5">5</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => {/* TODO: Add create logic */}} className="gradient-button">Create</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 

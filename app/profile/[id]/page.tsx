@@ -39,6 +39,15 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog"
 
 interface MediaItem {
   id: number
@@ -317,9 +326,72 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                       </a>
                     )}
                   </div>
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700" disabled>
-                    Contact
-                  </Button>
+                  <div className="flex gap-2 mb-4">
+                    {/* Message User Dialog */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">Message User</Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Send a Message</DialogTitle>
+                          <DialogDescription>Send a direct message to this user.</DialogDescription>
+                        </DialogHeader>
+                        <form
+                          onSubmit={e => {
+                            e.preventDefault();
+                            toast.success('Message sent!');
+                          }}
+                          className="space-y-4"
+                        >
+                          <div>
+                            <label className="block text-sm text-gray-300 mb-1">Subject</label>
+                            <input type="text" className="w-full rounded bg-gray-800 border border-gray-700 px-3 py-2 text-white" required />
+                          </div>
+                          <div>
+                            <label className="block text-sm text-gray-300 mb-1">Message</label>
+                            <textarea className="w-full rounded bg-gray-800 border border-gray-700 px-3 py-2 text-white" rows={4} required />
+                          </div>
+                          <DialogFooter>
+                            <Button type="submit" className="gradient-button w-full">Send Message</Button>
+                          </DialogFooter>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                    {/* Invite to Project Dialog */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">Invite to Project</Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Invite to Project</DialogTitle>
+                          <DialogDescription>Select a project to invite this user to join.</DialogDescription>
+                        </DialogHeader>
+                        {/* For now, just a placeholder select. You can wire this up to your projects. */}
+                        <form
+                          onSubmit={e => {
+                            e.preventDefault();
+                            toast.success('Invitation sent!');
+                          }}
+                          className="space-y-4"
+                        >
+                          <div>
+                            <label className="block text-sm text-gray-300 mb-1">Project</label>
+                            <select className="w-full rounded bg-gray-800 border border-gray-700 px-3 py-2 text-white" required>
+                              <option value="">Select a project</option>
+                              {/* TODO: Map over user's projects here */}
+                              <option value="demo-project">Demo Project</option>
+                            </select>
+                          </div>
+                          <DialogFooter>
+                            <Button type="submit" className="gradient-button w-full">Send Invite</Button>
+                          </DialogFooter>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  <Button variant="outline" size="sm" disabled>Contact</Button>
                 </div>
               </CardContent>
             </Card>

@@ -578,6 +578,9 @@ export default function ProjectDetails() {
     description: ''
   })
   const [selectedImage, setSelectedImage] = useState<number>(0)
+  // --- Edit Team Member Dialog State ---
+  const [editPosition, setEditPosition] = useState('');
+  const [editAccessLevel, setEditAccessLevel] = useState('1');
 
   useEffect(() => {
     refreshTeamMembers()
@@ -785,7 +788,8 @@ export default function ProjectDetails() {
 
   const handleEditMember = (member: TeamMemberWithUser) => {
     setSelectedMember(member)
-    setSelectedRole(member.role)
+    setEditPosition(member.position || '')
+    setEditAccessLevel(member.access_level ? String(member.access_level) : '1')
     setIsEditDialogOpen(true)
   }
 
@@ -1488,28 +1492,24 @@ export default function ProjectDetails() {
   };
 
   const handleUpdateMember = async () => {
-    if (!selectedMember || !selectedRole) return
-
+    if (!selectedMember) return
     try {
       const { error } = await supabase
         .from('team_members')
-        .update({ role: selectedRole })
+        .update({ position: editPosition, access_level: editAccessLevel })
         .eq('id', selectedMember.id)
-
       if (error) throw error
-
-      // Update local state
       setTeamMembers(prev => prev.map(member =>
-        member.id === selectedMember.id ? { ...member, role: selectedRole } : member
+        member.id === selectedMember.id ? { ...member, position: editPosition, access_level: editAccessLevel } : member
       ))
-
       setIsEditDialogOpen(false)
       setSelectedMember(null)
-      setSelectedRole('')
-      toast.success('Team member role updated successfully')
+      setEditPosition('')
+      setEditAccessLevel('1')
+      toast.success('Team member updated successfully')
     } catch (error) {
       console.error('Error updating team member:', error)
-      toast.error('Failed to update team member role')
+      toast.error('Failed to update team member')
     }
   }
 
@@ -2029,7 +2029,12 @@ export default function ProjectDetails() {
                                     </div>
                                     <div>
                                       <h4 className="font-medium text-white">{member.user?.name || member.user?.email}</h4>
-                                      <p className="text-sm text-gray-400">{member.role}</p>
+                                      {member.position && (
+                                        <Badge variant="default" className="mt-1">{member.position}</Badge>
+                                      )}
+                                      {member.access_level && (
+                                        <p className="text-xs text-gray-400">Access Level: {member.access_level}</p>
+                                      )}
                                       </div>
                                       </div>
                                   {user?.role !== 'viewer' && user?.role !== 'investor' && (
@@ -2517,7 +2522,12 @@ export default function ProjectDetails() {
                 </div>
                           <div>
                             <h4 className="font-medium text-white">{member.user?.name || member.user?.email}</h4>
-                            <p className="text-sm text-gray-400">{member.role}</p>
+                            {member.position && (
+                              <Badge variant="default" className="mt-1">{member.position}</Badge>
+                            )}
+                            {member.access_level && (
+                              <p className="text-xs text-gray-400">Access Level: {member.access_level}</p>
+                            )}
               </div>
             </div>
                         {user?.role !== 'viewer' && user?.role !== 'investor' && (
@@ -3293,26 +3303,36 @@ export default function ProjectDetails() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Edit Team Member Role</DialogTitle>
+            <DialogTitle>Edit Team Member</DialogTitle>
             <DialogDescription>
-              Change the role for {selectedMember?.user?.name || selectedMember?.user?.email}
+              Update details for {selectedMember?.user?.name || selectedMember?.user?.email}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="role">Role</Label>
+              <Label htmlFor="position">Position</Label>
+              <Input
+                id="position"
+                value={editPosition}
+                onChange={e => setEditPosition(e.target.value)}
+                placeholder="e.g. Senior Developer"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="access_level">Access Level</Label>
               <Select
-                value={selectedRole}
-                onValueChange={setSelectedRole}
+                value={editAccessLevel}
+                onValueChange={setEditAccessLevel}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a role" />
+                  <SelectValue placeholder="Select access level" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="lead">Lead</SelectItem>
-                  <SelectItem value="member">Member</SelectItem>
-                  <SelectItem value="advisor">Advisor</SelectItem>
-                  <SelectItem value="consultant">Consultant</SelectItem>
+                  <SelectItem value="1">1</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
+                  <SelectItem value="3">3</SelectItem>
+                  <SelectItem value="4">4</SelectItem>
+                  <SelectItem value="5">5</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -3323,7 +3343,8 @@ export default function ProjectDetails() {
               onClick={() => {
                 setIsEditDialogOpen(false)
                 setSelectedMember(null)
-                setSelectedRole('')
+                setEditPosition('')
+                setEditAccessLevel('1')
               }}
             >
               Cancel

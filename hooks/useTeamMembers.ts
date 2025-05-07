@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { TeamMember, User } from '@/types'
+import { TeamMember } from '../types'
+import { User } from '@/types'
 
 export interface TeamMemberWithUser extends TeamMember {
   user: User

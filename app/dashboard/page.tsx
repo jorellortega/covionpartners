@@ -833,12 +833,12 @@ export default function PartnerDashboard() {
                       variant="ghost" 
                       size="icon" 
                       className="hover:bg-green-500/20 hover:text-green-400"
-                      onClick={() => router.push('/payments')}
+                      onClick={() => router.push('/withdraw')}
                     >
                       <DollarSign className="w-5 h-5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Payments</TooltipContent>
+                  <TooltipContent>Withdraw</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
@@ -1152,6 +1152,12 @@ export default function PartnerDashboard() {
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
                       <DollarSign className="w-4 h-4 mr-2" />
                       Pay
+                    </Button>
+                  </Link>
+                  <Link href="/project/invest">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-yellow-900/20 hover:text-yellow-400">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Investment Settings
                     </Button>
                   </Link>
                   <Link href="/payments">

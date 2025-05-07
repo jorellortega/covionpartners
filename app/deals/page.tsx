@@ -140,6 +140,7 @@ export default function DealsPage() {
                   <div
                     key={deal.id}
                     className="p-4 bg-gray-800/30 rounded-lg border border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer"
+                    onClick={() => router.push(`/deals/${deal.id}`)}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -204,7 +205,7 @@ export default function DealsPage() {
                         >
                           {deal.status}
                         </Badge>
-                        <Button size="icon" variant="outline" className="border-gray-700" onClick={() => router.push(`/deals/${deal.id}`)} title="Edit">
+                        <Button size="icon" variant="outline" className="border-gray-700" title="Edit">
                           <Pencil className="w-4 h-4" />
                         </Button>
                         <Button size="icon" variant="destructive" onClick={() => handleDelete(deal.id)} disabled={updatingId === deal.id} title="Delete">
