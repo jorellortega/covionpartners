@@ -52,6 +52,7 @@ export default function MessagePage({ params }: { params: { id: string } }) {
   const { id } = paramsObj;
   const [message, setMessage] = useState<Message | null>(null)
   const [parentMessage, setParentMessage] = useState<Message | null>(null)
+  const [threadMessages, setThreadMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState({
@@ -62,6 +63,8 @@ export default function MessagePage({ params }: { params: { id: string } }) {
   const [linkUrl, setLinkUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [project, setProject] = useState<any>(null)
+  const [isReplying, setIsReplying] = useState(false)
+  const [replyContent, setReplyContent] = useState("")
 
   useEffect(() => {
     if (user) {
@@ -133,35 +136,50 @@ export default function MessagePage({ params }: { params: { id: string } }) {
         }
       }
 
-      // If this message is a reply (has a parent_id), fetch the parent message
-      if (messageData.parent_id) {
-        const { data: parentData, error: parentError } = await supabase
+      // Find the root message of the thread
+      let rootMessageId = messageData.id
+      let currentMessage = messageData
+      while (currentMessage.parent_id) {
+        const { data: parentData } = await supabase
           .from('messages')
           .select('*')
-          .eq('id', messageData.parent_id)
+          .eq('id', currentMessage.parent_id)
           .single()
+        if (!parentData) break
+        rootMessageId = parentData.id
+        currentMessage = parentData
+      }
 
-        if (parentError) {
-          console.error('Error fetching parent message:', parentError)
-        } else {
-          // Fetch user details for parent message
-          const parentUserIds = new Set<string>([parentData.sender_id, parentData.receiver_id])
-          const { data: parentUsersData, error: parentUsersError } = await supabase
-            .from('users')
-            .select('id, name, email')
-            .in('id', Array.from(parentUserIds))
+      // Fetch all messages in the thread (root message and all replies)
+      const { data: threadData, error: threadError } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`id.eq.${rootMessageId},parent_id.eq.${rootMessageId}`)
+        .order('created_at', { ascending: true })
 
-          if (parentUsersError) {
-            console.error('Error fetching parent message users:', parentUsersError)
-          } else {
-            const parentUsersMap = new Map(parentUsersData?.map(user => [user.id, user]))
-            const parentMessageWithUsers = {
-              ...parentData,
-              sender: parentUsersMap.get(parentData.sender_id) || null,
-              receiver: parentUsersMap.get(parentData.receiver_id) || null
-            }
-            setParentMessage(parentMessageWithUsers)
-          }
+      if (threadError) {
+        console.error('Error fetching thread messages:', threadError)
+      } else if (threadData) {
+        // Fetch user details for all messages in thread
+        const threadUserIds = new Set<string>()
+        threadData.forEach(msg => {
+          threadUserIds.add(msg.sender_id)
+          threadUserIds.add(msg.receiver_id)
+        })
+
+        const { data: threadUsersData } = await supabase
+          .from('users')
+          .select('id, name, email')
+          .in('id', Array.from(threadUserIds))
+
+        if (threadUsersData) {
+          const threadUsersMap = new Map(threadUsersData.map(user => [user.id, user]))
+          const threadMessagesWithUsers = threadData.map(msg => ({
+            ...msg,
+            sender: threadUsersMap.get(msg.sender_id) || null,
+            receiver: threadUsersMap.get(msg.receiver_id) || null
+          }))
+          setThreadMessages(threadMessagesWithUsers)
         }
       }
     } catch (error) {
@@ -236,10 +254,63 @@ export default function MessagePage({ params }: { params: { id: string } }) {
 
   const handleReply = () => {
     if (!message || !user) return
-    // Determine the recipient: if current user is sender, reply goes to receiver, else to sender
-    const recipientId = user.id === message.sender_id ? message.receiver_id : message.sender_id
-    // Pass project_id and receiver_id as query params
-    router.push(`/messages/new?reply_to=${message.id}&project_id=${message.project_id || ''}&receiver_id=${recipientId}`)
+    setIsReplying(true)
+  }
+
+  const handleCancelReply = () => {
+    setIsReplying(false)
+    setReplyContent("")
+  }
+
+  const handleSendReply = async () => {
+    if (!message || !user || !replyContent.trim()) return
+    
+    try {
+      // Determine the recipient: if current user is sender, reply goes to receiver, else to sender
+      const recipientId = user.id === message.sender_id ? message.receiver_id : message.sender_id
+      
+      // Create a new message in the thread
+      const { data: newMessage, error } = await supabase
+        .from('messages')
+        .insert([{
+          sender_id: user.id,
+          receiver_id: recipientId,
+          subject: message.subject,
+          content: replyContent.trim(),
+          parent_id: message.id,
+          project_id: message.project_id
+        }])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Add the new message to the thread immediately
+      if (newMessage) {
+        // Fetch the user details for the new message
+        const { data: userData } = await supabase
+          .from('users')
+          .select('id, name, email')
+          .in('id', [user.id, recipientId])
+
+        if (userData) {
+          const usersMap = new Map(userData.map(u => [u.id, u]))
+          const messageWithUsers = {
+            ...newMessage,
+            sender: usersMap.get(user.id) || null,
+            receiver: usersMap.get(recipientId) || null
+          }
+          setThreadMessages(prev => [...prev, messageWithUsers])
+        }
+      }
+
+      setIsReplying(false)
+      setReplyContent("")
+      toast.success('Reply sent successfully')
+    } catch (error) {
+      console.error('Error sending reply:', error)
+      toast.error('Failed to send reply')
+    }
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -305,11 +376,8 @@ export default function MessagePage({ params }: { params: { id: string } }) {
               <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Back</span>
             </Button>
-            <h1 className="text-xl sm:text-3xl font-bold text-white flex flex-col sm:flex-row sm:items-center gap-2">
-              <span>Message Details</span>
-              <span className="text-base sm:text-xl font-normal text-gray-300 truncate max-w-xs sm:max-w-md" title={message.subject}>
-                {message.subject}
-              </span>
+            <h1 className="text-xl sm:text-3xl font-bold text-white">
+              Message Details
             </h1>
           </div>
           <div className="flex items-center gap-2">
@@ -350,185 +418,47 @@ export default function MessagePage({ params }: { params: { id: string } }) {
       </header>
 
       <main className="w-full px-3 sm:px-6 max-w-full md:max-w-3xl mx-auto py-4 sm:py-6">
-        {parentMessage && (
-          <Card className="border border-gray-800/50 bg-gradient-to-b from-gray-900/90 to-gray-900/50 mb-6 shadow-xl rounded-xl overflow-hidden hover:border-gray-700/50 transition-all duration-200">
-            <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 px-1 py-0.5">
-              <span className="text-xs font-medium text-gray-400 ml-4">Original Message</span>
+        {threadMessages.map((threadMessage, index) => (
+          <Card 
+            key={threadMessage.id} 
+            className={`border border-gray-800/50 bg-gradient-to-b from-gray-900/90 to-gray-900/50 shadow-xl rounded-xl overflow-hidden hover:border-gray-700/50 transition-all duration-200 ${index < threadMessages.length - 1 ? 'mb-6' : ''}`}
+          >
+            <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-1 py-0.5 flex items-center justify-between">
+              <span className="text-base sm:text-lg font-semibold text-gray-200 ml-4 truncate max-w-xs sm:max-w-md" title={threadMessage.subject}>
+                {threadMessage.subject}
+              </span>
+              {project && (
+                <span
+                  className="text-sm font-medium text-blue-300 mr-4 cursor-pointer transition-opacity duration-150"
+                  style={{ opacity: 0.15 }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '0.15')}
+                  onClick={() => router.push(`/projects/${project.id}`)}
+                >
+                  Project: {project.name}
+                </span>
+              )}
             </div>
             <CardContent className="p-5 sm:p-7">
               <div className="space-y-6">
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold text-white">{parentMessage.subject}</h2>
-                    <span className="text-sm text-gray-400">
-                      {new Date(parentMessage.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-gray-900/30 rounded-lg p-3">
-                    {parentMessage.sender_id === user?.id ? (
-                      <>
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center ring-2 ring-purple-500/20">
-                          <span className="text-white text-sm font-medium">
-                            {parentMessage.sender?.name?.split(' ').map(n => n[0]).join('') || '?'}
-                          </span>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-3 min-w-[200px]">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500/50 to-purple-500/50 flex items-center justify-center">
-                          <span className="text-white text-sm font-medium">
-                            {parentMessage.sender?.name?.split(' ').map(n => n[0]).join('') || '?'}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-white font-medium opacity-75 hover:opacity-100 transition-opacity duration-150">From</p>
-                          <p className="text-sm text-gray-300 opacity-75 hover:opacity-100 transition-opacity duration-150">{parentMessage.sender?.name || 'Unknown'}</p>
-                          <p className="text-xs text-gray-400 opacity-75 hover:opacity-100 transition-opacity duration-150">{parentMessage.sender?.email}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-800/50 pt-6">
-                  <div className="prose prose-invert max-w-none">
-                    <p className="whitespace-pre-wrap text-white text-xl leading-relaxed font-normal">
-                      {parentMessage.content}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card className="border border-gray-800/50 bg-gradient-to-b from-gray-900/90 to-gray-900/50 shadow-xl rounded-xl overflow-hidden hover:border-gray-700/50 transition-all duration-200">
-          <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-1 py-0.5 flex items-center justify-between">
-            <span className="text-base sm:text-lg font-semibold text-gray-200 ml-4 truncate max-w-xs sm:max-w-md" title={message.subject}>
-              {message.subject}
-            </span>
-            {project && (
-              <span
-                className="text-sm font-medium text-blue-300 mr-4 cursor-pointer transition-opacity duration-150"
-                style={{ opacity: 0.15 }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-                onMouseLeave={e => (e.currentTarget.style.opacity = '0.15')}
-                onClick={() => router.push(`/projects/${project.id}`)}
-              >
-                Project: {project.name}
-              </span>
-            )}
-          </div>
-          <CardContent className="p-5 sm:p-7">
-            {isEditing ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-200">Subject:</label>
-                  <Input
-                    value={editForm.subject}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, subject: e.target.value }))}
-                    className="bg-gray-800/50 border-gray-700/50 text-white mt-1 focus:border-blue-500/50 focus:ring-blue-500/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-200">Message:</label>
-                  <Textarea
-                    value={editForm.content}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, content: e.target.value }))}
-                    className="min-h-[200px] bg-gray-800/50 border-gray-700/50 text-white mt-1 focus:border-blue-500/50 focus:ring-blue-500/20"
-                  />
-                </div>
-                <div className="flex gap-2 items-center">
-                  <button
-                    type="button"
-                    className="px-3 py-1 rounded border border-blue-500 text-blue-300 font-medium bg-transparent hover:bg-blue-500/10 transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Attach File
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    onChange={handleFileChange}
-                  />
-                  <button
-                    type="button"
-                    className="px-3 py-1 rounded border border-green-500 text-green-300 font-medium bg-transparent hover:bg-green-500/10 transition-colors"
-                    onClick={handleAddLink}
-                  >
-                    Add Link
-                  </button>
-                  {attachmentUrl && (
-                    <span className="ml-2 text-xs text-blue-400">Attachment added</span>
-                  )}
-                  {linkUrl && (
-                    <span className="ml-2 text-xs text-green-400">Link added</span>
-                  )}
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={handleCancelEdit}
-                    className="text-gray-400 hover:text-gray-300 border-gray-700/50"
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={async () => {
-                      await handleSaveEdit()
-                      // Save attachment and link to DB
-                      if (message) {
-                        await supabase
-                          .from('messages')
-                          .update({ attachment_url: attachmentUrl, link_url: linkUrl })
-                          .eq('id', message.id)
-                      }
-                    }}
-                    className="bg-blue-500 hover:bg-blue-600"
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Changes
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      {!message.read && message.receiver_id === user?.id && (
+                      {!threadMessage.read && threadMessage.receiver_id === user?.id && (
                         <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">
                           New
                         </Badge>
                       )}
                     </div>
-                    <span className="text-sm text-gray-400">
-                      {new Date(message.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
                   </div>
 
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-gray-900/30 rounded-lg p-3 justify-between">
                     <div className="flex items-center gap-3 min-w-[200px]">
-                      {message.sender_id === user?.id ? (
+                      {threadMessage.sender_id === user?.id ? (
                         <>
                           <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center ring-2 ring-blue-500/20">
                             <span className="text-white text-sm font-medium">
-                              {message.sender?.name?.split(' ').map(n => n[0]).join('') || '?'}
+                              {threadMessage.sender?.name?.split(' ').map(n => n[0]).join('') || '?'}
                             </span>
                           </div>
                         </>
@@ -536,35 +466,38 @@ export default function MessagePage({ params }: { params: { id: string } }) {
                         <>
                           <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500/50 to-blue-500/50 flex items-center justify-center">
                             <span className="text-white text-sm font-medium">
-                              {message.sender?.name?.split(' ').map(n => n[0]).join('') || '?'}
+                              {threadMessage.sender?.name?.split(' ').map(n => n[0]).join('') || '?'}
                             </span>
                           </div>
                           <div>
                             <p className="text-white font-medium opacity-75 hover:opacity-100 transition-opacity duration-150">From</p>
-                            <p className="text-sm text-gray-300 opacity-75 hover:opacity-100 transition-opacity duration-150">{message.sender?.name || 'Unknown'}</p>
-                            <p className="text-xs text-gray-400 opacity-75 hover:opacity-100 transition-opacity duration-150">{message.sender?.email}</p>
+                            <p className="text-sm text-gray-300 opacity-75 hover:opacity-100 transition-opacity duration-150">{threadMessage.sender?.name || 'Unknown'}</p>
+                            <p className="text-xs text-gray-400 opacity-75 hover:opacity-100 transition-opacity duration-150">{threadMessage.sender?.email}</p>
                           </div>
                         </>
                       )}
                     </div>
                     <div className="flex-1 flex justify-end w-full mt-4 sm:mt-0 gap-2 items-center">
-                      <button
-                        onClick={handleReply}
-                        className="px-4 py-1 rounded-lg border border-purple-500 text-purple-300 font-semibold bg-transparent hover:bg-purple-500/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-                      >
-                        Reply
-                      </button>
-                      {message.link_url && (
+                      {index === threadMessages.length - 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setIsReplying(true)}
+                          className="px-4 py-1 rounded-lg border border-purple-500 text-purple-300 font-semibold bg-transparent hover:bg-purple-500/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                        >
+                          Reply
+                        </button>
+                      )}
+                      {threadMessage.link_url && (
                         <button
                           type="button"
                           className="ml-2 p-2 rounded-full border border-green-500 text-green-400 bg-transparent hover:bg-green-500/10 transition-colors"
                           title="Open link"
-                          onClick={() => window.open(message.link_url, '_blank')}
+                          onClick={() => window.open(threadMessage.link_url, '_blank')}
                           onPointerDown={e => {
                             if (e.pointerType === 'touch' || e.button === 0) {
                               // Start timer for long press
                               const timeout = setTimeout(() => {
-                                navigator.clipboard.writeText(message.link_url || '')
+                                navigator.clipboard.writeText(threadMessage.link_url || '')
                                 toast.success('Link copied to clipboard')
                               }, 600)
                               const clear = () => clearTimeout(timeout)
@@ -576,11 +509,14 @@ export default function MessagePage({ params }: { params: { id: string } }) {
                           <LinkIcon className="w-5 h-5" />
                         </button>
                       )}
-                      {message.sender_id === user?.id && (
+                      {threadMessage.sender_id === user?.id && (
                         <Button
                           variant="ghost"
                           className="text-blue-400 hover:text-blue-300 ml-2"
-                          onClick={handleEdit}
+                          onClick={() => {
+                            setMessage(threadMessage)
+                            handleEdit()
+                          }}
                         >
                           <Edit className="w-4 h-4 mr-2" />
                           Edit
@@ -593,24 +529,24 @@ export default function MessagePage({ params }: { params: { id: string } }) {
                 <div className="border-t border-gray-800/50 pt-6">
                   <div className="prose prose-invert max-w-none">
                     <p className="whitespace-pre-wrap text-white text-xl leading-relaxed font-normal">
-                      {message.content}
+                      {threadMessage.content}
                     </p>
                   </div>
                 </div>
 
-                {message.attachment_url && (
+                {threadMessage.attachment_url && (
                   <div className="mt-6">
-                    {message.attachment_url.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) ? (
-                      <a href={message.attachment_url} target="_blank" rel="noopener noreferrer">
+                    {threadMessage.attachment_url.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) ? (
+                      <a href={threadMessage.attachment_url} target="_blank" rel="noopener noreferrer">
                         <img
-                          src={message.attachment_url}
+                          src={threadMessage.attachment_url}
                           alt="Attachment"
                           className="max-w-xs max-h-48 rounded shadow border border-gray-700 hover:opacity-90 transition"
                         />
                       </a>
                     ) : (
                       <a
-                        href={message.attachment_url}
+                        href={threadMessage.attachment_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-400 underline"
@@ -620,10 +556,52 @@ export default function MessagePage({ params }: { params: { id: string } }) {
                     )}
                   </div>
                 )}
+                <div className="flex justify-end mt-4">
+                  <span className="text-xs text-gray-500 opacity-65 hover:opacity-100 transition-opacity duration-200">
+                    {new Date(threadMessage.created_at).toLocaleString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
+
+        {isReplying && (
+          <Card className="mt-6 border border-gray-800/50 bg-gradient-to-b from-gray-900/90 to-gray-900/50 shadow-xl rounded-xl overflow-hidden">
+            <CardContent className="p-5 sm:p-7">
+              <div className="space-y-4">
+                <Textarea
+                  placeholder="Write your reply..."
+                  value={replyContent}
+                  onChange={(e) => setReplyContent(e.target.value)}
+                  className="min-h-[150px] bg-gray-900/50 border-gray-800 text-white"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={handleCancelReply}
+                    className="text-gray-400 hover:text-gray-300"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSendReply}
+                    className="bg-purple-500 hover:bg-purple-600 text-white"
+                    disabled={!replyContent.trim()}
+                  >
+                    Send Reply
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   )
