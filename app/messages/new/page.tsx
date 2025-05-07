@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -368,142 +368,144 @@ export default function NewMessagePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md border-b border-gray-800">
-        <div className="max-w-7xl mx-auto py-3 sm:py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <div className="flex items-center">
-            <Button
-              variant="ghost"
-              onClick={() => router.back()}
-              className="inline-flex items-center text-white hover:text-blue-300 transition-colors mr-2 sm:mr-4"
-            >
-              <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Back</span>
-            </Button>
-            <h1 className="text-xl sm:text-3xl font-bold text-white">New Message</h1>
+    <Suspense fallback={<div>Loading...</div>}>
+      <div className="min-h-screen bg-gray-950">
+        <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md border-b border-gray-800">
+          <div className="max-w-7xl mx-auto py-3 sm:py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                onClick={() => router.back()}
+                className="inline-flex items-center text-white hover:text-blue-300 transition-colors mr-2 sm:mr-4"
+              >
+                <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Back</span>
+              </Button>
+              <h1 className="text-xl sm:text-3xl font-bold text-white">New Message</h1>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="max-w-3xl mx-auto py-4 sm:py-6 px-3 sm:px-6">
-        <Card className="border-gray-800 bg-gray-900/50">
-          <CardContent className="p-4 sm:p-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-200">Project:</label>
-                {replyToId && parentProject ? (
-                  <div className="w-full bg-gray-800 border border-gray-700 text-white rounded px-3 py-2">{parentProject.name}</div>
-                ) : (
-                  <Select
-                    value={formData.project_id}
-                    onValueChange={(value) => {
-                      setFormData(prev => ({ ...prev, project_id: value, receiver_id: "" }))
-                    }}
+        <main className="max-w-3xl mx-auto py-4 sm:py-6 px-3 sm:px-6">
+          <Card className="border-gray-800 bg-gray-900/50">
+            <CardContent className="p-4 sm:p-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-200">Project:</label>
+                  {replyToId && parentProject ? (
+                    <div className="w-full bg-gray-800 border border-gray-700 text-white rounded px-3 py-2">{parentProject.name}</div>
+                  ) : (
+                    <Select
+                      value={formData.project_id}
+                      onValueChange={(value) => {
+                        setFormData(prev => ({ ...prev, project_id: value, receiver_id: "" }))
+                      }}
+                    >
+                      <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-white">
+                        <SelectValue placeholder="Select project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-200">To:</label>
+                  {replyToId && parentRecipient ? (
+                    <div className="w-full bg-gray-800 border border-gray-700 text-white rounded px-3 py-2">
+                      {parentRecipient.name} <span className="text-xs text-gray-400">({parentRecipient.email})</span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.receiver_id}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, receiver_id: value }))}
+                      disabled={!formData.project_id}
+                    >
+                      <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-white">
+                        <SelectValue placeholder={formData.project_id ? "Select recipient" : "Select a project first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teamMembers.map((member) => (
+                          <SelectItem key={member.user_id} value={member.user_id}>
+                            {member.user.name || 'Unnamed User'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-200">Subject:</label>
+                  <Input
+                    value={formData.subject}
+                    onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
+                    placeholder="Enter subject"
+                    className="bg-gray-800 border-gray-700 text-white"
+                    disabled={!!replyToId}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-200">Message:</label>
+                  <Textarea
+                    value={formData.content}
+                    onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                    placeholder="Type your message here..."
+                    className="min-h-[200px] bg-gray-800 border-gray-700 text-white"
+                  />
+                </div>
+
+                <div className="flex gap-2 items-center">
+                  <button
+                    type="button"
+                    className="px-3 py-1 rounded border border-blue-500 text-blue-300 font-medium bg-transparent hover:bg-blue-500/10 transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
                   >
-                    <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-white">
-                      <SelectValue placeholder="Select project" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-200">To:</label>
-                {replyToId && parentRecipient ? (
-                  <div className="w-full bg-gray-800 border border-gray-700 text-white rounded px-3 py-2">
-                    {parentRecipient.name} <span className="text-xs text-gray-400">({parentRecipient.email})</span>
-                  </div>
-                ) : (
-                  <Select
-                    value={formData.receiver_id}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, receiver_id: value }))}
-                    disabled={!formData.project_id}
+                    Attach File
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                  <button
+                    type="button"
+                    className="px-3 py-1 rounded border border-green-500 text-green-300 font-medium bg-transparent hover:bg-green-500/10 transition-colors"
+                    onClick={handleAddLink}
                   >
-                    <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-white">
-                      <SelectValue placeholder={formData.project_id ? "Select recipient" : "Select a project first"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teamMembers.map((member) => (
-                        <SelectItem key={member.user_id} value={member.user_id}>
-                          {member.user.name || 'Unnamed User'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
+                    Add Link
+                  </button>
+                  {attachmentUrl && (
+                    <span className="ml-2 text-xs text-blue-400">Attachment added</span>
+                  )}
+                  {linkUrl && (
+                    <span className="ml-2 text-xs text-green-400">Link added</span>
+                  )}
+                </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-200">Subject:</label>
-                <Input
-                  value={formData.subject}
-                  onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-                  placeholder="Enter subject"
-                  className="bg-gray-800 border-gray-700 text-white"
-                  disabled={!!replyToId}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-200">Message:</label>
-                <Textarea
-                  value={formData.content}
-                  onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                  placeholder="Type your message here..."
-                  className="min-h-[200px] bg-gray-800 border-gray-700 text-white"
-                />
-              </div>
-
-              <div className="flex gap-2 items-center">
-                <button
-                  type="button"
-                  className="px-3 py-1 rounded border border-blue-500 text-blue-300 font-medium bg-transparent hover:bg-blue-500/10 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  Attach File
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-                <button
-                  type="button"
-                  className="px-3 py-1 rounded border border-green-500 text-green-300 font-medium bg-transparent hover:bg-green-500/10 transition-colors"
-                  onClick={handleAddLink}
-                >
-                  Add Link
-                </button>
-                {attachmentUrl && (
-                  <span className="ml-2 text-xs text-blue-400">Attachment added</span>
-                )}
-                {linkUrl && (
-                  <span className="ml-2 text-xs text-green-400">Link added</span>
-                )}
-              </div>
-
-              <div className="pt-4">
-                <Button
-                  type="submit"
-                  className="w-full bg-purple-600 text-white hover:bg-purple-700"
-                  disabled={sending}
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  {sending ? 'Sending...' : 'Send Message'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </main>
-    </div>
+                <div className="pt-4">
+                  <Button
+                    type="submit"
+                    className="w-full bg-purple-600 text-white hover:bg-purple-700"
+                    disabled={sending}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    {sending ? 'Sending...' : 'Send Message'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    </Suspense>
   )
 } 
