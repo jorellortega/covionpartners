@@ -287,7 +287,6 @@ export default function NewMessageForm() {
           content: formData.content.trim(),
           attachment_url: attachmentUrl,
           link_url: linkUrl,
-          parent_id: parentId,
           project_id: formData.project_id
         }])
       if (error) throw error

@@ -138,6 +138,7 @@ export default function MessagesPage() {
       }
     }
     
+    // Navigate to the message thread
     router.push(`/messages/${message.id}`)
   }
 
@@ -202,28 +203,6 @@ export default function MessagesPage() {
     }
   }
 
-  const handleSendReply = async (parentMessage: Message) => {
-    if (!replyContent.trim() || !user) return;
-    try {
-      const { error } = await supabase.from('messages').insert([
-        {
-          subject: parentMessage.subject || null,
-          content: replyContent,
-          sender_id: user.id,
-          receiver_id: parentMessage.sender_id === user.id ? parentMessage.receiver_id : parentMessage.sender_id,
-          parent_id: parentMessage.id,
-        },
-      ]);
-      if (error) throw error;
-      toast.success('Reply sent');
-      setReplyContent("");
-      setReplyTo(null);
-      fetchMessages();
-    } catch (error) {
-      toast.error('Failed to send reply');
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md border-b border-gray-800">
@@ -251,200 +230,156 @@ export default function MessagesPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-4 sm:py-6 px-3 sm:px-6 lg:px-8">
-        <div className="space-y-4">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <Input
               type="text"
               placeholder="Search messages..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-gray-900 border-gray-800 text-white w-full sm:w-96"
+              className="pl-10 bg-gray-900/50 border-gray-800 text-white placeholder-gray-400"
             />
           </div>
+        </div>
 
-          {/* Messages List */}
-          <div className="space-y-4">
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-              </div>
-            ) : filteredMessages.length > 0 ? (
-              filteredMessages.map((message) => (
-                <Card
-                  key={message.id}
-                  className="border-gray-800 bg-gray-900/50 hover:bg-gray-900 transition-colors"
-                >
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      {editingMessage?.id === message.id ? (
-                        <div className="flex-1 min-w-0 space-y-4">
-                          <Input
-                            value={editForm.subject}
-                            onChange={(e) => setEditForm(prev => ({ ...prev, subject: e.target.value }))}
-                            className="bg-gray-800 border-gray-700 text-white"
-                            placeholder="Subject"
-                          />
-                          <Textarea
-                            value={editForm.content}
-                            onChange={(e) => setEditForm(prev => ({ ...prev, content: e.target.value }))}
-                            className="bg-gray-800 border-gray-700 text-white min-h-[100px]"
-                            placeholder="Message content"
-                          />
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-gray-400 hover:text-gray-300"
-                              onClick={handleCancelEdit}
-                            >
-                              <X className="h-4 w-4 mr-2" />
-                              Cancel
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="bg-blue-500 hover:bg-blue-600"
-                              onClick={handleSaveEdit}
-                            >
-                              <Save className="h-4 w-4 mr-2" />
-                              Save
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div 
-                          className="flex-1 min-w-0 cursor-pointer"
-                          onClick={() => handleMessageClick(message)}
-                        >
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="text-lg font-semibold text-white truncate">
-                              {message.subject}
-                            </h3>
-                            {!message.read && message.receiver_id === user?.id && (
-                              <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">
-                                New
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-gray-400 text-sm line-clamp-2 mb-2">
-                            {message.content}
-                          </p>
-                          <div className="flex items-center gap-4 text-sm">
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
-                                <span className="text-white text-xs font-medium">
-                                  {message.sender?.name?.split(' ').map(n => n[0]).join('') || '?'}
-                                </span>
-                              </div>
-                              <span className="text-gray-300">
-                                {message.sender_id === user?.id ? 'You' : message.sender?.name || 'Unknown'}
-                              </span>
-                            </div>
-                            <span className="text-gray-500">to</span>
-                            <span className="text-gray-300">
-                              {message.receiver_id === user?.id ? 'You' : message.receiver?.name || 'Unknown'}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="text-xs text-gray-500">
-                          {new Date(message.created_at).toLocaleDateString()}
-                        </div>
-                        {message.sender_id === user?.id && !editingMessage && (
-                          <div className="flex gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-gray-400 hover:text-blue-400 hover:bg-blue-400/10"
-                              onClick={() => handleEditMessage(message)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-gray-400 hover:text-red-400 hover:bg-red-400/10"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Message</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete this message? This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    className="bg-red-500 hover:bg-red-600"
-                                    onClick={() => handleDeleteMessage(message.id)}
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {/* Show replied-to message snippet if present */}
-                    {message.parent_id && (
-                      <div className="mt-2 p-2 rounded bg-gray-800 text-gray-400 text-xs">
-                        Replying to: {messages.find(m => m.id === message.parent_id)?.content?.slice(0, 100) || 'Message'}
-                      </div>
-                    )}
-                    {/* Reply UI */}
-                    {replyTo?.id === message.id ? (
-                      <div className="mt-4">
-                        <Textarea
-                          value={replyContent}
-                          onChange={e => setReplyContent(e.target.value)}
-                          className="bg-gray-800 border-gray-700 text-white min-h-[60px]"
-                          placeholder="Type your reply..."
-                          autoFocus
+        <div className="space-y-4">
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            </div>
+          ) : filteredMessages.length > 0 ? (
+            filteredMessages.map((message) => (
+              <Card
+                key={message.id}
+                className="border border-gray-800/50 bg-gradient-to-b from-gray-900/90 to-gray-900/50 shadow-xl rounded-xl overflow-hidden hover:border-gray-700/50 transition-all duration-200"
+              >
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    {editingMessage?.id === message.id ? (
+                      <div className="flex-1">
+                        <Input
+                          value={editForm.subject}
+                          onChange={(e) => setEditForm({ ...editForm, subject: e.target.value })}
+                          className="mb-2 bg-gray-900/50 border-gray-800 text-white"
+                          placeholder="Subject"
                         />
-                        <div className="flex gap-2 mt-2">
-                          <Button size="sm" className="bg-blue-500 hover:bg-blue-600" onClick={() => handleSendReply(message)}>
-                            Send Reply
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => { setReplyTo(null); setReplyContent(""); }}>
+                        <Textarea
+                          value={editForm.content}
+                          onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+                          className="bg-gray-900/50 border-gray-800 text-white min-h-[100px]"
+                          placeholder="Message content"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-gray-400 hover:text-gray-300"
+                            onClick={handleCancelEdit}
+                          >
+                            <X className="h-4 w-4 mr-2" />
                             Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="bg-blue-500 hover:bg-blue-600"
+                            onClick={handleSaveEdit}
+                          >
+                            <Save className="h-4 w-4 mr-2" />
+                            Save
                           </Button>
                         </div>
                       </div>
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="mt-2 text-gray-400 hover:text-blue-400 hover:bg-blue-400/10"
-                        onClick={() => { setReplyTo(message); setReplyContent(""); }}
+                      <div 
+                        className="flex-1 min-w-0 cursor-pointer"
+                        onClick={() => handleMessageClick(message)}
                       >
-                        Reply
-                      </Button>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-lg font-semibold text-white truncate">
+                            {message.subject}
+                          </h3>
+                          {!message.read && message.receiver_id === user?.id && (
+                            <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">
+                              New
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-gray-400 text-sm line-clamp-2 mb-2">
+                          {message.content}
+                        </p>
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <span>
+                            {message.sender_id === user?.id ? 'To: ' : 'From: '}
+                            {message.sender_id === user?.id
+                              ? message.receiver?.name || 'Unknown'
+                              : message.sender?.name || 'Unknown'}
+                          </span>
+                        </div>
+                      </div>
                     )}
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <div className="text-center py-8">
-                <MessageCircle className="mx-auto h-12 w-12 text-gray-600 mb-4" />
-                <h3 className="text-lg font-medium text-gray-300 mb-2">No messages found</h3>
-                <p className="text-gray-500">
-                  {searchQuery
-                    ? "No messages match your search"
-                    : "Start a conversation by sending a new message"}
-                </p>
-              </div>
-            )}
-          </div>
+
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="text-xs text-gray-500">
+                        {new Date(message.created_at).toLocaleDateString()}
+                      </div>
+                      {message.sender_id === user?.id && !editingMessage && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-gray-400 hover:text-blue-400 hover:bg-blue-400/10"
+                            onClick={() => handleEditMessage(message)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-gray-400 hover:text-red-400 hover:bg-red-400/10"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Message</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete this message? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-red-500 hover:bg-red-600"
+                                  onClick={() => handleDeleteMessage(message.id)}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <div className="text-center py-12">
+              <MessageCircle className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-400 mb-2">No messages found</h3>
+              <p className="text-gray-500">
+                {searchQuery
+                  ? "No messages match your search"
+                  : "Start a conversation by sending a new message"}
+              </p>
+            </div>
+          )}
         </div>
       </main>
     </div>
