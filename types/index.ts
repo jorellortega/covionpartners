@@ -56,6 +56,9 @@ export interface Project {
     title: string
     url: string
   }> | null
+  show_make_deal?: boolean
+  show_invest?: boolean
+  show_collaborate?: boolean
 }
 
 export interface ProjectRole {

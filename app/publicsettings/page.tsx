@@ -13,7 +13,7 @@ import {
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
-import { ArrowLeft, DollarSign, Target, Eye } from "lucide-react"
+import { ArrowLeft, DollarSign, Target, Eye, Briefcase, Users } from "lucide-react"
 import { toast } from "sonner"
 
 function PublicSettingsPageContent() {
@@ -285,6 +285,225 @@ function PublicSettingsPageContent() {
                       </div>
                     </div>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Make Deal Button Visibility Settings */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Show Make Deal Button</CardTitle>
+                    <CardDescription className="text-gray-400">
+                      Control whether the Make Deal button appears on the public project card
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className={`w-full md:w-auto justify-center items-center gap-2 ${
+                      projects?.find(p => p.id === selectedProject)?.show_make_deal
+                        ? 'bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30'
+                        : 'bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30'
+                    }`}
+                    onClick={async () => {
+                      setLoading(true)
+                      try {
+                        const project = projects?.find(p => p.id === selectedProject)
+                        if (!project) throw new Error("Project not found")
+                        const { data, error } = await updateProject(project.id, {
+                          show_make_deal: !project.show_make_deal
+                        })
+                        if (error) throw error
+                        toast.success(data.show_make_deal
+                          ? "Make Deal button enabled"
+                          : "Make Deal button hidden"
+                        )
+                      } catch (error) {
+                        console.error('Error toggling Make Deal button:', error)
+                        toast.error("Failed to toggle Make Deal button")
+                      } finally {
+                        setLoading(false)
+                      }
+                    }}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <LoadingSpinner className="w-4 h-4" />
+                        Updating...
+                      </>
+                    ) : projects?.find(p => p.id === selectedProject)?.show_make_deal ? (
+                      <>
+                        <Briefcase className="w-4 h-4" /> Hide Make Deal
+                      </>
+                    ) : (
+                      <>
+                        <Briefcase className="w-4 h-4" /> Show Make Deal
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="p-4 bg-gray-800/30 rounded-lg">
+                    <div className="flex items-center text-gray-400 mb-2">
+                      <Briefcase className="w-4 h-4 mr-2" />
+                      <span>Current Status</span>
+                    </div>
+                    <div className="text-white font-medium">
+                      {projects?.find(p => p.id === selectedProject)?.show_make_deal
+                        ? "Make Deal button is visible"
+                        : "Make Deal button is hidden"}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Show Invest Button Visibility Settings */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Show Invest Button</CardTitle>
+                    <CardDescription className="text-gray-400">
+                      Control whether the Invest button appears on the public project card
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className={`w-full md:w-auto justify-center items-center gap-2 ${
+                      projects?.find(p => p.id === selectedProject)?.show_invest
+                        ? 'bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30'
+                        : 'bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30'
+                    }`}
+                    onClick={async () => {
+                      setLoading(true)
+                      try {
+                        const project = projects?.find(p => p.id === selectedProject)
+                        if (!project) throw new Error("Project not found")
+                        const { data, error } = await updateProject(project.id, {
+                          show_invest: !project.show_invest
+                        })
+                        if (error) throw error
+                        toast.success(data.show_invest
+                          ? "Invest button enabled"
+                          : "Invest button hidden"
+                        )
+                      } catch (error) {
+                        console.error('Error toggling Invest button:', error)
+                        toast.error("Failed to toggle Invest button")
+                      } finally {
+                        setLoading(false)
+                      }
+                    }}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <LoadingSpinner className="w-4 h-4" />
+                        Updating...
+                      </>
+                    ) : projects?.find(p => p.id === selectedProject)?.show_invest ? (
+                      <>
+                        <DollarSign className="w-4 h-4" /> Hide Invest
+                      </>
+                    ) : (
+                      <>
+                        <DollarSign className="w-4 h-4" /> Show Invest
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="p-4 bg-gray-800/30 rounded-lg">
+                    <div className="flex items-center text-gray-400 mb-2">
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      <span>Current Status</span>
+                    </div>
+                    <div className="text-white font-medium">
+                      {projects?.find(p => p.id === selectedProject)?.show_invest
+                        ? "Invest button is visible"
+                        : "Invest button is hidden"}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Show Collaborate Button Visibility Settings */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Show Collaborate Button</CardTitle>
+                    <CardDescription className="text-gray-400">
+                      Control whether the Collaborate button appears on the public project card
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className={`w-full md:w-auto justify-center items-center gap-2 ${
+                      projects?.find(p => p.id === selectedProject)?.show_collaborate
+                        ? 'bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30'
+                        : 'bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30'
+                    }`}
+                    onClick={async () => {
+                      setLoading(true)
+                      try {
+                        const project = projects?.find(p => p.id === selectedProject)
+                        if (!project) throw new Error("Project not found")
+                        const { data, error } = await updateProject(project.id, {
+                          show_collaborate: !project.show_collaborate
+                        })
+                        if (error) throw error
+                        toast.success(data.show_collaborate
+                          ? "Collaborate button enabled"
+                          : "Collaborate button hidden"
+                        )
+                      } catch (error) {
+                        console.error('Error toggling Collaborate button:', error)
+                        toast.error("Failed to toggle Collaborate button")
+                      } finally {
+                        setLoading(false)
+                      }
+                    }}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <LoadingSpinner className="w-4 h-4" />
+                        Updating...
+                      </>
+                    ) : projects?.find(p => p.id === selectedProject)?.show_collaborate ? (
+                      <>
+                        <Users className="w-4 h-4" /> Hide Collaborate
+                      </>
+                    ) : (
+                      <>
+                        <Users className="w-4 h-4" /> Show Collaborate
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="p-4 bg-gray-800/30 rounded-lg">
+                    <div className="flex items-center text-gray-400 mb-2">
+                      <Users className="w-4 h-4 mr-2" />
+                      <span>Current Status</span>
+                    </div>
+                    <div className="text-white font-medium">
+                      {projects?.find(p => p.id === selectedProject)?.show_collaborate
+                        ? "Collaborate button is visible"
+                        : "Collaborate button is hidden"}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -118,6 +118,7 @@ export default function PublicProjectDetails() {
           .from('projects')
           .select(`
             *,
+            show_make_deal,
             owner:owner_id (
               id,
               name,
@@ -966,6 +967,15 @@ export default function PublicProjectDetails() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
+                    {project.show_make_deal && (
+                      <Button 
+                        className="w-full gradient-button"
+                        onClick={() => router.push(String(`/makedeal?project=${project.id}`))}
+                      >
+                        <Briefcase className="w-4 h-4 mr-2" />
+                        Make Deal
+                      </Button>
+                    )}
                     <Button 
                       className="w-full gradient-button"
                       onClick={() => router.push(`/invest?project=${project.id}`)}

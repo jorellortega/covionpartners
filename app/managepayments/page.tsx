@@ -1012,7 +1012,7 @@ export default function ManagePaymentsPage() {
                         <div className="flex items-center space-x-2">
                           <Loader2 className="w-4 h-4 animate-spin" />
                           <span>Loading payout details...</span>
-                          </div>
+                        </div>
                       ) : stripeSummary?.payout_destination ? (
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center gap-3">
@@ -1024,7 +1024,7 @@ export default function ManagePaymentsPage() {
                                 {stripeSummary.payout_destination.instant_eligible && (
                                   <span className="text-xs px-2 py-0.5 rounded bg-green-200 text-green-800 border border-green-400 font-semibold">Instant-eligible</span>
                                 )}
-                        </div>
+                              </div>
                             </div>
                             <a
                               href="#"
@@ -1040,11 +1040,11 @@ export default function ManagePaymentsPage() {
                             >
                               Edit
                             </a>
-                            </div>
+                          </div>
                           <div className="flex items-center gap-4 mt-2">
                             <span className="text-gray-400 text-sm">Account: ••••{stripeSummary.payout_destination.last4}</span>
-                            </div>
-                            </div>
+                          </div>
+                        </div>
                       ) : (
                         <div className="flex items-center justify-between">
                           <div>
@@ -1052,8 +1052,8 @@ export default function ManagePaymentsPage() {
                             <p className="text-sm text-gray-400">
                               Connect a bank account to receive payouts
                             </p>
-                            </div>
-                              <Button 
+                          </div>
+                          <Button 
                             variant="outline"
                             className="border-gray-700"
                             onClick={async () => {
@@ -1064,60 +1064,10 @@ export default function ManagePaymentsPage() {
                               }
                             }}
                           >
-                                    Connect Bank Account
-                        </Button>
-                              </div>
-                            )}
-                              </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Payout Schedule</Label>
-                    <div className="p-4 rounded-lg border border-gray-800 bg-gray-900">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-white">Automatic</p>
-                          <p className="text-sm text-gray-400">Payouts processed when balance exceeds $1,000</p>
+                            Connect Bank Account
+                          </Button>
                         </div>
-                        <Button
-                          variant="outline"
-                          className="border-gray-700"
-                          onClick={async () => {
-                            const res = await fetch('/api/stripe/connect/express-dashboard-link');
-                            const data = await res.json();
-                            if (data.url) {
-                              window.open(data.url, '_blank');
-                            }
-                          }}
-                        >
-                          Edit Schedule
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Tax Information</Label>
-                    <div className="p-4 rounded-lg border border-gray-800 bg-gray-900">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-white">W-9 Form Required</p>
-                          <p className="text-sm text-gray-400">Submit your W-9 form for tax purposes</p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          className="border-gray-700"
-                          onClick={async () => {
-                            const res = await fetch('/api/stripe/connect/express-dashboard-link');
-                            const data = await res.json();
-                            if (data.url) {
-                              window.open(data.url, '_blank');
-                            }
-                          }}
-                        >
-                          Submit Form
-                        </Button>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
