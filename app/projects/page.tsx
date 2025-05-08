@@ -464,8 +464,8 @@ export default function ProjectsPage() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-4 flex-1 min-w-0">
               <h2 className="text-xl font-bold text-white whitespace-nowrap">
-                {statusFilter ? `${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Projects` : 'All Projects'}
-              </h2>
+              {statusFilter ? `${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Projects` : 'All Projects'}
+            </h2>
               {/* Search and action buttons */}
               <div className="flex flex-1 gap-2 min-w-0">
                 <div className="relative flex-1 min-w-0">

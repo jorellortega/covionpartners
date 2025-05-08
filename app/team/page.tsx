@@ -389,15 +389,16 @@ export default function TeamPage() {
           </div>
           <Button
             onClick={() => router.push(`/projects/${selectedProject}/team/invite`)}
-            className="bg-purple-600 hover:bg-purple-700"
-            disabled={!selectedProject}
+            className="bg-purple-600 hover:bg-purple-700 opacity-50 pointer-events-none"
+            disabled
+            aria-disabled="true"
           >
             <UserPlus className="h-4 w-4 mr-2" />
             Invite Member
           </Button>
         </div>
 
-        <Button className="mb-4" onClick={() => setIsCreateDialogOpen(true)}>
+        <Button className="mb-4 opacity-50 pointer-events-none" onClick={() => setIsCreateDialogOpen(true)} disabled aria-disabled="true">
           Create Member
         </Button>
 
@@ -497,7 +498,7 @@ export default function TeamPage() {
                         {member.position && (
                           <Badge variant={member.status === 'active' ? 'default' : 'secondary'} className="mt-1">
                             {member.position}
-                          </Badge>
+                        </Badge>
                         )}
                         {member.access_level && (
                           <p className="text-xs text-gray-400">Access Level: {member.access_level}</p>
@@ -556,17 +557,17 @@ export default function TeamPage() {
             <div>
               <Label htmlFor="access_level">Access Level</Label>
               <Select value={newAccessLevel} onValueChange={setNewAccessLevel}>
-                <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select access level" />
-                </SelectTrigger>
-                <SelectContent>
+              </SelectTrigger>
+              <SelectContent>
                   <SelectItem value="1">1</SelectItem>
                   <SelectItem value="2">2</SelectItem>
                   <SelectItem value="3">3</SelectItem>
                   <SelectItem value="4">4</SelectItem>
                   <SelectItem value="5">5</SelectItem>
-                </SelectContent>
-              </Select>
+              </SelectContent>
+            </Select>
             </div>
             <div>
               <Label htmlFor="position">Position</Label>

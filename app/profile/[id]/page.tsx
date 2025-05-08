@@ -35,7 +35,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ImageIcon,
-  Video
+  Video,
+  UploadCloud,
+  Trash2
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -125,6 +127,10 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const [isLoading, setIsLoading] = useState(true)
   const [profileData, setProfileData] = useState<ProfileData>(defaultProfileData)
   const [error, setError] = useState<string | null>(null)
+  const isOwner = user?.id === profileData.id
+  const [uploading, setUploading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null)
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -251,6 +257,53 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
     setCurrentMediaIndex((prev) => (prev - 1 + currentMedia.length) % currentMedia.length)
   }
 
+  // Helper to upload avatar
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    setUploading(true)
+    try {
+      const fileExt = file.name.split('.').pop()
+      const filePath = `avatars/${user.id}.${fileExt}`
+      // Upload to Supabase Storage (partnerfiles bucket)
+      const { error: uploadError } = await supabase.storage.from('partnerfiles').upload(filePath, file, { upsert: true })
+      if (uploadError) throw uploadError
+      // Get public URL
+      const { data } = supabase.storage.from('partnerfiles').getPublicUrl(filePath)
+      const publicUrl = data.publicUrl
+      // Update user profile
+      const { error: updateError } = await supabase.from('users').update({ avatar_url: publicUrl }).eq('id', user.id)
+      if (updateError) throw updateError
+      setProfileData(prev => ({ ...prev, avatar_url: publicUrl }))
+      toast.success('Avatar updated!')
+    } catch (err) {
+      toast.error('Failed to upload avatar')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  // Helper to delete avatar
+  const handleAvatarDelete = async () => {
+    if (!user) return
+    setDeleting(true)
+    try {
+      // Remove from storage (best effort)
+      const ext = profileData.avatar_url?.split('.').pop()
+      const filePath = `avatars/${user.id}.${ext}`
+      await supabase.storage.from('partnerfiles').remove([filePath])
+      // Update user profile to placeholder
+      const { error: updateError } = await supabase.from('users').update({ avatar_url: '/placeholder-avatar.jpg' }).eq('id', user.id)
+      if (updateError) throw updateError
+      setProfileData(prev => ({ ...prev, avatar_url: '/placeholder-avatar.jpg' }))
+      toast.success('Avatar deleted!')
+    } catch (err) {
+      toast.error('Failed to delete avatar')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -283,11 +336,42 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 <div className="flex flex-col items-center">
                   <div className="relative w-32 h-32 rounded-full overflow-hidden mb-4">
                     <Image
-                      src={profileData.avatar_url}
+                      src={profileData.avatar_url || '/placeholder-avatar.jpg'}
                       alt={profileData.name}
                       fill
                       className="object-cover"
                     />
+                    {isOwner && (
+                      <div className="absolute bottom-2 right-2 flex gap-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          ref={setFileInput}
+                          onChange={handleAvatarUpload}
+                        />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="bg-black/60 hover:bg-black/80 text-white"
+                          onClick={() => fileInput?.click()}
+                          disabled={uploading}
+                          title="Upload/Replace Avatar"
+                        >
+                          <UploadCloud className="w-5 h-5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="bg-black/60 hover:bg-black/80 text-red-400"
+                          onClick={handleAvatarDelete}
+                          disabled={deleting || profileData.avatar_url === '/placeholder-avatar.jpg'}
+                          title="Delete Avatar"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   <h1 className="text-2xl font-bold text-white mb-1">{profileData.name}</h1>
                   <p className="text-gray-400 mb-4">{profileData.role}</p>

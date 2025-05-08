@@ -329,11 +329,58 @@ export default function MessagePage({ params }: { params: { id: string } }) {
   }
 
   const handleAddLink = () => {
-    const url = prompt('Enter a link (https://...)')
-    if (url && url.startsWith('http')) {
+    let url = prompt('Enter a link (https://...)')
+    if (url) {
+      url = url.trim()
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url
+      }
       setLinkUrl(url)
-    } else if (url) {
-      toast.error('Please enter a valid URL (must start with http)')
+    }
+  }
+
+  async function handleSendReplyWithExtras() {
+    if (!message || !user || !replyContent.trim()) return
+    try {
+      const recipientId = user.id === message.sender_id ? message.receiver_id : message.sender_id
+      const { data: newMessage, error } = await supabase
+        .from('messages')
+        .insert([{
+          sender_id: user.id,
+          receiver_id: recipientId,
+          subject: message.subject,
+          content: replyContent.trim(),
+          parent_id: message.id,
+          project_id: message.project_id,
+          link_url: linkUrl,
+          attachment_url: attachmentUrl
+        }])
+        .select()
+        .single()
+      if (error) throw error
+      if (newMessage) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('id, name, email')
+          .in('id', [user.id, recipientId])
+        if (userData) {
+          const usersMap = new Map(userData.map(u => [u.id, u]))
+          const messageWithUsers = {
+            ...newMessage,
+            sender: usersMap.get(user.id) || null,
+            receiver: usersMap.get(recipientId) || null
+          }
+          setThreadMessages(prev => [...prev, messageWithUsers])
+        }
+      }
+      setIsReplying(false)
+      setReplyContent("")
+      setAttachmentUrl(null)
+      setLinkUrl(null)
+      toast.success('Reply sent successfully')
+    } catch (error) {
+      console.error('Error sending reply:', error)
+      toast.error('Failed to send reply')
     }
   }
 
@@ -582,6 +629,37 @@ export default function MessagePage({ params }: { params: { id: string } }) {
                   onChange={(e) => setReplyContent(e.target.value)}
                   className="min-h-[150px] bg-gray-900/50 border-gray-800 text-white"
                 />
+                <div className="flex flex-wrap gap-2 items-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-blue-400 border-blue-500 hover:bg-blue-500/10"
+                    onClick={handleAddLink}
+                  >
+                    <LinkIcon className="w-4 h-4 mr-1" />
+                    {linkUrl ? 'Edit Link' : 'Add Link'}
+                  </Button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-green-400 border-green-500 hover:bg-green-500/10"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Attach File
+                  </Button>
+                  {attachmentUrl && (
+                    <span className="text-xs text-green-400 ml-2">Attachment added</span>
+                  )}
+                  {linkUrl && (
+                    <span className="text-xs text-blue-400 ml-2">Link: <a href={linkUrl} target="_blank" rel="noopener noreferrer" className="underline">{linkUrl}</a></span>
+                  )}
+                </div>
                 <div className="flex justify-end gap-2">
                   <Button
                     variant="ghost"
@@ -591,7 +669,10 @@ export default function MessagePage({ params }: { params: { id: string } }) {
                     Cancel
                   </Button>
                   <Button
-                    onClick={handleSendReply}
+                    onClick={async () => {
+                      // Add link and attachment to reply
+                      await handleSendReplyWithExtras();
+                    }}
                     className="bg-purple-500 hover:bg-purple-600 text-white"
                     disabled={!replyContent.trim()}
                   >

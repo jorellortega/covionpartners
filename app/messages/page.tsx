@@ -120,6 +120,9 @@ export default function MessagesPage() {
     message.receiver?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  // Only show root messages (not replies)
+  const rootMessages = filteredMessages.filter(message => !message.parent_id)
+
   const handleMessageClick = async (message: Message) => {
     // If the message is unread and the current user is the receiver, mark it as read
     if (!message.read && message.receiver_id === user?.id) {
@@ -249,8 +252,8 @@ export default function MessagesPage() {
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
             </div>
-          ) : filteredMessages.length > 0 ? (
-            filteredMessages.map((message) => (
+          ) : rootMessages.length > 0 ? (
+            rootMessages.map((message) => (
               <Card
                 key={message.id}
                 className="border border-gray-800/50 bg-gradient-to-b from-gray-900/90 to-gray-900/50 shadow-xl rounded-xl overflow-hidden hover:border-gray-700/50 transition-all duration-200"

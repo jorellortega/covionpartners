@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -72,6 +72,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { QRCodeCanvas } from 'qrcode.react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import Image from "next/image"
+import Cropper from 'react-easy-crop'
 
 // Project status badge component
 function StatusBadge({ status, projectId, onStatusChange }: { status: string, projectId: string, onStatusChange?: (newStatus: string) => void }) {
@@ -581,6 +582,11 @@ export default function ProjectDetails() {
   // --- Edit Team Member Dialog State ---
   const [editPosition, setEditPosition] = useState('');
   const [editAccessLevel, setEditAccessLevel] = useState('1');
+  const [isCropOpen, setIsCropOpen] = useState(false)
+  const [crop, setCrop] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null)
+  const [croppingImage, setCroppingImage] = useState<string | null>(null)
 
   useEffect(() => {
     refreshTeamMembers()
@@ -898,6 +904,21 @@ export default function ProjectDetails() {
     }
   }
 
+  const refreshProjectMedia = async () => {
+    if (!projectId) return;
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('media_files')
+        .eq('id', projectId)
+        .single();
+      if (error) throw error;
+      setProject(prev => prev ? { ...prev, media_files: data?.media_files || [] } : prev);
+    } catch (error) {
+      console.error('Error refreshing project media:', error);
+    }
+  }
+
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !e.target.files.length) return
 
@@ -905,7 +926,16 @@ export default function ProjectDetails() {
     const files = Array.from(e.target.files)
 
     try {
-      const uploadPromises = files.map(async (file) => {
+      // Fetch current media_files from the database
+      const { data: projectData, error: fetchError } = await supabase
+        .from('projects')
+        .select('media_files')
+        .eq('id', projectId)
+        .single()
+      if (fetchError) throw fetchError
+      const currentMediaFiles = projectData?.media_files || []
+
+      const newMediaFiles = await Promise.all(files.map(async (file) => {
         // Create a unique filename
         const fileExt = file.name.split('.').pop()
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
@@ -915,18 +945,12 @@ export default function ProjectDetails() {
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('partnerfiles')
           .upload(filePath, file)
-
-        if (uploadError) {
-          console.error('Storage upload error:', uploadError)
-          throw uploadError
-        }
-
-        console.log('File uploaded successfully:', uploadData)
+        if (uploadError) throw uploadError
 
         // Get aspect ratio for images
         let aspectRatio: MediaFile['aspect_ratio'] = '16:9'
         if (file.type.startsWith('image/')) {
-          const img = new Image()
+          const img = new window.Image()
           img.src = URL.createObjectURL(file)
           await new Promise((resolve) => {
             img.onload = () => {
@@ -953,51 +977,19 @@ export default function ProjectDetails() {
           aspect_ratio: aspectRatio,
           created_at: new Date().toISOString()
         }
-
         return mediaFile
-      })
-
-      const newMediaFiles = await Promise.all(uploadPromises)
-      console.log('New media files:', newMediaFiles)
-
-      // First get the current project to ensure we have the latest media_files
-      const { data: currentProject, error: fetchError } = await supabase
-        .from('projects')
-        .select('media_files')
-        .eq('id', projectId)
-        .single()
-
-      if (fetchError) {
-        console.error('Error fetching current project:', fetchError)
-        throw fetchError
-      }
-
-      const updatedMediaFiles = [
-        ...(currentProject?.media_files || []),
-        ...newMediaFiles
-      ]
-
-      console.log('Updating project with media files:', updatedMediaFiles)
-
-      // Update project with new media files
-      const { error: updateError } = await supabase
-        .from('projects')
-        .update({
-          media_files: updatedMediaFiles
-        })
-        .eq('id', projectId)
-
-      if (updateError) {
-        console.error('Error updating project:', updateError)
-        throw updateError
-      }
-
-      // Update local state
-      setProject(prev => ({
-        ...prev!,
-        media_files: updatedMediaFiles
       }))
 
+      // Update the database with the new media_files array
+      const updatedMediaFiles = [...currentMediaFiles, ...newMediaFiles]
+      const { error: updateError } = await supabase
+        .from('projects')
+        .update({ media_files: updatedMediaFiles })
+        .eq('id', projectId)
+      if (updateError) throw updateError
+
+      // Update local state
+      setProject(prev => prev ? { ...prev, media_files: updatedMediaFiles } : prev)
       console.log('Media upload and database update completed successfully')
 
     } catch (error) {
@@ -1682,6 +1674,78 @@ export default function ProjectDetails() {
     }
   };
 
+  const onCropComplete = useCallback((_: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels)
+  }, [])
+
+  const showCropper = (imgUrl: string) => {
+    setCroppingImage(imgUrl)
+    setIsCropOpen(true)
+  }
+
+  const getCroppedImg = async (imageSrc: string, crop: any) => {
+    // Utility to crop image using canvas
+    const createImage = (url: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new window.Image()
+      img.addEventListener('load', () => resolve(img))
+      img.addEventListener('error', error => reject(error))
+      img.setAttribute('crossOrigin', 'anonymous')
+      img.src = url
+    })
+    const image = await createImage(imageSrc)
+    const canvas = document.createElement('canvas')
+    canvas.width = crop.width
+    canvas.height = crop.height
+    const ctx = canvas.getContext('2d')
+    ctx?.drawImage(
+      image,
+      crop.x,
+      crop.y,
+      crop.width,
+      crop.height,
+      0,
+      0,
+      crop.width,
+      crop.height
+    )
+    return new Promise<Blob>((resolve) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob)
+      }, 'image/png')
+    })
+  }
+
+  const handleCropSave = async () => {
+    if (!croppingImage || !croppedAreaPixels) return
+    setIsUploadingMedia(true)
+    try {
+      const croppedBlob = await getCroppedImg(croppingImage, croppedAreaPixels)
+      const fileExt = 'png'
+      const fileName = `${Date.now()}-cropped.png`
+      const filePath = `projects/${projectId}/${fileName}`
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage.from('partnerfiles').upload(filePath, croppedBlob, { upsert: true, contentType: 'image/png' })
+      if (uploadError) throw uploadError
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage.from('partnerfiles').getPublicUrl(filePath)
+      // Replace the original image in media_files
+      const updatedMediaFiles = project?.media_files?.map((file, idx) =>
+        idx === selectedImage ? { ...file, url: publicUrl, name: fileName } : file
+      ) || []
+      // Update DB
+      const { error: updateError } = await supabase.from('projects').update({ media_files: updatedMediaFiles }).eq('id', projectId)
+      if (updateError) throw updateError
+      setProject(prev => prev ? { ...prev, media_files: updatedMediaFiles } : prev)
+      setIsCropOpen(false)
+      setCroppingImage(null)
+      toast.success('Image cropped and updated!')
+    } catch (err) {
+      toast.error('Failed to crop image')
+    } finally {
+      setIsUploadingMedia(false)
+    }
+  }
+
   // Show loading state while authentication or projects are loading
   if (authLoading || projectsLoading || !project) {
     return (
@@ -1811,19 +1875,30 @@ export default function ProjectDetails() {
                     {/* Main Display */}
                     {project?.media_files && project.media_files.length > 0 && (
                       <div className="space-y-4">
-                        <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-gray-800/30">
+                        <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-gray-800/30 flex items-center justify-center">
                           {project.media_files[selectedImage].type.startsWith('image/') ? (
-                            <Image
-                              src={project.media_files[selectedImage].url}
-                              alt={project.media_files[selectedImage].name}
-                              fill
-                              className="object-cover"
-                            />
+                            <>
+                              <Image
+                                src={project.media_files[selectedImage].url}
+                                alt={project.media_files[selectedImage].name}
+                                fill
+                                className="object-contain w-full h-full"
+                              />
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white z-10"
+                                onClick={() => showCropper(project.media_files[selectedImage].url)}
+                                title="Edit Image"
+                              >
+                                <Pencil className="w-5 h-5" />
+                              </Button>
+                            </>
                           ) : project.media_files[selectedImage].type.startsWith('video/') ? (
                             <video
                               src={project.media_files[selectedImage].url}
                               controls
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
@@ -1849,7 +1924,7 @@ export default function ProjectDetails() {
                           {project.media_files.map((file, index) => (
                             <div
                               key={index}
-                              className={`relative aspect-video cursor-pointer rounded-md overflow-hidden ${
+                              className={`relative aspect-video cursor-pointer rounded-md overflow-hidden bg-gray-900 flex items-center justify-center ${
                                 index === selectedImage ? 'ring-2 ring-blue-500' : ''
                               }`}
                               onClick={() => setSelectedImage(index)}
@@ -1859,7 +1934,7 @@ export default function ProjectDetails() {
                                   src={file.url}
                                   alt={file.name}
                                   fill
-                                  className="object-cover"
+                                  className="object-contain w-full h-full p-1"
                                 />
                               ) : file.type.startsWith('video/') ? (
                                 <div className="w-full h-full bg-gray-800 flex items-center justify-center">
@@ -1963,6 +2038,54 @@ export default function ProjectDetails() {
                   </CardContent>
                 </Card>
 
+                {/* Project Expenses Card */}
+                <Card className="leonardo-card border-gray-800">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <DollarSign className="w-5 h-5 mr-2" />
+                      Project Expenses
+                    </CardTitle>
+                    <CardDescription>Track and manage project expenses</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {/* Mock expenses list */}
+                      {[
+                        { id: 1, description: 'Office Supplies', amount: 150, category: 'Supplies', status: 'Paid', dueDate: '2023-10-15' },
+                        { id: 2, description: 'Client Dinner', amount: 200, category: 'Entertainment', status: 'Pending', dueDate: '2023-10-20' },
+                        { id: 3, description: 'Software Subscription', amount: 50, category: 'Software', status: 'Due', dueDate: '2023-10-25' },
+                      ].map(expense => (
+                        <div
+                          key={expense.id}
+                          className="p-3 bg-gray-800/50 rounded-lg flex flex-col md:flex-row md:items-center md:justify-between gap-2 cursor-pointer hover:bg-gray-800/80 transition-colors"
+                          onClick={() => router.push(`/expense/${expense.id}`)}
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium text-white">{expense.description}</div>
+                            <div className="text-xs text-gray-400">{expense.category}</div>
+                          </div>
+                          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                            <span className="text-green-400 font-semibold">${expense.amount.toFixed(2)}</span>
+                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                              expense.status === 'Paid' ? 'bg-green-500/20 text-green-400' :
+                              expense.status === 'Pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                              'bg-blue-500/20 text-blue-400'
+                            }`}>
+                              {expense.status}
+                            </span>
+                            <span className="text-xs text-gray-400">Due: {expense.dueDate}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-end mt-4">
+                      <Button onClick={() => router.push('/expenses')} variant="outline" className="gradient-button">
+                        View All Expenses
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Project Access */}
                 {user?.role !== 'viewer' && (
                   <Card className="leonardo-card border-gray-800">
@@ -2022,11 +2145,10 @@ export default function ProjectDetails() {
                                   className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg"
                                 >
                                   <div className="flex items-center">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center mr-3">
-                                      <span className="text-white font-medium">
-                                        {member.user?.name?.[0] || member.user?.email?.[0] || '?'}
-                                      </span>
-                                    </div>
+                                    <Avatar className="w-10 h-10 mr-3">
+                                      <AvatarImage src={member.user?.avatar_url || undefined} />
+                                      <AvatarFallback>{member.user?.name?.[0] || member.user?.email?.[0] || '?'}</AvatarFallback>
+                                    </Avatar>
                                     <div>
                                       <h4 className="font-medium text-white">{member.user?.name || member.user?.email}</h4>
                                       {member.position && (
@@ -2035,8 +2157,8 @@ export default function ProjectDetails() {
                                       {member.access_level && (
                                         <p className="text-xs text-gray-400">Access Level: {member.access_level}</p>
                                       )}
-                                      </div>
-                                      </div>
+                                    </div>
+                                  </div>
                                   {user?.role !== 'viewer' && user?.role !== 'investor' && (
                                   <div className="flex items-center gap-2">
                                     <Button
@@ -2515,11 +2637,10 @@ export default function ProjectDetails() {
                     <div key={member.id} className="p-4 bg-gray-800/30 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center mr-3">
-                            <span className="text-white font-medium">
-                              {member.user?.name?.[0] || member.user?.email?.[0] || '?'}
-                            </span>
-                </div>
+                          <Avatar className="w-10 h-10 mr-3">
+                            <AvatarImage src={member.user?.avatar_url || undefined} />
+                            <AvatarFallback>{member.user?.name?.[0] || member.user?.email?.[0] || '?'}</AvatarFallback>
+                          </Avatar>
                           <div>
                             <h4 className="font-medium text-white">{member.user?.name || member.user?.email}</h4>
                             {member.position && (
@@ -2528,8 +2649,8 @@ export default function ProjectDetails() {
                             {member.access_level && (
                               <p className="text-xs text-gray-400">Access Level: {member.access_level}</p>
                             )}
-              </div>
-            </div>
+                          </div>
+                        </div>
                         {user?.role !== 'viewer' && user?.role !== 'investor' && (
                         <div className="flex items-center gap-2">
                             <Button
@@ -3444,6 +3565,47 @@ export default function ProjectDetails() {
               className="gradient-button"
             >
               {isEditingLink ? 'Update Link' : 'Add Link'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cropper Modal */}
+      <Dialog open={isCropOpen} onOpenChange={setIsCropOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Image</DialogTitle>
+            <DialogDescription>Crop and zoom the image as needed, then save.</DialogDescription>
+          </DialogHeader>
+          <div className="relative w-full h-[400px] bg-black">
+            {croppingImage && (
+              <Cropper
+                image={croppingImage}
+                crop={crop}
+                zoom={zoom}
+                aspect={16 / 9}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            )}
+          </div>
+          <div className="flex gap-4 items-center mt-4">
+            <Label>Zoom</Label>
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.01}
+              value={zoom}
+              onChange={e => setZoom(Number(e.target.value))}
+              className="w-full"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCropOpen(false)}>Cancel</Button>
+            <Button onClick={handleCropSave} className="gradient-button" disabled={isUploadingMedia}>
+              {isUploadingMedia ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>

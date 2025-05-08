@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { formatDistanceToNow } from "date-fns"
 
 interface Task {
   id: string
@@ -45,7 +46,6 @@ interface Task {
     url: string
     name: string
   }[]
-  notes?: string
 }
 
 export default function TaskDetailPage() {
@@ -55,12 +55,17 @@ export default function TaskDetailPage() {
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
   const { user } = useAuth()
-  const [isEditingNotes, setIsEditingNotes] = useState(false)
-  const [editedNotes, setEditedNotes] = useState("")
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
   const [linkName, setLinkName] = useState("")
   const [linkUrl, setLinkUrl] = useState("")
   const [uploadingFile, setUploadingFile] = useState(false)
+  const [notes, setNotes] = useState<any[]>([])
+  const [newNote, setNewNote] = useState("")
+  const [loadingNotes, setLoadingNotes] = useState(true)
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [editingContent, setEditingContent] = useState("")
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null)
+  const [attachments, setAttachments] = useState<any[]>([])
 
   useEffect(() => {
     const fetchTask = async () => {
@@ -116,161 +121,218 @@ export default function TaskDetailPage() {
     }
   }, [taskId, user])
 
-  const handleNotesUpdate = async () => {
-    if (!task) return
+  useEffect(() => {
+    const fetchNotes = async () => {
+      setLoadingNotes(true);
+      // Log the taskId for debugging
+      console.log('Fetching notes for taskId:', taskId);
+      const { data, error } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('entity_type', 'task')
+        .eq('entity_id', taskId)
+        .order('created_at', { ascending: false });
+      console.log('Notes fetch result:', { data, error, taskId });
+      if (!error) setNotes(data || []);
+      setLoadingNotes(false);
+    };
+    if (taskId) fetchNotes();
+  }, [taskId]);
 
-    try {
-      const { error } = await supabase
-        .from('tasks')
-        .update({ notes: editedNotes })
-        .eq('id', task.id)
-
-      if (error) throw error
-
-      setTask(prev => prev ? { ...prev, notes: editedNotes } : null)
-      setIsEditingNotes(false)
-      toast({
-        title: "Success",
-        description: "Notes updated successfully"
-      })
-    } catch (error) {
-      console.error('Error updating notes:', error)
-      toast({
-        title: "Error",
-        description: "Failed to update notes",
-        variant: "destructive"
-      })
-    }
-  }
+  useEffect(() => {
+    const fetchAttachments = async () => {
+      if (!taskId) return;
+      const { data, error } = await supabase
+        .from('attachments')
+        .select('*')
+        .eq('entity_type', 'task')
+        .eq('entity_id', taskId)
+        .order('created_at', { ascending: false });
+      if (!error) setAttachments(data || []);
+    };
+    fetchAttachments();
+  }, [taskId]);
 
   const handleFileUpload = async (file: File) => {
-    if (!task) return
-
+    if (!task || !user) return;
     try {
-      setUploadingFile(true)
-      const fileName = `${task.id}/${file.name}`
+      setUploadingFile(true);
+      const filePath = `attachments/task-${task.id}/${file.name}`;
       const { error: uploadError } = await supabase.storage
-        .from('task-attachments')
-        .upload(fileName, file)
-
-      if (uploadError) throw uploadError
-
+        .from('partnerfiles')
+        .upload(filePath, file);
+      if (uploadError) throw uploadError;
       const { data: urlData } = await supabase.storage
-        .from('task-attachments')
-        .getPublicUrl(fileName)
-
-      const publicUrl = urlData.publicUrl
-
-      const newAttachment = {
-        type: 'file' as const,
-        url: publicUrl,
-        name: file.name
-      }
-
-      const { error: updateError } = await supabase
-        .from('tasks')
-        .update({
-          attachments: [...(task.attachments || []), newAttachment]
-        })
-        .eq('id', task.id)
-
-      if (updateError) throw updateError
-
-      setTask(prev => prev ? {
-        ...prev,
-        attachments: [...(prev.attachments || []), newAttachment]
-      } : null)
-
-      toast({
-        title: "Success",
-        description: "File uploaded successfully"
-      })
+        .from('partnerfiles')
+        .getPublicUrl(filePath);
+      const publicUrl = urlData.publicUrl;
+      const { error: insertError } = await supabase
+        .from('attachments')
+        .insert({
+          entity_type: 'task',
+          entity_id: task.id,
+          type: 'file',
+          name: file.name,
+          url: publicUrl,
+          file_path: filePath,
+          file_size: file.size,
+          file_type: file.type,
+          created_by: user.id
+        });
+      if (insertError) throw insertError;
+      // Refetch attachments
+      const { data } = await supabase
+        .from('attachments')
+        .select('*')
+        .eq('entity_type', 'task')
+        .eq('entity_id', task.id)
+        .order('created_at', { ascending: false });
+      setAttachments(data || []);
+      toast({ title: 'Success', description: 'File uploaded successfully' });
     } catch (error) {
-      console.error('Error uploading file:', error)
-      toast({
-        title: "Error",
-        description: "Failed to upload file",
-        variant: "destructive"
-      })
+      console.error('Error uploading file:', error);
+      toast({ title: 'Error', description: 'Failed to upload file', variant: 'destructive' });
     } finally {
-      setUploadingFile(false)
+      setUploadingFile(false);
     }
-  }
+  };
 
   const handleLinkAdd = async () => {
-    if (!task) return
-
+    if (!task || !user) return;
     try {
-      const newAttachment = {
-        type: 'link' as const,
-        url: linkUrl,
-        name: linkName || linkUrl
+      let normalizedUrl = linkUrl.trim();
+      if (!/^https?:\/\//i.test(normalizedUrl)) {
+        normalizedUrl = 'https://' + normalizedUrl;
       }
-
       const { error } = await supabase
-        .from('tasks')
-        .update({
-          attachments: [...(task.attachments || []), newAttachment]
-        })
-        .eq('id', task.id)
-
-      if (error) throw error
-
-      setTask(prev => prev ? {
-        ...prev,
-        attachments: [...(prev.attachments || []), newAttachment]
-      } : null)
-
-      setLinkDialogOpen(false)
-      setLinkName("")
-      setLinkUrl("")
-      toast({
-        title: "Success",
-        description: "Link added successfully"
-      })
+        .from('attachments')
+        .insert({
+          entity_type: 'task',
+          entity_id: task.id,
+          type: 'link',
+          name: linkName || normalizedUrl,
+          url: normalizedUrl,
+          created_by: user.id
+        });
+      if (error) throw error;
+      // Refetch attachments
+      const { data } = await supabase
+        .from('attachments')
+        .select('*')
+        .eq('entity_type', 'task')
+        .eq('entity_id', task.id)
+        .order('created_at', { ascending: false });
+      setAttachments(data || []);
+      setLinkDialogOpen(false);
+      setLinkName("");
+      setLinkUrl("");
+      toast({ title: 'Success', description: 'Link added successfully' });
     } catch (error) {
-      console.error('Error adding link:', error)
-      toast({
-        title: "Error",
-        description: "Failed to add link",
-        variant: "destructive"
-      })
+      console.error('Error adding link:', error);
+      toast({ title: 'Error', description: 'Failed to add link', variant: 'destructive' });
     }
-  }
+  };
 
-  const handleAttachmentDelete = async (index: number) => {
-    if (!task || !task.attachments) return
-
+  const handleAttachmentDelete = async (attachment: any) => {
+    if (!task) return;
     try {
-      const newAttachments = task.attachments.filter((_, i) => i !== index)
-
+      // If it's a file, remove from storage as well
+      if (attachment.type === 'file' && attachment.file_path) {
+        await supabase.storage.from('partnerfiles').remove([attachment.file_path]);
+      }
+      // Remove from attachments table
       const { error } = await supabase
-        .from('tasks')
-        .update({
-          attachments: newAttachments
-        })
-        .eq('id', task.id)
-
-      if (error) throw error
-
-      setTask(prev => prev ? {
-        ...prev,
-        attachments: newAttachments
-      } : null)
-
-      toast({
-        title: "Success",
-        description: "Attachment removed successfully"
-      })
+        .from('attachments')
+        .delete()
+        .eq('id', attachment.id);
+      if (error) throw error;
+      // Refetch attachments
+      const { data } = await supabase
+        .from('attachments')
+        .select('*')
+        .eq('entity_type', 'task')
+        .eq('entity_id', task.id)
+        .order('created_at', { ascending: false });
+      setAttachments(data || []);
+      toast({ title: 'Attachment removed successfully' });
     } catch (error) {
-      console.error('Error removing attachment:', error)
-      toast({
-        title: "Error",
-        description: "Failed to remove attachment",
-        variant: "destructive"
-      })
+      console.error('Error removing attachment:', error);
+      toast({ title: 'Error', description: 'Failed to remove attachment', variant: 'destructive' });
+    }
+  };
+
+  const handleAddNote = async () => {
+    if (!newNote.trim() || !user) return;
+    const { error } = await supabase.from('notes').insert({
+      entity_type: 'task',
+      entity_id: taskId,
+      content: newNote,
+      created_by: user.id
+    });
+    if (!error) {
+      setNewNote("");
+      // Refetch notes
+      const { data } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('entity_type', 'task')
+        .eq('entity_id', taskId)
+        .order('created_at', { ascending: false });
+      setNotes(data || []);
+      toast({ title: "Note added" });
+    } else {
+      toast({ title: "Error", description: "Failed to add note", variant: "destructive" });
     }
   }
+
+  const handleEditNote = (noteId: string, content: string) => {
+    setEditingNoteId(noteId);
+    setEditingContent(content);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingNoteId || !editingContent.trim()) return;
+    const { error } = await supabase
+      .from('notes')
+      .update({ content: editingContent })
+      .eq('id', editingNoteId);
+    if (!error) {
+      setEditingNoteId(null);
+      setEditingContent("");
+      // Refetch notes
+      const { data } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('entity_type', 'task')
+        .eq('entity_id', taskId)
+        .order('created_at', { ascending: false });
+      setNotes(data || []);
+      toast({ title: "Note updated" });
+    } else {
+      toast({ title: "Error", description: "Failed to update note", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    const { error } = await supabase
+      .from('notes')
+      .delete()
+      .eq('id', noteId);
+    if (!error) {
+      setDeletingNoteId(null);
+      // Refetch notes
+      const { data } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('entity_type', 'task')
+        .eq('entity_id', taskId)
+        .order('created_at', { ascending: false });
+      setNotes(data || []);
+      toast({ title: "Note deleted" });
+    } else {
+      toast({ title: "Error", description: "Failed to delete note", variant: "destructive" });
+    }
+  };
 
   if (loading) {
     return (
@@ -362,27 +424,38 @@ export default function TaskDetailPage() {
               <p className="text-gray-300">{task.description}</p>
             </div>
 
-            {task.attachments && task.attachments.length > 0 && (
+            {attachments.length > 0 && (
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-white">Attachments</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {task.attachments.map((attachment, index) => (
+                  {attachments.map((attachment, index) => (
                     <Card key={index} className="bg-gray-900/50 border-gray-800">
                       <CardContent className="p-4">
-                        <div className="flex items-center gap-2">
-                          {attachment.type === 'file' ? (
-                            <FileText className="w-4 h-4 text-blue-400" />
-                          ) : (
-                            <LinkIcon className="w-4 h-4 text-purple-400" />
-                          )}
-                          <a
-                            href={attachment.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-400 hover:text-blue-300"
+                        <div className="flex items-center gap-2 justify-between">
+                          <div className="flex items-center gap-2">
+                            {attachment.type === 'file' ? (
+                              <FileText className="w-4 h-4 text-blue-400" />
+                            ) : (
+                              <LinkIcon className="w-4 h-4 text-purple-400" />
+                            )}
+                            <a
+                              href={attachment.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-400 hover:text-blue-300"
+                            >
+                              {attachment.name}
+                            </a>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleAttachmentDelete(attachment)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                            title="Remove attachment"
                           >
-                            {attachment.name}
-                          </a>
+                            <X className="w-4 h-4" />
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -390,83 +463,82 @@ export default function TaskDetailPage() {
                 </div>
               </div>
             )}
-
-            {task.notes && (
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <StickyNote className="w-5 h-5 text-yellow-400" />
-                  Notes
-                </h3>
-                <Card className="bg-gray-900/50 border-gray-800">
-                  <CardContent className="p-4">
-                    <p className="text-gray-300 whitespace-pre-wrap">{task.notes}</p>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
           </CardContent>
         </Card>
 
         <div className="space-y-8 mt-8">
-          {/* Notes Section */}
+          {/* Notes Section (collaborative) */}
           <Card className="bg-black border-gray-800">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl font-semibold flex items-center gap-2">
-                  <StickyNote className="w-5 h-5 text-yellow-400" />
-                  Notes
-                </CardTitle>
-                {!isEditingNotes ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsEditingNotes(true)
-                      setEditedNotes(task?.notes || "")
-                    }}
-                    className="border-yellow-500/20 text-yellow-400 hover:bg-yellow-500/10"
-                  >
-                    <Edit2 className="w-4 h-4 mr-2" />
-                    Edit Notes
-                  </Button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsEditingNotes(false)}
-                      className="border-gray-700 text-gray-400 hover:bg-gray-800"
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleNotesUpdate}
-                      className="bg-yellow-600 hover:bg-yellow-700"
-                    >
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Notes
-                    </Button>
-                  </div>
-                )}
-              </div>
+              <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                <StickyNote className="w-5 h-5 text-yellow-400" />
+                Notes
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              {isEditingNotes ? (
-                <Textarea
-                  value={editedNotes}
-                  onChange={(e) => setEditedNotes(e.target.value)}
-                  placeholder="Add your notes here..."
-                  className="min-h-[200px] bg-gray-900/50 border-gray-800"
-                />
+              {loadingNotes ? (
+                <div className="text-gray-400">Loading notes...</div>
               ) : (
-                <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-4">
-                  <p className="text-gray-300 whitespace-pre-wrap">
-                    {task?.notes || "No notes added yet."}
-                  </p>
+                <div className="space-y-4">
+                  {notes.length === 0 && <div className="text-gray-400">No notes yet.</div>}
+                  {notes.map(note => (
+                    <div key={note.id} className="bg-gray-900/50 border border-gray-800 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-400">
+                          {note.created_by || "Unknown"} • {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+                        </span>
+                        {user && note.created_by === user.id && (
+                          <div className="flex gap-2">
+                            {editingNoteId === note.id ? (
+                              <>
+                                <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={handleSaveEdit}>Save</Button>
+                                <Button size="sm" variant="outline" onClick={() => setEditingNoteId(null)}>Cancel</Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button size="sm" variant="outline" onClick={() => handleEditNote(note.id, note.content)}>Edit</Button>
+                                <Button size="sm" variant="outline" className="hover:bg-red-600 hover:text-white" onClick={() => setDeletingNoteId(note.id)}>Delete</Button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {editingNoteId === note.id ? (
+                        <Textarea
+                          value={editingContent}
+                          onChange={e => setEditingContent(e.target.value)}
+                          className="min-h-[60px] bg-gray-900/50 border-gray-800"
+                        />
+                      ) : (
+                        <p className="text-gray-300 whitespace-pre-wrap">{note.content}</p>
+                      )}
+                      {/* Delete confirmation */}
+                      {deletingNoteId === note.id && (
+                        <div className="mt-2 flex gap-2">
+                          <span className="text-red-400">Are you sure?</span>
+                          <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => handleDeleteNote(note.id)}>Yes, Delete</Button>
+                          <Button size="sm" variant="outline" onClick={() => setDeletingNoteId(null)}>Cancel</Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
+              <div className="mt-4">
+                <Textarea
+                  value={newNote}
+                  onChange={e => setNewNote(e.target.value)}
+                  placeholder="Add a note..."
+                  className="min-h-[100px] bg-gray-900/50 border-gray-800"
+                />
+                <Button
+                  className="mt-2 bg-yellow-600 hover:bg-yellow-700"
+                  onClick={handleAddNote}
+                  disabled={!newNote.trim() || !user}
+                >
+                  Add Note
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -511,9 +583,9 @@ export default function TaskDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {task?.attachments && task.attachments.length > 0 ? (
+                {attachments.length > 0 ? (
                   <div className="grid grid-cols-1 gap-4">
-                    {task.attachments.map((attachment, index) => (
+                    {attachments.map((attachment, index) => (
                       <div
                         key={index}
                         className="flex items-center justify-between bg-gray-900/50 border border-gray-800 rounded-lg p-4"
@@ -544,7 +616,7 @@ export default function TaskDetailPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleAttachmentDelete(index)}
+                            onClick={() => handleAttachmentDelete(attachment)}
                             className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                           >
                             <X className="w-4 h-4" />

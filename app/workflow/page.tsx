@@ -848,7 +848,7 @@ export default function WorkflowPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button className="flex-1 sm:flex-none gradient-button">
+              <Button className="flex-1 sm:flex-none gradient-button opacity-50">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Task
               </Button>

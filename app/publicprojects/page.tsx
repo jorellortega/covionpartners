@@ -355,8 +355,8 @@ export default function PublicProjectsPage() {
                               label: 'Make Deal',
                               icon: <Handshake className="w-4 h-4 mr-2" />,
                               onClick: (e: any) => {
-                                e.stopPropagation();
-                                router.push(`/makedeal?project=${project.id}`);
+                              e.stopPropagation();
+                              router.push(`/makedeal?project=${project.id}`);
                               },
                               color: 'hover:bg-purple-900/20 hover:text-purple-400',
                             }] : []),
@@ -364,8 +364,8 @@ export default function PublicProjectsPage() {
                               label: 'Invest',
                               icon: <DollarSign className="w-4 h-4 mr-2" />,
                               onClick: (e: any) => {
-                                e.stopPropagation();
-                                router.push(`/invest?project=${project.id}`);
+                              e.stopPropagation();
+                              router.push(`/invest?project=${project.id}`);
                               },
                               color: 'hover:bg-green-900/20 hover:text-green-400',
                             }] : []),
@@ -373,8 +373,8 @@ export default function PublicProjectsPage() {
                               label: 'Donate',
                               icon: <Heart className="w-4 h-4 mr-2" />,
                               onClick: (e: any) => {
-                                e.stopPropagation();
-                                router.push(`/donate?project=${project.id}`);
+                              e.stopPropagation();
+                              router.push(`/donate?project=${project.id}`);
                               },
                               color: 'hover:bg-pink-900/20 hover:text-pink-400',
                             }] : []),
@@ -400,7 +400,7 @@ export default function PublicProjectsPage() {
                                 >
                                   {btn.icon}
                                   {btn.label}
-                                </Button>
+                        </Button>
                               ))}
                             </div>
                           );

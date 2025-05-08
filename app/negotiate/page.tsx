@@ -517,6 +517,14 @@ export default function NegotiatePage() {
             )}
           </CardContent>
         </Card>
+        {/* Negotiation Table Button */}
+        <div className="w-full max-w-full md:max-w-7xl mx-auto pb-12 px-4 sm:px-6 lg:px-8 flex justify-end">
+          <a href="/negotiationtable">
+            <Button className="bg-gradient-to-r from-yellow-500 to-green-500 text-black font-bold shadow-lg hover:from-yellow-600 hover:to-green-600">
+              View Negotiation Table
+            </Button>
+          </a>
+        </div>
       </div>
     </div>
   )
