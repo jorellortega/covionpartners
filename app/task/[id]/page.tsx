@@ -173,7 +173,7 @@ export default function TaskDetailPage() {
           entity_id: task.id,
           type: 'file',
           name: file.name,
-          url: publicUrl,
+        url: publicUrl,
           file_path: filePath,
           file_size: file.size,
           file_type: file.type,
@@ -432,20 +432,20 @@ export default function TaskDetailPage() {
                     <Card key={index} className="bg-gray-900/50 border-gray-800">
                       <CardContent className="p-4">
                         <div className="flex items-center gap-2 justify-between">
-                          <div className="flex items-center gap-2">
-                            {attachment.type === 'file' ? (
-                              <FileText className="w-4 h-4 text-blue-400" />
-                            ) : (
-                              <LinkIcon className="w-4 h-4 text-purple-400" />
-                            )}
-                            <a
-                              href={attachment.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-400 hover:text-blue-300"
-                            >
-                              {attachment.name}
-                            </a>
+                        <div className="flex items-center gap-2">
+                          {attachment.type === 'file' ? (
+                            <FileText className="w-4 h-4 text-blue-400" />
+                          ) : (
+                            <LinkIcon className="w-4 h-4 text-purple-400" />
+                          )}
+                          <a
+                            href={attachment.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-300"
+                          >
+                            {attachment.name}
+                          </a>
                           </div>
                           <Button
                             variant="ghost"
@@ -470,10 +470,10 @@ export default function TaskDetailPage() {
           {/* Notes Section (collaborative) */}
           <Card className="bg-black border-gray-800">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold flex items-center gap-2">
-                <StickyNote className="w-5 h-5 text-yellow-400" />
-                Notes
-              </CardTitle>
+                <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                  <StickyNote className="w-5 h-5 text-yellow-400" />
+                  Notes
+                </CardTitle>
             </CardHeader>
             <CardContent>
               {loadingNotes ? (
@@ -508,8 +508,8 @@ export default function TaskDetailPage() {
                           value={editingContent}
                           onChange={e => setEditingContent(e.target.value)}
                           className="min-h-[60px] bg-gray-900/50 border-gray-800"
-                        />
-                      ) : (
+                />
+              ) : (
                         <p className="text-gray-300 whitespace-pre-wrap">{note.content}</p>
                       )}
                       {/* Delete confirmation */}

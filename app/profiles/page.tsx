@@ -31,6 +31,7 @@ import {
   ChevronRight
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { supabase } from '@/lib/supabase'
 
 interface Profile {
   id: string
@@ -146,18 +147,18 @@ export default function ProfilesPage() {
   const [locationFilter, setLocationFilter] = useState('all')
 
   useEffect(() => {
-    // Simulate API call with setTimeout
     const fetchProfiles = async () => {
       try {
-        setIsLoading(true)
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        
-        // Use mock data instead of database
-        setProfiles(mockProfiles)
-        setFilteredProfiles(mockProfiles)
-      } catch (err) {
-        console.error('Error fetching profiles:', err)
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false })
+        if (error) throw error
+        console.log('Fetched profiles:', data)
+        setProfiles(data || [])
+        setFilteredProfiles(data || [])
+      } catch (error) {
+        console.error('Error fetching profiles:', error)
         toast.error('Failed to load profiles')
       } finally {
         setIsLoading(false)
@@ -195,6 +196,14 @@ export default function ProfilesPage() {
 
   const uniqueRoles = Array.from(new Set(profiles.map(p => p.role)))
   const uniqueLocations = Array.from(new Set(profiles.map(p => p.location).filter(Boolean)))
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -241,11 +250,7 @@ export default function ProfilesPage() {
         </div>
 
         {/* Profiles Grid */}
-        {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          </div>
-        ) : filteredProfiles.length === 0 ? (
+        {filteredProfiles.length === 0 ? (
           <div className="text-center py-12">
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-white mb-2">No profiles found</h3>

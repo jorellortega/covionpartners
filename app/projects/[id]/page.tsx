@@ -1878,10 +1878,10 @@ export default function ProjectDetails() {
                         <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-gray-800/30 flex items-center justify-center">
                           {project.media_files[selectedImage].type.startsWith('image/') ? (
                             <>
-                              <Image
-                                src={project.media_files[selectedImage].url}
-                                alt={project.media_files[selectedImage].name}
-                                fill
+                            <Image
+                              src={project.media_files[selectedImage].url}
+                              alt={project.media_files[selectedImage].name}
+                              fill
                                 className="object-contain w-full h-full"
                               />
                               <Button
@@ -2157,8 +2157,8 @@ export default function ProjectDetails() {
                                       {member.access_level && (
                                         <p className="text-xs text-gray-400">Access Level: {member.access_level}</p>
                                       )}
-                                    </div>
-                                  </div>
+                                      </div>
+                                      </div>
                                   {user?.role !== 'viewer' && user?.role !== 'investor' && (
                                   <div className="flex items-center gap-2">
                                     <Button
@@ -2649,8 +2649,8 @@ export default function ProjectDetails() {
                             {member.access_level && (
                               <p className="text-xs text-gray-400">Access Level: {member.access_level}</p>
                             )}
-                          </div>
-                        </div>
+              </div>
+            </div>
                         {user?.role !== 'viewer' && user?.role !== 'investor' && (
                         <div className="flex items-center gap-2">
                             <Button

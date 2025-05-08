@@ -1,7 +1,7 @@
 "use client"
 
 import { use } from 'react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -37,7 +37,8 @@ import {
   ImageIcon,
   Video,
   UploadCloud,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -66,6 +67,7 @@ interface MediaData {
 
 interface ProfileData {
   id: string
+  user_id?: string
   name: string
   role: string
   bio: string
@@ -102,6 +104,7 @@ interface ProfileData {
 
 const defaultProfileData: ProfileData = {
   id: '',
+  user_id: '',
   name: 'Anonymous User',
   role: 'User',
   bio: 'No bio available',
@@ -127,10 +130,23 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const [isLoading, setIsLoading] = useState(true)
   const [profileData, setProfileData] = useState<ProfileData>(defaultProfileData)
   const [error, setError] = useState<string | null>(null)
-  const isOwner = user?.id === profileData.id
+  const isOwner = user?.id === profileData.user_id
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null)
+  const [editingSkillIndex, setEditingSkillIndex] = useState<number | null>(null)
+  const [newSkill, setNewSkill] = useState("")
+  const [editingExpIndex, setEditingExpIndex] = useState<number | null>(null)
+  const [newExp, setNewExp] = useState({ title: "", company: "", period: "", description: "" })
+  const [editingEduIndex, setEditingEduIndex] = useState<number | null>(null)
+  const [newEdu, setNewEdu] = useState({ degree: "", school: "", period: "" })
+  const [editingField, setEditingField] = useState<null | 'location' | 'company'>(null)
+  const [editValue, setEditValue] = useState("")
+  const [media, setMedia] = useState<MediaItem[]>([])
+  const [mediaLoading, setMediaLoading] = useState(true)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [editingBio, setEditingBio] = useState(false)
+  const [bioValue, setBioValue] = useState("")
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -138,16 +154,24 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
         setIsLoading(true)
         setError(null)
 
-        // Fetch user profile data
+        // Fetch user data (for avatar and email)
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('*')
           .eq('id', id)
           .single()
-
         if (userError) {
           console.error('Error fetching user data:', userError)
-          // Don't throw error, just use default data
+        }
+
+        // Fetch profile data (for everything else)
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', id)
+          .single()
+        if (profileError) {
+          console.error('Error fetching profile data:', profileError)
         }
 
         // Fetch user's completed projects
@@ -156,29 +180,28 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           .select('*')
           .eq('user_id', id)
           .order('completion_date', { ascending: false })
-
         if (projectsError) {
           console.error('Error fetching projects:', projectsError)
-          // Don't throw error, just use empty array
         }
 
-        // Transform the data into the expected format, using nullish coalescing for defaults
+        // Merge user and profile data
         const transformedData: ProfileData = {
-          id: userData?.id || id,
-          name: userData?.name || 'Anonymous User',
-          role: userData?.role || 'User',
-          bio: userData?.bio || 'No bio available',
+          id: profile?.id || id,
+          user_id: profile?.user_id || '',
+          name: profile?.name || userData?.name || 'Anonymous User',
+          role: profile?.role || userData?.role || 'User',
+          bio: profile?.bio || userData?.bio || 'No bio available',
           email: userData?.email || '',
-          phone: userData?.phone || '',
-          location: userData?.location || '',
-          company: userData?.company || '',
-          website: userData?.website || '',
-          github: userData?.github || '',
-          twitter: userData?.twitter || '',
-          linkedin: userData?.linkedin || '',
-          skills: userData?.skills || [],
-          experience: userData?.experience || [],
-          education: userData?.education || [],
+          phone: profile?.phone || userData?.phone || '',
+          location: profile?.location || userData?.location || '',
+          company: profile?.company || userData?.company || '',
+          website: profile?.website || userData?.website || '',
+          github: profile?.github || userData?.github || '',
+          twitter: profile?.twitter || userData?.twitter || '',
+          linkedin: profile?.linkedin || userData?.linkedin || '',
+          skills: profile?.skills || [],
+          experience: profile?.experience || [],
+          education: profile?.education || [],
           completed_projects: projectsData?.map(project => ({
             id: project.id,
             title: project.title,
@@ -189,19 +212,82 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           })) || [],
           avatar_url: userData?.avatar_url || '/placeholder-avatar.jpg'
         }
-
         setProfileData(transformedData)
       } catch (err) {
-        console.error('Error in profile data transformation:', err)
-        setError('Failed to load profile data')
-        toast.error('Failed to load profile data')
+        setError('Failed to load profile')
       } finally {
         setIsLoading(false)
       }
     }
-
     fetchProfileData()
   }, [id])
+
+  // Fetch media for this profile
+  useEffect(() => {
+    const fetchMedia = async () => {
+      setMediaLoading(true)
+      const { data, error } = await supabase
+        .from('profile_media')
+        .select('*')
+        .eq('profile_id', profileData.id)
+        .order('created_at', { ascending: false })
+      if (!error) setMedia(data || [])
+      setMediaLoading(false)
+    }
+    if (profileData.id) fetchMedia()
+  }, [profileData.id])
+
+  // Upload media handler (image or video)
+  const handleMediaUpload = async (file: File, type: 'image' | 'video', title = '') => {
+    if (!user || !profileData.id) return
+    const filePath = `profile-media/${profileData.id}/${file.name}`
+    const { error: uploadError } = await supabase.storage
+      .from('partnerfiles')
+      .upload(filePath, file)
+    if (uploadError) {
+      toast.error('Failed to upload media')
+      return
+    }
+    const { data: urlData } = await supabase.storage
+      .from('partnerfiles')
+      .getPublicUrl(filePath)
+    await supabase.from('profile_media').insert({
+      user_id: user.id,
+      profile_id: profileData.id,
+      type,
+      url: urlData.publicUrl,
+      title,
+      created_at: new Date().toISOString(),
+    })
+    toast.success('Media uploaded!')
+    // Refetch media
+    const { data } = await supabase
+      .from('profile_media')
+      .select('*')
+      .eq('profile_id', profileData.id)
+      .order('created_at', { ascending: false })
+    setMedia(data || [])
+  }
+
+  // Delete media handler
+  const handleDeleteMedia = async (mediaItem: MediaItem) => {
+    if (!user || !profileData.id) return
+    // Remove from storage
+    const filePath = mediaItem.url.split('/partnerfiles/')[1]
+    if (filePath) {
+      await supabase.storage.from('partnerfiles').remove([`profile-media/${profileData.id}/${filePath.split('/').pop()}`])
+    }
+    // Remove from table
+    await supabase.from('profile_media').delete().eq('id', mediaItem.id)
+    toast.success('Media deleted!')
+    // Refetch media
+    const { data } = await supabase
+      .from('profile_media')
+      .select('*')
+      .eq('profile_id', profileData.id)
+      .order('created_at', { ascending: false })
+    setMedia(data || [])
+  }
 
   // Sample media data - replace with actual data
   const mediaData: MediaData = {
@@ -246,7 +332,9 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
   const [activeTab, setActiveTab] = useState<'images' | 'videos'>('images')
 
-  const currentMedia = mediaData[activeTab]
+  const images = media.filter(m => m.type === 'image')
+  const videos = media.filter(m => m.type === 'video')
+  const currentMedia = activeTab === 'images' ? images : videos
   const currentItem = currentMedia[currentMediaIndex]
 
   const nextMedia = () => {
@@ -302,6 +390,69 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
     } finally {
       setDeleting(false)
     }
+  }
+
+  // Update profile helper
+  const updateProfileField = async (field: string, value: any) => {
+    const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', profileData.id)
+    if (!error) {
+      setProfileData(prev => ({ ...prev, [field]: value }))
+      toast.success('Profile updated!')
+    } else {
+      toast.error('Failed to update profile')
+    }
+  }
+
+  // Skill handlers
+  const handleAddSkill = async () => {
+    if (!newSkill.trim()) return
+    const updatedSkills = [...profileData.skills, newSkill.trim()]
+    await updateProfileField('skills', updatedSkills)
+    setNewSkill("")
+  }
+  const handleEditSkill = async (idx: number, value: string) => {
+    const updatedSkills = [...profileData.skills]
+    updatedSkills[idx] = value
+    await updateProfileField('skills', updatedSkills)
+    setEditingSkillIndex(null)
+  }
+  const handleDeleteSkill = async (idx: number) => {
+    const updatedSkills = profileData.skills.filter((_, i) => i !== idx)
+    await updateProfileField('skills', updatedSkills)
+  }
+  // Experience handlers
+  const handleAddExp = async () => {
+    if (!newExp.title.trim()) return
+    const updatedExp = [...profileData.experience, newExp]
+    await updateProfileField('experience', updatedExp)
+    setNewExp({ title: "", company: "", period: "", description: "" })
+  }
+  const handleEditExp = async (idx: number, value: any) => {
+    const updatedExp = [...profileData.experience]
+    updatedExp[idx] = value
+    await updateProfileField('experience', updatedExp)
+    setEditingExpIndex(null)
+  }
+  const handleDeleteExp = async (idx: number) => {
+    const updatedExp = profileData.experience.filter((_, i) => i !== idx)
+    await updateProfileField('experience', updatedExp)
+  }
+  // Education handlers
+  const handleAddEdu = async () => {
+    if (!newEdu.degree.trim()) return
+    const updatedEdu = [...profileData.education, newEdu]
+    await updateProfileField('education', updatedEdu)
+    setNewEdu({ degree: "", school: "", period: "" })
+  }
+  const handleEditEdu = async (idx: number, value: any) => {
+    const updatedEdu = [...profileData.education]
+    updatedEdu[idx] = value
+    await updateProfileField('education', updatedEdu)
+    setEditingEduIndex(null)
+  }
+  const handleDeleteEdu = async (idx: number) => {
+    const updatedEdu = profileData.education.filter((_, i) => i !== idx)
+    await updateProfileField('education', updatedEdu)
   }
 
   if (isLoading) {
@@ -377,17 +528,99 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                   <p className="text-gray-400 mb-4">{profileData.role}</p>
                   <div className="flex gap-2 mb-6">
                     {profileData.company && (
-                      <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50">
-                        {profileData.company}
-                      </Badge>
+                      <div className="relative group inline-block">
+                        {editingField === 'company' ? (
+                          <form
+                            onSubmit={e => { e.preventDefault(); updateProfileField('company', editValue); setEditingField(null); }}
+                            className="inline-flex items-center"
+                            style={{ minWidth: '100px' }}
+                          >
+                            <input
+                              value={editValue}
+                              onChange={e => setEditValue(e.target.value)}
+                              className="bg-gray-800 text-blue-400 border-none rounded px-2 py-0.5 text-sm"
+                              style={{ width: 'auto', minWidth: '60px' }}
+                              autoFocus
+                              onBlur={() => setEditingField(null)}
+                            />
+                            <button type="submit" className="ml-1 text-blue-400 text-xs">✔</button>
+                          </form>
+                        ) : (
+                          <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50 group-hover:cursor-pointer relative">
+                            {profileData.company}
+                            {isOwner && (
+                              <span
+                                className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                style={{ pointerEvents: 'auto' }}
+                                onClick={e => { e.stopPropagation(); setEditingField('company'); setEditValue(profileData.company); }}
+                              >
+                                <Pencil className="w-3 h-3 inline-block align-middle" />
+                              </span>
+                            )}
+                          </Badge>
+                        )}
+                      </div>
                     )}
                     {profileData.location && (
-                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">
-                        {profileData.location}
-                      </Badge>
+                      <div className="relative group inline-block">
+                        {editingField === 'location' ? (
+                          <form
+                            onSubmit={e => { e.preventDefault(); updateProfileField('location', editValue); setEditingField(null); }}
+                            className="inline-flex items-center"
+                            style={{ minWidth: '100px' }}
+                          >
+                            <input
+                              value={editValue}
+                              onChange={e => setEditValue(e.target.value)}
+                              className="bg-gray-800 text-purple-400 border-none rounded px-2 py-0.5 text-sm"
+                              style={{ width: 'auto', minWidth: '60px' }}
+                              autoFocus
+                              onBlur={() => setEditingField(null)}
+                            />
+                            <button type="submit" className="ml-1 text-purple-400 text-xs">✔</button>
+                          </form>
+                        ) : (
+                          <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50 group-hover:cursor-pointer relative">
+                            {profileData.location}
+                            {isOwner && (
+                              <span
+                                className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                style={{ pointerEvents: 'auto' }}
+                                onClick={e => { e.stopPropagation(); setEditingField('location'); setEditValue(profileData.location); }}
+                              >
+                                <Pencil className="w-3 h-3 inline-block align-middle" />
+                              </span>
+                            )}
+                          </Badge>
+                        )}
+                      </div>
                     )}
                   </div>
-                  <p className="text-gray-300 text-center mb-6">{profileData.bio}</p>
+                  {editingBio ? (
+                    <form onSubmit={e => { e.preventDefault(); updateProfileField('bio', bioValue); setEditingBio(false); }} className="flex items-center justify-center mb-6">
+                      <textarea
+                        value={bioValue}
+                        onChange={e => setBioValue(e.target.value)}
+                        className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full max-w-lg"
+                        rows={2}
+                        autoFocus
+                        onBlur={() => setEditingBio(false)}
+                      />
+                      <button type="submit" className="ml-2 text-blue-400 text-xs">✔</button>
+                    </form>
+                  ) : (
+                    <div className="text-gray-300 text-center mb-6 group relative">
+                      {profileData.bio}
+                      {isOwner && (
+                        <span
+                          className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          onClick={() => { setEditingBio(true); setBioValue(profileData.bio); }}
+                        >
+                          <Pencil className="w-3 h-3 inline-block align-middle ml-1" />
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <div className="flex gap-4 mb-6">
                     {profileData.github && (
                       <a href={`https://github.com/${profileData.github}`} target="_blank" rel="noopener noreferrer">
@@ -489,12 +722,42 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 <div className="flex flex-wrap gap-2">
                   {profileData.skills.length > 0 ? (
                     profileData.skills.map((skill, index) => (
-                      <Badge key={index} className="bg-gray-800 text-gray-300 border-gray-700">
-                        {skill}
-                      </Badge>
+                      <div key={index} className="flex items-center gap-1">
+                        {editingSkillIndex === index ? (
+                          <>
+                            <input
+                              value={skill}
+                              onChange={e => handleEditSkill(index, e.target.value)}
+                              className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1"
+                            />
+                            <Button size="sm" onClick={() => setEditingSkillIndex(null)}>Save</Button>
+                          </>
+                        ) : (
+                          <>
+                            <Badge className="bg-gray-800 text-gray-300 border-gray-700">{skill}</Badge>
+                            {isOwner && (
+                              <>
+                                <Button size="icon" variant="ghost" onClick={() => setEditingSkillIndex(index)}><BookOpen className="w-3 h-3" /></Button>
+                                <Button size="icon" variant="ghost" onClick={() => handleDeleteSkill(index)}><Trash2 className="w-3 h-3 text-red-400" /></Button>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
                     ))
                   ) : (
                     <p className="text-gray-400">No skills listed</p>
+                  )}
+                  {isOwner && (
+                    <form onSubmit={e => { e.preventDefault(); handleAddSkill(); }} className="flex gap-2 mt-2">
+                      <input
+                        value={newSkill}
+                        onChange={e => setNewSkill(e.target.value)}
+                        placeholder="Add skill"
+                        className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1"
+                      />
+                      <Button size="sm" type="submit">Add</Button>
+                    </form>
                   )}
                 </div>
               </CardContent>
@@ -512,20 +775,48 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 <div className="space-y-6">
                   {profileData.experience.length > 0 ? (
                     profileData.experience.map((exp, index) => (
-                      <div key={index} className="flex gap-4">
+                      <div key={index} className="flex gap-4 items-start">
                         <div className="w-12 h-12 rounded-full bg-gray-800/30 flex items-center justify-center">
                           <Briefcase className="w-6 h-6 text-gray-400" />
                         </div>
-                        <div>
+                        <div className="flex-1">
+                          {editingExpIndex === index ? (
+                            <form onSubmit={e => { e.preventDefault(); handleEditExp(index, newExp); }} className="space-y-2">
+                              <input value={newExp.title} onChange={e => setNewExp({ ...newExp, title: e.target.value })} placeholder="Title" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                              <input value={newExp.company} onChange={e => setNewExp({ ...newExp, company: e.target.value })} placeholder="Company" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                              <input value={newExp.period} onChange={e => setNewExp({ ...newExp, period: e.target.value })} placeholder="Period" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                              <textarea value={newExp.description} onChange={e => setNewExp({ ...newExp, description: e.target.value })} placeholder="Description" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                              <Button size="sm" type="submit">Save</Button>
+                              <Button size="sm" variant="outline" onClick={() => setEditingExpIndex(null)}>Cancel</Button>
+                            </form>
+                          ) : (
+                            <>
                           <h3 className="text-lg font-semibold text-white">{exp.title}</h3>
                           <p className="text-gray-400">{exp.company}</p>
                           <p className="text-gray-500 text-sm">{exp.period}</p>
                           <p className="text-gray-300 mt-2">{exp.description}</p>
+                              {isOwner && (
+                                <div className="flex gap-2 mt-2">
+                                  <Button size="sm" variant="ghost" onClick={() => { setEditingExpIndex(index); setNewExp(exp); }}>Edit</Button>
+                                  <Button size="sm" variant="ghost" onClick={() => handleDeleteExp(index)}><Trash2 className="w-4 h-4 text-red-400" /></Button>
+                                </div>
+                              )}
+                            </>
+                          )}
                         </div>
                       </div>
                     ))
                   ) : (
                     <p className="text-gray-400">No experience listed</p>
+                  )}
+                  {isOwner && (
+                    <form onSubmit={e => { e.preventDefault(); handleAddExp(); }} className="space-y-2 mt-4">
+                      <input value={newExp.title} onChange={e => setNewExp({ ...newExp, title: e.target.value })} placeholder="Title" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                      <input value={newExp.company} onChange={e => setNewExp({ ...newExp, company: e.target.value })} placeholder="Company" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                      <input value={newExp.period} onChange={e => setNewExp({ ...newExp, period: e.target.value })} placeholder="Period" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                      <textarea value={newExp.description} onChange={e => setNewExp({ ...newExp, description: e.target.value })} placeholder="Description" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                      <Button size="sm" type="submit">Add</Button>
+                    </form>
                   )}
                 </div>
               </CardContent>
@@ -540,19 +831,45 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 <div className="space-y-6">
                   {profileData.education.length > 0 ? (
                     profileData.education.map((edu, index) => (
-                      <div key={index} className="flex gap-4">
+                      <div key={index} className="flex gap-4 items-start">
                         <div className="w-12 h-12 rounded-full bg-gray-800/30 flex items-center justify-center">
                           <BookOpen className="w-6 h-6 text-gray-400" />
                         </div>
-                        <div>
+                        <div className="flex-1">
+                          {editingEduIndex === index ? (
+                            <form onSubmit={e => { e.preventDefault(); handleEditEdu(index, newEdu); }} className="space-y-2">
+                              <input value={newEdu.degree} onChange={e => setNewEdu({ ...newEdu, degree: e.target.value })} placeholder="Degree" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                              <input value={newEdu.school} onChange={e => setNewEdu({ ...newEdu, school: e.target.value })} placeholder="School" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                              <input value={newEdu.period} onChange={e => setNewEdu({ ...newEdu, period: e.target.value })} placeholder="Period" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                              <Button size="sm" type="submit">Save</Button>
+                              <Button size="sm" variant="outline" onClick={() => setEditingEduIndex(null)}>Cancel</Button>
+                            </form>
+                          ) : (
+                            <>
                           <h3 className="text-lg font-semibold text-white">{edu.degree}</h3>
                           <p className="text-gray-400">{edu.school}</p>
                           <p className="text-gray-500 text-sm">{edu.period}</p>
+                              {isOwner && (
+                                <div className="flex gap-2 mt-2">
+                                  <Button size="sm" variant="ghost" onClick={() => { setEditingEduIndex(index); setNewEdu(edu); }}>Edit</Button>
+                                  <Button size="sm" variant="ghost" onClick={() => handleDeleteEdu(index)}><Trash2 className="w-4 h-4 text-red-400" /></Button>
+                                </div>
+                              )}
+                            </>
+                          )}
                         </div>
                       </div>
                     ))
                   ) : (
                     <p className="text-gray-400">No education listed</p>
+                  )}
+                  {isOwner && (
+                    <form onSubmit={e => { e.preventDefault(); handleAddEdu(); }} className="space-y-2 mt-4">
+                      <input value={newEdu.degree} onChange={e => setNewEdu({ ...newEdu, degree: e.target.value })} placeholder="Degree" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                      <input value={newEdu.school} onChange={e => setNewEdu({ ...newEdu, school: e.target.value })} placeholder="School" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                      <input value={newEdu.period} onChange={e => setNewEdu({ ...newEdu, period: e.target.value })} placeholder="Period" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
+                      <Button size="sm" type="submit">Add</Button>
+                    </form>
                   )}
                 </div>
               </CardContent>
@@ -593,83 +910,119 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                   <Video className="w-4 h-4" />
                   Videos
                 </Button>
+                {isOwner && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={activeTab === 'images' ? 'image/*' : 'video/*'}
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0]
+                        if (file) handleMediaUpload(file, activeTab.slice(0, -1) as 'image' | 'video')
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Upload {activeTab === 'images' ? 'Image' : 'Video'}
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
             <CardDescription>View photos and media from this profile</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {/* Main Media Display */}
-              <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-800/30">
-                {currentItem && (
-                  currentItem.type === 'image' ? (
-                    <Image
-                      src={currentItem.url}
-                      alt={currentItem.title}
-                      width={800}
-                      height={600}
-                      className="w-full h-full object-cover rounded-lg"
-                    />
-                  ) : (
-                    <video
-                      key={currentItem.url}
-                      src={currentItem.url}
-                      poster={currentItem.thumbnail || ''}
-                      className="w-full h-full object-cover"
-                      controls
-                      playsInline
-                      autoPlay
-                      muted
-                      loop
-                    />
-                  )
-                )}
-                {/* Navigation Buttons */}
-                <button
-                  onClick={prevMedia}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
-                >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={nextMedia}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-              </div>
-
-              {/* Thumbnail Navigation */}
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {currentMedia.map((media, index) => (
-                  <button
-                    key={media.id}
-                    onClick={() => setCurrentMediaIndex(index)}
-                    className={`relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden ${
-                      index === currentMediaIndex ? 'ring-2 ring-blue-500' : ''
-                    }`}
-                  >
-                    {media.type === 'image' ? (
+            {mediaLoading ? (
+              <div className="text-gray-400">Loading media...</div>
+            ) : (
+              <div className="space-y-4">
+                {/* Main Media Display */}
+                <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-800/30">
+                  {currentItem && (
+                    currentItem.type === 'image' ? (
                       <Image
-                        src={media.url}
-                        alt={media.title}
+                        src={currentItem.url}
+                        alt={currentItem.title}
                         width={800}
                         height={600}
                         className="w-full h-full object-cover rounded-lg"
                       />
                     ) : (
-                      <Image
-                        src={media.thumbnail || ''}
-                        alt={media.title}
-                        width={800}
-                        height={600}
-                        className="w-full h-full object-cover rounded-lg"
+                      <video
+                        key={currentItem.url}
+                        src={currentItem.url}
+                        poster={currentItem.thumbnail || ''}
+                        className="w-full h-full object-cover"
+                        controls
+                        playsInline
+                        autoPlay
+                        muted
+                        loop
                       />
-                    )}
+                    )
+                  )}
+                  {/* Delete button for owner */}
+                  {isOwner && currentItem && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="absolute top-2 right-2 bg-black/60 hover:bg-red-600 text-white"
+                      onClick={() => handleDeleteMedia(currentItem)}
+                      title="Delete Media"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </Button>
+                  )}
+                  {/* Navigation Buttons */}
+                  <button
+                    onClick={prevMedia}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
                   </button>
-                ))}
+                  <button
+                    onClick={nextMedia}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                </div>
+                {/* Thumbnail Navigation */}
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {currentMedia.map((media, index) => (
+                    <button
+                      key={media.id}
+                      onClick={() => setCurrentMediaIndex(index)}
+                      className={`relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden ${
+                        index === currentMediaIndex ? 'ring-2 ring-blue-500' : ''
+                      }`}
+                    >
+                      {media.type === 'image' ? (
+                        <Image
+                          src={media.url}
+                          alt={media.title}
+                          width={800}
+                          height={600}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                      ) : (
+                        <Image
+                          src={media.thumbnail || ''}
+                          alt={media.title}
+                          width={800}
+                          height={600}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
