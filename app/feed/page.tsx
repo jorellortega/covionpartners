@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,113 +24,33 @@ import {
   Plus,
   X,
   User,
-  LayoutDashboard
+  LayoutDashboard,
+  Pencil,
+  Trash2,
+  Save,
+  ThumbsDown,
+  Hand,
+  Image,
+  Video,
+  File
 } from 'lucide-react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useUser } from '@/hooks/useUser'
+import { formatDistanceToNow } from 'date-fns'
 
-// Mock data for the feed
-const mockFeedData = [
-  {
-    id: 1,
-    type: 'project',
-    user: {
-      id: 'sarah-johnson',
-      name: 'Sarah Johnson',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
-      role: 'Project Manager'
-    },
-    content: 'Just launched our new sustainable energy project! Looking for partners to join this exciting venture.',
-    project: {
-      name: 'Green Energy Initiative',
-      description: 'A sustainable energy project focused on solar power implementation.',
-      fundingGoal: 500000,
-      currentFunding: 150000,
-      deadline: '2024-12-31',
-      team: [
-        { id: 'michael-chen', name: 'Michael Chen', role: 'Technical Lead' },
-        { id: 'emma-rodriguez', name: 'Emma Rodriguez', role: 'Sustainability Expert' }
-      ]
-    },
-    timestamp: '2 hours ago',
-    likes: 45,
-    comments: 12,
-    shares: 8
-  },
-  {
-    id: 2,
-    type: 'deal',
-    user: {
-      id: 'michael-chen',
-      name: 'Michael Chen',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Michael',
-      role: 'Investment Director'
-    },
-    content: 'Excited to announce our latest partnership with TechCorp! This collaboration will bring innovative solutions to market.',
-    deal: {
-      value: 2500000,
-      status: 'Completed',
-      partners: [
-        { id: 'techcorp', name: 'TechCorp', role: 'Technology Partner' },
-        { id: 'innovatex', name: 'InnovateX', role: 'Innovation Partner' }
-      ]
-    },
-    timestamp: '5 hours ago',
-    likes: 78,
-    comments: 24,
-    shares: 15
-  },
-  {
-    id: 3,
-    type: 'milestone',
-    user: {
-      id: 'emma-rodriguez',
-      name: 'Emma Rodriguez',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma',
-      role: 'Project Lead'
-    },
-    content: 'We\'ve reached 75% of our funding goal for the Urban Development Project! Thank you to all our supporters.',
-    milestone: {
-      project: 'Urban Development Project',
-      achievement: '75% Funding Goal',
-      target: '100%',
-      team: [
-        { id: 'david-kim', name: 'David Kim', role: 'Development Lead' },
-        { id: 'sarah-johnson', name: 'Sarah Johnson', role: 'Project Manager' }
-      ]
-    },
-    timestamp: '1 day ago',
-    likes: 92,
-    comments: 31,
-    shares: 19
-  },
-  {
-    id: 4,
-    type: 'partnership',
-    user: {
-      id: 'david-kim',
-      name: 'David Kim',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=David',
-      role: 'Business Development'
-    },
-    content: 'Welcoming three new partners to our ecosystem! Together, we\'ll drive innovation in sustainable technology.',
-    partnership: {
-      newPartners: [
-        { id: 'ecotech', name: 'EcoTech', role: 'Environmental Partner' },
-        { id: 'greensolutions', name: 'GreenSolutions', role: 'Sustainability Partner' },
-        { id: 'futureenergy', name: 'FutureEnergy', role: 'Energy Partner' }
-      ],
-      focus: 'Sustainable Technology'
-    },
-    timestamp: '2 days ago',
-    likes: 65,
-    comments: 18,
-    shares: 12
-  }
-]
+interface PostInteraction {
+  type: string;
+  count: number;
+}
 
 export default function FeedPage() {
   const router = useRouter()
+  const supabase = createClientComponentClient()
+  const { user } = useUser()
   const [activeTab, setActiveTab] = useState('all')
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [posts, setPosts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [newPost, setNewPost] = useState({
     type: 'project',
     content: '',
@@ -155,40 +75,306 @@ export default function FeedPage() {
       focus: ''
     }
   })
+  const [editingPostId, setEditingPostId] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [showCommentBox, setShowCommentBox] = useState<{ [postId: string]: boolean }>({})
+  const [commentInputs, setCommentInputs] = useState<{ [postId: string]: string }>({})
+  const [comments, setComments] = useState<{ [postId: string]: any[] }>({})
+  const [loadingComments, setLoadingComments] = useState<{ [postId: string]: boolean }>({})
+  const [mediaFiles, setMediaFiles] = useState<File[]>([])
+  const [uploadingMedia, setUploadingMedia] = useState(false)
+  const [mediaPreview, setMediaPreview] = useState<string[]>([])
 
-  // Mock current user ID (replace with real user context if available)
-  const currentUserId = 'current-user-id'
+  useEffect(() => {
+    fetchPosts()
+  }, [activeTab])
 
-  const handleCreatePost = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Here you would typically send the post to your backend
-    console.log('Creating new post:', newPost)
-    // Reset form and hide it
-    setNewPost({
-      type: 'project',
-      content: '',
-      project: {
-        name: '',
-        description: '',
-        fundingGoal: '',
-        deadline: ''
-      },
-      deal: {
-        value: '',
-        status: 'In Progress',
-        partners: ['']
-      },
-      milestone: {
-        project: '',
-        achievement: '',
-        target: ''
-      },
-      partnership: {
-        newPartners: [''],
-        focus: ''
+  const fetchPosts = async () => {
+    try {
+      setLoading(true)
+      let query = supabase
+        .from('posts')
+        .select(`
+          *,
+          post_details!inner (
+            type,
+            data
+          ),
+          post_interactions (
+            type,
+            user_id
+          )
+        `)
+        .order('created_at', { ascending: false })
+
+      if (activeTab !== 'all') {
+        query = query.eq('type', activeTab)
       }
-    })
-    setShowCreateForm(false)
+
+      const { data, error } = await query
+      if (error) throw error
+
+      // Collect unique user_ids
+      const userIds = Array.from(new Set(data.map((post: any) => post.user_id)))
+      // Fetch profiles for those user_ids
+      let profilesMap: Record<string, { name: string; avatar_url: string; role?: string }> = {}
+      let usersMap: Record<string, { avatar_url: string }> = {}
+      if (userIds.length > 0) {
+        // Fetch profiles
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('user_id, name, avatar_url, role')
+          .in('user_id', userIds)
+        if (!profilesError && profiles) {
+          profiles.forEach((profile: any) => {
+            profilesMap[profile.user_id] = {
+              name: profile.name,
+              avatar_url: profile.avatar_url,
+              role: profile.role || ''
+            }
+          })
+        }
+        // Fetch users (for avatar_url from bucket)
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, avatar_url')
+          .in('id', userIds)
+        if (!usersError && usersData) {
+          usersData.forEach((u: any) => {
+            usersMap[u.id] = { avatar_url: u.avatar_url }
+          })
+        }
+      }
+
+      // Transform the data to match our UI structure
+      const transformedPosts = data.map((post: any) => {
+        // Count interactions by type
+        const interactions = post.post_interactions.reduce((acc: { [key: string]: number }, curr: PostInteraction) => {
+          acc[curr.type] = (acc[curr.type] || 0) + 1
+          return acc
+        }, {})
+        // Get user info from profilesMap and usersMap
+        const profile = profilesMap[post.user_id] || {}
+        const userRecord = usersMap[post.user_id] || {}
+        const likedByCurrentUser = post.post_interactions.some(
+          (i: any) => i.type === 'like' && i.user_id === user?.id
+        )
+        const dislikedByCurrentUser = post.post_interactions.some(
+          (i: any) => i.type === 'dislike' && i.user_id === user?.id
+        )
+        const smhByCurrentUser = post.post_interactions.some(
+          (i: any) => i.type === 'smh' && i.user_id === user?.id
+        )
+        const trophyByCurrentUser = post.post_interactions.some(
+          (i: any) => i.type === 'trophy' && i.user_id === user?.id
+        )
+        return {
+          id: post.id,
+          type: post.type,
+          user: {
+            id: post.user_id,
+            name: profile.name || 'Unknown User',
+            avatar: userRecord.avatar_url || profile.avatar_url || '',
+            role: profile.role || ''
+          },
+          content: post.content,
+          timestamp: formatDistanceToNow(new Date(post.created_at), { addSuffix: true }),
+          ...post.post_details[0]?.data,
+          media: post.media_urls || [],
+          likes: interactions['like'] || 0,
+          likedByCurrentUser,
+          dislikes: interactions['dislike'] || 0,
+          dislikedByCurrentUser,
+          comments: interactions['comment'] || 0,
+          shares: interactions['share'] || 0,
+          smh: interactions['smh'] || 0,
+          smhByCurrentUser,
+          trophy: interactions['trophy'] || 0,
+          trophyByCurrentUser
+        }
+      })
+
+      setPosts(transformedPosts)
+    } catch (error) {
+      console.error('Error fetching posts:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCreatePost = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user) return
+
+    try {
+      setUploadingMedia(true)
+      
+      // Upload media files first
+      const mediaUrls = []
+      for (const file of mediaFiles) {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Math.random()}.${fileExt}`
+        const filePath = `post-media/${user.id}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('partnerfiles')
+          .upload(filePath, file)
+
+        if (uploadError) throw uploadError
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('partnerfiles')
+          .getPublicUrl(filePath)
+
+        mediaUrls.push({
+          url: publicUrl,
+          type: file.type.startsWith('image/') ? 'image' : 'video'
+        })
+      }
+
+      // Create the post with media URLs
+      const { data: post, error: postError } = await supabase
+        .from('posts')
+        .insert({
+          user_id: user.id,
+          type: newPost.type,
+          content: newPost.content,
+          media_urls: mediaUrls
+        })
+        .select()
+        .single()
+
+      if (postError) throw postError
+
+      // Create the post details
+      const detailsData = {
+        type: newPost.type,
+        data: {
+          ...(newPost[newPost.type as keyof typeof newPost] as Record<string, any>),
+          media_urls: mediaUrls
+        }
+      }
+
+      const { error: detailsError } = await supabase
+        .from('post_details')
+        .insert({
+          post_id: post.id,
+          ...detailsData
+        })
+
+      if (detailsError) throw detailsError
+
+      // Reset form and refresh posts
+      setNewPost({
+        type: 'project',
+        content: '',
+        project: {
+          name: '',
+          description: '',
+          fundingGoal: '',
+          deadline: ''
+        },
+        deal: {
+          value: '',
+          status: 'In Progress',
+          partners: ['']
+        },
+        milestone: {
+          project: '',
+          achievement: '',
+          target: ''
+        },
+        partnership: {
+          newPartners: [''],
+          focus: ''
+        }
+      })
+      setMediaFiles([])
+      setMediaPreview([])
+      setShowCreateForm(false)
+      fetchPosts()
+    } catch (error) {
+      console.error('Error creating post:', error)
+    } finally {
+      setUploadingMedia(false)
+    }
+  }
+
+  const handleInteraction = async (postId: string, type: 'like' | 'dislike' | 'share' | 'smh' | 'trophy') => {
+    if (!user) return;
+    try {
+      let updatedPosts = [...posts];
+      const postIdx = updatedPosts.findIndex(p => p.id === postId);
+      if (["like", "dislike", "smh", "trophy"].includes(type)) {
+        const already =
+          type === 'like' ? updatedPosts[postIdx].likedByCurrentUser :
+          type === 'dislike' ? updatedPosts[postIdx].dislikedByCurrentUser :
+          type === 'smh' ? updatedPosts[postIdx].smhByCurrentUser :
+          type === 'trophy' ? updatedPosts[postIdx].trophyByCurrentUser : false;
+        if (already) {
+          // Remove
+          const { data: existing } = await supabase
+            .from('post_interactions')
+            .select('id')
+            .eq('post_id', postId)
+            .eq('user_id', user.id)
+            .eq('type', type)
+            .single();
+          if (existing) {
+            await supabase.from('post_interactions').delete().eq('id', existing.id);
+            if (type === 'like') {
+              updatedPosts[postIdx].likes -= 1;
+              updatedPosts[postIdx].likedByCurrentUser = false;
+            } else if (type === 'dislike') {
+              updatedPosts[postIdx].dislikes -= 1;
+              updatedPosts[postIdx].dislikedByCurrentUser = false;
+            } else if (type === 'smh') {
+              updatedPosts[postIdx].smh -= 1;
+              updatedPosts[postIdx].smhByCurrentUser = false;
+            } else if (type === 'trophy') {
+              updatedPosts[postIdx].trophy -= 1;
+              updatedPosts[postIdx].trophyByCurrentUser = false;
+            }
+          }
+        } else {
+          // Add
+          await supabase.from('post_interactions').insert({
+            post_id: postId,
+            user_id: user.id,
+            type,
+            created_at: new Date().toISOString()
+          });
+          if (type === 'like') {
+            updatedPosts[postIdx].likes += 1;
+            updatedPosts[postIdx].likedByCurrentUser = true;
+          } else if (type === 'dislike') {
+            updatedPosts[postIdx].dislikes += 1;
+            updatedPosts[postIdx].dislikedByCurrentUser = true;
+          } else if (type === 'smh') {
+            updatedPosts[postIdx].smh += 1;
+            updatedPosts[postIdx].smhByCurrentUser = true;
+          } else if (type === 'trophy') {
+            updatedPosts[postIdx].trophy += 1;
+            updatedPosts[postIdx].trophyByCurrentUser = true;
+          }
+        }
+        setPosts(updatedPosts);
+      } else if (type === 'share') {
+        // For share, keep upsert logic
+        const { error } = await supabase
+          .from('post_interactions')
+          .upsert({
+            post_id: postId,
+            user_id: user.id,
+            type,
+            created_at: new Date().toISOString()
+          });
+        if (error) throw error;
+        fetchPosts();
+      }
+    } catch (error) {
+      console.error('Error handling interaction:', error);
+    }
   }
 
   const getIconForType = (type: string) => {
@@ -206,18 +392,133 @@ export default function FeedPage() {
     }
   }
 
+  const handleEdit = (post: any) => {
+    setEditingPostId(post.id)
+    setEditContent(post.content)
+  }
+
+  const handleSave = async (post: any) => {
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({ content: editContent })
+        .eq('id', post.id)
+      if (error) throw error
+      setEditingPostId(null)
+      setEditContent('')
+      fetchPosts()
+    } catch (error) {
+      console.error('Error updating post:', error)
+    }
+  }
+
+  const handleDelete = async (post: any) => {
+    if (!window.confirm('Are you sure you want to delete this post?')) return
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', post.id)
+      if (error) throw error
+      fetchPosts()
+    } catch (error) {
+      console.error('Error deleting post:', error)
+    }
+  }
+
+  // Fetch comments for a post
+  const fetchComments = async (postId: string) => {
+    setLoadingComments(prev => ({ ...prev, [postId]: true }))
+    const { data, error } = await supabase
+      .from('post_interactions')
+      .select('id, user_id, content, created_at')
+      .eq('post_id', postId)
+      .eq('type', 'comment')
+      .order('created_at', { ascending: true })
+    if (!error && data) {
+      // Fetch profiles for commenters
+      const userIds = Array.from(new Set(data.map((c: any) => c.user_id)))
+      let profilesMap: Record<string, { name: string; avatar_url: string }> = {}
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, name, avatar_url')
+          .in('user_id', userIds)
+        if (profiles) {
+          profiles.forEach((profile: any) => {
+            profilesMap[profile.user_id] = {
+              name: profile.name,
+              avatar_url: profile.avatar_url
+            }
+          })
+        }
+      }
+      // Attach profile info to comments
+      const commentsWithProfiles = data.map((c: any) => ({
+        ...c,
+        user: {
+          id: c.user_id,
+          name: profilesMap[c.user_id]?.name || 'Unknown User',
+          avatar: profilesMap[c.user_id]?.avatar_url || ''
+        }
+      }))
+      setComments(prev => ({ ...prev, [postId]: commentsWithProfiles }))
+    }
+    setLoadingComments(prev => ({ ...prev, [postId]: false }))
+  }
+
+  // Handle comment icon click
+  const handleShowCommentBox = (postId: string) => {
+    setShowCommentBox(prev => ({ ...prev, [postId]: !prev[postId] }))
+    if (!comments[postId]) fetchComments(postId)
+  }
+
+  // Handle comment input change
+  const handleCommentInput = (postId: string, value: string) => {
+    setCommentInputs(prev => ({ ...prev, [postId]: value }))
+  }
+
+  // Handle comment submit
+  const handleCommentSubmit = async (postId: string) => {
+    if (!user || !commentInputs[postId]?.trim()) return
+    const content = commentInputs[postId].trim()
+    const { error } = await supabase
+      .from('post_interactions')
+      .insert({
+        post_id: postId,
+        user_id: user.id,
+        type: 'comment',
+        content
+      })
+    if (!error) {
+      setCommentInputs(prev => ({ ...prev, [postId]: '' }))
+      fetchComments(postId)
+      fetchPosts() // update comment count
+    }
+  }
+
+  // Add this function to handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    setMediaFiles(prev => [...prev, ...files])
+    
+    // Create preview URLs for images and videos
+    files.forEach(file => {
+      if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+        const url = URL.createObjectURL(file)
+        setMediaPreview(prev => [...prev, url])
+      }
+    })
+  }
+
+  // Add this function to remove a media file
+  const handleRemoveMedia = (index: number) => {
+    setMediaFiles(prev => prev.filter((_, i) => i !== index))
+    setMediaPreview(prev => prev.filter((_, i) => i !== index))
+  }
+
   return (
     <div className="min-h-screen bg-gray-950 relative">
-      {/* Fade overlay */}
-      <div className="absolute inset-0 z-20 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center">
-        <div className="text-center">
-          <span className="inline-block px-8 py-4 rounded-xl bg-gray-800/90 text-3xl font-bold text-white shadow-lg border-2 border-purple-500 animate-pulse">
-            Under Development
-          </span>
-        </div>
-      </div>
-      {/* Existing content (faded underneath) */}
-      <div className="opacity-40 pointer-events-none select-none">
         <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md">
           <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-4 justify-between">
@@ -250,7 +551,7 @@ export default function FeedPage() {
                   variant="ghost"
                   size="icon"
                   className="text-gray-400 hover:text-purple-400"
-                  onClick={() => router.push(`/profile/${currentUserId}`)}
+                onClick={() => router.push(`/profile/${user?.id}`)}
                   aria-label="Go to my profile"
                 >
                   <User className="w-7 h-7" />
@@ -324,7 +625,7 @@ export default function FeedPage() {
                       <div className="space-y-4">
                         <div>
                           <label className="text-sm font-medium text-gray-200 block mb-2">
-                            Project Name
+                            Project Name (Optional)
                           </label>
                           <input
                             type="text"
@@ -334,12 +635,11 @@ export default function FeedPage() {
                               project: { ...newPost.project, name: e.target.value }
                             })}
                             className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white"
-                            required
                           />
                         </div>
                         <div>
                           <label className="text-sm font-medium text-gray-200 block mb-2">
-                            Description
+                            Description (Optional)
                           </label>
                           <Textarea
                             value={newPost.project.description}
@@ -348,13 +648,12 @@ export default function FeedPage() {
                               project: { ...newPost.project, description: e.target.value }
                             })}
                             className="bg-gray-900 border-gray-700"
-                            required
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <label className="text-sm font-medium text-gray-200 block mb-2">
-                              Funding Goal
+                              Funding Goal (Optional)
                             </label>
                             <input
                               type="number"
@@ -364,12 +663,11 @@ export default function FeedPage() {
                                 project: { ...newPost.project, fundingGoal: e.target.value }
                               })}
                               className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white"
-                              required
                             />
                           </div>
                           <div>
                             <label className="text-sm font-medium text-gray-200 block mb-2">
-                              Deadline
+                              Deadline (Optional)
                             </label>
                             <input
                               type="date"
@@ -379,7 +677,6 @@ export default function FeedPage() {
                                 project: { ...newPost.project, deadline: e.target.value }
                               })}
                               className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white"
-                              required
                             />
                           </div>
                         </div>
@@ -391,7 +688,7 @@ export default function FeedPage() {
                       <div className="space-y-4">
                         <div>
                           <label className="text-sm font-medium text-gray-200 block mb-2">
-                            Deal Value
+                            Deal Value (Optional)
                           </label>
                           <input
                             type="number"
@@ -401,12 +698,11 @@ export default function FeedPage() {
                               deal: { ...newPost.deal, value: e.target.value }
                             })}
                             className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white"
-                            required
                           />
                         </div>
                         <div>
                           <label className="text-sm font-medium text-gray-200 block mb-2">
-                            Status
+                            Status (Optional)
                           </label>
                           <Select
                             value={newPost.deal.status}
@@ -433,7 +729,7 @@ export default function FeedPage() {
                       <div className="space-y-4">
                         <div>
                           <label className="text-sm font-medium text-gray-200 block mb-2">
-                            Project
+                            Project (Optional)
                           </label>
                           <input
                             type="text"
@@ -443,12 +739,11 @@ export default function FeedPage() {
                               milestone: { ...newPost.milestone, project: e.target.value }
                             })}
                             className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white"
-                            required
                           />
                         </div>
                         <div>
                           <label className="text-sm font-medium text-gray-200 block mb-2">
-                            Achievement
+                            Achievement (Optional)
                           </label>
                           <input
                             type="text"
@@ -458,7 +753,6 @@ export default function FeedPage() {
                               milestone: { ...newPost.milestone, achievement: e.target.value }
                             })}
                             className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white"
-                            required
                           />
                         </div>
                       </div>
@@ -469,7 +763,7 @@ export default function FeedPage() {
                       <div className="space-y-4">
                         <div>
                           <label className="text-sm font-medium text-gray-200 block mb-2">
-                            New Partners
+                            New Partners (Optional)
                           </label>
                           <input
                             type="text"
@@ -480,12 +774,11 @@ export default function FeedPage() {
                             })}
                             className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white"
                             placeholder="Enter partner names separated by commas"
-                            required
                           />
                         </div>
                         <div>
                           <label className="text-sm font-medium text-gray-200 block mb-2">
-                            Focus Area
+                            Focus Area (Optional)
                           </label>
                           <input
                             type="text"
@@ -495,22 +788,91 @@ export default function FeedPage() {
                               partnership: { ...newPost.partnership, focus: e.target.value }
                             })}
                             className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white"
-                            required
                           />
                         </div>
                       </div>
                     )}
 
+                    <div>
+                      <label className="text-sm font-medium text-gray-200 block mb-2">
+                        Media
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*,video/*"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                            id="media-upload"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="border-gray-700 hover:bg-gray-800"
+                            onClick={() => document.getElementById('media-upload')?.click()}
+                          >
+                            <Image className="w-4 h-4 mr-2" />
+                            Add Media
+                          </Button>
+                        </label>
+                        {mediaFiles.length > 0 && (
+                          <span className="text-sm text-gray-400">
+                            {mediaFiles.length} file{mediaFiles.length !== 1 ? 's' : ''} selected
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Media Preview */}
+                      {mediaPreview.length > 0 && (
+                        <div className="mt-4 grid grid-cols-2 gap-4">
+                          {mediaPreview.map((url, index) => (
+                            <div key={index} className="relative group">
+                              {url.startsWith('data:image') ? (
+                                <img
+                                  src={url}
+                                  alt={`Preview ${index + 1}`}
+                                  className="w-full h-32 object-cover rounded-lg"
+                                />
+                              ) : (
+                                <video
+                                  src={url}
+                                  className="w-full h-32 object-cover rounded-lg"
+                                  controls
+                                />
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveMedia(index)}
+                                className="absolute top-2 right-2 p-1 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="w-4 h-4 text-white" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex justify-end gap-4">
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setShowCreateForm(false)}
+                        onClick={() => {
+                          setShowCreateForm(false)
+                          setMediaFiles([])
+                          setMediaPreview([])
+                        }}
                       >
                         Cancel
                       </Button>
-                      <Button type="submit" className="gradient-button">
-                        Post
+                      <Button 
+                        type="submit" 
+                        className="gradient-button"
+                        disabled={uploadingMedia}
+                      >
+                        {uploadingMedia ? 'Uploading...' : 'Post'}
                       </Button>
                     </div>
                   </form>
@@ -519,32 +881,37 @@ export default function FeedPage() {
             )}
           </div>
 
-          <Tabs defaultValue="all" className="w-full">
+        <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-4 mb-8">
               <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="projects">Projects</TabsTrigger>
-              <TabsTrigger value="deals">Deals</TabsTrigger>
-              <TabsTrigger value="partnerships">Partnerships</TabsTrigger>
+            <TabsTrigger value="project">Projects</TabsTrigger>
+            <TabsTrigger value="deal">Deals</TabsTrigger>
+            <TabsTrigger value="partnership">Partnerships</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="space-y-6">
-              {mockFeedData.map((item) => (
+            {loading ? (
+              <div className="text-center text-gray-400">Loading posts...</div>
+            ) : posts.length === 0 ? (
+              <div className="text-center text-gray-400">No posts yet</div>
+            ) : (
+              posts.map((item) => (
                 <Card key={item.id} className="leonardo-card border-gray-800">
                   <CardHeader className="flex flex-row items-center gap-4">
                     <button
                       className="flex items-center gap-2 group"
                       onClick={() => router.push(`/profile/${item.user.id}`)}
                       style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                      aria-label={`View profile of ${item.user.name}`}
+                      aria-label={`View profile of ${item.user.name || 'Unknown User'}`}
                     >
                       <Avatar>
-                        <AvatarImage src={item.user.avatar} />
-                        <AvatarFallback>{item.user.name[0]}</AvatarFallback>
+                        <AvatarImage src={item.user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user.name || 'Unknown User'}`} />
+                        <AvatarFallback>{item.user.name ? item.user.name[0] : 'U'}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 text-left">
                         <div className="flex items-center gap-2">
                           <CardTitle className="text-lg group-hover:underline group-hover:text-purple-400 transition-colors">
-                            {item.user.name}
+                            {item.user.name || 'Unknown User'}
                           </CardTitle>
                           <Badge variant="secondary" className="text-xs">
                             {item.user.role}
@@ -556,31 +923,434 @@ export default function FeedPage() {
                     {getIconForType(item.type)}
                   </CardHeader>
                   <CardContent>
+                    {editingPostId === item.id ? (
+                      <Textarea
+                        value={editContent}
+                        onChange={e => setEditContent(e.target.value)}
+                        className="mb-4 bg-gray-900 border-gray-700 min-h-[80px]"
+                        autoFocus
+                      />
+                    ) : (
                     <p className="text-gray-200 mb-4">{item.content}</p>
+                    )}
                     
+                    {/* Media Display */}
+                    {item.media && item.media.length > 0 && (
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        {item.media.map((media: any, index: number) => (
+                          <div key={index} className="relative group">
+                            {media.type === 'image' ? (
+                              <img
+                                src={media.url}
+                                alt={`Media ${index + 1}`}
+                                className="w-full h-48 object-cover rounded-lg"
+                              />
+                            ) : (
+                              <video
+                                src={media.url}
+                                className="w-full h-48 object-cover rounded-lg"
+                                controls
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Project Details */}
-                    {item.type === 'project' && item.project && (
-                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                        <h3 className="font-semibold text-white mb-2">{item.project.name}</h3>
-                        <p className="text-gray-400 text-sm mb-3">{item.project.description}</p>
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-400">Funding Goal</span>
-                            <span className="text-white">${item.project.fundingGoal.toLocaleString()}</span>
+                    {item.type === 'project' && (
+                      (item.name || item.description || item.fundingGoal || item.currentFunding || (item.deadline && !isNaN(new Date(item.deadline).getTime())) || (item.team && item.team.length > 0)) && (
+                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                          {item.name && (
+                            <h3 className="font-semibold text-white mb-2">{item.name}</h3>
+                          )}
+                          {item.description && (
+                            <p className="text-gray-400 text-sm mb-3">{item.description}</p>
+                          )}
+                          <div className="space-y-2">
+                            {item.fundingGoal && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-400">Funding Goal</span>
+                                <span className="text-white">${Number(item.fundingGoal).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {item.currentFunding && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-400">Current Funding</span>
+                                <span className="text-white">${Number(item.currentFunding).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {item.deadline && !isNaN(new Date(item.deadline).getTime()) && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-400">Deadline</span>
+                                <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
+                              </div>
+                            )}
+                            {item.team && item.team.length > 0 && (
+                              <div className="mt-4">
+                                <span className="text-gray-400 text-sm">Team Members:</span>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {item.team.map((member: any) => (
+                                    <Button
+                                      key={member.id}
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-xs"
+                                      onClick={() => router.push(`/profile/${member.id}`)}
+                                    >
+                                      {member.name}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-400">Current Funding</span>
-                            <span className="text-white">${item.project.currentFunding.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-400">Deadline</span>
-                            <span className="text-white">{new Date(item.project.deadline).toLocaleDateString()}</span>
-                          </div>
-                          {item.project.team && (
+                        </div>
+                      )
+                    )}
+
+                    {/* Deal Details */}
+                    {item.type === 'deal' && (
+                      (item.value || item.status || (item.partners && item.partners.length > 0)) && (
+                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                          {item.value && (
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-gray-400">Deal Value</span>
+                              <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {item.status && (
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-gray-400">Status</span>
+                              <Badge variant="secondary">{item.status}</Badge>
+                            </div>
+                          )}
+                          {item.partners && item.partners.length > 0 && (
+                            <div className="mt-2">
+                              <span className="text-gray-400">Partners:</span>
+                              <div className="flex gap-2 mt-1">
+                                  {item.partners.map((partner: any) => (
+                                  <Button
+                                    key={partner.id}
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs"
+                                    onClick={() => router.push(`/profile/${partner.id}`)}
+                                  >
+                                    {partner.name}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    )}
+
+                    {/* Milestone Details */}
+                    {item.type === 'milestone' && (
+                      (item.project || item.achievement || (item.team && item.team.length > 0)) && (
+                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                          {item.project && (
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-gray-400">Project</span>
+                              <span className="text-white">{item.project}</span>
+                            </div>
+                          )}
+                          {item.achievement && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-400">Achievement</span>
+                              <span className="text-white">{item.achievement}</span>
+                            </div>
+                          )}
+                          {item.team && item.team.length > 0 && (
                             <div className="mt-4">
                               <span className="text-gray-400 text-sm">Team Members:</span>
                               <div className="flex flex-wrap gap-2 mt-2">
-                                {item.project.team.map((member) => (
+                                {item.team.map((member: any) => (
+                                  <Button
+                                    key={member.id}
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs"
+                                    onClick={() => router.push(`/profile/${member.id}`)}
+                                  >
+                                    {member.name}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    )}
+
+                    {/* Partnership Details */}
+                    {item.type === 'partnership' && (
+                      ((item.newPartners && item.newPartners.length > 0 && item.newPartners[0]) || item.focus) && (
+                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                          {item.newPartners && item.newPartners.length > 0 && item.newPartners[0] && (
+                            <div className="mb-2">
+                              <span className="text-gray-400">New Partners:</span>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {item.newPartners.map((partner: any) => (
+                                  <Button
+                                    key={partner.id}
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs"
+                                    onClick={() => router.push(`/profile/${partner.id}`)}
+                                  >
+                                    {partner.name}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {item.focus && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-400">Focus Area</span>
+                              <span className="text-white">{item.focus}</span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    )}
+
+                    {/* Interaction Buttons */}
+                    <div className="flex items-center gap-6 mt-4 pt-4 border-t border-gray-800">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={item.likedByCurrentUser ? "text-pink-500" : "text-gray-400 hover:text-white"}
+                        onClick={() => handleInteraction(item.id, 'like')}
+                      >
+                        <span className="text-lg mr-2" role="img" aria-label="clap">👏</span>
+                        {Number(item.likes) || 0}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={item.dislikedByCurrentUser ? "text-blue-500" : "text-gray-400 hover:text-white"}
+                        onClick={() => handleInteraction(item.id, 'dislike')}
+                      >
+                        <ThumbsDown className={`w-4 h-4 mr-2 ${item.dislikedByCurrentUser ? "fill-blue-500" : ""}`} />
+                        {Number(item.dislikes) || 0}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-gray-400 hover:text-white"
+                        onClick={() => handleShowCommentBox(item.id)}
+                      >
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        {Number(item.comments) || 0}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-gray-400 hover:text-white"
+                        onClick={() => handleInteraction(item.id, 'share')}
+                      >
+                        <Share2 className="w-4 h-4 mr-2" />
+                        {Number(item.shares) || 0}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={item.smhByCurrentUser ? "text-yellow-500" : "text-gray-400 hover:text-white"}
+                        onClick={() => handleInteraction(item.id, 'smh')}
+                      >
+                        <span className="text-lg mr-2" role="img" aria-label="smh">🤦</span>
+                        {Number(item.smh) || 0}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={item.trophyByCurrentUser ? "text-amber-500" : "text-gray-400 hover:text-white"}
+                        onClick={() => handleInteraction(item.id, 'trophy')}
+                      >
+                        <span className="text-lg mr-2" role="img" aria-label="trophy">🏆</span>
+                        {Number(item.trophy) || 0}
+                      </Button>
+                    </div>
+
+                    {/* Owner controls */}
+                    {user && user.id === item.user.id && (
+                      <div className="flex gap-2 ml-auto">
+                        {editingPostId === item.id ? (
+                          <>
+                            <Button size="icon" variant="ghost" onClick={() => handleSave(item)} title="Save">
+                              <Save className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => { setEditingPostId(null); setEditContent('') }} title="Cancel">
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button size="icon" variant="ghost" onClick={() => handleEdit(item)} title="Edit">
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => handleDelete(item)} title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Comment input and comments */}
+                    {showCommentBox[item.id] && (
+                      <div className="mt-4 border-t border-gray-800 pt-4">
+                        <div className="flex items-start gap-2 mb-4">
+                          <Avatar>
+                            <AvatarImage src={user?.user_metadata?.avatar_url || ''} />
+                            <AvatarFallback>{user?.user_metadata?.name ? user.user_metadata.name[0] : 'U'}</AvatarFallback>
+                          </Avatar>
+                          <Textarea
+                            value={commentInputs[item.id] || ''}
+                            onChange={e => handleCommentInput(item.id, e.target.value)}
+                            placeholder="Add a comment..."
+                            className="flex-1 min-h-[60px] bg-gray-900 border-gray-700"
+                            disabled={!user}
+                          />
+                          <Button
+                            onClick={() => handleCommentSubmit(item.id)}
+                            disabled={!user || !commentInputs[item.id]?.trim()}
+                            className="self-end"
+                          >
+                            Post
+                          </Button>
+                        </div>
+                        {loadingComments[item.id] ? (
+                          <div className="text-gray-400">Loading comments...</div>
+                        ) : (
+                          <div className="space-y-3">
+                            {(comments[item.id] || []).length === 0 ? (
+                              <div className="text-gray-500 text-sm">No comments yet.</div>
+                            ) : (
+                              comments[item.id].map((c: any) => (
+                                <div key={c.id} className="flex items-start gap-2">
+                                  <Avatar>
+                                    <AvatarImage src={c.user.avatar || ''} />
+                                    <AvatarFallback>{c.user.name ? c.user.name[0] : 'U'}</AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <div className="text-sm font-semibold text-white">{c.user.name}</div>
+                                    <div className="text-gray-300 text-sm">{c.content}</div>
+                                    <div className="text-xs text-gray-500">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</div>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            )}
+            </TabsContent>
+
+          <TabsContent value="project" className="space-y-6">
+            {posts.filter(item => item.type === 'project').map((item) => (
+                <Card key={item.id} className="leonardo-card border-gray-800">
+                <CardHeader className="flex flex-row items-center gap-4">
+                  <button
+                    className="flex items-center gap-2 group"
+                    onClick={() => router.push(`/profile/${item.user.id}`)}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                    aria-label={`View profile of ${item.user.name || 'Unknown User'}`}
+                  >
+                    <Avatar>
+                      <AvatarImage src={item.user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user.name || 'Unknown User'}`} />
+                      <AvatarFallback>{item.user.name ? item.user.name[0] : 'U'}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg group-hover:underline group-hover:text-purple-400 transition-colors">
+                          {item.user.name || 'Unknown User'}
+                        </CardTitle>
+                        <Badge variant="secondary" className="text-xs">
+                          {item.user.role}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-400">{item.timestamp}</p>
+                    </div>
+                  </button>
+                  {getIconForType(item.type)}
+                </CardHeader>
+                <CardContent>
+                  {editingPostId === item.id ? (
+                    <Textarea
+                      value={editContent}
+                      onChange={e => setEditContent(e.target.value)}
+                      className="mb-4 bg-gray-900 border-gray-700 min-h-[80px]"
+                      autoFocus
+                    />
+                  ) : (
+                    <p className="text-gray-200 mb-4">{item.content}</p>
+                  )}
+                  
+                  {/* Media Display */}
+                  {item.media && item.media.length > 0 && (
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      {item.media.map((media: any, index: number) => (
+                        <div key={index} className="relative group">
+                          {media.type === 'image' ? (
+                            <img
+                              src={media.url}
+                              alt={`Media ${index + 1}`}
+                              className="w-full h-48 object-cover rounded-lg"
+                            />
+                          ) : (
+                            <video
+                              src={media.url}
+                              className="w-full h-48 object-cover rounded-lg"
+                              controls
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Project Details */}
+                  {item.type === 'project' && (
+                    (item.name || item.description || item.fundingGoal || item.currentFunding || (item.deadline && !isNaN(new Date(item.deadline).getTime())) || (item.team && item.team.length > 0)) && (
+                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                        {item.name && (
+                          <h3 className="font-semibold text-white mb-2">{item.name}</h3>
+                        )}
+                        {item.description && (
+                          <p className="text-gray-400 text-sm mb-3">{item.description}</p>
+                        )}
+                        <div className="space-y-2">
+                          {item.fundingGoal && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-400">Funding Goal</span>
+                              <span className="text-white">${Number(item.fundingGoal).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {item.currentFunding && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-400">Current Funding</span>
+                              <span className="text-white">${Number(item.currentFunding).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {item.deadline && !isNaN(new Date(item.deadline).getTime()) && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-400">Deadline</span>
+                              <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                          {item.team && item.team.length > 0 && (
+                            <div className="mt-4">
+                              <span className="text-gray-400 text-sm">Team Members:</span>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {item.team.map((member: any) => (
                                   <Button
                                     key={member.id}
                                     variant="outline"
@@ -596,145 +1366,362 @@ export default function FeedPage() {
                           )}
                         </div>
                       </div>
-                    )}
+                    )
+                  )}
 
-                    {/* Deal Details */}
-                    {item.type === 'deal' && item.deal && (
-                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-gray-400">Deal Value</span>
-                          <span className="text-white font-semibold">${item.deal.value.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-gray-400">Status</span>
-                          <Badge variant="secondary">{item.deal.status}</Badge>
-                        </div>
-                        <div className="mt-2">
-                          <span className="text-gray-400">Partners:</span>
-                          <div className="flex gap-2 mt-1">
-                            {item.deal.partners.map((partner) => (
-                              <Button
-                                key={partner.id}
-                                variant="outline"
-                                size="sm"
-                                className="text-xs"
-                                onClick={() => router.push(`/profile/${partner.id}`)}
-                              >
-                                {partner.name}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
+                  {/* Interaction Buttons */}
+                  <div className="flex items-center gap-6 mt-4 pt-4 border-t border-gray-800">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={item.likedByCurrentUser ? "text-pink-500" : "text-gray-400 hover:text-white"}
+                      onClick={() => handleInteraction(item.id, 'like')}
+                    >
+                      <span className="text-lg mr-2" role="img" aria-label="clap">👏</span>
+                      {Number(item.likes) || 0}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={item.dislikedByCurrentUser ? "text-blue-500" : "text-gray-400 hover:text-white"}
+                      onClick={() => handleInteraction(item.id, 'dislike')}
+                    >
+                      <ThumbsDown className={`w-4 h-4 mr-2 ${item.dislikedByCurrentUser ? "fill-blue-500" : ""}`} />
+                      {Number(item.dislikes) || 0}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      {Number(item.comments) || 0}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                      <Share2 className="w-4 h-4 mr-2" />
+                      {Number(item.shares) || 0}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={item.smhByCurrentUser ? "text-yellow-500" : "text-gray-400 hover:text-white"}
+                      onClick={() => handleInteraction(item.id, 'smh')}
+                    >
+                      <span className="text-lg mr-2" role="img" aria-label="smh">🤦</span>
+                      {Number(item.smh) || 0}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={item.trophyByCurrentUser ? "text-amber-500" : "text-gray-400 hover:text-white"}
+                      onClick={() => handleInteraction(item.id, 'trophy')}
+                    >
+                      <span className="text-lg mr-2" role="img" aria-label="trophy">🏆</span>
+                      {Number(item.trophy) || 0}
+                    </Button>
+                  </div>
+                </CardContent>
+                </Card>
+              ))}
+            </TabsContent>
+
+          <TabsContent value="deal" className="space-y-6">
+            {posts.filter(item => item.type === 'deal').map((item) => (
+                <Card key={item.id} className="leonardo-card border-gray-800">
+                <CardHeader className="flex flex-row items-center gap-4">
+                  <button
+                    className="flex items-center gap-2 group"
+                    onClick={() => router.push(`/profile/${item.user.id}`)}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                    aria-label={`View profile of ${item.user.name || 'Unknown User'}`}
+                  >
+                    <Avatar>
+                      <AvatarImage src={item.user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user.name || 'Unknown User'}`} />
+                      <AvatarFallback>{item.user.name ? item.user.name[0] : 'U'}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg group-hover:underline group-hover:text-purple-400 transition-colors">
+                          {item.user.name || 'Unknown User'}
+                        </CardTitle>
+                        <Badge variant="secondary" className="text-xs">
+                          {item.user.role}
+                        </Badge>
                       </div>
-                    )}
+                      <p className="text-sm text-gray-400">{item.timestamp}</p>
+                    </div>
+                  </button>
+                  {getIconForType(item.type)}
+                </CardHeader>
+                <CardContent>
+                  {editingPostId === item.id ? (
+                    <Textarea
+                      value={editContent}
+                      onChange={e => setEditContent(e.target.value)}
+                      className="mb-4 bg-gray-900 border-gray-700 min-h-[80px]"
+                      autoFocus
+                    />
+                  ) : (
+                    <p className="text-gray-200 mb-4">{item.content}</p>
+                  )}
+                  
+                  {/* Media Display */}
+                  {item.media && item.media.length > 0 && (
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      {item.media.map((media: any, index: number) => (
+                        <div key={index} className="relative group">
+                          {media.type === 'image' ? (
+                            <img
+                              src={media.url}
+                              alt={`Media ${index + 1}`}
+                              className="w-full h-48 object-cover rounded-lg"
+                            />
+                          ) : (
+                            <video
+                              src={media.url}
+                              className="w-full h-48 object-cover rounded-lg"
+                              controls
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-                    {/* Milestone Details */}
-                    {item.type === 'milestone' && item.milestone && (
+                  {/* Deal Details */}
+                  {item.type === 'deal' && (
+                    (item.value || item.status || (item.partners && item.partners.length > 0)) && (
                       <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-gray-400">Project</span>
-                          <span className="text-white">{item.milestone.project}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-400">Achievement</span>
-                          <span className="text-white">{item.milestone.achievement}</span>
-                        </div>
-                        {item.milestone.team && (
-                          <div className="mt-4">
-                            <span className="text-gray-400 text-sm">Team Members:</span>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {item.milestone.team.map((member) => (
+                        {item.value && (
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-gray-400">Deal Value</span>
+                            <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
+                          </div>
+                        )}
+                        {item.status && (
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-gray-400">Status</span>
+                            <Badge variant="secondary">{item.status}</Badge>
+                          </div>
+                        )}
+                        {item.partners && item.partners.length > 0 && (
+                          <div className="mt-2">
+                            <span className="text-gray-400">Partners:</span>
+                            <div className="flex gap-2 mt-1">
+                                {item.partners.map((partner: any) => (
                                 <Button
-                                  key={member.id}
+                                  key={partner.id}
                                   variant="outline"
                                   size="sm"
                                   className="text-xs"
-                                  onClick={() => router.push(`/profile/${member.id}`)}
+                                  onClick={() => router.push(`/profile/${partner.id}`)}
                                 >
-                                  {member.name}
+                                  {partner.name}
                                 </Button>
                               ))}
                             </div>
                           </div>
                         )}
                       </div>
-                    )}
+                    )
+                  )}
 
-                    {/* Partnership Details */}
-                    {item.type === 'partnership' && item.partnership && (
-                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                        <div className="mb-2">
-                          <span className="text-gray-400">New Partners:</span>
-                          <div className="flex flex-wrap gap-2 mt-1">
-                            {item.partnership.newPartners.map((partner) => (
-                              <Button
-                                key={partner.id}
-                                variant="outline"
-                                size="sm"
-                                className="text-xs"
-                                onClick={() => router.push(`/profile/${partner.id}`)}
-                              >
-                                {partner.name}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-400">Focus Area</span>
-                          <span className="text-white">{item.partnership.focus}</span>
-                        </div>
+                  {/* Interaction Buttons */}
+                  <div className="flex items-center gap-6 mt-4 pt-4 border-t border-gray-800">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={item.likedByCurrentUser ? "text-pink-500" : "text-gray-400 hover:text-white"}
+                      onClick={() => handleInteraction(item.id, 'like')}
+                    >
+                      <span className="text-lg mr-2" role="img" aria-label="clap">👏</span>
+                      {Number(item.likes) || 0}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={item.dislikedByCurrentUser ? "text-blue-500" : "text-gray-400 hover:text-white"}
+                      onClick={() => handleInteraction(item.id, 'dislike')}
+                    >
+                      <ThumbsDown className={`w-4 h-4 mr-2 ${item.dislikedByCurrentUser ? "fill-blue-500" : ""}`} />
+                      {Number(item.dislikes) || 0}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      {Number(item.comments) || 0}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                      <Share2 className="w-4 h-4 mr-2" />
+                      {Number(item.shares) || 0}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={item.smhByCurrentUser ? "text-yellow-500" : "text-gray-400 hover:text-white"}
+                      onClick={() => handleInteraction(item.id, 'smh')}
+                    >
+                      <span className="text-lg mr-2" role="img" aria-label="smh">🤦</span>
+                      {Number(item.smh) || 0}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={item.trophyByCurrentUser ? "text-amber-500" : "text-gray-400 hover:text-white"}
+                      onClick={() => handleInteraction(item.id, 'trophy')}
+                    >
+                      <span className="text-lg mr-2" role="img" aria-label="trophy">🏆</span>
+                      {Number(item.trophy) || 0}
+                    </Button>
+                  </div>
+                </CardContent>
+                </Card>
+              ))}
+            </TabsContent>
+
+          <TabsContent value="partnership" className="space-y-6">
+            {posts.filter(item => item.type === 'partnership').map((item) => (
+                <Card key={item.id} className="leonardo-card border-gray-800">
+                <CardHeader className="flex flex-row items-center gap-4">
+                  <button
+                    className="flex items-center gap-2 group"
+                    onClick={() => router.push(`/profile/${item.user.id}`)}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                    aria-label={`View profile of ${item.user.name || 'Unknown User'}`}
+                  >
+                    <Avatar>
+                      <AvatarImage src={item.user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user.name || 'Unknown User'}`} />
+                      <AvatarFallback>{item.user.name ? item.user.name[0] : 'U'}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg group-hover:underline group-hover:text-purple-400 transition-colors">
+                          {item.user.name || 'Unknown User'}
+                        </CardTitle>
+                        <Badge variant="secondary" className="text-xs">
+                          {item.user.role}
+                        </Badge>
                       </div>
-                    )}
-
-                    {/* Interaction Buttons */}
-                    <div className="flex items-center gap-6 mt-4 pt-4 border-t border-gray-800">
-                      <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
-                        <Heart className="w-4 h-4 mr-2" />
-                        {item.likes}
-                      </Button>
-                      <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        {item.comments}
-                      </Button>
-                      <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
-                        <Share2 className="w-4 h-4 mr-2" />
-                        {item.shares}
-                      </Button>
+                      <p className="text-sm text-gray-400">{item.timestamp}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
+                  </button>
+                  {getIconForType(item.type)}
+                </CardHeader>
+                <CardContent>
+                  {editingPostId === item.id ? (
+                    <Textarea
+                      value={editContent}
+                      onChange={e => setEditContent(e.target.value)}
+                      className="mb-4 bg-gray-900 border-gray-700 min-h-[80px]"
+                      autoFocus
+                    />
+                  ) : (
+                    <p className="text-gray-200 mb-4">{item.content}</p>
+                  )}
+                  
+                  {/* Media Display */}
+                  {item.media && item.media.length > 0 && (
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      {item.media.map((media: any, index: number) => (
+                        <div key={index} className="relative group">
+                          {media.type === 'image' ? (
+                            <img
+                              src={media.url}
+                              alt={`Media ${index + 1}`}
+                              className="w-full h-48 object-cover rounded-lg"
+                            />
+                          ) : (
+                            <video
+                              src={media.url}
+                              className="w-full h-48 object-cover rounded-lg"
+                              controls
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-            <TabsContent value="projects" className="space-y-6">
-              {mockFeedData.filter(item => item.type === 'project').map((item) => (
-                // Same card structure as above
-                <Card key={item.id} className="leonardo-card border-gray-800">
-                  {/* ... (same content as above) ... */}
-                </Card>
-              ))}
-            </TabsContent>
+                  {/* Partnership Details */}
+                  {item.type === 'partnership' && (
+                    ((item.newPartners && item.newPartners.length > 0 && item.newPartners[0]) || item.focus) && (
+                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                        {item.newPartners && item.newPartners.length > 0 && item.newPartners[0] && (
+                          <div className="mb-2">
+                            <span className="text-gray-400">New Partners:</span>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {item.newPartners.map((partner: any) => (
+                                <Button
+                                  key={partner.id}
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={() => router.push(`/profile/${partner.id}`)}
+                                >
+                                  {partner.name}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {item.focus && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-400">Focus Area</span>
+                            <span className="text-white">{item.focus}</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  )}
 
-            <TabsContent value="deals" className="space-y-6">
-              {mockFeedData.filter(item => item.type === 'deal').map((item) => (
-                // Same card structure as above
-                <Card key={item.id} className="leonardo-card border-gray-800">
-                  {/* ... (same content as above) ... */}
-                </Card>
-              ))}
-            </TabsContent>
-
-            <TabsContent value="partnerships" className="space-y-6">
-              {mockFeedData.filter(item => item.type === 'partnership').map((item) => (
-                // Same card structure as above
-                <Card key={item.id} className="leonardo-card border-gray-800">
-                  {/* ... (same content as above) ... */}
+                  {/* Interaction Buttons */}
+                  <div className="flex items-center gap-6 mt-4 pt-4 border-t border-gray-800">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={item.likedByCurrentUser ? "text-pink-500" : "text-gray-400 hover:text-white"}
+                      onClick={() => handleInteraction(item.id, 'like')}
+                    >
+                      <span className="text-lg mr-2" role="img" aria-label="clap">👏</span>
+                      {Number(item.likes) || 0}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={item.dislikedByCurrentUser ? "text-blue-500" : "text-gray-400 hover:text-white"}
+                      onClick={() => handleInteraction(item.id, 'dislike')}
+                    >
+                      <ThumbsDown className={`w-4 h-4 mr-2 ${item.dislikedByCurrentUser ? "fill-blue-500" : ""}`} />
+                      {Number(item.dislikes) || 0}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      {Number(item.comments) || 0}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                      <Share2 className="w-4 h-4 mr-2" />
+                      {Number(item.shares) || 0}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={item.smhByCurrentUser ? "text-yellow-500" : "text-gray-400 hover:text-white"}
+                      onClick={() => handleInteraction(item.id, 'smh')}
+                    >
+                      <span className="text-lg mr-2" role="img" aria-label="smh">🤦</span>
+                      {Number(item.smh) || 0}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={item.trophyByCurrentUser ? "text-amber-500" : "text-gray-400 hover:text-white"}
+                      onClick={() => handleInteraction(item.id, 'trophy')}
+                    >
+                      <span className="text-lg mr-2" role="img" aria-label="trophy">🏆</span>
+                      {Number(item.trophy) || 0}
+                    </Button>
+                  </div>
+                </CardContent>
                 </Card>
               ))}
             </TabsContent>
           </Tabs>
         </main>
-      </div>
     </div>
   )
 } 

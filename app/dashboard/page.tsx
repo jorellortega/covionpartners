@@ -857,6 +857,22 @@ export default function PartnerDashboard() {
                   <TooltipContent>Workflow</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="hover:bg-orange-500/20 hover:text-orange-400"
+                      onClick={() => router.push('/feed')}
+                    >
+                      <Users className="w-5 h-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Activity Feed</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </div>
@@ -1219,6 +1235,16 @@ export default function PartnerDashboard() {
                   <Link href="/groupchat">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400">
                       <Users className="w-4 h-4 mr-2" /> Group Chat
+                    </Button>
+                  </Link>
+                  <Link href="/feed">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400">
+                      <Users className="w-4 h-4 mr-2" /> Activity Feed
+                    </Button>
+                  </Link>
+                  <Link href="/profiles">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400">
+                      <User className="w-4 h-4 mr-2" /> Profiles
                     </Button>
                   </Link>
                 </CardContent>

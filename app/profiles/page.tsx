@@ -42,6 +42,7 @@ interface Profile {
   company: string
   skills: string[]
   avatar_url: string
+  user_id?: string
 }
 
 const mockProfiles: Profile[] = [
@@ -149,14 +150,20 @@ export default function ProfilesPage() {
   useEffect(() => {
     const fetchProfiles = async () => {
       try {
+        // Fetch profiles and join users for avatar_url
         const { data, error } = await supabase
           .from('profiles')
-          .select('*')
+          .select('*, users: user_id (avatar_url)')
           .order('created_at', { ascending: false })
         if (error) throw error
-        console.log('Fetched profiles:', data)
-        setProfiles(data || [])
-        setFilteredProfiles(data || [])
+        // Map avatar_url from users table into each profile
+        const merged = (data || []).map((profile: any) => ({
+          ...profile,
+          avatar_url: profile.users?.avatar_url || profile.avatar_url || '/placeholder-avatar.jpg',
+          user_id: profile.users?.user_id
+        }))
+        setProfiles(merged)
+        setFilteredProfiles(merged)
       } catch (error) {
         console.error('Error fetching profiles:', error)
         toast.error('Failed to load profiles')
@@ -164,7 +171,6 @@ export default function ProfilesPage() {
         setIsLoading(false)
       }
     }
-
     fetchProfiles()
   }, [])
 
@@ -262,7 +268,7 @@ export default function ProfilesPage() {
               <Card
                 key={profile.id}
                 className="leonardo-card border-gray-800 hover:border-blue-500/50 transition-colors cursor-pointer"
-                onClick={() => router.push(`/profile/${profile.id}`)}
+                onClick={() => router.push(`/profile/${profile.user_id || profile.id}`)}
               >
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">

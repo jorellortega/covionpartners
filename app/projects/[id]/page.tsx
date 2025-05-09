@@ -2039,7 +2039,10 @@ export default function ProjectDetails() {
                 </Card>
 
                 {/* Project Expenses Card */}
-                <Card className="leonardo-card border-gray-800">
+                <Card className="leonardo-card border-gray-800 relative opacity-50 pointer-events-none">
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 rounded-lg">
+                    <span className="text-white text-lg font-semibold">Under Development</span>
+                  </div>
                   <CardHeader>
                     <CardTitle className="flex items-center">
                       <DollarSign className="w-5 h-5 mr-2" />
