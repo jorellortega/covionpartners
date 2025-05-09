@@ -39,7 +39,8 @@ import {
   UploadCloud,
   Trash2,
   Pencil,
-  FileText
+  FileText,
+  RefreshCw
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -53,6 +54,7 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog"
 import Link from 'next/link'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface MediaItem {
   id: number
@@ -133,7 +135,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const [isLoading, setIsLoading] = useState(true)
   const [profileData, setProfileData] = useState<ProfileData>(defaultProfileData)
   const [error, setError] = useState<string | null>(null)
-  const isOwner = user?.id === profileData.user_id
+  const isOwner = user?.id === id
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null)
@@ -153,6 +155,8 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const [showAddExpForm, setShowAddExpForm] = useState(false)
   const [showAddEduForm, setShowAddEduForm] = useState(false)
   const [publicProjectIds, setPublicProjectIds] = useState<string[]>([])
+  const [profileMissing, setProfileMissing] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -176,8 +180,10 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           .select('*')
           .eq('user_id', id)
           .single()
-        if (profileError) {
-          console.error('Error fetching profile data:', profileError)
+        if (!profile) {
+          setProfileMissing(true)
+        } else {
+          setProfileMissing(false)
         }
 
         // Fetch user's completed projects from projects table
@@ -488,6 +494,45 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
     fetchPublicProjects()
   }, [])
 
+  // Add the updateProfileRow handler
+  const handleProfileUpdate = async () => {
+    if (!user) return
+    setSyncing(true)
+    const { error } = await supabase.from('profiles').insert({
+      user_id: user.id,
+      skills: [],
+      experience: [],
+      education: []
+    })
+    if (error) {
+      console.error('Supabase insert error:', error);
+      toast.error('Failed to update profile!');
+      setSyncing(false);
+      return;
+    }
+    toast.success('Profile row created!')
+    setProfileMissing(false)
+    // Refetch profile data
+    setIsLoading(true)
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+    if (!profileError && profile) {
+      setProfileData(prev => ({ ...prev, ...profile }))
+    }
+    setIsLoading(false)
+    setSyncing(false)
+  }
+
+  // Automatically sync if owner and missing
+  useEffect(() => {
+    if (isOwner && profileMissing && !syncing) {
+      handleProfileUpdate()
+    }
+  }, [isOwner, profileMissing])
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -525,7 +570,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                       fill
                       className="object-cover"
                     />
-                    {isOwner && (
+                    {isOwner && !profileMissing && (
                       <div className="absolute bottom-2 right-2 flex gap-2">
                         <input
                           type="file"
@@ -748,8 +793,8 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {profileData.skills.length > 0 ? (
-                    profileData.skills.map((skill, index) => (
+                  {(profileData.skills || []).length > 0 ? (
+                    (profileData.skills || []).map((skill, index) => (
                       <div key={index} className="flex items-center gap-1">
                         {editingSkillIndex === index ? (
                           <>
@@ -801,8 +846,8 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {profileData.experience.length > 0 ? (
-                    profileData.experience.map((exp, index) => (
+                  {(profileData.experience || []).length > 0 ? (
+                    (profileData.experience || []).map((exp, index) => (
                       <div key={index} className="flex gap-4 items-start">
                         <div className="w-12 h-12 rounded-full bg-gray-800/30 flex items-center justify-center">
                           <Briefcase className="w-6 h-6 text-gray-400" />
@@ -865,8 +910,8 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {profileData.education.length > 0 ? (
-                    profileData.education.map((edu, index) => (
+                  {(profileData.education || []).length > 0 ? (
+                    (profileData.education || []).map((edu, index) => (
                       <div key={index} className="flex gap-4 items-start">
                         <div className="w-12 h-12 rounded-full bg-gray-800/30 flex items-center justify-center">
                           <BookOpen className="w-6 h-6 text-gray-400" />
