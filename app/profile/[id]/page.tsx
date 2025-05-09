@@ -38,7 +38,8 @@ import {
   Video,
   UploadCloud,
   Trash2,
-  Pencil
+  Pencil,
+  FileText
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -51,6 +52,7 @@ import {
   DialogTitle,
   DialogTrigger
 } from "@/components/ui/dialog"
+import Link from 'next/link'
 
 interface MediaItem {
   id: number
@@ -95,9 +97,10 @@ interface ProfileData {
     id: number
     title: string
     description: string
-    image: string
+    media_files: MediaItem[]
     completionDate: string
     technologies: string[]
+    visibility: string
   }[]
   avatar_url?: string
 }
@@ -147,6 +150,9 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [editingBio, setEditingBio] = useState(false)
   const [bioValue, setBioValue] = useState("")
+  const [showAddExpForm, setShowAddExpForm] = useState(false)
+  const [showAddEduForm, setShowAddEduForm] = useState(false)
+  const [publicProjectIds, setPublicProjectIds] = useState<string[]>([])
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -174,12 +180,13 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           console.error('Error fetching profile data:', profileError)
         }
 
-        // Fetch user's completed projects
+        // Fetch user's completed projects from projects table
         const { data: projectsData, error: projectsError } = await supabase
-          .from('completed_projects')
+          .from('projects')
           .select('*')
-          .eq('user_id', id)
-          .order('completion_date', { ascending: false })
+          .eq('owner_id', id)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false })
         if (projectsError) {
           console.error('Error fetching projects:', projectsError)
         }
@@ -204,11 +211,12 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           education: profile?.education || [],
           completed_projects: projectsData?.map(project => ({
             id: project.id,
-            title: project.title,
+            title: project.name,
             description: project.description || '',
-            image: project.image_url || '/placeholder-project.jpg',
-            completionDate: project.completion_date || '',
-            technologies: project.technologies || []
+            media_files: project.media_files || [],
+            completionDate: project.updated_at || project.created_at || '',
+            technologies: [],
+            visibility: project.visibility || ''
           })) || [],
           avatar_url: userData?.avatar_url || '/placeholder-avatar.jpg'
         }
@@ -394,11 +402,24 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
 
   // Update profile helper
   const updateProfileField = async (field: string, value: any) => {
-    const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', profileData.id)
-    if (!error) {
+    try {
+      console.log('Updating field:', field, 'with value:', value, 'for profile:', profileData.id)
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({ [field]: value })
+        .eq('user_id', profileData.user_id)
+
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+
+      // Update local state
       setProfileData(prev => ({ ...prev, [field]: value }))
-      toast.success('Profile updated!')
-    } else {
+      toast.success('Profile updated successfully')
+    } catch (error) {
+      console.error('Error updating profile:', error)
       toast.error('Failed to update profile')
     }
   }
@@ -454,6 +475,18 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
     const updatedEdu = profileData.education.filter((_, i) => i !== idx)
     await updateProfileField('education', updatedEdu)
   }
+
+  useEffect(() => {
+    const fetchPublicProjects = async () => {
+      const { data, error } = await supabase
+        .from('publicprojects')
+        .select('id')
+      if (!error && data) {
+        setPublicProjectIds(data.map((p: { id: string }) => p.id))
+      }
+    }
+    fetchPublicProjects()
+  }, [])
 
   if (isLoading) {
     return (
@@ -597,14 +630,21 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                     )}
                   </div>
                   {editingBio ? (
-                    <form onSubmit={e => { e.preventDefault(); updateProfileField('bio', bioValue); setEditingBio(false); }} className="flex items-center justify-center mb-6">
+                    <form 
+                      onSubmit={async (e) => { 
+                        e.preventDefault()
+                        console.log('Submitting bio update:', bioValue)
+                        await updateProfileField('bio', bioValue)
+                        setEditingBio(false)
+                      }} 
+                      className="flex items-center justify-center mb-6"
+                    >
                       <textarea
                         value={bioValue}
                         onChange={e => setBioValue(e.target.value)}
                         className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full max-w-lg"
                         rows={2}
                         autoFocus
-                        onBlur={() => setEditingBio(false)}
                       />
                       <button type="submit" className="ml-2 text-blue-400 text-xs">✔</button>
                     </form>
@@ -655,19 +695,40 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                           <DialogDescription>Send a direct message to this user.</DialogDescription>
                         </DialogHeader>
                         <form
-                          onSubmit={e => {
+                          onSubmit={async e => {
                             e.preventDefault();
-                            toast.success('Message sent!');
+                            if (!user) {
+                              toast.error('You must be logged in to send a message.');
+                              return;
+                            }
+                            const formData = new FormData(e.target as HTMLFormElement);
+                            const subject = formData.get('subject');
+                            const content = formData.get('content');
+                            const { error } = await supabase.from('messages').insert({
+                              subject,
+                              content,
+                              sender_id: user.id,
+                              receiver_id: profileData.user_id,
+                              read: false,
+                              created_at: new Date().toISOString(),
+                              updated_at: new Date().toISOString()
+                            });
+                            if (!error) {
+                              toast.success('Message sent!');
+                              // Optionally: router.push('/messages');
+                            } else {
+                              toast.error('Failed to send message');
+                            }
                           }}
                           className="space-y-4"
                         >
                           <div>
                             <label className="block text-sm text-gray-300 mb-1">Subject</label>
-                            <input type="text" className="w-full rounded bg-gray-800 border border-gray-700 px-3 py-2 text-white" required />
+                            <input name="subject" type="text" className="w-full rounded bg-gray-800 border border-gray-700 px-3 py-2 text-white" required />
                           </div>
                           <div>
                             <label className="block text-sm text-gray-300 mb-1">Message</label>
-                            <textarea className="w-full rounded bg-gray-800 border border-gray-700 px-3 py-2 text-white" rows={4} required />
+                            <textarea name="content" className="w-full rounded bg-gray-800 border border-gray-700 px-3 py-2 text-white" rows={4} required />
                           </div>
                           <DialogFooter>
                             <Button type="submit" className="gradient-button w-full">Send Message</Button>
@@ -675,40 +736,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                         </form>
                       </DialogContent>
                     </Dialog>
-                    {/* Invite to Project Dialog */}
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">Invite to Project</Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Invite to Project</DialogTitle>
-                          <DialogDescription>Select a project to invite this user to join.</DialogDescription>
-                        </DialogHeader>
-                        {/* For now, just a placeholder select. You can wire this up to your projects. */}
-                        <form
-                          onSubmit={e => {
-                            e.preventDefault();
-                            toast.success('Invitation sent!');
-                          }}
-                          className="space-y-4"
-                        >
-                          <div>
-                            <label className="block text-sm text-gray-300 mb-1">Project</label>
-                            <select className="w-full rounded bg-gray-800 border border-gray-700 px-3 py-2 text-white" required>
-                              <option value="">Select a project</option>
-                              {/* TODO: Map over user's projects here */}
-                              <option value="demo-project">Demo Project</option>
-                            </select>
-                          </div>
-                          <DialogFooter>
-                            <Button type="submit" className="gradient-button w-full">Send Invite</Button>
-                          </DialogFooter>
-                        </form>
-                      </DialogContent>
-                    </Dialog>
                   </div>
-                  <Button variant="outline" size="sm" disabled>Contact</Button>
                 </div>
               </CardContent>
             </Card>
@@ -809,13 +837,21 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                   ) : (
                     <p className="text-gray-400">No experience listed</p>
                   )}
-                  {isOwner && (
-                    <form onSubmit={e => { e.preventDefault(); handleAddExp(); }} className="space-y-2 mt-4">
+                  {isOwner && !showAddExpForm && (
+                    <Button size="sm" className="mt-4" onClick={() => setShowAddExpForm(true)}>
+                      Add Experience
+                    </Button>
+                  )}
+                  {isOwner && showAddExpForm && (
+                    <form onSubmit={e => { e.preventDefault(); handleAddExp(); setShowAddExpForm(false); }} className="space-y-2 mt-4">
                       <input value={newExp.title} onChange={e => setNewExp({ ...newExp, title: e.target.value })} placeholder="Title" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
                       <input value={newExp.company} onChange={e => setNewExp({ ...newExp, company: e.target.value })} placeholder="Company" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
                       <input value={newExp.period} onChange={e => setNewExp({ ...newExp, period: e.target.value })} placeholder="Period" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
                       <textarea value={newExp.description} onChange={e => setNewExp({ ...newExp, description: e.target.value })} placeholder="Description" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
-                      <Button size="sm" type="submit">Add</Button>
+                      <div className="flex gap-2">
+                        <Button size="sm" type="submit">Add</Button>
+                        <Button size="sm" variant="outline" onClick={() => setShowAddExpForm(false)}>Cancel</Button>
+                      </div>
                     </form>
                   )}
                 </div>
@@ -863,12 +899,20 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                   ) : (
                     <p className="text-gray-400">No education listed</p>
                   )}
-                  {isOwner && (
-                    <form onSubmit={e => { e.preventDefault(); handleAddEdu(); }} className="space-y-2 mt-4">
+                  {isOwner && !showAddEduForm && (
+                    <Button size="sm" className="mt-4" onClick={() => setShowAddEduForm(true)}>
+                      Add Education
+                    </Button>
+                  )}
+                  {isOwner && showAddEduForm && (
+                    <form onSubmit={e => { e.preventDefault(); handleAddEdu(); setShowAddEduForm(false); }} className="space-y-2 mt-4">
                       <input value={newEdu.degree} onChange={e => setNewEdu({ ...newEdu, degree: e.target.value })} placeholder="Degree" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
                       <input value={newEdu.school} onChange={e => setNewEdu({ ...newEdu, school: e.target.value })} placeholder="School" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
                       <input value={newEdu.period} onChange={e => setNewEdu({ ...newEdu, period: e.target.value })} placeholder="Period" className="bg-gray-800 text-gray-300 border-gray-700 rounded px-2 py-1 w-full" />
-                      <Button size="sm" type="submit">Add</Button>
+                      <div className="flex gap-2">
+                        <Button size="sm" type="submit">Add</Button>
+                        <Button size="sm" variant="outline" onClick={() => setShowAddEduForm(false)}>Cancel</Button>
+                      </div>
                     </form>
                   )}
                 </div>
@@ -941,22 +985,23 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
             ) : (
               <div className="space-y-4">
                 {/* Main Media Display */}
-                <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-800/30">
+                <div className="relative w-full max-w-3xl mx-auto aspect-video rounded-lg overflow-hidden bg-gray-800/30 flex items-center justify-center">
                   {currentItem && (
                     currentItem.type === 'image' ? (
                       <Image
                         src={currentItem.url}
                         alt={currentItem.title}
-                        width={800}
-                        height={600}
-                        className="w-full h-full object-cover rounded-lg"
+                        fill
+                        className="object-contain w-full h-full"
+                        style={{ maxHeight: '80vh' }}
                       />
                     ) : (
                       <video
                         key={currentItem.url}
                         src={currentItem.url}
                         poster={currentItem.thumbnail || ''}
-                        className="w-full h-full object-cover"
+                        className="object-contain w-full h-full"
+                        style={{ maxHeight: '80vh' }}
                         controls
                         playsInline
                         autoPlay
@@ -1042,32 +1087,49 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {profileData.completed_projects.map((project) => (
-                  <div key={project.id} className="bg-gray-800/30 rounded-lg overflow-hidden">
-                    <div className="relative h-48">
-                      <Image
-                        src={project.image}
-                        alt={project.title}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="p-4">
-                      <h3 className="text-lg font-semibold text-white mb-2">{project.title}</h3>
-                      <p className="text-gray-400 text-sm mb-4">{project.description}</p>
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {project.technologies.map((tech, index) => (
-                          <Badge key={index} className="bg-gray-700 text-gray-300">
-                            {tech}
-                          </Badge>
-                        ))}
+                {profileData.completed_projects.map((project) => {
+                  const isPublic = project.visibility === 'public'
+                  const cardContent = (
+                    <div className="bg-gray-800/30 rounded-lg overflow-hidden">
+                      {project.media_files && project.media_files.length > 0 && project.media_files[0].type && project.media_files[0].type.startsWith('image/') ? (
+                        <div className="relative w-full aspect-video min-h-[120px] overflow-hidden rounded-t-lg bg-gray-800/30 flex items-center justify-center">
+                          <Image
+                            src={project.media_files[0].url}
+                            alt="Project Image"
+                            fill
+                            className="object-contain"
+                            sizes="(max-width: 768px) 100vw, 33vw"
+                            priority={false}
+                          />
+                        </div>
+                      ) : null}
+                      <div className="p-4">
+                        <h3 className="text-lg font-semibold text-white mb-2">{project.title}</h3>
+                        <p className="text-gray-400 text-sm mb-4">{project.description}</p>
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {project.technologies.map((tech, index) => (
+                            <Badge key={index} className="bg-gray-700 text-gray-300">
+                              {tech}
+                            </Badge>
+                          ))}
+                        </div>
+                        <p className="text-gray-500 text-sm">
+                          Completed: {new Date(project.completionDate).toLocaleDateString()}
+                        </p>
+                        {!isPublic && (
+                          <Badge className="bg-red-700/30 text-red-400 mt-2">Private Project</Badge>
+                        )}
                       </div>
-                      <p className="text-gray-500 text-sm">
-                        Completed: {new Date(project.completionDate).toLocaleDateString()}
-                      </p>
                     </div>
-                  </div>
-                ))}
+                  )
+                  return isPublic ? (
+                    <Link key={project.id} href={`/publicprojects/${project.id}`} className="block hover:shadow-lg transition-shadow">
+                      {cardContent}
+                    </Link>
+                  ) : (
+                    <div key={project.id}>{cardContent}</div>
+                  )
+                })}
               </div>
             )}
           </CardContent>
