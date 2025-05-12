@@ -187,14 +187,14 @@ export default function OnboardingPage() {
         </CardHeader>
         <CardContent>
           {/* Advanced status table for account/customer IDs */}
-          <div className="mb-6">
-            <table className="min-w-full text-sm border border-gray-200 rounded overflow-hidden">
+          <div className="mb-6 w-full overflow-x-auto">
+            <table className="min-w-full text-sm border border-gray-200 rounded overflow-hidden whitespace-nowrap">
               <thead className="bg-gray-100">
                 <tr>
-                  <th className="px-4 py-2 text-left">Type</th>
-                  <th className="px-4 py-2 text-left">Status</th>
-                  <th className="px-4 py-2 text-left">ID</th>
-                  <th className="px-4 py-2 text-left">Actions</th>
+                  <th className="px-2 py-2 text-left">Type</th>
+                  <th className="px-2 py-2 text-left">Status</th>
+                  <th className="px-2 py-2 text-left">ID</th>
+                  <th className="px-2 py-2 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>

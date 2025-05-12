@@ -54,7 +54,6 @@ interface Profile {
   bio: string;
   website: string;
   location: string;
-  balance?: number;
   role?: string;
 }
 
@@ -155,8 +154,10 @@ export default function SettingsPage() {
     position: "",
     bio: "",
     website: "",
-    location: ""
+    location: "",
+    role: ""
   })
+  const [profileId, setProfileId] = useState<string | null>(null)
   const [settings, setSettings] = useState<UserSettings>({
     notifications_email: true,
     notifications_push: true,
@@ -173,6 +174,7 @@ export default function SettingsPage() {
   const [stripePromise, setStripePromise] = useState<any>(null)
   const [balance, setBalance] = useState<number | null>(null)
   const [pendingBalance, setPendingBalance] = useState<number | null>(null)
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false)
 
   const fetchBalance = async (userId: string) => {
       try {
@@ -202,73 +204,72 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    const checkSessionAndFetch = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login');
-        return;
-        }
-      await fetchBalance(session.user.id);
-
-        // Fetch profile data
+    const fetchProfileData = async () => {
+      setLoading(true)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return
+        // Fetch from users table
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("id, email, name, phone_number, role")
+          .eq("id", session.user.id)
+          .single()
+        // Fetch from profiles table
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select("*")
-        .eq("id", session.user.id)
-        .single();
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-      }
+          .select("id, user_id, full_name: name, company, position, bio, website, location, avatar_url")
+          .eq("user_id", session.user.id)
+          .maybeSingle()
         setProfile({
-          full_name: profileData?.full_name || "",
-        email: session.user.email || "",
+          full_name: profileData?.full_name || userData?.name || "",
+          email: userData?.email || "",
           avatar_url: profileData?.avatar_url || "",
-          phone_number: profileData?.phone_number || "",
+          phone_number: userData?.phone_number || "",
           company: profileData?.company || "",
           position: profileData?.position || "",
           bio: profileData?.bio || "",
           website: profileData?.website || "",
           location: profileData?.location || "",
-        role: profileData?.role || undefined
-      });
-
-      // Fetch settings
-      const { data: settingsData, error: settingsError } = await supabase
-        .from("user_settings")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .single();
-      if (settingsError && settingsError.code !== "PGRST116") {
-        console.error('Error fetching settings:', settingsError);
-      } else if (settingsData) {
-        setSettings(settingsData);
+          role: userData?.role || ""
+        })
+        setProfileId(profileData?.id || null)
+      } catch (err) {
+        console.error("Error fetching profile info:", err)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false);
-    };
-    checkSessionAndFetch();
-  }, [supabase, router]);
+    }
+    fetchProfileData()
+  }, [supabase])
 
   // Add a debug effect to monitor balance changes
   useEffect(() => {
     console.log('Balance state changed:', balance);
   }, [balance]);
 
-  useEffect(() => {
-    fetchSubscriptionDetails()
-  }, [])
-
+  // Move fetchSubscriptionDetails outside useEffect so it can be referenced elsewhere
   const fetchSubscriptionDetails = async () => {
+    setSubscriptionLoading(true)
     try {
-      const response = await fetch('/api/subscriptions/get', {
-        method: 'GET',
-      })
+      // Use new full endpoint
+      const response = await fetch('/api/subscriptions/full', { credentials: 'include' })
       const data = await response.json()
-      setSubscription(data.subscription)
+      if (data.subscription) {
+        setSubscription(data.subscription)
+      } else {
+        setSubscription(null)
+      }
     } catch (error) {
-      console.error('Error fetching subscription:', error)
-      toast.error('Failed to load subscription details')
+      setSubscription(null)
+    } finally {
+      setSubscriptionLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchSubscriptionDetails()
+  }, [supabase])
 
   useEffect(() => {
     // Initialize Stripe
@@ -297,22 +298,43 @@ export default function SettingsPage() {
       setSaving(true)
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("No user found")
-
-      const { error } = await supabase
-        .from("profiles")
+      // Update users table
+      await supabase
+        .from("users")
         .update({
-          full_name: profile.full_name,
+          name: profile.full_name,
           phone_number: profile.phone_number,
-          company: profile.company,
-          position: profile.position,
-          bio: profile.bio,
-          website: profile.website,
-          location: profile.location,
-          updated_at: new Date().toISOString()
+          role: profile.role
         })
         .eq("id", user.id)
-
-      if (error) throw error
+      // Update or insert into profiles table
+      if (profileId) {
+        await supabase
+          .from("profiles")
+          .update({
+            name: profile.full_name,
+            company: profile.company,
+            position: profile.position,
+            bio: profile.bio,
+            website: profile.website,
+            location: profile.location,
+            avatar_url: profile.avatar_url
+          })
+          .eq("id", profileId)
+      } else {
+        await supabase
+          .from("profiles")
+          .insert({
+            user_id: user.id,
+            name: profile.full_name,
+            company: profile.company,
+            position: profile.position,
+            bio: profile.bio,
+            website: profile.website,
+            location: profile.location,
+            avatar_url: profile.avatar_url
+          })
+      }
       toast.success("Profile updated successfully")
     } catch (error) {
       console.error("Error updating profile:", error)
@@ -532,11 +554,8 @@ export default function SettingsPage() {
       <Tabs defaultValue="profile" className="space-y-4">
         <TabsList className="flex flex-wrap gap-2">
           <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="preferences">Preferences</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="subscription">Subscription</TabsTrigger>
-          <TabsTrigger value="banking">Banking</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
         </TabsList>
 
@@ -655,116 +674,6 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="notifications">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
-              <CardDescription>Choose how you want to receive notifications.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="email-notifications">Email Notifications</Label>
-                <Switch
-                  id="email-notifications"
-                  checked={settings.notifications_email}
-                  onCheckedChange={(checked) => 
-                    setSettings({ ...settings, notifications_email: checked })
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="push-notifications">Push Notifications</Label>
-                <Switch
-                  id="push-notifications"
-                  checked={settings.notifications_push}
-                  onCheckedChange={(checked) => 
-                    setSettings({ ...settings, notifications_push: checked })
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="browser-notifications">Browser Notifications</Label>
-                <Switch
-                  id="browser-notifications"
-                  checked={settings.notifications_browser}
-                  onCheckedChange={(checked) => 
-                    setSettings({ ...settings, notifications_browser: checked })
-                  }
-                />
-              </div>
-              <Button onClick={handleSettingsUpdate} disabled={saving}>
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Save Changes
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="preferences">
-          <Card>
-            <CardHeader>
-              <CardTitle>Preferences</CardTitle>
-              <CardDescription>Customize your app experience.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="theme">Theme</Label>
-                <Select
-                  value={settings.theme}
-                  onValueChange={(value) => setSettings({ ...settings, theme: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select theme" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="dark">Dark</SelectItem>
-                    <SelectItem value="system">System</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="language">Language</Label>
-                <Select
-                  value={settings.language}
-                  onValueChange={(value) => setSettings({ ...settings, language: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="es">Spanish</SelectItem>
-                    <SelectItem value="fr">French</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="timezone">Timezone</Label>
-                <Select
-                  value={settings.timezone}
-                  onValueChange={(value) => setSettings({ ...settings, timezone: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select timezone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="UTC">UTC</SelectItem>
-                    <SelectItem value="America/New_York">Eastern Time</SelectItem>
-                    <SelectItem value="America/Chicago">Central Time</SelectItem>
-                    <SelectItem value="America/Denver">Mountain Time</SelectItem>
-                    <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={handleSettingsUpdate} disabled={saving}>
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Save Changes
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="security">
           <Card>
             <CardHeader>
@@ -778,27 +687,16 @@ export default function SettingsPage() {
                   try {
                     // Clear all local storage and session storage
                     if (typeof window !== 'undefined') {
-                      // Clear all localStorage items
                       window.localStorage.clear()
-                      // Clear all sessionStorage items
                       window.sessionStorage.clear()
-                      // Clear all cookies
                       document.cookie.split(";").forEach(function(c) { 
                         document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
                       })
                     }
-                    
                     // Sign out from Supabase
-                  const { error } = await supabase.auth.signOut()
+                    const { error } = await supabase.auth.signOut()
                     if (error) throw error
-                    
-                    // Clear any remaining auth state
-                    await supabase.auth.setSession({
-                      access_token: '',
-                      refresh_token: ''
-                    })
-                    
-                    // Force a hard redirect to login page with cache busting
+                    await supabase.auth.setSession({ access_token: '', refresh_token: '' })
                     window.location.href = '/login?' + new Date().getTime()
                   } catch (error) {
                     console.error('Error signing out:', error)
@@ -807,6 +705,27 @@ export default function SettingsPage() {
                 }}
               >
                 Sign Out
+              </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    if (!profile.email) {
+                      toast.error('No email found for this user.')
+                      return
+                    }
+                    const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
+                      redirectTo: window.location.origin + '/reset-password'
+                    })
+                    if (error) throw error
+                    toast.success('Password reset email sent!')
+                  } catch (error) {
+                    console.error('Error sending reset password email:', error)
+                    toast.error('Failed to send reset password email')
+                  }
+                }}
+              >
+                Reset Password
               </Button>
             </CardContent>
           </Card>
@@ -856,7 +775,7 @@ export default function SettingsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {loading ? (
+              {subscriptionLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
                 </div>
@@ -980,45 +899,6 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="banking">
-          <Card>
-            <CardHeader>
-              <CardTitle>Banking Information</CardTitle>
-              <CardDescription>
-                View your current balance and request withdrawals. Payments and withdrawals are managed by the platform.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* User Balance */}
-              <div className="p-4 bg-gray-800/30 rounded-lg flex items-center justify-between">
-                <span className="text-gray-400">Current Balance</span>
-                <span className="text-2xl font-bold text-green-400">
-                  {balance === null ? '—' : `$${Number(balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                </span>
-              </div>
-              <div className="text-sm text-gray-400 mt-1">Last updated: Today</div>
-              {/* Withdrawal Request Form */}
-              <form className="space-y-4" onSubmit={e => { e.preventDefault(); /* TODO: handle withdrawal */ }}>
-                <Label htmlFor="withdraw-amount">Withdraw Amount</Label>
-                <Input
-                  id="withdraw-amount"
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  placeholder="Enter amount to withdraw"
-                  // TODO: bind value and onChange
-                />
-                <Button type="submit" className="w-full">Request Withdrawal</Button>
-              </form>
-              {/* Past Withdrawals (Placeholder) */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-300 mb-2">Withdrawal History</h3>
-                <div className="text-gray-400 text-sm">(Coming soon: List of your past withdrawals will appear here.)</div>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>

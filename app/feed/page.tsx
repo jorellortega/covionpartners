@@ -116,32 +116,20 @@ export default function FeedPage() {
 
       // Collect unique user_ids
       const userIds = Array.from(new Set(data.map((post: any) => post.user_id)))
-      // Fetch profiles for those user_ids
-      let profilesMap: Record<string, { name: string; avatar_url: string; role?: string }> = {}
-      let usersMap: Record<string, { avatar_url: string }> = {}
+      // Fetch users for those user_ids
+      let usersMap: Record<string, { name: string; avatar_url: string; role?: string }> = {}
       if (userIds.length > 0) {
-        // Fetch profiles
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('user_id, name, avatar_url, role')
-          .in('user_id', userIds)
-        if (!profilesError && profiles) {
-          profiles.forEach((profile: any) => {
-            profilesMap[profile.user_id] = {
-              name: profile.name,
-              avatar_url: profile.avatar_url,
-              role: profile.role || ''
-            }
-          })
-        }
-        // Fetch users (for avatar_url from bucket)
         const { data: usersData, error: usersError } = await supabase
           .from('users')
-          .select('id, avatar_url')
+          .select('id, name, avatar_url, role')
           .in('id', userIds)
         if (!usersError && usersData) {
           usersData.forEach((u: any) => {
-            usersMap[u.id] = { avatar_url: u.avatar_url }
+            usersMap[u.id] = {
+              name: u.name,
+              avatar_url: u.avatar_url,
+              role: u.role || ''
+            }
           })
         }
       }
@@ -153,8 +141,7 @@ export default function FeedPage() {
           acc[curr.type] = (acc[curr.type] || 0) + 1
           return acc
         }, {})
-        // Get user info from profilesMap and usersMap
-        const profile = profilesMap[post.user_id] || {}
+        // Get user info from usersMap
         const userRecord = usersMap[post.user_id] || {}
         const likedByCurrentUser = post.post_interactions.some(
           (i: any) => i.type === 'like' && i.user_id === user?.id
@@ -173,9 +160,9 @@ export default function FeedPage() {
           type: post.type,
           user: {
             id: post.user_id,
-            name: profile.name || 'Unknown User',
-            avatar: userRecord.avatar_url || profile.avatar_url || '',
-            role: profile.role || ''
+            name: userRecord.name || 'Unknown User',
+            avatar: userRecord.avatar_url || '',
+            role: userRecord.role || ''
           },
           content: post.content,
           timestamp: formatDistanceToNow(new Date(post.created_at), { addSuffix: true }),
@@ -195,6 +182,7 @@ export default function FeedPage() {
       })
 
       setPosts(transformedPosts)
+      console.log('Transformed posts:', transformedPosts)
     } catch (error) {
       console.error('Error fetching posts:', error)
     } finally {
@@ -884,9 +872,9 @@ export default function FeedPage() {
         <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-4 mb-8">
               <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="project">Projects</TabsTrigger>
-            <TabsTrigger value="deal">Deals</TabsTrigger>
-            <TabsTrigger value="partnership">Partnerships</TabsTrigger>
+              <TabsTrigger value="project" disabled style={{ opacity: 0.5, pointerEvents: 'none', cursor: 'not-allowed' }}>Projects</TabsTrigger>
+              <TabsTrigger value="deal" disabled style={{ opacity: 0.5, pointerEvents: 'none', cursor: 'not-allowed' }}>Deals</TabsTrigger>
+              <TabsTrigger value="partnership" disabled style={{ opacity: 0.5, pointerEvents: 'none', cursor: 'not-allowed' }}>Partnerships</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="space-y-6">

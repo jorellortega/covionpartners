@@ -42,6 +42,11 @@ export function MainNav() {
               Account Types
             </Link>
           </DropdownMenuItem>
+          <DropdownMenuItem className="cursor-pointer hover:bg-blue-500/20 hover:text-blue-400">
+            <Link href="/feed" className="w-full">
+              Feed
+            </Link>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       {user ? (

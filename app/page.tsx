@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, BarChart2, Briefcase, Zap, FolderKanban, Handshake, Users, Lock, FileText, Globe, DollarSign, Shield, Building2, Leaf, Clock, Check, Target } from "lucide-react"
+import { ArrowRight, BarChart2, Briefcase, Zap, FolderKanban, Handshake, Users, Lock, FileText, Globe, DollarSign, Shield, Building2, Leaf, Clock, Check, Target, Heart, MessageSquare } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { toast } from "sonner"
 import { useProjects } from "@/hooks/useProjects"
@@ -259,6 +259,131 @@ export default function Home() {
               >
                 View All Public Projects
                 <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Feed Section */}
+          <div className="mt-16">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-4">Community Feed</h2>
+              <p className="text-gray-400 text-lg">See what others are sharing, posting, and discussing across Covion Partners.</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {/* Sample Feed Cards */}
+              <div 
+                className="leonardo-card p-6 border border-gray-800 hover:border-purple-500/50 transition-all duration-300 cursor-pointer"
+                onClick={() => router.push('/feed')}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold">
+                    AL
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white">Alex Lee</h3>
+                    <p className="text-sm text-gray-400">Partner • 2h ago</p>
+                  </div>
+                </div>
+                <p className="text-gray-300 mb-4">Excited to announce our new partnership with TechCorp! Looking forward to building amazing things together. 🚀</p>
+                <div className="flex items-center gap-4 text-sm text-gray-400">
+                  <div className="flex items-center gap-1">
+                    <Heart className="w-4 h-4" />
+                    <span>24</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <MessageSquare className="w-4 h-4" />
+                    <span>8</span>
+                  </div>
+                </div>
+              </div>
+
+              <div 
+                className="leonardo-card p-6 border border-gray-800 hover:border-green-500/50 transition-all duration-300 cursor-pointer"
+                onClick={() => router.push('/feed')}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center text-white font-semibold">
+                    SJ
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white">Sarah Johnson</h3>
+                    <p className="text-sm text-gray-400">Investor • 5h ago</p>
+                  </div>
+                </div>
+                <p className="text-gray-300 mb-4">Just closed a major deal worth $2M! Thanks to everyone who supported this journey. 💪</p>
+                <div className="flex items-center gap-4 text-sm text-gray-400">
+                  <div className="flex items-center gap-1">
+                    <Heart className="w-4 h-4" />
+                    <span>42</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <MessageSquare className="w-4 h-4" />
+                    <span>15</span>
+                  </div>
+                </div>
+              </div>
+
+              <div 
+                className="leonardo-card p-6 border border-gray-800 hover:border-blue-500/50 transition-all duration-300 cursor-pointer"
+                onClick={() => router.push('/feed')}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-semibold">
+                    MR
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white">Mike Ross</h3>
+                    <p className="text-sm text-gray-400">Partner • 1d ago</p>
+                  </div>
+                </div>
+                <p className="text-gray-300 mb-4">Our new project "Green Energy Solutions" has reached its first milestone! Check out the progress report. 🌱</p>
+                <div className="flex items-center gap-4 text-sm text-gray-400">
+                  <div className="flex items-center gap-1">
+                    <Heart className="w-4 h-4" />
+                    <span>36</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <MessageSquare className="w-4 h-4" />
+                    <span>12</span>
+                  </div>
+                </div>
+              </div>
+
+              <div 
+                className="leonardo-card p-6 border border-gray-800 hover:border-yellow-500/50 transition-all duration-300 cursor-pointer"
+                onClick={() => router.push('/feed')}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white font-semibold">
+                    RK
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white">Rachel Kim</h3>
+                    <p className="text-sm text-gray-400">Partner • 3h ago</p>
+                  </div>
+                </div>
+                <p className="text-gray-300 mb-4">Launching our new AI-powered analytics platform next week! Stay tuned for the demo. 🤖</p>
+                <div className="flex items-center gap-4 text-sm text-gray-400">
+                  <div className="flex items-center gap-1">
+                    <Heart className="w-4 h-4" />
+                    <span>29</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <MessageSquare className="w-4 h-4" />
+                    <span>11</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <Button 
+                className="gradient-button text-lg px-8 py-6 hover:scale-105 transition-transform"
+                onClick={() => router.push('/feed')}
+              >
+                View Full Feed
+                <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>
           </div>
