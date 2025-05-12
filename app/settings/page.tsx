@@ -256,7 +256,7 @@ export default function SettingsPage() {
       const response = await fetch('/api/subscriptions/full', { credentials: 'include' })
       const data = await response.json()
       if (data.subscription) {
-        setSubscription(data.subscription)
+      setSubscription(data.subscription)
       } else {
         setSubscription(null)
       }
@@ -313,13 +313,13 @@ export default function SettingsPage() {
           .from("profiles")
           .update({
             name: profile.full_name,
-            company: profile.company,
-            position: profile.position,
-            bio: profile.bio,
-            website: profile.website,
-            location: profile.location,
+          company: profile.company,
+          position: profile.position,
+          bio: profile.bio,
+          website: profile.website,
+          location: profile.location,
             avatar_url: profile.avatar_url
-          })
+        })
           .eq("id", profileId)
       } else {
         await supabase
@@ -694,7 +694,7 @@ export default function SettingsPage() {
                       })
                     }
                     // Sign out from Supabase
-                    const { error } = await supabase.auth.signOut()
+                  const { error } = await supabase.auth.signOut()
                     if (error) throw error
                     await supabase.auth.setSession({ access_token: '', refresh_token: '' })
                     window.location.href = '/login?' + new Date().getTime()

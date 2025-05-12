@@ -37,6 +37,13 @@ import {
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useUser } from '@/hooks/useUser'
 import { formatDistanceToNow } from 'date-fns'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 interface PostInteraction {
   type: string;
@@ -51,6 +58,7 @@ export default function FeedPage() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [showAuthDialog, setShowAuthDialog] = useState(false)
   const [newPost, setNewPost] = useState({
     type: 'project',
     content: '',
@@ -86,8 +94,12 @@ export default function FeedPage() {
   const [mediaPreview, setMediaPreview] = useState<string[]>([])
 
   useEffect(() => {
+    if (!user) {
+      setShowAuthDialog(true)
+      return
+    }
     fetchPosts()
-  }, [activeTab])
+  }, [activeTab, user])
 
   const fetchPosts = async () => {
     try {
@@ -253,33 +265,33 @@ export default function FeedPage() {
       if (detailsError) throw detailsError
 
       // Reset form and refresh posts
-      setNewPost({
-        type: 'project',
-        content: '',
-        project: {
-          name: '',
-          description: '',
-          fundingGoal: '',
-          deadline: ''
-        },
-        deal: {
-          value: '',
-          status: 'In Progress',
-          partners: ['']
-        },
-        milestone: {
-          project: '',
-          achievement: '',
-          target: ''
-        },
-        partnership: {
-          newPartners: [''],
-          focus: ''
-        }
-      })
+    setNewPost({
+      type: 'project',
+      content: '',
+      project: {
+        name: '',
+        description: '',
+        fundingGoal: '',
+        deadline: ''
+      },
+      deal: {
+        value: '',
+        status: 'In Progress',
+        partners: ['']
+      },
+      milestone: {
+        project: '',
+        achievement: '',
+        target: ''
+      },
+      partnership: {
+        newPartners: [''],
+        focus: ''
+      }
+    })
       setMediaFiles([])
       setMediaPreview([])
-      setShowCreateForm(false)
+    setShowCreateForm(false)
       fetchPosts()
     } catch (error) {
       console.error('Error creating post:', error)
@@ -503,6 +515,36 @@ export default function FeedPage() {
   const handleRemoveMedia = (index: number) => {
     setMediaFiles(prev => prev.filter((_, i) => i !== index))
     setMediaPreview(prev => prev.filter((_, i) => i !== index))
+  }
+
+  if (!user) {
+    return (
+      <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
+        <DialogContent className="bg-gray-900 border-gray-800">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white">Sign in Required</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              You need to be signed in to access the activity feed. Please sign in or create an account to continue.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-4 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => router.push('/')}
+              className="border-gray-700 hover:bg-gray-800"
+            >
+              Go Back
+            </Button>
+            <Button 
+              className="gradient-button"
+              onClick={() => router.push('/account-types')}
+            >
+              Sign in or Create Account
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
   }
 
   return (
@@ -944,114 +986,37 @@ export default function FeedPage() {
                         ))}
                       </div>
                     )}
-
+                    
                     {/* Project Details */}
                     {item.type === 'project' && (
                       (item.name || item.description || item.fundingGoal || item.currentFunding || (item.deadline && !isNaN(new Date(item.deadline).getTime())) || (item.team && item.team.length > 0)) && (
-                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
                           {item.name && (
-                            <h3 className="font-semibold text-white mb-2">{item.name}</h3>
+                        <h3 className="font-semibold text-white mb-2">{item.name}</h3>
                           )}
                           {item.description && (
-                            <p className="text-gray-400 text-sm mb-3">{item.description}</p>
+                        <p className="text-gray-400 text-sm mb-3">{item.description}</p>
                           )}
-                          <div className="space-y-2">
+                        <div className="space-y-2">
                             {item.fundingGoal && (
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-400">Funding Goal</span>
-                                <span className="text-white">${Number(item.fundingGoal).toLocaleString()}</span>
-                              </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Funding Goal</span>
+                            <span className="text-white">${Number(item.fundingGoal).toLocaleString()}</span>
+                          </div>
                             )}
                             {item.currentFunding && (
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-400">Current Funding</span>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Current Funding</span>
                                 <span className="text-white">${Number(item.currentFunding).toLocaleString()}</span>
-                              </div>
+                          </div>
                             )}
                             {item.deadline && !isNaN(new Date(item.deadline).getTime()) && (
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-400">Deadline</span>
-                                <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
-                              </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Deadline</span>
+                            <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
+                          </div>
                             )}
                             {item.team && item.team.length > 0 && (
-                              <div className="mt-4">
-                                <span className="text-gray-400 text-sm">Team Members:</span>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  {item.team.map((member: any) => (
-                                    <Button
-                                      key={member.id}
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-xs"
-                                      onClick={() => router.push(`/profile/${member.id}`)}
-                                    >
-                                      {member.name}
-                                    </Button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    )}
-
-                    {/* Deal Details */}
-                    {item.type === 'deal' && (
-                      (item.value || item.status || (item.partners && item.partners.length > 0)) && (
-                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                          {item.value && (
-                            <div className="flex justify-between items-center mb-2">
-                              <span className="text-gray-400">Deal Value</span>
-                              <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
-                            </div>
-                          )}
-                          {item.status && (
-                            <div className="flex justify-between items-center mb-2">
-                              <span className="text-gray-400">Status</span>
-                              <Badge variant="secondary">{item.status}</Badge>
-                            </div>
-                          )}
-                          {item.partners && item.partners.length > 0 && (
-                            <div className="mt-2">
-                              <span className="text-gray-400">Partners:</span>
-                              <div className="flex gap-2 mt-1">
-                                  {item.partners.map((partner: any) => (
-                                  <Button
-                                    key={partner.id}
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs"
-                                    onClick={() => router.push(`/profile/${partner.id}`)}
-                                  >
-                                    {partner.name}
-                                  </Button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    )}
-
-                    {/* Milestone Details */}
-                    {item.type === 'milestone' && (
-                      (item.project || item.achievement || (item.team && item.team.length > 0)) && (
-                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                          {item.project && (
-                            <div className="flex justify-between items-center mb-2">
-                              <span className="text-gray-400">Project</span>
-                              <span className="text-white">{item.project}</span>
-                            </div>
-                          )}
-                          {item.achievement && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-gray-400">Achievement</span>
-                              <span className="text-white">{item.achievement}</span>
-                            </div>
-                          )}
-                          {item.team && item.team.length > 0 && (
                             <div className="mt-4">
                               <span className="text-gray-400 text-sm">Team Members:</span>
                               <div className="flex flex-wrap gap-2 mt-2">
@@ -1070,38 +1035,115 @@ export default function FeedPage() {
                             </div>
                           )}
                         </div>
+                      </div>
+                      )
+                    )}
+
+                    {/* Deal Details */}
+                    {item.type === 'deal' && (
+                      (item.value || item.status || (item.partners && item.partners.length > 0)) && (
+                    <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                        {item.value && (
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-400">Deal Value</span>
+                        <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
+                      </div>
+                        )}
+                        {item.status && (
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-400">Status</span>
+                        <Badge variant="secondary">{item.status}</Badge>
+                      </div>
+                        )}
+                        {item.partners && item.partners.length > 0 && (
+                      <div className="mt-2">
+                        <span className="text-gray-400">Partners:</span>
+                        <div className="flex gap-2 mt-1">
+                            {item.partners.map((partner: any) => (
+                            <Button
+                              key={partner.id}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                              onClick={() => router.push(`/profile/${partner.id}`)}
+                            >
+                              {partner.name}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    </div>
+                    )
+                  )}
+
+                    {/* Milestone Details */}
+                    {item.type === 'milestone' && (
+                      (item.project || item.achievement || (item.team && item.team.length > 0)) && (
+                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                          {item.project && (
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-gray-400">Project</span>
+                          <span className="text-white">{item.project}</span>
+                        </div>
+                          )}
+                          {item.achievement && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-400">Achievement</span>
+                          <span className="text-white">{item.achievement}</span>
+                        </div>
+                          )}
+                          {item.team && item.team.length > 0 && (
+                          <div className="mt-4">
+                            <span className="text-gray-400 text-sm">Team Members:</span>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {item.team.map((member: any) => (
+                                <Button
+                                  key={member.id}
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={() => router.push(`/profile/${member.id}`)}
+                                >
+                                  {member.name}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                       )
                     )}
 
                     {/* Partnership Details */}
                     {item.type === 'partnership' && (
                       ((item.newPartners && item.newPartners.length > 0 && item.newPartners[0]) || item.focus) && (
-                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
                           {item.newPartners && item.newPartners.length > 0 && item.newPartners[0] && (
-                            <div className="mb-2">
-                              <span className="text-gray-400">New Partners:</span>
-                              <div className="flex flex-wrap gap-2 mt-1">
-                                {item.newPartners.map((partner: any) => (
-                                  <Button
-                                    key={partner.id}
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs"
-                                    onClick={() => router.push(`/profile/${partner.id}`)}
-                                  >
-                                    {partner.name}
-                                  </Button>
-                                ))}
-                              </div>
-                            </div>
+                        <div className="mb-2">
+                          <span className="text-gray-400">New Partners:</span>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {item.newPartners.map((partner: any) => (
+                              <Button
+                                key={partner.id}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => router.push(`/profile/${partner.id}`)}
+                              >
+                                {partner.name}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
                           )}
                           {item.focus && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-gray-400">Focus Area</span>
-                              <span className="text-white">{item.focus}</span>
-                            </div>
-                          )}
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-400">Focus Area</span>
+                          <span className="text-white">{item.focus}</span>
                         </div>
+                          )}
+                      </div>
                       )
                     )}
 
@@ -1304,37 +1346,37 @@ export default function FeedPage() {
                       ))}
                     </div>
                   )}
-
+                  
                   {/* Project Details */}
                   {item.type === 'project' && (
                     (item.name || item.description || item.fundingGoal || item.currentFunding || (item.deadline && !isNaN(new Date(item.deadline).getTime())) || (item.team && item.team.length > 0)) && (
-                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                    <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
                         {item.name && (
-                          <h3 className="font-semibold text-white mb-2">{item.name}</h3>
+                      <h3 className="font-semibold text-white mb-2">{item.name}</h3>
                         )}
                         {item.description && (
-                          <p className="text-gray-400 text-sm mb-3">{item.description}</p>
+                      <p className="text-gray-400 text-sm mb-3">{item.description}</p>
                         )}
-                        <div className="space-y-2">
+                      <div className="space-y-2">
                           {item.fundingGoal && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-400">Funding Goal</span>
-                              <span className="text-white">${Number(item.fundingGoal).toLocaleString()}</span>
-                            </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-400">Funding Goal</span>
+                          <span className="text-white">${Number(item.fundingGoal).toLocaleString()}</span>
+                        </div>
                           )}
                           {item.currentFunding && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-400">Current Funding</span>
-                              <span className="text-white">${Number(item.currentFunding).toLocaleString()}</span>
-                            </div>
-                          )}
-                          {item.deadline && !isNaN(new Date(item.deadline).getTime()) && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-400">Deadline</span>
-                              <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
-                            </div>
-                          )}
-                          {item.team && item.team.length > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-400">Current Funding</span>
+                                <span className="text-white">${Number(item.currentFunding).toLocaleString()}</span>
+                          </div>
+                            )}
+                            {item.deadline && !isNaN(new Date(item.deadline).getTime()) && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Deadline</span>
+                            <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
+                          </div>
+                            )}
+                            {item.team && item.team.length > 0 && (
                             <div className="mt-4">
                               <span className="text-gray-400 text-sm">Team Members:</span>
                               <div className="flex flex-wrap gap-2 mt-2">
@@ -1355,56 +1397,56 @@ export default function FeedPage() {
                         </div>
                       </div>
                     )
-                  )}
+                    )}
 
-                  {/* Interaction Buttons */}
-                  <div className="flex items-center gap-6 mt-4 pt-4 border-t border-gray-800">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={item.likedByCurrentUser ? "text-pink-500" : "text-gray-400 hover:text-white"}
-                      onClick={() => handleInteraction(item.id, 'like')}
-                    >
-                      <span className="text-lg mr-2" role="img" aria-label="clap">👏</span>
-                      {Number(item.likes) || 0}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={item.dislikedByCurrentUser ? "text-blue-500" : "text-gray-400 hover:text-white"}
-                      onClick={() => handleInteraction(item.id, 'dislike')}
-                    >
-                      <ThumbsDown className={`w-4 h-4 mr-2 ${item.dislikedByCurrentUser ? "fill-blue-500" : ""}`} />
-                      {Number(item.dislikes) || 0}
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      {Number(item.comments) || 0}
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
-                      <Share2 className="w-4 h-4 mr-2" />
-                      {Number(item.shares) || 0}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={item.smhByCurrentUser ? "text-yellow-500" : "text-gray-400 hover:text-white"}
-                      onClick={() => handleInteraction(item.id, 'smh')}
-                    >
-                      <span className="text-lg mr-2" role="img" aria-label="smh">🤦</span>
-                      {Number(item.smh) || 0}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={item.trophyByCurrentUser ? "text-amber-500" : "text-gray-400 hover:text-white"}
-                      onClick={() => handleInteraction(item.id, 'trophy')}
-                    >
-                      <span className="text-lg mr-2" role="img" aria-label="trophy">🏆</span>
-                      {Number(item.trophy) || 0}
-                    </Button>
-                  </div>
-                </CardContent>
+                    {/* Interaction Buttons */}
+                    <div className="flex items-center gap-6 mt-4 pt-4 border-t border-gray-800">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={item.likedByCurrentUser ? "text-pink-500" : "text-gray-400 hover:text-white"}
+                        onClick={() => handleInteraction(item.id, 'like')}
+                      >
+                        <span className="text-lg mr-2" role="img" aria-label="clap">👏</span>
+                        {Number(item.likes) || 0}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={item.dislikedByCurrentUser ? "text-blue-500" : "text-gray-400 hover:text-white"}
+                        onClick={() => handleInteraction(item.id, 'dislike')}
+                      >
+                        <ThumbsDown className={`w-4 h-4 mr-2 ${item.dislikedByCurrentUser ? "fill-blue-500" : ""}`} />
+                        {Number(item.dislikes) || 0}
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        {Number(item.comments) || 0}
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                        <Share2 className="w-4 h-4 mr-2" />
+                        {Number(item.shares) || 0}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={item.smhByCurrentUser ? "text-yellow-500" : "text-gray-400 hover:text-white"}
+                        onClick={() => handleInteraction(item.id, 'smh')}
+                      >
+                        <span className="text-lg mr-2" role="img" aria-label="smh">🤦</span>
+                        {Number(item.smh) || 0}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={item.trophyByCurrentUser ? "text-amber-500" : "text-gray-400 hover:text-white"}
+                        onClick={() => handleInteraction(item.id, 'trophy')}
+                      >
+                        <span className="text-lg mr-2" role="img" aria-label="trophy">🏆</span>
+                        {Number(item.trophy) || 0}
+                      </Button>
+                    </div>
+                  </CardContent>
                 </Card>
               ))}
             </TabsContent>
@@ -1471,42 +1513,42 @@ export default function FeedPage() {
                       ))}
                     </div>
                   )}
-
+                  
                   {/* Deal Details */}
                   {item.type === 'deal' && (
                     (item.value || item.status || (item.partners && item.partners.length > 0)) && (
-                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                    <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
                         {item.value && (
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-gray-400">Deal Value</span>
-                            <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
-                          </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-400">Deal Value</span>
+                        <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
+                      </div>
                         )}
                         {item.status && (
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-gray-400">Status</span>
-                            <Badge variant="secondary">{item.status}</Badge>
-                          </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-400">Status</span>
+                        <Badge variant="secondary">{item.status}</Badge>
+                      </div>
                         )}
                         {item.partners && item.partners.length > 0 && (
-                          <div className="mt-2">
-                            <span className="text-gray-400">Partners:</span>
-                            <div className="flex gap-2 mt-1">
-                                {item.partners.map((partner: any) => (
-                                <Button
-                                  key={partner.id}
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-xs"
-                                  onClick={() => router.push(`/profile/${partner.id}`)}
-                                >
-                                  {partner.name}
-                                </Button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                      <div className="mt-2">
+                        <span className="text-gray-400">Partners:</span>
+                        <div className="flex gap-2 mt-1">
+                            {item.partners.map((partner: any) => (
+                            <Button
+                              key={partner.id}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                              onClick={() => router.push(`/profile/${partner.id}`)}
+                            >
+                              {partner.name}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
+                    )}
+                    </div>
                     )
                   )}
 
@@ -1624,36 +1666,36 @@ export default function FeedPage() {
                       ))}
                     </div>
                   )}
-
+                  
                   {/* Partnership Details */}
                   {item.type === 'partnership' && (
                     ((item.newPartners && item.newPartners.length > 0 && item.newPartners[0]) || item.focus) && (
-                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                    <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
                         {item.newPartners && item.newPartners.length > 0 && item.newPartners[0] && (
-                          <div className="mb-2">
-                            <span className="text-gray-400">New Partners:</span>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {item.newPartners.map((partner: any) => (
-                                <Button
-                                  key={partner.id}
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-xs"
-                                  onClick={() => router.push(`/profile/${partner.id}`)}
-                                >
-                                  {partner.name}
-                                </Button>
-                              ))}
-                            </div>
-                          </div>
+                      <div className="mb-2">
+                        <span className="text-gray-400">New Partners:</span>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {item.newPartners.map((partner: any) => (
+                            <Button
+                              key={partner.id}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                              onClick={() => router.push(`/profile/${partner.id}`)}
+                            >
+                              {partner.name}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
                         )}
                         {item.focus && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-400">Focus Area</span>
-                            <span className="text-white">{item.focus}</span>
-                          </div>
-                        )}
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Focus Area</span>
+                        <span className="text-white">{item.focus}</span>
                       </div>
+                        )}
+                    </div>
                     )
                   )}
 
