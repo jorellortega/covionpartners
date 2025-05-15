@@ -394,10 +394,13 @@ export default function ProjectsPage() {
               {user && user.role !== 'investor' && (
                 <Button
                   onClick={handleNewProjectClick}
-                  className="gradient-button whitespace-nowrap ml-4"
+                  className="ml-4"
+                  variant="outline"
+                  size="icon"
+                  title="New Project"
+                  aria-label="New Project"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Project
+                  <Plus className="w-5 h-5" />
                 </Button>
               )}
             </h1>
@@ -573,7 +576,7 @@ export default function ProjectsPage() {
                 </Dialog>
               </div>
             </div>
-            <div className="flex space-x-2 mt-2 md:mt-0">
+            <div className="hidden md:flex space-x-2 mt-2 md:mt-0">
               <Button 
                 variant="outline" 
                 className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
@@ -697,11 +700,12 @@ export default function ProjectsPage() {
                       <div>
                         <span className="text-gray-400">Deadline:</span>
                         <span className="ml-1 text-white">
-                          {new Date(project.deadline).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
+                          {project.deadline ?
+                            new Date(project.deadline).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            }) : 'Not set'}
                         </span>
                       </div>
                       <div className="flex gap-2">
