@@ -589,6 +589,21 @@ export default function ProjectDetails() {
   const [croppingImage, setCroppingImage] = useState<string | null>(null)
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState(project?.description || '');
+  const [expenses, setExpenses] = useState<any[]>([])
+  const [loadingExpenses, setLoadingExpenses] = useState(true)
+  const [showAddExpense, setShowAddExpense] = useState(false)
+  const [editExpense, setEditExpense] = useState<any>(null)
+  const [showEditExpense, setShowEditExpense] = useState(false)
+  const [showDeleteExpense, setShowDeleteExpense] = useState(false)
+  const [newExpense, setNewExpense] = useState({
+    description: '',
+    amount: '',
+    category: '',
+    status: 'Pending',
+    due_date: '',
+    receipt_url: '',
+    notes: ''
+  })
 
   useEffect(() => {
     refreshTeamMembers()
@@ -1768,6 +1783,39 @@ export default function ProjectDetails() {
     await handleSaveDescription();
   };
 
+  const fetchExpenses = async () => {
+    if (!project) return
+    try {
+      setLoadingExpenses(true)
+      const { data, error } = await supabase
+        .from('expenses')
+        .select(`
+          *,
+          user:user_id (
+            id,
+            email
+          )
+        `)
+        .eq('project_id', project.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setExpenses(data || [])
+    } catch (error) {
+      console.error('Error fetching expenses:', error)
+      toast.error('Failed to fetch expenses')
+    } finally {
+      setLoadingExpenses(false)
+    }
+  }
+
+  // Add fetchExpenses to the useEffect that runs when project changes
+  useEffect(() => {
+    if (project) {
+      fetchExpenses()
+    }
+  }, [project])
+
   // Show loading state while authentication or projects are loading
   if (authLoading || projectsLoading || !project) {
     return (
@@ -1813,6 +1861,84 @@ export default function ProjectDetails() {
   const currentMember = teamMembers.find(m => m.user_id === user?.id);
   const isAccessLevel1 = !isOwner && currentMember?.access_level === '1';
 
+  const handleAddExpense = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert([{
+          project_id: projectId,
+          description: newExpense.description,
+          amount: Number(newExpense.amount),
+          category: newExpense.category,
+          status: newExpense.status,
+          due_date: newExpense.due_date,
+          receipt_url: newExpense.receipt_url,
+          notes: newExpense.notes,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      setExpenses(prev => [...prev, data]);
+      setNewExpense({ description: '', amount: '', category: '', status: 'Pending', due_date: '', receipt_url: '', notes: '' });
+      setShowAddExpense(false);
+      toast.success('Expense added successfully');
+    } catch (error) {
+      console.error('Error adding expense:', error);
+      toast.error('Failed to add expense');
+    }
+  };
+
+  const handleEditExpense = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .update({
+          description: editExpense.description,
+          amount: Number(editExpense.amount),
+          category: editExpense.category,
+          status: editExpense.status,
+          due_date: editExpense.due_date,
+          receipt_url: editExpense.receipt_url,
+          notes: editExpense.notes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editExpense.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      setExpenses(prev => prev.map(expense =>
+        expense.id === editExpense.id ? data : expense
+      ));
+      setEditExpense(null);
+      setShowEditExpense(false);
+      toast.success('Expense updated successfully');
+    } catch (error) {
+      console.error('Error editing expense:', error);
+      toast.error('Failed to update expense');
+    }
+  };
+
+  const handleDeleteExpense = async () => {
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', editExpense.id);
+      if (error) throw error;
+      setExpenses(prev => prev.filter(expense => expense.id !== editExpense.id));
+      setEditExpense(null);
+      setShowDeleteExpense(false);
+      toast.success('Expense deleted successfully');
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      toast.error('Failed to delete expense');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header">
@@ -1837,7 +1963,7 @@ export default function ProjectDetails() {
                 <StatusBadge 
                   status={project?.status || 'N/A'} 
                   projectId={project.id}
-                  onStatusChange={user?.role !== 'viewer' ? handleStatusChange : undefined}
+                  onStatusChange={!isAccessLevel1 && user?.role !== 'viewer' ? handleStatusChange : undefined}
                 />
                 </div>
               </div>
@@ -2089,55 +2215,147 @@ export default function ProjectDetails() {
                 </Card>
 
                 {/* Project Expenses Card */}
-                <Card className="leonardo-card border-gray-800 relative opacity-50 pointer-events-none">
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 rounded-lg">
-                    <span className="text-white text-lg font-semibold">Under Development</span>
-                  </div>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <DollarSign className="w-5 h-5 mr-2" />
-                      Project Expenses
-                    </CardTitle>
-                    <CardDescription>Track and manage project expenses</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {/* Mock expenses list */}
-                      {[
-                        { id: 1, description: 'Office Supplies', amount: 150, category: 'Supplies', status: 'Paid', dueDate: '2023-10-15' },
-                        { id: 2, description: 'Client Dinner', amount: 200, category: 'Entertainment', status: 'Pending', dueDate: '2023-10-20' },
-                        { id: 3, description: 'Software Subscription', amount: 50, category: 'Software', status: 'Due', dueDate: '2023-10-25' },
-                      ].map(expense => (
-                        <div
-                          key={expense.id}
-                          className="p-3 bg-gray-800/50 rounded-lg flex flex-col md:flex-row md:items-center md:justify-between gap-2 cursor-pointer hover:bg-gray-800/80 transition-colors"
-                          onClick={() => router.push(`/expense/${expense.id}`)}
-                        >
-                          <div className="flex-1">
-                            <div className="font-medium text-white">{expense.description}</div>
-                            <div className="text-xs text-gray-400">{expense.category}</div>
-                          </div>
-                          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-                            <span className="text-green-400 font-semibold">${expense.amount.toFixed(2)}</span>
-                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                              expense.status === 'Paid' ? 'bg-green-500/20 text-green-400' :
-                              expense.status === 'Pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                              'bg-blue-500/20 text-blue-400'
-                            }`}>
-                              {expense.status}
-                            </span>
-                            <span className="text-xs text-gray-400">Due: {expense.dueDate}</span>
-                          </div>
+                {!isAccessLevel1 && (
+                  <Card className="leonardo-card border-gray-800">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Project Expenses</CardTitle>
+                          <CardDescription>Track and manage project expenses</CardDescription>
                         </div>
-                      ))}
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={() => router.push('/expenses')} 
+                            variant="outline" 
+                            className="gradient-button"
+                          >
+                            View All Expenses
+                          </Button>
+                          <Button onClick={() => setShowAddExpense(true)} className="gradient-button">
+                            Add Expense
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {loadingExpenses ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                        </div>
+                      ) : expenses.length === 0 ? (
+                        <div className="text-center text-gray-400 py-4">
+                          No expenses recorded yet
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {expenses.map(expense => (
+                            <div
+                              key={expense.id}
+                              className="flex items-center justify-between p-3 rounded-lg bg-gray-900/50 hover:bg-gray-900/70 transition-colors"
+                            >
+                              <div className="flex-1 cursor-pointer" onClick={() => router.push(`/expense/${expense.id}`)}>
+                                <div className="font-medium text-white">{expense.description}</div>
+                                <div className="text-xs text-gray-400">{expense.category}</div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <span className="text-green-400 font-semibold">${Number(expense.amount).toFixed(2)}</span>
+                                <Badge
+                                  className={
+                                    expense.status === 'Paid' ? 'bg-green-500/20 text-green-400' :
+                                    expense.status === 'Pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                                    'bg-red-500/20 text-red-400'
+                                  }
+                                >
+                                  {expense.status}
+                                </Badge>
+                                {expense.due_date && (
+                                  <span className="text-xs text-gray-400">Due: {new Date(expense.due_date).toLocaleDateString()}</span>
+                                )}
+                                {!isAccessLevel1 && (
+                                  <>
+                                    <Button size="icon" variant="ghost" onClick={() => { setEditExpense(expense); setShowDeleteExpense(true); }} title="Delete">
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Add/Edit/Delete Expense Dialogs */}
+                <Dialog open={showAddExpense} onOpenChange={setShowAddExpense}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add Expense</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <Input placeholder="Description" value={newExpense.description} onChange={e => setNewExpense({ ...newExpense, description: e.target.value })} />
+                      <Input placeholder="Amount" type="number" value={newExpense.amount} onChange={e => setNewExpense({ ...newExpense, amount: e.target.value })} />
+                      <Input placeholder="Category" value={newExpense.category} onChange={e => setNewExpense({ ...newExpense, category: e.target.value })} />
+                      <Select value={newExpense.status} onValueChange={v => setNewExpense({ ...newExpense, status: v })}>
+                        <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Pending">Pending</SelectItem>
+                          <SelectItem value="Approved">Approved</SelectItem>
+                          <SelectItem value="Rejected">Rejected</SelectItem>
+                          <SelectItem value="Paid">Paid</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input placeholder="Due Date" type="date" value={newExpense.due_date} onChange={e => setNewExpense({ ...newExpense, due_date: e.target.value })} />
+                      <Input placeholder="Receipt URL" value={newExpense.receipt_url} onChange={e => setNewExpense({ ...newExpense, receipt_url: e.target.value })} />
+                      <Input placeholder="Notes" value={newExpense.notes} onChange={e => setNewExpense({ ...newExpense, notes: e.target.value })} />
                     </div>
-                    <div className="flex justify-end mt-4">
-                      <Button onClick={() => router.push('/expenses')} variant="outline" className="gradient-button">
-                        View All Expenses
-                      </Button>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setShowAddExpense(false)}>Cancel</Button>
+                      <Button onClick={handleAddExpense}>Add</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                <Dialog open={showEditExpense} onOpenChange={setShowEditExpense}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Edit Expense</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <Input placeholder="Description" value={editExpense?.description || ''} onChange={e => setEditExpense({ ...editExpense, description: e.target.value })} />
+                      <Input placeholder="Amount" type="number" value={editExpense?.amount || ''} onChange={e => setEditExpense({ ...editExpense, amount: e.target.value })} />
+                      <Input placeholder="Category" value={editExpense?.category || ''} onChange={e => setEditExpense({ ...editExpense, category: e.target.value })} />
+                      <Select value={editExpense?.status || ''} onValueChange={v => setEditExpense({ ...editExpense, status: v })}>
+                        <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Pending">Pending</SelectItem>
+                          <SelectItem value="Approved">Approved</SelectItem>
+                          <SelectItem value="Rejected">Rejected</SelectItem>
+                          <SelectItem value="Paid">Paid</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input placeholder="Due Date" type="date" value={editExpense?.due_date || ''} onChange={e => setEditExpense({ ...editExpense, due_date: e.target.value })} />
+                      <Input placeholder="Receipt URL" value={editExpense?.receipt_url || ''} onChange={e => setEditExpense({ ...editExpense, receipt_url: e.target.value })} />
+                      <Input placeholder="Notes" value={editExpense?.notes || ''} onChange={e => setEditExpense({ ...editExpense, notes: e.target.value })} />
                     </div>
-                  </CardContent>
-                </Card>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setShowEditExpense(false)}>Cancel</Button>
+                      <Button onClick={handleEditExpense}>Save</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                <Dialog open={showDeleteExpense} onOpenChange={setShowDeleteExpense}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Delete Expense</DialogTitle>
+                      <DialogDescription>Are you sure you want to delete this expense?</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setShowDeleteExpense(false)}>Cancel</Button>
+                      <Button variant="destructive" onClick={handleDeleteExpense}>Delete</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
 
                 {/* Project Access */}
                 {!isAccessLevel1 && (
@@ -2875,68 +3093,6 @@ export default function ProjectDetails() {
             </Card>
             )}
 
-            {/* Open Positions */}
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Briefcase className="w-5 h-5 mr-2" />
-                  Open Positions
-                </CardTitle>
-                <CardDescription>Available roles for this project</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {project?.open_positions?.map((position, index) => (
-                    <div key={index} className="p-4 bg-gray-800/30 rounded-lg">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-2">
-                          <h4 className="font-medium text-white">{position.title}</h4>
-                          <p className="text-sm text-gray-400">{position.description}</p>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {position.role_type}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {position.commitment}
-                            </Badge>
-                          </div>
-                        </div>
-                        {user?.role !== 'viewer' && user?.role !== 'investor' && (
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="hover:bg-purple-900/20 hover:text-purple-400"
-                              onClick={() => handleEditPosition(position, index)}
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="hover:bg-purple-900/20 hover:text-purple-400"
-                              onClick={() => handleDeletePosition(index)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {user?.role !== 'viewer' && user?.role !== 'investor' && (
-                    <Button
-                      className="w-full gradient-button"
-                      onClick={() => setIsAddingPosition(true)}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Position
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Add/Edit Position Dialog */}
             <Dialog open={isAddingPosition || isEditingPosition} onOpenChange={(open) => {
               if (!open) {
@@ -3051,7 +3207,10 @@ export default function ProjectDetails() {
             </div>
           )}
           <div className={user?.role !== 'viewer' ? '' : 'lg:col-span-3'}>
-            <StatusCard project={project} onStatusChange={handleStatusChange} />
+            <StatusCard 
+              project={project} 
+              onStatusChange={!isAccessLevel1 && user?.role !== 'viewer' ? handleStatusChange : undefined}
+            />
           </div>
         </div>
           </main>

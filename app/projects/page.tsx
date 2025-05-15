@@ -389,7 +389,18 @@ export default function ProjectsPage() {
               <Home className="w-6 h-6 mr-2" />
               Dashboard
             </Link>
-            <h1 className="text-3xl font-bold text-white">Projects</h1>
+            <h1 className="text-3xl font-bold text-white flex items-center gap-4">
+              Projects
+              {user && user.role !== 'investor' && (
+                <Button
+                  onClick={handleNewProjectClick}
+                  className="gradient-button whitespace-nowrap ml-4"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Project
+                </Button>
+              )}
+            </h1>
           </div>
           {/* Removed search and action buttons from header */}
         </div>
@@ -560,15 +571,6 @@ export default function ProjectsPage() {
                     </div>
                   </DialogContent>
                 </Dialog>
-                {user && user.role !== 'investor' && (
-                  <Button
-                    onClick={handleNewProjectClick}
-                    className="gradient-button whitespace-nowrap"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Project
-                  </Button>
-                )}
               </div>
             </div>
             <div className="flex space-x-2 mt-2 md:mt-0">

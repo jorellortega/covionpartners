@@ -150,4 +150,27 @@ FROM
     ('Full Stack Developer', 'Build and maintain the web application for the analytics platform. Experience with real-time data processing and visualization required.', 2, 'open')
   ) as roles(role_name, description, positions_needed, status)
 WHERE p.owner_id = 'ccac7ddc-f895-4822-a4cf-3a3a72ed1733'
-AND p.name = 'Next-Gen Baseball Analytics Platform'; 
+AND p.name = 'Next-Gen Baseball Analytics Platform';
+
+-- Seed expenses for project 038720f6-b3bb-4d93-a452-c147184b9050
+INSERT INTO expenses (project_id, user_id, description, amount, category, status, due_date, receipt_url, notes)
+VALUES
+  -- Marketing expenses
+  ('038720f6-b3bb-4d93-a452-c147184b9050', 'e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e', 'Social Media Ads Campaign', 1500.00, 'Marketing', 'Approved', '2024-05-15', 'https://storage.example.com/receipts/social_ads.pdf', 'Q2 marketing campaign'),
+  ('038720f6-b3bb-4d93-a452-c147184b9050', 'e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e', 'Content Creation Services', 800.00, 'Marketing', 'Pending', '2024-05-20', NULL, 'Blog posts and social media content'),
+  
+  -- Development expenses
+  ('038720f6-b3bb-4d93-a452-c147184b9050', 'e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e', 'Cloud Hosting Services', 250.00, 'Development', 'Paid', '2024-05-01', 'https://storage.example.com/receipts/cloud_hosting.pdf', 'Monthly AWS services'),
+  ('038720f6-b3bb-4d93-a452-c147184b9050', 'e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e', 'Development Tools License', 1200.00, 'Development', 'Approved', '2024-06-01', 'https://storage.example.com/receipts/dev_tools.pdf', 'Annual subscription'),
+  
+  -- Office expenses
+  ('038720f6-b3bb-4d93-a452-c147184b9050', 'e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e', 'Office Supplies', 350.00, 'Office', 'Paid', '2024-04-15', 'https://storage.example.com/receipts/supplies.pdf', 'Monthly office supplies'),
+  ('038720f6-b3bb-4d93-a452-c147184b9050', 'e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e', 'Team Building Event', 2000.00, 'Office', 'Pending', '2024-06-15', NULL, 'Quarterly team building'),
+  
+  -- Travel expenses
+  ('038720f6-b3bb-4d93-a452-c147184b9050', 'e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e', 'Client Meeting Travel', 750.00, 'Travel', 'Approved', '2024-05-10', 'https://storage.example.com/receipts/travel.pdf', 'Airfare and accommodation'),
+  ('038720f6-b3bb-4d93-a452-c147184b9050', 'e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e', 'Conference Registration', 1200.00, 'Travel', 'Rejected', '2024-07-01', NULL, 'Tech conference registration'),
+  
+  -- Software expenses
+  ('038720f6-b3bb-4d93-a452-c147184b9050', 'e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e', 'Project Management Software', 500.00, 'Software', 'Paid', '2024-04-01', 'https://storage.example.com/receipts/pm_software.pdf', 'Monthly subscription'),
+  ('038720f6-b3bb-4d93-a452-c147184b9050', 'e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e', 'Design Software License', 1800.00, 'Software', 'Approved', '2024-06-01', 'https://storage.example.com/receipts/design_software.pdf', 'Annual license renewal'); 
