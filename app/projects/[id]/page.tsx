@@ -587,6 +587,8 @@ export default function ProjectDetails() {
   const [zoom, setZoom] = useState(1)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null)
   const [croppingImage, setCroppingImage] = useState<string | null>(null)
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState(project?.description || '');
 
   useEffect(() => {
     refreshTeamMembers()
@@ -1746,6 +1748,26 @@ export default function ProjectDetails() {
     }
   }
 
+  const handleSaveDescription = async () => {
+    if (!project) return;
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ description: editedDescription, updated_at: new Date().toISOString() })
+        .eq('id', project.id);
+      if (error) throw error;
+      setProject({ ...project, description: editedDescription, updated_at: new Date().toISOString() });
+      setIsEditingDescription(false);
+      toast.success('Description updated');
+    } catch (error) {
+      toast.error('Failed to update description');
+    }
+  };
+  const handleDeleteDescription = async () => {
+    setEditedDescription('');
+    await handleSaveDescription();
+  };
+
   // Show loading state while authentication or projects are loading
   if (authLoading || projectsLoading || !project) {
     return (
@@ -1786,6 +1808,10 @@ export default function ProjectDetails() {
       return '0'
     }
   }
+
+  const isOwner = user?.id === project?.owner_id;
+  const currentMember = teamMembers.find(m => m.user_id === user?.id);
+  const isAccessLevel1 = !isOwner && currentMember?.access_level === '1';
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -1833,7 +1859,7 @@ export default function ProjectDetails() {
                           Images, videos, documents, and external links
                         </CardDescription>
                       </div>
-                      {user?.role !== 'viewer' && user?.role !== 'investor' &&
+                      {!isAccessLevel1 && user?.role !== 'viewer' && user?.role !== 'investor' && (
                         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                           <Button 
                             onClick={() => document.getElementById('media-upload')?.click()} 
@@ -1860,7 +1886,7 @@ export default function ProjectDetails() {
                             Add Link
                           </Button>
                         </div>
-                      }
+                      )}
                       <input
                         type="file"
                         id="media-upload"
@@ -1884,15 +1910,17 @@ export default function ProjectDetails() {
                               fill
                                 className="object-contain w-full h-full"
                               />
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white z-10"
-                                onClick={() => showCropper(project.media_files[selectedImage].url)}
-                                title="Edit Image"
-                              >
-                                <Pencil className="w-5 h-5" />
-                              </Button>
+                              {!isAccessLevel1 && user?.role !== 'viewer' && user?.role !== 'investor' && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white z-10"
+                                  onClick={() => showCropper(project.media_files[selectedImage].url)}
+                                  title="Edit Image"
+                                >
+                                  <Pencil className="w-5 h-5" />
+                                </Button>
+                              )}
                             </>
                           ) : project.media_files[selectedImage].type.startsWith('video/') ? (
                             <video
@@ -1905,7 +1933,7 @@ export default function ProjectDetails() {
                               <FileText className="w-16 h-16 text-gray-400" />
                             </div>
                           )}
-                          {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                          {!isAccessLevel1 && user?.role !== 'viewer' && user?.role !== 'investor' && (
                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               <Button
                                 variant="ghost"
@@ -1924,9 +1952,7 @@ export default function ProjectDetails() {
                           {project.media_files.map((file, index) => (
                             <div
                               key={index}
-                              className={`relative aspect-video cursor-pointer rounded-md overflow-hidden bg-gray-900 flex items-center justify-center ${
-                                index === selectedImage ? 'ring-2 ring-blue-500' : ''
-                              }`}
+                              className={`relative aspect-video cursor-pointer rounded-md overflow-hidden bg-gray-900 flex items-center justify-center group ${index === selectedImage ? 'ring-2 ring-blue-500' : ''}`}
                               onClick={() => setSelectedImage(index)}
                             >
                               {file.type.startsWith('image/') ? (
@@ -1944,6 +1970,15 @@ export default function ProjectDetails() {
                                 <div className="w-full h-full bg-gray-800 flex items-center justify-center">
                                   <FileText className="w-6 h-6 text-gray-400" />
                                 </div>
+                              )}
+                              {!isAccessLevel1 && user?.role !== 'viewer' && user?.role !== 'investor' && (
+                                <button
+                                  className="absolute top-1 right-1 z-10 p-1 rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={e => { e.stopPropagation(); handleDeleteMedia(file.name); }}
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               )}
                             </div>
                           ))}
@@ -1980,7 +2015,7 @@ export default function ProjectDetails() {
                                 >
                                   <Download className="w-4 h-4" />
                                 </Button>
-                                {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                                {!isAccessLevel1 && user?.role !== 'viewer' && user?.role !== 'investor' && (
                                   <>
                                     <Button
                                       variant="ghost"
@@ -2031,11 +2066,26 @@ export default function ProjectDetails() {
                   </CardHeader>
               <CardContent>
                     <div className="prose prose-invert max-w-none">
-                  <p className="text-gray-300 leading-relaxed">
-                    {project?.description || 'No description available.'}
-                      </p>
+                  {isEditingDescription ? (
+                    <div>
+                      <textarea
+                        className="w-full bg-gray-900 text-white rounded p-2 border border-gray-700 min-h-[80px]"
+                        value={editedDescription}
+                        onChange={e => setEditedDescription(e.target.value)}
+                      />
+                      <div className="flex gap-2 mt-2">
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={handleSaveDescription}>Save</Button>
+                        <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white" onClick={handleDeleteDescription}>Delete</Button>
+                        <Button size="sm" variant="outline" onClick={() => { setIsEditingDescription(false); setEditedDescription(project?.description || ''); }}>Cancel</Button>
+                      </div>
                     </div>
-                  </CardContent>
+                  ) : (
+                    <p className="text-gray-300 leading-relaxed cursor-pointer" onClick={() => { setIsEditingDescription(true); setEditedDescription(project?.description || ''); }}>
+                      {project?.description || <span className="italic text-gray-500">No description available. Click to add.</span>}
+                    </p>
+                  )}
+                  </div>
+                </CardContent>
                 </Card>
 
                 {/* Project Expenses Card */}
@@ -2090,7 +2140,7 @@ export default function ProjectDetails() {
                 </Card>
 
                 {/* Project Access */}
-                {user?.role !== 'viewer' && (
+                {!isAccessLevel1 && (
                   <Card className="leonardo-card border-gray-800">
                     <CardHeader>
                       <div className="flex items-center justify-between">
@@ -2213,7 +2263,7 @@ export default function ProjectDetails() {
                     </CardTitle>
                     <CardDescription>Track important project dates and milestones</CardDescription>
                       </div>
-                  {user?.role !== 'viewer' && (
+                  {!isAccessLevel1 && user?.role !== 'viewer' && (
                     <Button
                       onClick={handleAddNewScheduleClick}
                       className="gradient-button w-full sm:w-auto"
@@ -2242,7 +2292,7 @@ export default function ProjectDetails() {
                           )}
                         </div>
                       </div>
-                      {user?.role !== 'viewer' && (
+                      {!isAccessLevel1 && user?.role !== 'viewer' && (
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
@@ -2275,254 +2325,256 @@ export default function ProjectDetails() {
             </Card>
 
             {/* Tasks Section */}
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle className="flex items-center">
-                      <CheckSquare className="w-5 h-5 mr-2" />
-                      Project Tasks
-                    </CardTitle>
-                    <CardDescription>Manage project tasks and assignments</CardDescription>
-                  </div>
-                  {user?.role !== 'viewer' && (
-                    <Button onClick={() => setIsAddingTask(true)} className="gradient-button">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Task
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-3 mb-4">
-                  <Button
-                    variant="outline"
-                    className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50 hover:bg-yellow-500/30"
-                  >
-                    <Clock className="w-4 h-4 mr-2" />
-                    Pending ({tasks.filter(task => task.status === 'pending').length})
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    In Progress ({tasks.filter(task => task.status === 'in_progress').length})
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30"
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Completed ({tasks.filter(task => task.status === 'completed').length})
-                  </Button>
-                </div>
-                <div className="space-y-3">
-                  {tasks.length === 0 ? (
-                    <div className="text-center py-4 text-gray-400">
-                      {user?.role === 'viewer' || user?.role === 'investor' ? 'No tasks assigned to you' : 'No tasks found'}
+            {!isAccessLevel1 && (
+              <Card className="leonardo-card border-gray-800">
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle className="flex items-center">
+                        <CheckSquare className="w-5 h-5 mr-2" />
+                        Project Tasks
+                      </CardTitle>
+                      <CardDescription>Manage project tasks and assignments</CardDescription>
                     </div>
-                  ) : (
-                    tasks.map(task => (
-                      <div key={task.id} className="p-3 bg-gray-800/50 rounded-lg">
-                        <div className="flex flex-col gap-3">
-                          <div className="flex flex-col gap-2">
-                            <h4 className="text-lg font-semibold text-white">{task.title}</h4>
-                            <p className="text-sm text-gray-400">{task.description}</p>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm text-gray-400 flex items-center">
-                              <Calendar className="w-4 h-4 mr-1" />
-                              Due: {new Date(task.due_date).toLocaleDateString()} at {new Date(task.due_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-auto p-0 text-gray-400 hover:text-indigo-400">
-                                  <span className="flex items-center">
-                                    <UserIcon className="w-4 h-4 mr-1" />
-                                    {task.assigned_to ? teamMembers.find(member => member.user_id === task.assigned_to)?.user?.name || 'Unassigned' : 'Unassigned'}
-                                  </span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent className="w-56 bg-gray-900 border-gray-700">
-                                <DropdownMenuItem 
-                                  className="text-white hover:bg-indigo-900/20 hover:text-indigo-400 focus:bg-indigo-900/20 focus:text-indigo-400"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      const { error } = await supabase
-                                        .from('tasks')
-                                        .update({ assigned_to: null })
-                                        .eq('id', task.id);
-                                      if (error) throw error;
-                                      setTasks(prev => prev.map(t => 
-                                        t.id === task.id ? { ...t, assigned_to: null } : t
-                                      ));
-                                      toast.success('Task unassigned successfully');
-                                    } catch (error) {
-                                      console.error('Error unassigning task:', error);
-                                      toast.error('Failed to unassign task');
-                                    }
-                                  }}
-                                >
-                                  Unassign
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator className="bg-gray-700" />
-                                {teamMembers.map(member => (
-                                  <DropdownMenuItem
-                                    key={member.id}
-                                    className="text-white hover:bg-purple-900/20 hover:text-purple-400 focus:bg-purple-900/20 focus:text-purple-400"
+                    {user?.role !== 'viewer' && (
+                      <Button onClick={() => setIsAddingTask(true)} className="gradient-button">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Task
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-3 mb-4">
+                    <Button
+                      variant="outline"
+                      className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50 hover:bg-yellow-500/30"
+                    >
+                      <Clock className="w-4 h-4 mr-2" />
+                      Pending ({tasks.filter(task => task.status === 'pending').length})
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      In Progress ({tasks.filter(task => task.status === 'in_progress').length})
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Completed ({tasks.filter(task => task.status === 'completed').length})
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {tasks.length === 0 ? (
+                      <div className="text-center py-4 text-gray-400">
+                        {user?.role === 'viewer' || user?.role === 'investor' ? 'No tasks assigned to you' : 'No tasks found'}
+                      </div>
+                    ) : (
+                      tasks.map(task => (
+                        <div key={task.id} className="p-3 bg-gray-800/50 rounded-lg">
+                          <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-2">
+                              <h4 className="text-lg font-semibold text-white">{task.title}</h4>
+                              <p className="text-sm text-gray-400">{task.description}</p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm text-gray-400 flex items-center">
+                                <Calendar className="w-4 h-4 mr-1" />
+                                Due: {new Date(task.due_date).toLocaleDateString()} at {new Date(task.due_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-auto p-0 text-gray-400 hover:text-indigo-400">
+                                    <span className="flex items-center">
+                                      <UserIcon className="w-4 h-4 mr-1" />
+                                      {task.assigned_to ? teamMembers.find(member => member.user_id === task.assigned_to)?.user?.name || 'Unassigned' : 'Unassigned'}
+                                    </span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="w-56 bg-gray-900 border-gray-700">
+                                  <DropdownMenuItem 
+                                    className="text-white hover:bg-indigo-900/20 hover:text-indigo-400 focus:bg-indigo-900/20 focus:text-indigo-400"
                                     onClick={async (e) => {
-                                      e.stopPropagation()
+                                      e.stopPropagation();
                                       try {
                                         const { error } = await supabase
                                           .from('tasks')
-                                          .update({ assigned_to: member.user_id })
-                                          .eq('id', task.id)
-                                        if (error) throw error
+                                          .update({ assigned_to: null })
+                                          .eq('id', task.id);
+                                        if (error) throw error;
                                         setTasks(prev => prev.map(t => 
-                                          t.id === task.id ? { ...t, assigned_to: member.user_id } : t
-                                        ))
-                                        toast.success(`Task assigned to ${member.user?.name}`)
+                                          t.id === task.id ? { ...t, assigned_to: null } : t
+                                        ));
+                                        toast.success('Task unassigned successfully');
                                       } catch (error) {
-                                        console.error('Error assigning task:', error)
-                                        toast.error('Failed to assign task')
+                                        console.error('Error unassigning task:', error);
+                                        toast.error('Failed to unassign task');
                                       }
                                     }}
                                   >
-                                    {member.user?.name}
+                                    Unassign
                                   </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                            <Badge
-                              variant="outline"
-                              className={
-                                task.priority === 'high'
-                                  ? 'bg-purple-500/20 text-purple-400 border-purple-500/50'
-                                  : task.priority === 'medium'
-                                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
-                                  : 'bg-green-500/20 text-green-400 border-green-500/50'
-                              }
-                            >
-                              {task.priority}
-                            </Badge>
-                          </div>
-                          {user?.role !== 'viewer' && (
-                            <div className="flex flex-wrap items-center gap-2 mt-2">
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className={`${
-                                    task.status === 'pending'
-                                      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
-                                      : 'text-yellow-400/50 hover:text-yellow-400 hover:bg-yellow-500/20'
-                                  }`}
-                                  onClick={async () => {
-                                    const { error } = await supabase
-                                      .from('tasks')
-                                      .update({ status: 'pending' })
-                                      .eq('id', task.id);
-                                    if (!error) {
-                                      setTasks(prev => prev.map(t => 
-                                        t.id === task.id ? { ...t, status: 'pending' } : t
-                                      ));
-                                    }
-                                  }}
-                                >
-                                  <Clock className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className={`${
-                                    task.status === 'in_progress'
-                                      ? 'bg-blue-500/20 text-blue-400 border-blue-500/50'
-                                      : 'text-blue-400/50 hover:text-blue-400 hover:bg-blue-500/20'
-                                  }`}
-                                  onClick={async () => {
-                                    const { error } = await supabase
-                                      .from('tasks')
-                                      .update({ status: 'in_progress' })
-                                      .eq('id', task.id);
-                                    if (!error) {
-                                      setTasks(prev => prev.map(t => 
-                                        t.id === task.id ? { ...t, status: 'in_progress' } : t
-                                      ));
-                                    }
-                                  }}
-                                >
-                                  <RefreshCw className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className={`${
-                                    task.status === 'completed'
-                                      ? 'bg-green-500/20 text-green-400 border-green-500/50'
-                                      : 'text-green-400/50 hover:text-green-400 hover:bg-green-500/20'
-                                  }`}
-                                  onClick={async () => {
-                                    const { error } = await supabase
-                                      .from('tasks')
-                                      .update({ status: 'completed' })
-                                      .eq('id', task.id);
-                                    if (!error) {
-                                      setTasks(prev => prev.map(t => 
-                                        t.id === task.id ? { ...t, status: 'completed' } : t
-                                      ));
-                                    }
-                                  }}
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-gray-400 hover:text-purple-400"
-                                  onClick={() => router.push(`/task/${task.id}`)}
-                                >
-                                  View Details
-                                </Button>
-                                {user?.role !== 'viewer' && (
-                                  <>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300"
-                                      onClick={(e) => {
+                                  <DropdownMenuSeparator className="bg-gray-700" />
+                                  {teamMembers.map(member => (
+                                    <DropdownMenuItem
+                                      key={member.id}
+                                      className="text-white hover:bg-purple-900/20 hover:text-purple-400 focus:bg-purple-900/20 focus:text-purple-400"
+                                      onClick={async (e) => {
                                         e.stopPropagation()
-                                        startEditingTask(task)
+                                        try {
+                                          const { error } = await supabase
+                                            .from('tasks')
+                                            .update({ assigned_to: member.user_id })
+                                            .eq('id', task.id)
+                                          if (error) throw error
+                                          setTasks(prev => prev.map(t => 
+                                            t.id === task.id ? { ...t, assigned_to: member.user_id } : t
+                                          ))
+                                          toast.success(`Task assigned to ${member.user?.name}`)
+                                        } catch (error) {
+                                          console.error('Error assigning task:', error)
+                                          toast.error('Failed to assign task')
+                                        }
                                       }}
                                     >
-                                      <Pencil className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleDeleteTask(task.id)
-                                      }}
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
+                                      {member.user?.name}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  task.priority === 'high'
+                                    ? 'bg-purple-500/20 text-purple-400 border-purple-500/50'
+                                    : task.priority === 'medium'
+                                    ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                                    : 'bg-green-500/20 text-green-400 border-green-500/50'
+                                }
+                              >
+                                {task.priority}
+                              </Badge>
                             </div>
-                          )}
+                            {user?.role !== 'viewer' && (
+                              <div className="flex flex-wrap items-center gap-2 mt-2">
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={`${
+                                      task.status === 'pending'
+                                        ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                                        : 'text-yellow-400/50 hover:text-yellow-400 hover:bg-yellow-500/20'
+                                    }`}
+                                    onClick={async () => {
+                                      const { error } = await supabase
+                                        .from('tasks')
+                                        .update({ status: 'pending' })
+                                        .eq('id', task.id);
+                                      if (!error) {
+                                        setTasks(prev => prev.map(t => 
+                                          t.id === task.id ? { ...t, status: 'pending' } : t
+                                        ));
+                                      }
+                                    }}
+                                  >
+                                    <Clock className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={`${
+                                      task.status === 'in_progress'
+                                        ? 'bg-blue-500/20 text-blue-400 border-blue-500/50'
+                                        : 'text-blue-400/50 hover:text-blue-400 hover:bg-blue-500/20'
+                                    }`}
+                                    onClick={async () => {
+                                      const { error } = await supabase
+                                        .from('tasks')
+                                        .update({ status: 'in_progress' })
+                                        .eq('id', task.id);
+                                      if (!error) {
+                                        setTasks(prev => prev.map(t => 
+                                          t.id === task.id ? { ...t, status: 'in_progress' } : t
+                                        ));
+                                      }
+                                    }}
+                                  >
+                                    <RefreshCw className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={`${
+                                      task.status === 'completed'
+                                        ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                                        : 'text-green-400/50 hover:text-green-400 hover:bg-green-500/20'
+                                    }`}
+                                    onClick={async () => {
+                                      const { error } = await supabase
+                                        .from('tasks')
+                                        .update({ status: 'completed' })
+                                        .eq('id', task.id);
+                                      if (!error) {
+                                        setTasks(prev => prev.map(t => 
+                                          t.id === task.id ? { ...t, status: 'completed' } : t
+                                        ));
+                                      }
+                                    }}
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-gray-400 hover:text-purple-400"
+                                    onClick={() => router.push(`/task/${task.id}`)}
+                                  >
+                                    View Details
+                                  </Button>
+                                  {user?.role !== 'viewer' && (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          startEditingTask(task)
+                                        }}
+                                      >
+                                        <Pencil className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="hover:bg-purple-900/20 hover:text-purple-400 transition-all duration-300"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDeleteTask(task.id)
+                                        }}
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Comments Section */}
             <Card className="leonardo-card border-gray-800">
@@ -2624,6 +2676,7 @@ export default function ProjectDetails() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Team Members */}
+            {!isAccessLevel1 && (
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -2689,9 +2742,10 @@ export default function ProjectDetails() {
                   </div>
               </CardContent>
             </Card>
+            )}
 
             {/* Project Actions */}
-            {user?.role !== 'viewer' && (
+            {!isAccessLevel1 && (
               <Card className="leonardo-card border-gray-800">
                 <CardHeader>
                   <CardTitle className="flex items-center">
@@ -2764,6 +2818,7 @@ export default function ProjectDetails() {
             )}
 
             {/* Project Overview */}
+            {!isAccessLevel1 && (
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -2818,6 +2873,7 @@ export default function ProjectDetails() {
                 </div>
               </CardContent>
             </Card>
+            )}
 
             {/* Open Positions */}
             <Card className="leonardo-card border-gray-800">
@@ -2989,7 +3045,7 @@ export default function ProjectDetails() {
 
         {/* Project Information and Status Cards at the bottom */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-          {user?.role !== 'viewer' && (
+          {!isAccessLevel1 && (
             <div className="lg:col-span-2">
               <ProjectInfoCard project={project} />
             </div>

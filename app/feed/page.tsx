@@ -1042,40 +1042,40 @@ export default function FeedPage() {
                     {/* Deal Details */}
                     {item.type === 'deal' && (
                       (item.value || item.status || (item.partners && item.partners.length > 0)) && (
-                    <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
                         {item.value && (
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-400">Deal Value</span>
-                        <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
-                      </div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-gray-400">Deal Value</span>
+                          <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
+                        </div>
                         )}
                         {item.status && (
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-400">Status</span>
-                        <Badge variant="secondary">{item.status}</Badge>
-                      </div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-gray-400">Status</span>
+                          <Badge variant="secondary">{item.status}</Badge>
+                        </div>
                         )}
                         {item.partners && item.partners.length > 0 && (
-                      <div className="mt-2">
-                        <span className="text-gray-400">Partners:</span>
-                        <div className="flex gap-2 mt-1">
-                            {item.partners.map((partner: any) => (
-                            <Button
-                              key={partner.id}
-                              variant="outline"
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => router.push(`/profile/${partner.id}`)}
-                            >
-                              {partner.name}
-                            </Button>
-                          ))}
+                        <div className="mt-2">
+                          <span className="text-gray-400">Partners:</span>
+                          <div className="flex gap-2 mt-1">
+                              {item.partners.map((partner: any) => (
+                              <Button
+                                key={partner.id}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => router.push(`/profile/${partner.id}`)}
+                              >
+                                {partner.name}
+                              </Button>
+                            ))}
+                          </div>
                         </div>
+                        )}
                       </div>
-                    )}
-                    </div>
                     )
-                  )}
+                    )}
 
                     {/* Milestone Details */}
                     {item.type === 'milestone' && (
@@ -1368,32 +1368,32 @@ export default function FeedPage() {
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-400">Current Funding</span>
                                 <span className="text-white">${Number(item.currentFunding).toLocaleString()}</span>
-                          </div>
+                        </div>
                             )}
                             {item.deadline && !isNaN(new Date(item.deadline).getTime()) && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-400">Deadline</span>
-                            <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
-                          </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-400">Deadline</span>
+                          <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
+                        </div>
                             )}
                             {item.team && item.team.length > 0 && (
-                            <div className="mt-4">
-                              <span className="text-gray-400 text-sm">Team Members:</span>
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                {item.team.map((member: any) => (
-                                  <Button
-                                    key={member.id}
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs"
-                                    onClick={() => router.push(`/profile/${member.id}`)}
-                                  >
-                                    {member.name}
-                                  </Button>
-                                ))}
-                              </div>
+                          <div className="mt-4">
+                            <span className="text-gray-400 text-sm">Team Members:</span>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {item.team.map((member: any) => (
+                                <Button
+                                  key={member.id}
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={() => router.push(`/profile/${member.id}`)}
+                                >
+                                  {member.name}
+                                </Button>
+                              ))}
                             </div>
-                          )}
+                          </div>
+                        )}
                         </div>
                       </div>
                     )
@@ -1531,23 +1531,23 @@ export default function FeedPage() {
                       </div>
                         )}
                         {item.partners && item.partners.length > 0 && (
-                      <div className="mt-2">
-                        <span className="text-gray-400">Partners:</span>
-                        <div className="flex gap-2 mt-1">
-                            {item.partners.map((partner: any) => (
-                            <Button
-                              key={partner.id}
-                              variant="outline"
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => router.push(`/profile/${partner.id}`)}
-                            >
-                              {partner.name}
-                            </Button>
-                          ))}
+                        <div className="mt-2">
+                          <span className="text-gray-400">Partners:</span>
+                          <div className="flex gap-2 mt-1">
+                              {item.partners.map((partner: any) => (
+                              <Button
+                                key={partner.id}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => router.push(`/profile/${partner.id}`)}
+                              >
+                                {partner.name}
+                              </Button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                     </div>
                     )
                   )}
