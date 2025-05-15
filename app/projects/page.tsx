@@ -495,7 +495,7 @@ export default function ProjectsPage() {
                   <DialogTrigger asChild>
                     <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400 whitespace-nowrap">
                       <Key className="w-5 h-5 mr-2" />
-                      Join Project
+                      <span className="hidden md:inline">Join Project</span>
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
