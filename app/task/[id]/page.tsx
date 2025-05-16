@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
@@ -66,6 +66,9 @@ export default function TaskDetailPage() {
   const [editingContent, setEditingContent] = useState("")
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null)
   const [attachments, setAttachments] = useState<any[]>([])
+  const router = useRouter()
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleInput, setTitleInput] = useState("")
 
   useEffect(() => {
     const fetchTask = async () => {
@@ -348,6 +351,27 @@ export default function TaskDetailPage() {
     }
   };
 
+  const handleTitleEdit = () => {
+    setTitleInput(task?.title || "")
+    setEditingTitle(true)
+  }
+
+  const handleTitleSave = async () => {
+    if (!task || !titleInput.trim()) return
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ title: titleInput.trim() })
+        .eq('id', task.id)
+      if (error) throw error
+      setTask(prev => prev ? { ...prev, title: titleInput.trim() } : prev)
+      setEditingTitle(false)
+      toast({ title: 'Title updated' })
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to update title', variant: 'destructive' })
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ background: '#141414', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -375,11 +399,19 @@ export default function TaskDetailPage() {
     <div style={{ background: '#141414', minHeight: '100vh' }}>
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-8">
-          <Link href="/workflow">
-            <Button variant="ghost" className="text-gray-400 hover:text-white">
-              ← Back to Workflow
-            </Button>
-          </Link>
+          <Button
+            variant="ghost"
+            className="text-gray-400 hover:text-white"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.history.length > 1) {
+                router.back();
+              } else {
+                router.push('/workflow');
+              }
+            }}
+          >
+            ← Back
+          </Button>
           <div className="flex items-center gap-2">
             <Badge className={`${
               task.status === 'completed' 
@@ -404,7 +436,27 @@ export default function TaskDetailPage() {
 
         <Card className="bg-black border-gray-800">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-white">{task.title}</CardTitle>
+            <CardTitle className="text-2xl font-bold text-white flex items-center gap-2">
+              {editingTitle ? (
+                <>
+                  <input
+                    className="bg-gray-900 text-white rounded px-2 py-1 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    value={titleInput}
+                    onChange={e => setTitleInput(e.target.value)}
+                    autoFocus
+                  />
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={handleTitleSave}><Save className="w-4 h-4" /></Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditingTitle(false)}><X className="w-4 h-4" /></Button>
+                </>
+              ) : (
+                <>
+                  {task.title}
+                  <Button size="icon" variant="ghost" className="ml-2 text-gray-400 hover:text-purple-400" onClick={handleTitleEdit}>
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                </>
+              )}
+            </CardTitle>
             {task.project && (
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-gray-400">Project:</span>
@@ -437,55 +489,6 @@ export default function TaskDetailPage() {
             <div className="prose prose-invert max-w-none">
               <p className="text-gray-300">{task.description}</p>
             </div>
-
-            {attachments.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-white">Attachments</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {attachments.map((attachment, index) => (
-                    <Card key={index} className="bg-gray-900/50 border-gray-800">
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-2 justify-between">
-                          <div className="flex items-center gap-2">
-                            {attachment.type === 'file' && attachment.url && attachment.file_type?.startsWith('image/') ? (
-                              <a href={attachment.url} target="_blank" rel="noopener noreferrer">
-                                <img
-                                  src={attachment.url}
-                                  alt={attachment.name}
-                                  className="w-16 h-16 object-cover rounded border border-gray-700"
-                                  style={{ maxWidth: 64, maxHeight: 64 }}
-                                />
-                              </a>
-                            ) : attachment.type === 'file' ? (
-                              <FileText className="w-4 h-4 text-blue-400" />
-                            ) : (
-                              <LinkIcon className="w-4 h-4 text-purple-400" />
-                            )}
-                            <a
-                              href={attachment.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-400 hover:text-blue-300"
-                            >
-                              {attachment.name}
-                            </a>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleAttachmentDelete(attachment)}
-                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                            title="Remove attachment"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -589,6 +592,7 @@ export default function TaskDetailPage() {
                     onClick={() => {
                       const input = document.createElement('input')
                       input.type = 'file'
+                      input.accept = 'image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt'
                       input.onchange = (e) => {
                         const file = (e.target as HTMLInputElement).files?.[0]
                         if (file) handleFileUpload(file)
@@ -623,6 +627,11 @@ export default function TaskDetailPage() {
                                 style={{ maxWidth: 64, maxHeight: 64 }}
                               />
                             </a>
+                          ) : attachment.type === 'file' && attachment.url && attachment.file_type?.startsWith('audio/') ? (
+                            <audio controls className="w-32">
+                              <source src={attachment.url} type={attachment.file_type} />
+                              Your browser does not support the audio element.
+                            </audio>
                           ) : attachment.type === 'file' ? (
                             <FileText className="w-5 h-5 text-blue-400" />
                           ) : (
