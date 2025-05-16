@@ -702,9 +702,9 @@ export default function ProjectsPage() {
                         <span className="ml-1 text-white">
                           {project.deadline ?
                             new Date(project.deadline).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
                             }) : 'Not set'}
                         </span>
                       </div>

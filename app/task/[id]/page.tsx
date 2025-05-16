@@ -124,16 +124,30 @@ export default function TaskDetailPage() {
   useEffect(() => {
     const fetchNotes = async () => {
       setLoadingNotes(true);
-      // Log the taskId for debugging
-      console.log('Fetching notes for taskId:', taskId);
       const { data, error } = await supabase
         .from('notes')
         .select('*')
         .eq('entity_type', 'task')
         .eq('entity_id', taskId)
         .order('created_at', { ascending: false });
-      console.log('Notes fetch result:', { data, error, taskId });
-      if (!error) setNotes(data || []);
+      if (!error && data) {
+        // Fetch user info for each note
+        const notesWithUser = await Promise.all(
+          data.map(async (note) => {
+            if (!note.created_by) return { ...note, user: { name: 'Unknown' } };
+            const { data: userData } = await supabase
+              .from('users')
+              .select('name, email')
+              .eq('id', note.created_by)
+              .single();
+            return {
+              ...note,
+              user: userData || { name: note.created_by }
+            };
+          })
+        );
+        setNotes(notesWithUser);
+      }
       setLoadingNotes(false);
     };
     if (taskId) fetchNotes();
@@ -336,7 +350,7 @@ export default function TaskDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div style={{ background: '#141414', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500" />
       </div>
     )
@@ -344,7 +358,7 @@ export default function TaskDetailPage() {
 
   if (!task) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div style={{ background: '#141414', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <div className="text-center">
           <h1 className="text-2xl font-bold text-white mb-4">Task not found</h1>
           <Link href="/workflow">
@@ -358,7 +372,7 @@ export default function TaskDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div style={{ background: '#141414', minHeight: '100vh' }}>
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-8">
           <Link href="/workflow">
@@ -432,20 +446,29 @@ export default function TaskDetailPage() {
                     <Card key={index} className="bg-gray-900/50 border-gray-800">
                       <CardContent className="p-4">
                         <div className="flex items-center gap-2 justify-between">
-                        <div className="flex items-center gap-2">
-                          {attachment.type === 'file' ? (
-                            <FileText className="w-4 h-4 text-blue-400" />
-                          ) : (
-                            <LinkIcon className="w-4 h-4 text-purple-400" />
-                          )}
-                          <a
-                            href={attachment.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-400 hover:text-blue-300"
-                          >
-                            {attachment.name}
-                          </a>
+                          <div className="flex items-center gap-2">
+                            {attachment.type === 'file' && attachment.url && attachment.file_type?.startsWith('image/') ? (
+                              <a href={attachment.url} target="_blank" rel="noopener noreferrer">
+                                <img
+                                  src={attachment.url}
+                                  alt={attachment.name}
+                                  className="w-16 h-16 object-cover rounded border border-gray-700"
+                                  style={{ maxWidth: 64, maxHeight: 64 }}
+                                />
+                              </a>
+                            ) : attachment.type === 'file' ? (
+                              <FileText className="w-4 h-4 text-blue-400" />
+                            ) : (
+                              <LinkIcon className="w-4 h-4 text-purple-400" />
+                            )}
+                            <a
+                              href={attachment.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-400 hover:text-blue-300"
+                            >
+                              {attachment.name}
+                            </a>
                           </div>
                           <Button
                             variant="ghost"
@@ -485,7 +508,7 @@ export default function TaskDetailPage() {
                     <div key={note.id} className="bg-gray-900/50 border border-gray-800 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs text-gray-400">
-                          {note.created_by || "Unknown"} • {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+                          {note.user?.name || note.user?.email || "Unknown"} • {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
                         </span>
                         {user && note.created_by === user.id && (
                           <div className="flex gap-2">
@@ -591,7 +614,16 @@ export default function TaskDetailPage() {
                         className="flex items-center justify-between bg-gray-900/50 border border-gray-800 rounded-lg p-4"
                       >
                         <div className="flex items-center gap-3">
-                          {attachment.type === 'file' ? (
+                          {attachment.type === 'file' && attachment.url && attachment.file_type?.startsWith('image/') ? (
+                            <a href={attachment.url} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={attachment.url}
+                                alt={attachment.name}
+                                className="w-16 h-16 object-cover rounded border border-gray-700"
+                                style={{ maxWidth: 64, maxHeight: 64 }}
+                              />
+                            </a>
+                          ) : attachment.type === 'file' ? (
                             <FileText className="w-5 h-5 text-blue-400" />
                           ) : (
                             <LinkIcon className="w-5 h-5 text-purple-400" />

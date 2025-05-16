@@ -55,6 +55,7 @@ export interface Project {
   external_links?: Array<{
     title: string
     url: string
+    description?: string
   }> | null
   show_make_deal?: boolean
   show_invest?: boolean

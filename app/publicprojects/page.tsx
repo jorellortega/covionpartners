@@ -281,7 +281,7 @@ export default function PublicProjectsPage() {
                               <span>Budget</span>
                             </div>
                             <div className="text-white font-medium">
-                              ${project.funding_goal?.toLocaleString() || 'N/A'}
+                              {project.budget ? `$${Number(project.budget).toLocaleString()}` : (project.funding_goal ? `$${Number(project.funding_goal).toLocaleString()}` : 'N/A')}
                             </div>
                           </div>
                           <div className="p-3 bg-gray-800/30 rounded-lg">

@@ -164,7 +164,7 @@ function StatusCard({ project, onStatusChange }: { project: Project | null, onSt
   const [showDeadlineDialog, setShowDeadlineDialog] = useState(false)
   const [newDeadline, setNewDeadline] = useState(project?.deadline ? new Date(project.deadline).toISOString().split('T')[0] : '')
 
-  if (!project) return <LoadingSpinner />
+  if (!project) return null;
 
   // Only allow status changes for non-viewer roles
   const canChangeStatus = user && user.role !== 'viewer'
@@ -292,7 +292,7 @@ function StatusCard({ project, onStatusChange }: { project: Project | null, onSt
 
 // Helper component for displaying detailed project information
 function ProjectInfoCard({ project }: { project: Project | null }) {
-  if (!project) return <LoadingSpinner />
+  if (!project) return null;
 
   const [isEditingBudget, setIsEditingBudget] = useState(false)
   const [budgetValue, setBudgetValue] = useState(project.budget?.toString() || '0')
@@ -524,8 +524,8 @@ export default function ProjectDetails() {
     description: project?.description || '',
     status: project?.status || '',
     progress: project?.progress || 0,
-    goals: project?.goals || '',
-    target_market: project?.target_market || '',
+    goals: (project as any)?.goals || '',
+    target_market: (project as any)?.target_market || '',
   })
   const [isAddingTask, setIsAddingTask] = useState(false)
   const [tasks, setTasks] = useState<any[]>([])
@@ -698,12 +698,12 @@ export default function ProjectDetails() {
   useEffect(() => {
     if (isEditing && project) {
       setEditProjectData({
-        name: project.name,
-        description: project.description,
-        status: project.status,
+        name: project.name ?? '',
+        description: project.description ?? '',
+        status: project.status ?? 'active',
         progress: project.progress || 0,
-        goals: project.goals || '',
-        target_market: project.target_market || '',
+        goals: (project as any)?.goals || '',
+        target_market: (project as any)?.target_market || '',
       })
     }
   }, [isEditing, project])
@@ -1062,7 +1062,7 @@ export default function ProjectDetails() {
         .update({
           name: editProjectData.name,
           description: editProjectData.description,
-          status: editProjectData.status,
+          status: (['active', 'inactive', 'completed'].includes(editProjectData.status) ? editProjectData.status : 'active') as 'active' | 'inactive' | 'completed',
           progress: editProjectData.progress,
           updated_at: new Date().toISOString()
         })
@@ -1075,7 +1075,7 @@ export default function ProjectDetails() {
         ...project,
         name: editProjectData.name,
         description: editProjectData.description,
-        status: editProjectData.status,
+        status: (['active', 'inactive', 'completed'].includes(editProjectData.status) ? editProjectData.status : 'active') as 'active' | 'inactive' | 'completed',
         progress: editProjectData.progress,
         updated_at: new Date().toISOString()
       })
@@ -1139,7 +1139,7 @@ export default function ProjectDetails() {
           project_id: projectId,
           created_by: user.id,
           status: 'pending',
-          assigned_to: newTask.assigned_to || null,
+          assigned_to: newTask.assigned_to === 'unassigned' ? null : newTask.assigned_to,
         }])
         .select()
         .single()
@@ -1174,7 +1174,7 @@ export default function ProjectDetails() {
           due_date: editingTask.due_date,
           priority: editingTask.priority,
           status: editingTask.status,
-          assigned_to: editingTask.assigned_to || null,
+          assigned_to: editingTask.assigned_to === 'unassigned' ? null : editingTask.assigned_to,
         })
         .eq('id', editingTask.id)
 
@@ -1430,13 +1430,8 @@ export default function ProjectDetails() {
       const { error } = await supabase
         .from('projects')
         .update({ visibility: newVisibility })
-        .eq('id', project.id);
-
-      if (error) {
-        console.error('Database error:', error);
-        throw new Error(error.message || 'Failed to update project visibility');
-      }
-
+        .eq('id', project.id)
+      if (error) throw error
       // Update local state
       setProject(prev => {
         if (!prev) return null;
@@ -1508,9 +1503,6 @@ export default function ProjectDetails() {
         .update({ position: editPosition, access_level: editAccessLevel })
         .eq('id', selectedMember.id)
       if (error) throw error
-      setTeamMembers(prev => prev.map(member =>
-        member.id === selectedMember.id ? { ...member, position: editPosition, access_level: editAccessLevel } : member
-      ))
       setIsEditDialogOpen(false)
       setSelectedMember(null)
       setEditPosition('')
@@ -1529,7 +1521,7 @@ export default function ProjectDetails() {
 
   const handleDeletePosition = (index: number) => {
     if (confirm('Are you sure you want to delete this position?')) {
-      const updatedPositions = project?.open_positions?.filter((_, i) => i !== index) || []
+      const updatedPositions = (project as any).open_positions?.filter((_: any, i: number) => i !== index) || []
       setProject(prev => ({ ...prev!, open_positions: updatedPositions }))
       setIsAddingPosition(false)
       setIsEditingPosition(false)
@@ -1549,7 +1541,7 @@ export default function ProjectDetails() {
       return
     }
 
-    const updatedPositions = project?.open_positions?.map((position, i) => 
+    const updatedPositions = (project as any).open_positions?.map((position: any, i: number) => 
       i === editingPosition ? { ...position, ...newPosition } : position
     ) || []
 
@@ -1576,7 +1568,7 @@ export default function ProjectDetails() {
         .eq('id', project.id)
 
       if (error) throw error
-      setProject({ ...project, status: newStatus })
+      setProject({ ...project, status: newStatus } as any)
       toast.success('Status updated successfully')
     } catch (error) {
       console.error('Error updating status:', error)
@@ -1585,27 +1577,30 @@ export default function ProjectDetails() {
   }
 
   const handleAddLink = async () => {
-    if (!newLink.title || !newLink.url) {
-      toast.error('Please fill in all required fields')
+    if (!project) {
+      toast.error('Project not found')
       return
     }
 
     try {
-      // Normalize URL format
-      let normalizedUrl = newLink.url.trim()
-      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-        normalizedUrl = 'https://' + normalizedUrl
+      let normalizedUrl = newLink.url.trim();
+      if (!normalizedUrl) {
+        toast.error('Please enter a URL');
+        return;
       }
-
+      // Auto-prepend protocol if missing
+      if (!/^https?:\/\//i.test(normalizedUrl)) {
+        normalizedUrl = 'https://' + normalizedUrl;
+      }
       // Validate URL format
       try {
-        new URL(normalizedUrl)
+        new URL(normalizedUrl);
       } catch (e) {
-        toast.error('Please enter a valid URL')
-        return
+        toast.error('Please enter a valid URL');
+        return;
       }
 
-      const updatedLinks = [...(project?.external_links || []), { ...newLink, url: normalizedUrl }]
+      const updatedLinks = [...(project.external_links || []), { ...newLink, url: normalizedUrl }]
       // Update in Supabase
       const { error } = await supabase
         .from('projects')
@@ -1624,10 +1619,10 @@ export default function ProjectDetails() {
   }
 
   const handleUpdateLink = async () => {
-    if (!editingLink) return
+    if (!project || !editingLink) return
 
     try {
-      const updatedLinks = project?.external_links?.map(link =>
+      const updatedLinks = project.external_links?.map((link: any) =>
         link.id === editingLink.id ? { ...editingLink, ...newLink } : link
       ) || []
       // Update in Supabase
@@ -1649,8 +1644,13 @@ export default function ProjectDetails() {
   }
 
   const handleDeleteLink = async (index: number) => {
+    if (!project) {
+      toast.error('Project not found')
+      return
+    }
+
     if (confirm('Are you sure you want to delete this link?')) {
-      const updatedLinks = project?.external_links?.filter((_, i) => i !== index) || []
+      const updatedLinks = project.external_links?.filter((_, i) => i !== index) || []
       // Update in Supabase
       const { error } = await supabase
         .from('projects')
@@ -1666,6 +1666,11 @@ export default function ProjectDetails() {
   }
 
   const handleTogglePublicFunding = async () => {
+    if (!project) {
+      toast.error('Project not found')
+      return
+    }
+
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -1859,7 +1864,7 @@ export default function ProjectDetails() {
 
   const isOwner = user?.id === project?.owner_id;
   const currentMember = teamMembers.find(m => m.user_id === user?.id);
-  const isAccessLevel1 = !isOwner && currentMember?.access_level === '1';
+  const isAccessLevel1 = !isOwner && String(currentMember?.access_level) === '1';
 
   const handleAddExpense = async () => {
     try {
@@ -2017,7 +2022,7 @@ export default function ProjectDetails() {
                         type="file"
                         id="media-upload"
                         className="hidden"
-                        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
                         multiple
                         onChange={handleMediaUpload}
                       />
@@ -2041,7 +2046,7 @@ export default function ProjectDetails() {
                                   size="icon"
                                   variant="ghost"
                                   className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white z-10"
-                                  onClick={() => showCropper(project.media_files[selectedImage].url)}
+                                  onClick={() => { const url = project?.media_files?.[selectedImage]?.url; if (typeof url === 'string') showCropper(url) }}
                                   title="Edit Image"
                                 >
                                   <Pencil className="w-5 h-5" />
@@ -2054,6 +2059,11 @@ export default function ProjectDetails() {
                               controls
                               className="w-full h-full object-contain"
                             />
+                          ) : project.media_files[selectedImage].type.startsWith('audio/') ? (
+                            <audio controls className="w-full">
+                              <source src={project.media_files[selectedImage].url} type={project.media_files[selectedImage].type} />
+                              Your browser does not support the audio element.
+                            </audio>
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <FileText className="w-16 h-16 text-gray-400" />
@@ -2091,6 +2101,13 @@ export default function ProjectDetails() {
                               ) : file.type.startsWith('video/') ? (
                                 <div className="w-full h-full bg-gray-800 flex items-center justify-center">
                                   <Video className="w-6 h-6 text-gray-400" />
+                                </div>
+                              ) : file.type.startsWith('audio/') ? (
+                                <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                                  <audio controls className="w-full">
+                                    <source src={file.url} type={file.type} />
+                                    Your browser does not support the audio element.
+                                  </audio>
                                 </div>
                               ) : (
                                 <div className="w-full h-full bg-gray-800 flex items-center justify-center">
@@ -2169,6 +2186,30 @@ export default function ProjectDetails() {
                             </div>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {/* External Links List */}
+                    {project?.external_links && project.external_links.length > 0 && (
+                      <div className="mt-6 border-t border-gray-800 pt-6">
+                        <h4 className="text-sm font-medium text-gray-400 mb-4">External Links</h4>
+                        <ul className="space-y-2">
+                          {project.external_links.map((link, idx) => (
+                            <li key={idx}>
+                              <a
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-400 hover:underline"
+                              >
+                                {link.title || link.url}
+                              </a>
+                              {link.description && (
+                                <span className="ml-2 text-gray-400 text-xs">{link.description}</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
 
@@ -2430,7 +2471,7 @@ export default function ProjectDetails() {
                                       )}
                                       </div>
                                       </div>
-                                  {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                                  {user?.role && (['partner', 'admin', 'investor', 'ceo'] as const).includes(user.role as any) && (
                                   <div className="flex items-center gap-2">
                                     <Button
                                         variant="ghost"
@@ -2609,7 +2650,7 @@ export default function ProjectDetails() {
                                   <Button variant="ghost" size="sm" className="h-auto p-0 text-gray-400 hover:text-indigo-400">
                                     <span className="flex items-center">
                                       <UserIcon className="w-4 h-4 mr-1" />
-                                      {task.assigned_to ? teamMembers.find(member => member.user_id === task.assigned_to)?.user?.name || 'Unassigned' : 'Unassigned'}
+                                      {task.assigned_to === 'unassigned' ? 'Unassigned' : teamMembers.find(member => member.user_id === task.assigned_to)?.user?.name || 'Unassigned'}
                                     </span>
                                   </Button>
                                 </DropdownMenuTrigger>
@@ -2637,31 +2678,16 @@ export default function ProjectDetails() {
                                     Unassign
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator className="bg-gray-700" />
-                                  {teamMembers.map(member => (
-                                    <DropdownMenuItem
-                                      key={member.id}
-                                      className="text-white hover:bg-purple-900/20 hover:text-purple-400 focus:bg-purple-900/20 focus:text-purple-400"
-                                      onClick={async (e) => {
-                                        e.stopPropagation()
-                                        try {
-                                          const { error } = await supabase
-                                            .from('tasks')
-                                            .update({ assigned_to: member.user_id })
-                                            .eq('id', task.id)
-                                          if (error) throw error
-                                          setTasks(prev => prev.map(t => 
-                                            t.id === task.id ? { ...t, assigned_to: member.user_id } : t
-                                          ))
-                                          toast.success(`Task assigned to ${member.user?.name}`)
-                                        } catch (error) {
-                                          console.error('Error assigning task:', error)
-                                          toast.error('Failed to assign task')
-                                        }
-                                      }}
-                                    >
-                                      {member.user?.name}
-                                    </DropdownMenuItem>
-                                  ))}
+                                  <SelectContent>
+                                    <SelectItem key="unassigned" value="unassigned">
+                                      Unassigned
+                                    </SelectItem>
+                                    {teamMembers.map(member => (
+                                      <SelectItem key={member.id} value={member.user_id}>
+                                        {member.user.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                               <Badge
@@ -2756,7 +2782,7 @@ export default function ProjectDetails() {
                                   >
                                     View Details
                                   </Button>
-                                  {user?.role !== 'viewer' && (
+                                  {(user?.role as 'partner' | 'admin' | 'investor' | 'ceo' | 'viewer') !== 'viewer' && (
                                     <>
                                       <Button
                                         variant="ghost"
@@ -2925,7 +2951,7 @@ export default function ProjectDetails() {
                             )}
               </div>
             </div>
-                        {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                        {user?.role && (['partner', 'admin', 'investor', 'ceo'] as const).includes(user.role as any) && (
                         <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
@@ -2948,7 +2974,7 @@ export default function ProjectDetails() {
       </div>
                     </div>
                   ))}
-                  {user?.role !== 'viewer' && user?.role !== 'investor' && (
+                  {user?.role && (['partner', 'admin', 'investor', 'ceo'] as const).includes(user.role as any) && (
                     <Button
                       className="w-full gradient-button"
                       onClick={() => setIsAddDialogOpen(true)}
@@ -3071,7 +3097,7 @@ export default function ProjectDetails() {
                           className="min-h-[100px]"
                         />
                       ) : (
-                        <p className="text-sm text-gray-400">{project?.goals || 'No goals defined'}</p>
+                        <p className="text-sm text-gray-400">{(project as any)?.goals || 'No goals defined'}</p>
                       )}
                     </div>
                     <div className="space-y-2">
@@ -3084,7 +3110,7 @@ export default function ProjectDetails() {
                           className="min-h-[100px]"
                         />
                       ) : (
-                        <p className="text-sm text-gray-400">{project?.target_market || 'No target market defined'}</p>
+                        <p className="text-sm text-gray-400">{(project as any)?.target_market || 'No target market defined'}</p>
                       )}
                     </div>
                   </div>
@@ -3316,15 +3342,18 @@ export default function ProjectDetails() {
             <div>
               <Label>Assigned To</Label>
               <Select
-                value={newTask.assigned_to}
+                value={newTask.assigned_to === 'unassigned' ? 'unassigned' : newTask.assigned_to}
                 onValueChange={(value) => setNewTask({ ...newTask, assigned_to: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select team member" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem key="unassigned" value="unassigned">
+                    Unassigned
+                  </SelectItem>
                   {teamMembers.map(member => (
-                    <SelectItem key={member.user_id} value={member.user_id}>
+                    <SelectItem key={member.id} value={member.user_id}>
                       {member.user.name}
                     </SelectItem>
                   ))}
@@ -3379,7 +3408,7 @@ export default function ProjectDetails() {
               <Label>Title</Label>
               <Input
                 value={editingTask?.title || ''}
-                onChange={(e) => setEditingTask(prev => ({ ...prev, title: e.target.value }))}
+                onChange={(e) => setEditingTask((prev: any) => ({ ...prev, title: e.target.value }))}
                 placeholder="Enter task title"
               />
             </div>
@@ -3387,7 +3416,7 @@ export default function ProjectDetails() {
               <Label>Description</Label>
               <Input
                 value={editingTask?.description || ''}
-                onChange={(e) => setEditingTask(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) => setEditingTask((prev: any) => ({ ...prev, description: e.target.value }))}
                 placeholder="Enter task description"
               />
             </div>
@@ -3396,14 +3425,14 @@ export default function ProjectDetails() {
               <Input
                 type="datetime-local"
                 value={editingTask?.due_date || ''}
-                onChange={(e) => setEditingTask(prev => ({ ...prev, due_date: e.target.value }))}
+                onChange={(e) => setEditingTask((prev: any) => ({ ...prev, due_date: e.target.value }))}
               />
             </div>
             <div>
               <Label>Priority</Label>
               <Select
                 value={editingTask?.priority || 'medium'}
-                onValueChange={(value) => setEditingTask(prev => ({ ...prev, priority: value }))}
+                onValueChange={(value) => setEditingTask((prev: any) => ({ ...prev, priority: value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select priority" />
@@ -3419,7 +3448,7 @@ export default function ProjectDetails() {
               <Label>Status</Label>
               <Select
                 value={editingTask?.status || 'pending'}
-                onValueChange={(value) => setEditingTask(prev => ({ ...prev, status: value }))}
+                onValueChange={(value) => setEditingTask((prev: any) => ({ ...prev, status: value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
@@ -3457,7 +3486,7 @@ export default function ProjectDetails() {
               <Label>Description</Label>
               <Input
                 value={editingScheduleItem?.description || ''}
-                onChange={(e) => setEditingScheduleItem(prev => ({
+                onChange={(e) => setEditingScheduleItem((prev: any) => ({
                   ...prev,
                   description: e.target.value
                 }))}
@@ -3468,7 +3497,7 @@ export default function ProjectDetails() {
               <Label>Notes (optional)</Label>
               <Input
                 value={editingScheduleItem?.notes || ''}
-                onChange={(e) => setEditingScheduleItem(prev => ({
+                onChange={(e) => setEditingScheduleItem((prev: any) => ({
                   ...prev,
                   notes: e.target.value
                 }))}
@@ -3480,7 +3509,7 @@ export default function ProjectDetails() {
               <Input
                 type="date"
                 value={editingScheduleItem?.start_time ? new Date(editingScheduleItem.start_time).toISOString().split('T')[0] : ''}
-                onChange={(e) => setEditingScheduleItem(prev => ({
+                onChange={(e) => setEditingScheduleItem((prev: any) => ({
                   ...prev,
                   start_time: e.target.value
                 }))}

@@ -150,7 +150,7 @@ FROM
     ('Full Stack Developer', 'Build and maintain the web application for the analytics platform. Experience with real-time data processing and visualization required.', 2, 'open')
   ) as roles(role_name, description, positions_needed, status)
 WHERE p.owner_id = 'ccac7ddc-f895-4822-a4cf-3a3a72ed1733'
-AND p.name = 'Next-Gen Baseball Analytics Platform';
+AND p.name = 'Next-Gen Baseball Analytics Platform'; 
 
 -- Seed expenses for project 038720f6-b3bb-4d93-a452-c147184b9050
 INSERT INTO expenses (project_id, user_id, description, amount, category, status, due_date, receipt_url, notes)
