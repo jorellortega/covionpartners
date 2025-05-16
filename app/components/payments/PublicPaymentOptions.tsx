@@ -29,7 +29,7 @@ function PublicPaymentForm({ clientSecret, onSuccess }: PublicPaymentFormProps) 
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: `${window.location.origin}/donate/success`,
+          return_url: `${window.location.origin}/purchase2support/success`,
         },
         redirect: 'if_required',
       })

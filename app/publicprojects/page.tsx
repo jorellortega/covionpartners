@@ -48,7 +48,7 @@ interface Project {
   funding_goal: number
   current_funding: number
   deadline: string
-  accepts_donations: boolean
+  accepts_support: boolean
   media_files?: Array<{
     name: string
     type: string
@@ -295,12 +295,12 @@ export default function PublicProjectsPage() {
                           </div>
                         </div>
 
-                        {project.accepts_donations && (
+                        {project.accepts_support && (
                           <div className="p-3 bg-purple-500/10 rounded-lg">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center text-purple-400">
                                 <DollarSign className="w-4 h-4 mr-2" />
-                                <span>Public Funding</span>
+                                <span>Support Project</span>
                               </div>
                               <span className="text-white font-medium">
                                 ${project.current_funding?.toLocaleString() || '0'} / ${project.funding_goal?.toLocaleString() || '0'}
@@ -369,12 +369,12 @@ export default function PublicProjectsPage() {
                               },
                               color: 'hover:bg-green-900/20 hover:text-green-400',
                             }] : []),
-                            ...(project.accepts_donations ? [{
-                              label: 'Donate',
+                            ...(project.accepts_support ? [{
+                              label: 'Support',
                               icon: <Heart className="w-4 h-4 mr-2" />,
                               onClick: (e: any) => {
                               e.stopPropagation();
-                              router.push(`/donate?project=${project.id}`);
+                              router.push(`/purchase2support?project=${project.id}`);
                               },
                               color: 'hover:bg-pink-900/20 hover:text-pink-400',
                             }] : []),

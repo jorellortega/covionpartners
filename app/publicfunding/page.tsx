@@ -59,7 +59,7 @@ export default function PublicFundingPage() {
 
   // Filter projects that accept donations and match search query
   const fundableProjects = projects?.filter(project =>
-    project.accepts_donations && (
+    project.accepts_support && (
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.description?.toLowerCase().includes(searchQuery.toLowerCase())
     )
@@ -249,7 +249,7 @@ export default function PublicFundingPage() {
                   <div className="p-3 bg-purple-500/10 rounded-lg">
                     <div className="flex items-center text-purple-400 mb-1">
                       <DollarSign className="w-4 h-4 mr-2" />
-                      <span>Funding Progress</span>
+                      <span>Support Progress</span>
                     </div>
                     <div className="text-white font-medium">
                       ${project.current_funding?.toLocaleString() || '0'} raised

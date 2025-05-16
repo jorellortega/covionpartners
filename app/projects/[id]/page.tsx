@@ -1675,7 +1675,7 @@ export default function ProjectDetails() {
       const { data, error } = await supabase
         .from('projects')
         .update({ 
-          accepts_donations: !project.accepts_donations 
+          accepts_support: !project.accepts_support 
         })
         .eq('id', project.id)
         .select()
@@ -1686,13 +1686,13 @@ export default function ProjectDetails() {
       }
 
       setProject(data);
-      toast.success(data.accepts_donations 
-        ? "Public funding enabled"
-        : "Public funding disabled"
+      toast.success(data.accepts_support 
+        ? "Support project enabled"
+        : "Support project disabled"
       );
     } catch (error) {
-      console.error('Error toggling public funding:', error);
-      toast.error("Failed to toggle public funding status");
+      console.error('Error toggling support project:', error);
+      toast.error("Failed to toggle support project status");
     }
   };
 
@@ -3040,19 +3040,19 @@ export default function ProjectDetails() {
                     <Button
                       variant="outline"
                       className={`flex-1 min-w-[200px] justify-center items-center gap-2 ${
-                        project?.accepts_donations
+                        project?.accepts_support
                           ? 'bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30'
                           : 'bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30'
                       }`}
                       onClick={handleTogglePublicFunding}
                     >
-                      {project?.accepts_donations ? (
+                      {project?.accepts_support ? (
                         <>
-                          <DollarSign className="w-4 h-4" /> Disable Public Funding
+                          <DollarSign className="w-4 h-4" /> Disable Support Project
                         </>
                       ) : (
                         <>
-                          <DollarSign className="w-4 h-4" /> Enable Public Funding
+                          <DollarSign className="w-4 h-4" /> Enable Support Project
                         </>
                       )}
                     </Button>

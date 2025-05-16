@@ -49,7 +49,7 @@ export interface Project {
   team_members?: TeamMember[] | null
   funding_goal?: number | null
   current_funding?: number | null
-  accepts_donations?: boolean
+  accepts_support?: boolean
   promo_title?: string | null
   promo_description?: string | null
   external_links?: Array<{

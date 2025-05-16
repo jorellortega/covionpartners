@@ -103,7 +103,7 @@ export default function FundingSettingsPage() {
               <Target className="w-5 h-5 text-purple-400" />
               <CardTitle>Project Selection</CardTitle>
             </div>
-            <CardDescription>Select the project you want to fund</CardDescription>
+            <CardDescription>Select the project you want to support</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -158,13 +158,13 @@ export default function FundingSettingsPage() {
                         <div className="text-white font-medium">{project.status}</div>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-gray-400">Funding Goal</Label>
+                        <Label className="text-gray-400">Support Goal</Label>
                         <div className="text-white font-medium">
                           ${project.funding_goal?.toLocaleString() || '0'}
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-gray-400">Current Funding</Label>
+                        <Label className="text-gray-400">Current Support</Label>
                         <div className="text-white font-medium">
                           ${project.current_funding?.toLocaleString() || '0'}
                         </div>
@@ -198,7 +198,7 @@ export default function FundingSettingsPage() {
                       <div className="text-right text-sm text-purple-400 mt-1">
                         {project.funding_goal && project.current_funding 
                           ? (project.current_funding / project.funding_goal * 100).toFixed(0) 
-                          : 0}% funded
+                          : 0}% supported
                       </div>
                     </div>
                   </div>
@@ -273,7 +273,7 @@ export default function FundingSettingsPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="minimumDonation">Minimum Donation Amount</Label>
+                <Label htmlFor="minimumDonation">Minimum Support Amount</Label>
                 <Input
                   id="minimumDonation"
                   value={fundingSettings.minimumDonation}

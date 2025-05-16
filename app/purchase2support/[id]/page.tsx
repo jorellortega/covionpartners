@@ -66,7 +66,7 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
 
   useEffect(() => {
     if (donationSuccess) {
-      router.push("/donate")
+      router.push("/purchase2support")
     }
   }, [donationSuccess, router])
 
@@ -86,7 +86,13 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
           <Button 
             variant="outline" 
             className="mt-4"
-            onClick={() => router.back()}
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.history.length > 2) {
+                router.back();
+              } else {
+                router.push('/purchase2support');
+              }
+            }}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Go Back
@@ -141,14 +147,20 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
           <Button
             variant="ghost"
             className="text-gray-400 hover:text-purple-400"
-            onClick={() => router.back()}
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.history.length > 2) {
+                router.back();
+              } else {
+                router.push('/purchase2support');
+              }
+            }}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Support This Project</h1>
-            <p className="text-gray-400">Make a donation to help this project succeed</p>
+            <p className="text-gray-400">Make a support to help this project succeed</p>
           </div>
         </div>
 
@@ -189,7 +201,7 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center text-pink-400">
                       <Heart className="w-4 h-4 mr-2" />
-                      <span>Funding Progress</span>
+                      <span>Support Progress</span>
                     </div>
                     <span className="text-white font-medium">
                       ${project.current_funding?.toLocaleString() || '0'} / ${project.funding_goal?.toLocaleString() || '0'}
@@ -212,8 +224,8 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
             {/* Donation Form */}
             <Card className="border-gray-800">
               <CardHeader>
-                <CardTitle>Make a Donation</CardTitle>
-                <CardDescription>Choose your donation amount</CardDescription>
+                <CardTitle>Purchase to Support</CardTitle>
+                <CardDescription>Choose your support amount</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -264,12 +276,12 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
             {/* Donation Summary */}
             <Card className="border-gray-800">
               <CardHeader>
-                <CardTitle>Donation Summary</CardTitle>
+                <CardTitle>Support Summary</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center py-2 border-b border-gray-800">
-                    <span className="text-gray-400">Donation Amount</span>
+                    <span className="text-gray-400">Support Amount</span>
                     <span className="font-medium">${donationAmount || '0'}</span>
                   </div>
 
@@ -286,14 +298,14 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                     ) : (
                       <>
                         <Heart className="w-4 h-4 mr-2" />
-                        Complete Donation
+                        Complete Support
                       </>
                     )}
                   </Button>
 
                   <div className="flex items-center justify-center text-sm text-gray-400">
                     <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Secure donation processing
+                    Secure support processing
                   </div>
                 </div>
               </CardContent>

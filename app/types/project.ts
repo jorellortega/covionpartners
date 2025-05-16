@@ -9,6 +9,6 @@ export interface Project {
   owner_id: string;
   goals: string;
   target_market: string;
-  accepts_donations: boolean;
+  accepts_support: boolean;
   open_positions: any[];
 } 

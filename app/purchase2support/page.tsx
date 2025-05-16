@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useState, Suspense, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -55,16 +55,16 @@ function DonatePageContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const { projects, loading, error } = useProjects()
 
-  // If project ID is provided in URL, redirect to the specific donation page
-  const projectId = searchParams.get('project')
-  if (projectId) {
-    router.push(`/donate/${projectId}`)
-    return null
-  }
+  useEffect(() => {
+    const projectId = searchParams.get('project')
+    if (projectId) {
+      router.push(`/purchase2support/${projectId}`)
+    }
+  }, [searchParams, router])
 
-  // Filter projects that accept donations and match search query
+  // Filter projects that accept support and match search query
   const filteredProjects = projects?.filter(project =>
-    project.accepts_donations && (
+    project.accepts_support && (
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.description?.toLowerCase().includes(searchQuery.toLowerCase())
     )
@@ -117,7 +117,7 @@ function DonatePageContent() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
-                placeholder="Search projects accepting donations..."
+                placeholder="Search projects accepting support..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -142,7 +142,7 @@ function DonatePageContent() {
             <Card
               key={project.id}
               className="leonardo-card border-gray-800 cursor-pointer hover:border-pink-500/50 transition-colors"
-              onClick={() => router.push(`/donate/${project.id}`)}
+              onClick={() => router.push(`/purchase2support/${project.id}`)}
             >
               {/* Project Thumbnail */}
               <div className="w-full aspect-video relative">
@@ -177,7 +177,7 @@ function DonatePageContent() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center text-pink-400">
                         <Heart className="w-4 h-4 mr-2" />
-                        <span>Donations Received</span>
+                        <span>Support Received</span>
                       </div>
                       <span className="text-white font-medium">
                         ${project.current_funding?.toLocaleString() || '0'} / ${project.funding_goal?.toLocaleString() || '0'}
@@ -202,7 +202,7 @@ function DonatePageContent() {
                     className="w-full bg-pink-600 hover:bg-pink-700"
                     onClick={(e) => {
                       e.stopPropagation()
-                      router.push(`/donate/${project.id}`)
+                      router.push(`/purchase2support/${project.id}`)
                     }}
                   >
                     <Heart className="w-4 h-4 mr-2" />
@@ -224,7 +224,7 @@ function DonatePageContent() {
               <p className="text-gray-400">
                 {searchQuery
                   ? "Try adjusting your search terms"
-                  : "Check back later for projects accepting donations"}
+                  : "Check back later for projects accepting support"}
               </p>
             </div>
           )}

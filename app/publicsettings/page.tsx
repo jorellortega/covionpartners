@@ -24,7 +24,7 @@ function PublicSettingsPageContent() {
   const [selectedProject, setSelectedProject] = useState(searchParams.get("project") || "")
   const [loading, setLoading] = useState(false)
 
-  const handleTogglePublicFunding = async () => {
+  const handleTogglePurchase2Support = async () => {
     if (!selectedProject) return
     setLoading(true)
     try {
@@ -32,18 +32,18 @@ function PublicSettingsPageContent() {
       if (!project) throw new Error("Project not found")
 
       const { data, error } = await updateProject(project.id, {
-        accepts_donations: !project.accepts_donations
+        accepts_support: !project.accepts_support
       })
 
       if (error) throw error
 
-      toast.success(data.accepts_donations 
-        ? "Public funding enabled"
-        : "Public funding disabled"
+      toast.success(data.accepts_support 
+        ? "Support project enabled"
+        : "Support project disabled"
       )
     } catch (error) {
-      console.error('Error toggling public funding:', error)
-      toast.error("Failed to toggle public funding status")
+      console.error('Error toggling support project:', error)
+      toast.error("Failed to toggle support project status")
     } finally {
       setLoading(false)
     }
@@ -200,24 +200,24 @@ function PublicSettingsPageContent() {
               </CardContent>
             </Card>
 
-            {/* Public Funding Settings */}
+            {/* Support Project Settings */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Public Funding</CardTitle>
+                    <CardTitle>Support Project</CardTitle>
                     <CardDescription className="text-gray-400">
-                      Enable or disable public funding for this project
+                      Enable or disable support project for this project
                     </CardDescription>
                   </div>
                   <Button
                     variant="outline"
                     className={`w-full md:w-auto justify-center items-center gap-2 ${
-                      projects?.find(p => p.id === selectedProject)?.accepts_donations
+                      projects?.find(p => p.id === selectedProject)?.accepts_support
                         ? 'bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30'
                         : 'bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30'
                     }`}
-                    onClick={handleTogglePublicFunding}
+                    onClick={handleTogglePurchase2Support}
                     disabled={loading}
                   >
                     {loading ? (
@@ -225,13 +225,13 @@ function PublicSettingsPageContent() {
                         <LoadingSpinner className="w-4 h-4" />
                         Updating...
                       </>
-                    ) : projects?.find(p => p.id === selectedProject)?.accepts_donations ? (
+                    ) : projects?.find(p => p.id === selectedProject)?.accepts_support ? (
                       <>
-                        <DollarSign className="w-4 h-4" /> Disable Public Funding
+                        <DollarSign className="w-4 h-4" /> Disable Support Project
                       </>
                     ) : (
                       <>
-                        <DollarSign className="w-4 h-4" /> Enable Public Funding
+                        <DollarSign className="w-4 h-4" /> Enable Support Project
                       </>
                     )}
                   </Button>
@@ -245,12 +245,12 @@ function PublicSettingsPageContent() {
                       <span>Current Status</span>
                     </div>
                     <div className="text-white font-medium">
-                      {projects?.find(p => p.id === selectedProject)?.accepts_donations 
-                        ? "Public funding is enabled" 
-                        : "Public funding is disabled"}
+                      {projects?.find(p => p.id === selectedProject)?.accepts_support 
+                        ? "Support project is enabled" 
+                        : "Support project is disabled"}
                     </div>
                   </div>
-                  {projects?.find(p => p.id === selectedProject)?.accepts_donations && (
+                  {projects?.find(p => p.id === selectedProject)?.accepts_support && (
                     <div className="p-4 bg-gray-800/30 rounded-lg">
                       <div className="flex items-center text-gray-400 mb-2">
                         <Target className="w-4 h-4 mr-2" />
