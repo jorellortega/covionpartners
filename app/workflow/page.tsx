@@ -95,24 +95,54 @@ export default function WorkflowPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user) return
+      if (!user) return;
 
       try {
-        setLoading(true)
+        setLoading(true);
 
-        // Fetch projects
-        const { data: projectsData, error: projectsError } = await supabase
+        // 1. Fetch projects where the user is the owner
+        const { data: ownedProjects, error: ownedError } = await supabase
           .from('projects')
           .select('id, name')
-          .order('created_at', { ascending: false })
+          .eq('owner_id', user.id);
 
-        if (projectsError) throw projectsError
-        setProjects(projectsData?.map(p => ({
+        if (ownedError) throw ownedError;
+
+        // 2. Fetch project_ids where the user is a team member (no status filter)
+        const { data: teamMemberships, error: teamError } = await supabase
+          .from('team_members')
+          .select('project_id')
+          .eq('user_id', user.id);
+
+        if (teamError) throw teamError;
+
+        const memberProjectIds = teamMemberships?.map(tm => tm.project_id) || [];
+
+        // 3. Fetch projects where the user is a team member (but not owner)
+        let memberProjects: { id: string; name: string }[] = [];
+        if (memberProjectIds.length > 0) {
+          const { data: memberProjectsData, error: memberProjectsError } = await supabase
+            .from('projects')
+            .select('id, name')
+            .in('id', memberProjectIds)
+            .neq('owner_id', user.id); // Avoid duplicates
+
+          if (memberProjectsError) throw memberProjectsError;
+          memberProjects = memberProjectsData || [];
+        }
+
+        // 4. Merge and deduplicate
+        const allProjects = [...(ownedProjects || []), ...memberProjects];
+        // Deduplicate by project ID
+        const uniqueProjects = allProjects.filter((project, index, self) => 
+          index === self.findIndex(p => p.id === project.id)
+        );
+        setProjects(uniqueProjects.map(p => ({
           ...p,
           color: getProjectColor(p.id)
-        })) || [])
+        })));
 
-        // Fetch tasks with proper single row query format
+        // 5. Fetch tasks for these projects
         const { data: tasksData, error: tasksError } = await supabase
           .from('tasks')
           .select(`
@@ -122,23 +152,24 @@ export default function WorkflowPage() {
               name
             )
           `)
-          .order('created_at', { ascending: false })
+          .in('project_id', uniqueProjects.map(p => p.id))
+          .order('created_at', { ascending: false });
 
-        if (tasksError) throw tasksError
-        setTasks(tasksData || [])
+        if (tasksError) throw tasksError;
+        setTasks(tasksData || []);
       } catch (error) {
-        console.error('Error fetching data:', error)
+        console.error('Error fetching data:', error);
         toast({
           title: 'Error',
           description: 'Failed to load tasks and projects',
           variant: 'destructive'
-        })
+        });
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchData()
+    fetchData();
 
     // Set up real-time subscription
     const subscription = supabase
