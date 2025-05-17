@@ -39,12 +39,21 @@ import {
   Link,
   User as UserIcon,
   Video,
+  FileImage,
+  FileVideo,
+  FileAudio,
+  FileArchive,
+  FileCode,
+  FileSpreadsheet,
+  FileType,
+  FileJson,
+  FileX,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
 import { useTeamMembers, TeamMemberWithUser } from "@/hooks/useTeamMembers"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
-import { Project, User, TeamMember, MediaFile } from "@/types"
+import { Project, User, TeamMember, MediaFile, ProjectFile } from "@/types"
 import { supabase } from "@/lib/supabase"
 import {
   Dialog,
@@ -158,16 +167,13 @@ function StatusBadge({ status, projectId, onStatusChange }: { status: string, pr
 }
 
 // Helper component for displaying project status and progress
-function StatusCard({ project, onStatusChange }: { project: Project | null, onStatusChange?: (newStatus: string) => void }) {
+function StatusCard({ project, onStatusChange, canChangeStatus }: { project: Project | null, onStatusChange?: (newStatus: string) => void, canChangeStatus?: boolean }) {
   const { user } = useAuth()
   const [isUpdating, setIsUpdating] = useState(false)
   const [showDeadlineDialog, setShowDeadlineDialog] = useState(false)
   const [newDeadline, setNewDeadline] = useState(project?.deadline ? new Date(project.deadline).toISOString().split('T')[0] : '')
 
   if (!project) return null;
-
-  // Only allow status changes for non-viewer roles
-  const canChangeStatus = user && user.role !== 'viewer'
 
   const handleDeadlineUpdate = async () => {
     if (!project || !newDeadline) return
@@ -202,7 +208,7 @@ function StatusCard({ project, onStatusChange }: { project: Project | null, onSt
           <StatusBadge 
             status={project.status || 'N/A'} 
             projectId={project.id}
-            onStatusChange={canChangeStatus ? onStatusChange : undefined}
+            onStatusChange={onStatusChange}
           />
         </div>
         <div className="space-y-1">
@@ -486,6 +492,30 @@ function ProjectInfoCard({ project }: { project: Project | null }) {
 // Fixing linter errors by providing default values
 const safeNumber = (value: number | null | undefined) => value ?? 0;
 
+// Add formatFileSize function before getFileIcon
+const formatFileSize = (bytes: number) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+// Update getFileIcon function with correct icon names
+const getFileIcon = (fileType: string) => {
+  if (fileType.startsWith('image/')) return <FileImage className="w-5 h-5 text-blue-400" />
+  if (fileType.startsWith('video/')) return <FileVideo className="w-5 h-5 text-purple-400" />
+  if (fileType.startsWith('audio/')) return <FileAudio className="w-5 h-5 text-green-400" />
+  if (fileType.includes('pdf')) return <FileType className="w-5 h-5 text-red-400" />
+  if (fileType.includes('word') || fileType.includes('doc')) return <FileText className="w-5 h-5 text-blue-500" />
+  if (fileType.includes('excel') || fileType.includes('sheet')) return <FileSpreadsheet className="w-5 h-5 text-green-500" />
+  if (fileType.includes('powerpoint') || fileType.includes('presentation')) return <FileText className="w-5 h-5 text-orange-500" />
+  if (fileType.includes('zip') || fileType.includes('rar')) return <FileArchive className="w-5 h-5 text-yellow-400" />
+  if (fileType.includes('code') || fileType.includes('text')) return <FileCode className="w-5 h-5 text-gray-400" />
+  if (fileType.includes('json')) return <FileJson className="w-5 h-5 text-gray-400" />
+  return <FileX className="w-5 h-5 text-gray-400" />
+}
+
 export default function ProjectDetails() {
   const params = useParams()
   const projectId = params.id as string
@@ -604,6 +634,113 @@ export default function ProjectDetails() {
     receipt_url: '',
     notes: ''
   })
+  // --- Project Files (Team Only) CRUD ---
+  const [isRenamingTeamFile, setIsRenamingTeamFile] = useState(false);
+  const [teamFileToRename, setTeamFileToRename] = useState<MediaFile | null>(null);
+  const [newTeamFileName, setNewTeamFileName] = useState('');
+  // --- Project Files (Team Only) Upload Name Prompt ---
+  const [pendingTeamFiles, setPendingTeamFiles] = useState<File[]>([]);
+  const [isTeamFileNameDialogOpen, setIsTeamFileNameDialogOpen] = useState(false);
+  const [teamFileNameInput, setTeamFileNameInput] = useState('');
+  const [teamFileToUpload, setTeamFileToUpload] = useState<File | null>(null);
+  // --- Project Files (Team Only) State ---
+  const [teamFiles, setTeamFiles] = useState<ProjectFile[]>([]);
+  const [uploadAccessLevel, setUploadAccessLevel] = useState<number>(3);
+  const [editingFileId, setEditingFileId] = useState<string | null>(null);
+  const [editingAccessLevel, setEditingAccessLevel] = useState<number>(3);
+  const fetchTeamFiles = async () => {
+    if (!projectId) return;
+    const { data, error } = await supabase
+      .from('project_files')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('team_only', true)
+      .order('created_at', { ascending: false });
+    if (!error && data) setTeamFiles(data);
+  };
+  useEffect(() => { fetchTeamFiles(); }, [projectId, isUploadingMedia]);
+
+  // --- Project Files (Team Only) Upload ---
+  const handleTeamFileUpload = async (file: File, userFileName: string) => {
+    setIsUploadingMedia(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const storageFileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `project-files/${projectId}/${storageFileName}`;
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage.from('partnerfiles').upload(filePath, file);
+      if (uploadError) throw uploadError;
+      // Get public URL
+      const { data: urlData } = supabase.storage.from('partnerfiles').getPublicUrl(filePath);
+      // Insert into project_files table
+      const { error: insertError } = await supabase.from('project_files').insert({
+        project_id: projectId,
+        name: userFileName,
+        storage_name: storageFileName,
+        url: urlData.publicUrl,
+        type: file.type,
+        size: file.size,
+        aspect_ratio: undefined,
+        team_only: true,
+        access_level: uploadAccessLevel || 3,
+      });
+      if (insertError) throw insertError;
+      fetchTeamFiles();
+      toast.success('File uploaded!');
+    } catch (error) {
+      toast.error('Failed to upload file');
+    } finally {
+      setIsUploadingMedia(false);
+    }
+  };
+  const handleConfirmTeamFileName = async () => {
+    if (!teamFileToUpload || !teamFileNameInput.trim()) return;
+    setIsTeamFileNameDialogOpen(false);
+    const ext = teamFileToUpload.name.split('.').pop();
+    const userFileName = `${teamFileNameInput.trim()}.${ext}`;
+    await handleTeamFileUpload(teamFileToUpload, userFileName);
+    setTeamFileToUpload(null);
+    setTeamFileNameInput('');
+    setPendingTeamFiles([]);
+  };
+  // --- Project Files (Team Only) Delete ---
+  const handleDeleteTeamFile = async (file: ProjectFile) => {
+    if (!confirm('Are you sure you want to delete this file?')) return;
+    try {
+      // Remove from storage
+      await supabase.storage.from('partnerfiles').remove([`project-files/${projectId}/${file.storage_name}`]);
+      // Remove from table
+      await supabase.from('project_files').delete().eq('id', file.id);
+      fetchTeamFiles();
+      toast.success('File deleted!');
+    } catch (error) {
+      toast.error('Failed to delete file');
+    }
+  };
+
+  const handleRenameTeamFile = async () => {
+    if (!teamFileToRename || !newTeamFileName.trim() || !project) return;
+    try {
+      const originalExt = teamFileToRename.name.split('.').pop();
+      const newNameWithExt = `${newTeamFileName.trim()}.${originalExt}`;
+      const updatedFile = { ...teamFileToRename, name: newNameWithExt };
+      const updatedMediaFiles = project.media_files?.map(file =>
+        file.name === teamFileToRename.name ? updatedFile : file
+      ) || [];
+      const { error: updateError } = await supabase
+        .from('projects')
+        .update({ media_files: updatedMediaFiles })
+        .eq('id', projectId);
+      if (updateError) throw updateError;
+      setProject(prev => prev ? { ...prev, media_files: updatedMediaFiles } : prev);
+      setIsRenamingTeamFile(false);
+      setTeamFileToRename(null);
+      setNewTeamFileName('');
+      toast.success('File renamed successfully');
+    } catch (error) {
+      toast.error('Failed to rename file');
+    }
+  };
 
   useEffect(() => {
     refreshTeamMembers()
@@ -936,7 +1073,7 @@ export default function ProjectDetails() {
     }
   }
 
-  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>, teamOnly = false, userFileName?: string) => {
     if (!e.target.files || !e.target.files.length) return
 
     setIsUploadingMedia(true)
@@ -953,10 +1090,10 @@ export default function ProjectDetails() {
       const currentMediaFiles = projectData?.media_files || []
 
       const newMediaFiles = await Promise.all(files.map(async (file) => {
-        // Create a unique filename
+        // Use userFileName for display, generate unique storage_name for storage
         const fileExt = file.name.split('.').pop()
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
-        const filePath = `projects/${projectId}/${fileName}`
+        const storageFileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+        const filePath = `projects/${projectId}/${storageFileName}`
 
         // Upload file to Supabase Storage
         const { data: uploadData, error: uploadError } = await supabase.storage
@@ -987,12 +1124,14 @@ export default function ProjectDetails() {
 
         // Create media file record
         const mediaFile: MediaFile = {
-          name: fileName,
+          name: userFileName ? userFileName : file.name, // user-chosen name
+          storage_name: storageFileName, // actual storage name
           type: file.type,
           size: file.size,
           url: publicUrl,
           aspect_ratio: aspectRatio,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          ...(teamOnly ? { team_only: true } : {})
         }
         return mediaFile
       }))
@@ -1020,18 +1159,22 @@ export default function ProjectDetails() {
   }
 
   const handleDeleteMedia = async (fileName: string) => {
+    // Find the file object by display name or storage_name
+    const fileObj = project?.media_files?.find(f => f.name === fileName || f.storage_name === fileName);
+    if (!fileObj) return;
+    const storageName = fileObj.storage_name || fileObj.name;
     if (!confirm('Are you sure you want to delete this media file?')) return
 
     try {
       // Delete from storage
       const { error: deleteError } = await supabase.storage
         .from('partnerfiles')
-        .remove([`projects/${projectId}/${fileName}`])
+        .remove([`projects/${projectId}/${storageName}`])
 
       if (deleteError) throw deleteError
 
       // Update project
-      const updatedMediaFiles = project?.media_files?.filter(f => f.name !== fileName) || []
+      const updatedMediaFiles = project?.media_files?.filter(f => f.name !== fileObj.name) || []
       const { error: updateError } = await supabase
         .from('projects')
         .update({
@@ -1456,9 +1599,7 @@ export default function ProjectDetails() {
       // Get file extension from original name
       const originalExt = fileToRename.name.split('.').pop();
       // Create new filename with same extension
-      const newNameWithExt = `${newFileName.trim()}.${originalExt}`;
-
-      // Create new file object with updated name
+      const newNameWithExt = `${newFileName.trim()}.${originalExt}`
       const updatedFile = {
         ...fileToRename,
         name: newNameWithExt
@@ -1865,6 +2006,9 @@ export default function ProjectDetails() {
   const isOwner = user?.id === project?.owner_id;
   const currentMember = teamMembers.find(m => m.user_id === user?.id);
   const isAccessLevel1 = !isOwner && String(currentMember?.access_level) === '1';
+  const isAccessLevel2 = !isOwner && String(currentMember?.access_level) === '2';
+  const isAccessLevel3 = !isOwner && String(currentMember?.access_level) === '3';
+  const canChangeStatus = !!(user && user.role !== 'viewer' && !isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3);
 
   const handleAddExpense = async () => {
     try {
@@ -1944,6 +2088,32 @@ export default function ProjectDetails() {
     }
   };
 
+  const handleTeamFilesInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files.length) return;
+    setPendingTeamFiles(Array.from(e.target.files));
+    setTeamFileToUpload(e.target.files[0]);
+    setTeamFileNameInput(e.target.files[0].name.split('.').slice(0, -1).join('.') || e.target.files[0].name);
+    setIsTeamFileNameDialogOpen(true);
+  };
+
+  // --- Project Files (Team Only) Edit Access Level ---
+  const handleEditAccessLevel = (file: ProjectFile) => {
+    setEditingFileId(file.id);
+    setEditingAccessLevel(file.access_level);
+  };
+  const handleSaveAccessLevel = async (file: ProjectFile) => {
+    await supabase.from('project_files').update({ access_level: editingAccessLevel }).eq('id', file.id);
+    setEditingFileId(null);
+    fetchTeamFiles();
+    toast.success('Access level updated!');
+  };
+
+  const userAccessLevel = isOwner ? 0 : Number(currentMember?.access_level) || 99;
+  const visibleFiles: ProjectFile[] = teamFiles.filter((file: ProjectFile) => userAccessLevel >= file.access_level);
+
+  const allowedAccessLevels = [1, 2, 3, 4, 5];
+  const canSeeProjectFilesCard = isOwner || allowedAccessLevels.includes(Number(currentMember?.access_level));
+
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header">
@@ -1968,7 +2138,7 @@ export default function ProjectDetails() {
                 <StatusBadge 
                   status={project?.status || 'N/A'} 
                   projectId={project.id}
-                  onStatusChange={!isAccessLevel1 && user?.role !== 'viewer' ? handleStatusChange : undefined}
+                  onStatusChange={canChangeStatus ? handleStatusChange : undefined}
                 />
                 </div>
               </div>
@@ -1990,7 +2160,7 @@ export default function ProjectDetails() {
                           Images, videos, documents, and external links
                         </CardDescription>
                       </div>
-                      {!isAccessLevel1 && user?.role !== 'viewer' && user?.role !== 'investor' && (
+                      {!isAccessLevel1 && !isAccessLevel2 && user?.role !== 'viewer' && user?.role !== 'investor' && (
                         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                           <Button 
                             onClick={() => document.getElementById('media-upload')?.click()} 
@@ -2041,7 +2211,7 @@ export default function ProjectDetails() {
                               fill
                                 className="object-contain w-full h-full"
                               />
-                              {!isAccessLevel1 && user?.role !== 'viewer' && user?.role !== 'investor' && (
+                              {!isAccessLevel1 && !isAccessLevel2 && user?.role !== 'viewer' && user?.role !== 'investor' && (
                                 <Button
                                   size="icon"
                                   variant="ghost"
@@ -2069,7 +2239,7 @@ export default function ProjectDetails() {
                               <FileText className="w-16 h-16 text-gray-400" />
                             </div>
                           )}
-                          {!isAccessLevel1 && user?.role !== 'viewer' && user?.role !== 'investor' && (
+                          {!isAccessLevel1 && !isAccessLevel2 && user?.role !== 'viewer' && user?.role !== 'investor' && (
                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               <Button
                                 variant="ghost"
@@ -2114,7 +2284,7 @@ export default function ProjectDetails() {
                                   <FileText className="w-6 h-6 text-gray-400" />
                                 </div>
                               )}
-                              {!isAccessLevel1 && user?.role !== 'viewer' && user?.role !== 'investor' && (
+                              {!isAccessLevel1 && !isAccessLevel2 && user?.role !== 'viewer' && user?.role !== 'investor' && (
                                 <button
                                   className="absolute top-1 right-1 z-10 p-1 rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
                                   onClick={e => { e.stopPropagation(); handleDeleteMedia(file.name); }}
@@ -2158,7 +2328,7 @@ export default function ProjectDetails() {
                                 >
                                   <Download className="w-4 h-4" />
                                 </Button>
-                                {!isAccessLevel1 && user?.role !== 'viewer' && user?.role !== 'investor' && (
+                                {!isAccessLevel1 && !isAccessLevel2 && user?.role !== 'viewer' && user?.role !== 'investor' && (
                                   <>
                                     <Button
                                       variant="ghost"
@@ -2223,105 +2393,135 @@ export default function ProjectDetails() {
                   </CardContent>
                 </Card>
 
-                {/* Project Description */}
-                <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle>Project Description</CardTitle>
-                <CardDescription className="text-gray-400">
-                      Detailed overview of the project
-                    </CardDescription>
-                  </CardHeader>
-              <CardContent>
-                    <div className="prose prose-invert max-w-none">
-                  {isEditingDescription ? (
-                    <div>
-                      <textarea
-                        className="w-full bg-gray-900 text-white rounded p-2 border border-gray-700 min-h-[80px]"
-                        value={editedDescription}
-                        onChange={e => setEditedDescription(e.target.value)}
-                      />
-                      <div className="flex gap-2 mt-2">
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={handleSaveDescription}>Save</Button>
-                        <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white" onClick={handleDeleteDescription}>Delete</Button>
-                        <Button size="sm" variant="outline" onClick={() => { setIsEditingDescription(false); setEditedDescription(project?.description || ''); }}>Cancel</Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-gray-300 leading-relaxed cursor-pointer" onClick={() => { setIsEditingDescription(true); setEditedDescription(project?.description || ''); }}>
-                      {project?.description || <span className="italic text-gray-500">No description available. Click to add.</span>}
-                    </p>
-                  )}
-                  </div>
-                </CardContent>
-                </Card>
-
-                {/* Project Expenses Card */}
-                {!isAccessLevel1 && (
-                  <Card className="leonardo-card border-gray-800">
+                {canSeeProjectFilesCard && (
+                  <Card className="leonardo-card border-gray-800 mt-6">
                     <CardHeader>
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
-                          <CardTitle>Project Expenses</CardTitle>
-                          <CardDescription>Track and manage project expenses</CardDescription>
+                          <CardTitle>Project Files</CardTitle>
+                          <CardDescription className="text-gray-400">
+                            Files only visible to the project team, based on your access level
+                          </CardDescription>
                         </div>
-                        <div className="flex gap-2">
-                          <Button 
-                            onClick={() => router.push('/expenses')} 
-                            variant="outline" 
-                            className="gradient-button"
-                          >
-                            View All Expenses
-                          </Button>
-                          <Button onClick={() => setShowAddExpense(true)} className="gradient-button">
-                            Add Expense
-                          </Button>
-                        </div>
+                        {user?.role !== 'viewer' && user?.role !== 'investor' && currentMember && (
+                          <div className="flex flex-col gap-2">
+                            <Select value={String(uploadAccessLevel)} onValueChange={v => setUploadAccessLevel(Number(v))}>
+                              <SelectTrigger className="w-[120px]">
+                                <SelectValue placeholder="Access Level" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1">Level 1</SelectItem>
+                                <SelectItem value="2">Level 2</SelectItem>
+                                <SelectItem value="3">Level 3</SelectItem>
+                                <SelectItem value="4">Level 4</SelectItem>
+                                <SelectItem value="5">Level 5</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              onClick={() => document.getElementById('team-files-upload')?.click()}
+                              className="gradient-button w-full sm:w-auto"
+                              disabled={isUploadingMedia}
+                            >
+                              {isUploadingMedia ? (
+                                <>
+                                  <LoadingSpinner className="w-4 h-4 mr-2" />
+                                  Uploading...
+                                </>
+                              ) : (
+                                <>
+                                  <FileText className="w-4 h-4 mr-2" />
+                                  Add File
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          id="team-files-upload"
+                          className="hidden"
+                          accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                          multiple={false}
+                          onChange={e => {
+                            if (!e.target.files || !e.target.files.length) return;
+                            setPendingTeamFiles(Array.from(e.target.files));
+                            setTeamFileToUpload(e.target.files[0]);
+                            setTeamFileNameInput(e.target.files[0].name.split('.').slice(0, -1).join('.') || e.target.files[0].name);
+                            setIsTeamFileNameDialogOpen(true);
+                          }}
+                        />
                       </div>
                     </CardHeader>
                     <CardContent>
-                      {loadingExpenses ? (
-                        <div className="flex items-center justify-center py-4">
-                          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                      {!currentMember ? (
+                        <div className="text-center py-8 text-gray-400">
+                          You must be a team member to view project files.
                         </div>
-                      ) : expenses.length === 0 ? (
-                        <div className="text-center text-gray-400 py-4">
-                          No expenses recorded yet
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {expenses.map(expense => (
-                            <div
-                              key={expense.id}
-                              className="flex items-center justify-between p-3 rounded-lg bg-gray-900/50 hover:bg-gray-900/70 transition-colors"
-                            >
-                              <div className="flex-1 cursor-pointer" onClick={() => router.push(`/expense/${expense.id}`)}>
-                                <div className="font-medium text-white">{expense.description}</div>
-                                <div className="text-xs text-gray-400">{expense.category}</div>
+                      ) : visibleFiles.length > 0 ? (
+                        <div className="space-y-2">
+                          {visibleFiles.map((file: ProjectFile, index: number) => (
+                            <div key={file.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors">
+                              <div className="flex items-center space-x-3 min-w-0 flex-1">
+                                {getFileIcon(file.type)}
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-gray-200 truncate">{file.name}</p>
+                                  <p className="text-xs text-gray-400 flex items-center gap-2">
+                                    {formatFileSize(file.size)} • {new Date(file.created_at).toLocaleDateString()} • Access Level:
+                                    {editingFileId === file.id ? (
+                                      <span className="flex items-center gap-1 ml-1">
+                                        <Select value={String(editingAccessLevel)} onValueChange={v => setEditingAccessLevel(Number(v))}>
+                                          <SelectTrigger className="w-[70px] h-6 text-xs">
+                                            <SelectValue placeholder="Level" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="1">1</SelectItem>
+                                            <SelectItem value="2">2</SelectItem>
+                                            <SelectItem value="3">3</SelectItem>
+                                            <SelectItem value="4">4</SelectItem>
+                                            <SelectItem value="5">5</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        <Button size="sm" className="ml-1 px-2 py-1 text-xs" onClick={() => handleSaveAccessLevel(file)}>Save</Button>
+                                        <Button size="sm" variant="outline" className="ml-1 px-2 py-1 text-xs" onClick={() => setEditingFileId(null)}>Cancel</Button>
+                                      </span>
+                                    ) : (
+                                      <span className="ml-1">{file.access_level}</span>
+                                    )}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-4">
-                                <span className="text-green-400 font-semibold">${Number(expense.amount).toFixed(2)}</span>
-                                <Badge
-                                  className={
-                                    expense.status === 'Paid' ? 'bg-green-500/20 text-green-400' :
-                                    expense.status === 'Pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                                    'bg-red-500/20 text-red-400'
-                                  }
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-gray-400 hover:text-gray-200"
+                                  onClick={() => window.open(file.url, '_blank')}
                                 >
-                                  {expense.status}
-                                </Badge>
-                                {expense.due_date && (
-                                  <span className="text-xs text-gray-400">Due: {new Date(expense.due_date).toLocaleDateString()}</span>
-                                )}
-                                {!isAccessLevel1 && (
-                                  <>
-                                    <Button size="icon" variant="ghost" onClick={() => { setEditExpense(expense); setShowDeleteExpense(true); }} title="Delete">
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </>
-                                )}
+                                  <FileText className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-gray-400 hover:text-blue-400"
+                                  onClick={() => handleEditAccessLevel(file)}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-400 hover:text-red-300"
+                                  onClick={() => handleDeleteTeamFile(file)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
                               </div>
                             </div>
                           ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-gray-400">
+                          No files available for your access level
                         </div>
                       )}
                     </CardContent>
@@ -2399,7 +2599,7 @@ export default function ProjectDetails() {
                 </Dialog>
 
                 {/* Project Access */}
-                {!isAccessLevel1 && (
+                {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
                   <Card className="leonardo-card border-gray-800">
                     <CardHeader>
                       <div className="flex items-center justify-between">
@@ -2471,7 +2671,7 @@ export default function ProjectDetails() {
                                       )}
                                       </div>
                                       </div>
-                                  {user?.role && (['partner', 'admin', 'investor', 'ceo'] as const).includes(user.role as any) && (
+                                  {user?.role && (['partner', 'admin', 'investor', 'ceo'] as const).includes(user.role as any) && !isAccessLevel3 && (
                                   <div className="flex items-center gap-2">
                                     <Button
                                         variant="ghost"
@@ -2522,7 +2722,7 @@ export default function ProjectDetails() {
                     </CardTitle>
                     <CardDescription>Track important project dates and milestones</CardDescription>
                       </div>
-                  {!isAccessLevel1 && user?.role !== 'viewer' && (
+                  {!isAccessLevel1 && !isAccessLevel2 && user?.role !== 'viewer' && (
                     <Button
                       onClick={handleAddNewScheduleClick}
                       className="gradient-button w-full sm:w-auto"
@@ -2551,7 +2751,7 @@ export default function ProjectDetails() {
                           )}
                         </div>
                       </div>
-                      {!isAccessLevel1 && user?.role !== 'viewer' && (
+                      {!isAccessLevel1 && !isAccessLevel2 && user?.role !== 'viewer' && (
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
@@ -2595,7 +2795,7 @@ export default function ProjectDetails() {
                       </CardTitle>
                       <CardDescription>Manage project tasks and assignments</CardDescription>
                     </div>
-                    {user?.role !== 'viewer' && (
+                    {!isAccessLevel1 && !isAccessLevel2 && user?.role !== 'viewer' && (
                       <Button onClick={() => setIsAddingTask(true)} className="gradient-button">
                         <Plus className="w-4 h-4 mr-2" />
                         Add Task
@@ -2703,7 +2903,7 @@ export default function ProjectDetails() {
                                 {task.priority}
                               </Badge>
                             </div>
-                            {user?.role !== 'viewer' && (
+                            {!isAccessLevel1 && !isAccessLevel2 && (user?.role as 'partner' | 'admin' | 'investor' | 'ceo' | 'viewer') !== 'viewer' && (
                               <div className="flex flex-wrap items-center gap-2 mt-2">
                                 <div className="flex gap-1">
                                   <Button
@@ -2782,7 +2982,7 @@ export default function ProjectDetails() {
                                   >
                                     View Details
                                   </Button>
-                                  {(user?.role as 'partner' | 'admin' | 'investor' | 'ceo' | 'viewer') !== 'viewer' && (
+                                  {!isAccessLevel1 && !isAccessLevel2 && (user?.role as 'partner' | 'admin' | 'investor' | 'ceo' | 'viewer') !== 'viewer' && (
                                     <>
                                       <Button
                                         variant="ghost"
@@ -2920,7 +3120,7 @@ export default function ProjectDetails() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Team Members */}
-            {!isAccessLevel1 && (
+            {!isAccessLevel1 && !isAccessLevel2 && (
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -2951,7 +3151,7 @@ export default function ProjectDetails() {
                             )}
               </div>
             </div>
-                        {user?.role && (['partner', 'admin', 'investor', 'ceo'] as const).includes(user.role as any) && (
+                        {user?.role && (['partner', 'admin', 'investor', 'ceo'] as const).includes(user.role as any) && !isAccessLevel3 && (
                         <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
@@ -2974,7 +3174,7 @@ export default function ProjectDetails() {
       </div>
                     </div>
                   ))}
-                  {user?.role && (['partner', 'admin', 'investor', 'ceo'] as const).includes(user.role as any) && (
+                  {user?.role && (['partner', 'admin', 'investor', 'ceo'] as const).includes(user.role as any) && !isAccessLevel3 && (
                     <Button
                       className="w-full gradient-button"
                       onClick={() => setIsAddDialogOpen(true)}
@@ -2989,7 +3189,7 @@ export default function ProjectDetails() {
             )}
 
             {/* Project Actions */}
-            {!isAccessLevel1 && (
+            {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
               <Card className="leonardo-card border-gray-800">
                 <CardHeader>
                   <CardTitle className="flex items-center">
@@ -3009,6 +3209,7 @@ export default function ProjectDetails() {
                     >
                       <Pencil className="w-4 h-4" /> Edit Project
                     </Button>
+                    {!(String(currentMember?.access_level) === '4') && (
                     <Button
                       variant="outline"
                       className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30"
@@ -3016,6 +3217,7 @@ export default function ProjectDetails() {
                     >
                       <Trash2 className="w-4 h-4" /> Delete Project
                     </Button>
+                    )}
                       </>
                     )}
                     <Button
@@ -3062,7 +3264,7 @@ export default function ProjectDetails() {
             )}
 
             {/* Project Overview */}
-            {!isAccessLevel1 && (
+            {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -3227,7 +3429,7 @@ export default function ProjectDetails() {
 
         {/* Project Information and Status Cards at the bottom */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-          {!isAccessLevel1 && (
+          {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
             <div className="lg:col-span-2">
               <ProjectInfoCard project={project} />
             </div>
@@ -3235,7 +3437,8 @@ export default function ProjectDetails() {
           <div className={user?.role !== 'viewer' ? '' : 'lg:col-span-3'}>
             <StatusCard 
               project={project} 
-              onStatusChange={!isAccessLevel1 && user?.role !== 'viewer' ? handleStatusChange : undefined}
+              onStatusChange={canChangeStatus ? handleStatusChange : undefined}
+              canChangeStatus={!!canChangeStatus}
             />
           </div>
         </div>
@@ -3855,6 +4058,92 @@ export default function ProjectDetails() {
               {isUploadingMedia ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Add Rename Dialog for Project Files */}
+      <Dialog open={isRenamingTeamFile} onOpenChange={setIsRenamingTeamFile}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Rename File</DialogTitle>
+            <DialogDescription>
+              Enter a new name for the file. The extension will be preserved.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>New File Name</Label>
+              <Input
+                value={newTeamFileName}
+                onChange={(e) => setNewTeamFileName(e.target.value)}
+                placeholder="Enter new file name"
+              />
+              <p className="text-sm text-gray-400">
+                Current file: {teamFileToRename?.name}
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsRenamingTeamFile(false);
+                setTeamFileToRename(null);
+                setNewTeamFileName('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRenameTeamFile}
+              className="gradient-button"
+              disabled={!newTeamFileName.trim()}
+            >
+              Rename File
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Team File Name Dialog */}
+      <Dialog open={isTeamFileNameDialogOpen} onOpenChange={setIsTeamFileNameDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Name Your File</DialogTitle>
+            <DialogDescription>
+              Enter a name for your file (extension will be preserved).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>File Name</Label>
+              <Input
+                value={teamFileNameInput}
+                onChange={e => setTeamFileNameInput(e.target.value)}
+                placeholder="Enter file name"
+              />
+              <p className="text-sm text-gray-400">
+                Original: {teamFileToUpload?.name}
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsTeamFileNameDialogOpen(false);
+                setTeamFileToUpload(null);
+                setTeamFileNameInput('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmTeamFileName}
+              className="gradient-button"
+              disabled={!teamFileNameInput.trim()}
+            >
+              Upload
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -32,7 +32,9 @@ import {
   DollarSign,
   MessageSquare,
   Calendar,
-  BarChart2
+  BarChart2,
+  CheckCircle,
+  UserPlus
 } from "lucide-react"
 
 // Access level definitions
@@ -142,224 +144,81 @@ const possiblePositions = [
   "Systems Engineer"
 ]
 
-export default function AccessLevelsPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedProject, setSelectedProject] = useState(mockProjects[0])
-  const [expandedMember, setExpandedMember] = useState<number | null>(null)
-  const [members, setMembers] = useState(selectedProject.members)
-  const [customPositions, setCustomPositions] = useState<{ [memberId: number]: string }>({})
-
-  // Update members when project changes
-  React.useEffect(() => {
-    setMembers(selectedProject.members)
-    setCustomPositions({})
-  }, [selectedProject])
-
-  const handleAccessChange = (memberId: number, newAccess: string) => {
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.id === memberId ? { ...m, access: newAccess } : m
-      )
-    )
-    // In a real implementation, this would update the database
-    console.log(`Changing access for member ${memberId} to ${newAccess}`)
-  }
-
-  const handlePositionChange = (memberId: number, newPosition: string) => {
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.id === memberId ? { ...m, position: newPosition } : m
-      )
-    )
-    // If "Custom..." is selected, show input
-    if (newPosition === "__custom__") {
-      setCustomPositions((prev) => ({ ...prev, [memberId]: "" }))
-    } else {
-      setCustomPositions((prev) => {
-        const updated = { ...prev }
-        delete updated[memberId]
-        return updated
-      })
-    }
-    // In a real implementation, this would update the database
-    console.log(`Changing position for member ${memberId} to ${newPosition}`)
-  }
-
-  const handleCustomPositionChange = (memberId: number, value: string) => {
-    setCustomPositions((prev) => ({ ...prev, [memberId]: value }))
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.id === memberId ? { ...m, position: value } : m
-      )
-    )
-    // In a real implementation, this would update the database
-    console.log(`Custom position for member ${memberId}: ${value}`)
-  }
-
+export default function AccessLevelsPromo() {
   return (
-    <div className="min-h-screen bg-gray-950 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Access Levels</h1>
-            <p className="text-gray-400">Manage team member access to projects and features</p>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-950 to-indigo-900 flex flex-col items-center py-12 px-4">
+      <div className="max-w-3xl w-full text-center mb-12">
+        <h1 className="text-4xl sm:text-5xl font-extrabold text-white mb-4">Access Levels: Secure, Flexible Project Collaboration</h1>
+        <p className="text-lg text-gray-300 mb-6">
+          Empower your team with a robust, customizable access level system. Control who can view, edit, or manage every aspect of your projects—effortlessly and securely.
+        </p>
+      </div>
+      <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+        <Card className="bg-gray-900/80 border-purple-700">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-purple-400">
+              <Shield className="w-6 h-6" /> Why Access Levels?
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="text-gray-300 space-y-3 text-left">
+              <li className="flex items-center gap-2"><CheckCircle className="text-green-400 w-5 h-5" /> Protect sensitive data and actions</li>
+              <li className="flex items-center gap-2"><CheckCircle className="text-green-400 w-5 h-5" /> Give the right people the right permissions</li>
+              <li className="flex items-center gap-2"><CheckCircle className="text-green-400 w-5 h-5" /> Streamline collaboration and reduce risk</li>
+              <li className="flex items-center gap-2"><CheckCircle className="text-green-400 w-5 h-5" /> Adapt to any team structure or workflow</li>
+            </ul>
+          </CardContent>
+        </Card>
+        <Card className="bg-gray-900/80 border-indigo-700">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-indigo-400">
+              <Users className="w-6 h-6" /> How It Works
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ol className="text-gray-300 space-y-3 text-left list-decimal list-inside">
+              <li>Assign each team member an <span className="text-purple-300 font-semibold">Access Level</span> (1–5)</li>
+              <li>Set access levels on files, actions, and project sections</li>
+              <li>Users see and do only what their level allows</li>
+              <li>Change access levels anytime for instant control</li>
+            </ol>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="w-full max-w-4xl bg-gradient-to-r from-purple-800/60 to-indigo-800/60 rounded-2xl p-8 mb-16 shadow-lg">
+        <h2 className="text-2xl font-bold text-white mb-6 text-center">Access Level Examples</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6">
+          <div className="flex flex-col items-center">
+            <Lock className="w-10 h-10 text-purple-400 mb-2" />
+            <span className="text-lg font-bold text-purple-300">Level 1</span>
+            <span className="text-gray-300 text-sm mt-1">Strictly confidential<br />Top-level management only</span>
           </div>
-          <Button className="gradient-button">
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Project
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Project Selection Sidebar */}
-          <div className="lg:col-span-1">
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-xl">Projects</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {mockProjects.map((project) => (
-                    <div
-                      key={project.id}
-                      className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                        selectedProject.id === project.id
-                          ? "bg-purple-500/20 border border-purple-500/50"
-                          : "hover:bg-gray-800/50"
-                      }`}
-                      onClick={() => setSelectedProject(project)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Building2 className="w-5 h-5 text-purple-400" />
-                        <div>
-                          <h3 className="font-medium text-white">{project.name}</h3>
-                          <p className="text-sm text-gray-400">{project.members.length} members</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          <div className="flex flex-col items-center">
+            <Shield className="w-10 h-10 text-blue-400 mb-2" />
+            <span className="text-lg font-bold text-blue-300">Level 2</span>
+            <span className="text-gray-300 text-sm mt-1">Sensitive project data<br />Core team access</span>
           </div>
-
-          {/* Main Content Area */}
-          <div className="lg:col-span-3">
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle className="text-xl">{selectedProject.name}</CardTitle>
-                    <p className="text-gray-400">{selectedProject.description}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Search members..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-64 bg-gray-900 border-gray-700"
-                    />
-                    <Button variant="outline" className="border-gray-700">
-                      <Filter className="w-4 h-4 mr-2" />
-                      Filter
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {members.map((member) => (
-                    <div key={member.id} className="leonardo-card border border-gray-800 p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-500">
-                              {member.avatar}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h3 className="font-medium text-white">{member.name}</h3>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="secondary" className="text-xs">
-                                {member.role}
-                              </Badge>
-                              <Select
-                                value={possiblePositions.includes(member.position) ? member.position : "__custom__"}
-                                onValueChange={(value) => handlePositionChange(member.id, value)}
-                              >
-                                <SelectTrigger className="w-36 bg-gray-900 border-gray-700 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {possiblePositions.map((pos) => (
-                                    <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-                                  ))}
-                                  <SelectItem value="__custom__">Custom...</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              {customPositions[member.id] !== undefined && (
-                                <Input
-                                  className="w-36 bg-gray-900 border-gray-700 text-xs"
-                                  placeholder="Enter custom position"
-                                  value={customPositions[member.id]}
-                                  onChange={e => handleCustomPositionChange(member.id, e.target.value)}
-                                />
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <Select
-                            value={member.access}
-                            onValueChange={(value) => handleAccessChange(member.id, value)}
-                          >
-                            <SelectTrigger className="w-32 bg-gray-900 border-gray-700">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="5">Level 5 - Admin</SelectItem>
-                              <SelectItem value="4">Level 4 - Advanced</SelectItem>
-                              <SelectItem value="3">Level 3 - Standard</SelectItem>
-                              <SelectItem value="2">Level 2 - Basic</SelectItem>
-                              <SelectItem value="1">Level 1 - View Only</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setExpandedMember(expandedMember === member.id ? null : member.id)}
-                          >
-                            {expandedMember === member.id ? (
-                              <ChevronUp className="w-4 h-4" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      {expandedMember === member.id && (
-                        <div className="mt-4 pt-4 border-t border-gray-800">
-                          <h4 className="text-sm font-medium text-gray-400 mb-2">
-                            {accessLevels[member.access as keyof typeof accessLevels].description}
-                          </h4>
-                          <div className="grid grid-cols-2 gap-2">
-                            {accessLevels[member.access as keyof typeof accessLevels].permissions.map((permission, index) => (
-                              <div key={index} className="flex items-center gap-2 text-sm text-gray-300">
-                                <Check className="w-4 h-4 text-green-400" />
-                                {permission}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          <div className="flex flex-col items-center">
+            <Star className="w-10 h-10 text-green-400 mb-2" />
+            <span className="text-lg font-bold text-green-300">Level 3</span>
+            <span className="text-gray-300 text-sm mt-1">General team files<br />Collaborators & advisors</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <Eye className="w-10 h-10 text-yellow-400 mb-2" />
+            <span className="text-lg font-bold text-yellow-300">Level 4</span>
+            <span className="text-gray-300 text-sm mt-1">View-only or external partners</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <UserPlus className="w-10 h-10 text-pink-400 mb-2" />
+            <span className="text-lg font-bold text-pink-300">Level 5</span>
+            <span className="text-gray-300 text-sm mt-1">Guests, new members, or public info</span>
           </div>
         </div>
+      </div>
+      <div className="w-full max-w-3xl bg-gray-900/80 rounded-2xl p-8 shadow-lg text-center">
+        <h2 className="text-2xl font-bold text-white mb-4">Ready to unlock secure, flexible collaboration?</h2>
+        <p className="text-lg text-gray-300 mb-6">Try our access level system today and see how easy it is to manage permissions, protect your data, and empower your team!</p>
+        <a href="/account-types" className="inline-block px-8 py-3 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-bold text-lg shadow-lg hover:from-purple-600 hover:to-indigo-600 transition">Get Started</a>
       </div>
     </div>
   )

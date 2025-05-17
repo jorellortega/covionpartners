@@ -87,11 +87,13 @@ export interface DashboardStats {
 
 export interface MediaFile {
   name: string
+  storage_name?: string
   type: string
   size: number
   url: string
   aspect_ratio?: '16:9' | '9:16' | 'square'
   created_at: string
+  team_only?: boolean
 }
 
 export interface Task {
@@ -107,4 +109,18 @@ export interface Task {
     name: string
     email: string
   }
+}
+
+export interface ProjectFile {
+  id: string;
+  project_id: string;
+  name: string;
+  storage_name?: string;
+  url: string;
+  type: string;
+  size: number;
+  aspect_ratio?: '16:9' | '9:16' | 'square';
+  created_at: string;
+  team_only: boolean;
+  access_level: number;
 } 

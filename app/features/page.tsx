@@ -3,7 +3,7 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FolderKanban, Handshake, DollarSign, Briefcase, Users, Globe, Lock, BarChart2, FileText, Bell, Shield, ArrowRight } from "lucide-react";
+import { FolderKanban, Handshake, DollarSign, Briefcase, Users, Globe, Lock, BarChart2, FileText, Bell, Shield, ArrowRight, Star, Eye, UserPlus } from "lucide-react";
 import { useState, Suspense } from "react";
 
 const features = [
@@ -262,7 +262,7 @@ function FeaturesContent() {
   const activeTab = searchParams.get("tab") || "workflow";
   const [activeTabState, setActiveTab] = useState(activeTab);
   return (
-    <div className="min-h-screen bg-gray-950 py-12 px-4 sm:px-8">
+    <div className="min-h-screen bg-gray-950 py-12 px-4">
       <div className="max-w-3xl mx-auto">
         <h1 className="text-4xl font-bold text-white mb-8 text-center">Platform Features</h1>
         {/* Clickable Feature Cards */}
@@ -356,6 +356,47 @@ function FeaturesContent() {
             </div>
           </div>
         </div>
+        <section className="max-w-5xl mx-auto mb-16">
+          <h2 className="text-3xl font-bold text-white mb-4">Access Levels</h2>
+          <p className="text-lg text-gray-300 mb-8">
+            Our advanced Access Level system lets you control exactly who can view, edit, or manage every part of your project. Assign levels 1–5 to team members and files for secure, flexible collaboration.
+          </p>
+          <div className="w-full bg-gradient-to-r from-purple-800/60 to-indigo-800/60 rounded-2xl p-8 mb-8 shadow-lg">
+            <h3 className="text-xl font-bold text-white mb-6 text-center">Access Level Examples</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6">
+              <div className="flex flex-col items-center">
+                <Lock className="w-10 h-10 text-purple-400 mb-2" />
+                <span className="text-lg font-bold text-purple-300">Level 1</span>
+                <span className="text-gray-300 text-sm mt-1 text-center">Strictly confidential<br />Top-level management only</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <Shield className="w-10 h-10 text-blue-400 mb-2" />
+                <span className="text-lg font-bold text-blue-300">Level 2</span>
+                <span className="text-gray-300 text-sm mt-1 text-center">Sensitive project data<br />Core team access</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <Star className="w-10 h-10 text-green-400 mb-2" />
+                <span className="text-lg font-bold text-green-300">Level 3</span>
+                <span className="text-gray-300 text-sm mt-1 text-center">General team files<br />Collaborators & advisors</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <Eye className="w-10 h-10 text-yellow-400 mb-2" />
+                <span className="text-lg font-bold text-yellow-300">Level 4</span>
+                <span className="text-gray-300 text-sm mt-1 text-center">View-only or external partners</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <UserPlus className="w-10 h-10 text-pink-400 mb-2" />
+                <span className="text-lg font-bold text-pink-300">Level 5</span>
+                <span className="text-gray-300 text-sm mt-1 text-center">Guests, new members, or public info</span>
+              </div>
+            </div>
+          </div>
+          <div className="text-center">
+            <a href="/accesslevels" className="inline-block px-8 py-3 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-bold text-lg shadow-lg hover:from-purple-600 hover:to-indigo-600 transition">
+              Learn More About Access Levels
+            </a>
+          </div>
+        </section>
       </div>
     </div>
   );
