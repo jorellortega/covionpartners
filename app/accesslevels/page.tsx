@@ -152,30 +152,30 @@ export default function AccessLevelsPromo() {
         <p className="text-lg text-gray-300 mb-6">
           Empower your team with a robust, customizable access level system. Control who can view, edit, or manage every aspect of your projects—effortlessly and securely.
         </p>
-      </div>
+          </div>
       <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
         <Card className="bg-gray-900/80 border-purple-700">
-          <CardHeader>
+              <CardHeader>
             <CardTitle className="flex items-center gap-2 text-purple-400">
               <Shield className="w-6 h-6" /> Why Access Levels?
             </CardTitle>
-          </CardHeader>
-          <CardContent>
+              </CardHeader>
+              <CardContent>
             <ul className="text-gray-300 space-y-3 text-left">
               <li className="flex items-center gap-2"><CheckCircle className="text-green-400 w-5 h-5" /> Protect sensitive data and actions</li>
               <li className="flex items-center gap-2"><CheckCircle className="text-green-400 w-5 h-5" /> Give the right people the right permissions</li>
               <li className="flex items-center gap-2"><CheckCircle className="text-green-400 w-5 h-5" /> Streamline collaboration and reduce risk</li>
               <li className="flex items-center gap-2"><CheckCircle className="text-green-400 w-5 h-5" /> Adapt to any team structure or workflow</li>
             </ul>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
         <Card className="bg-gray-900/80 border-indigo-700">
-          <CardHeader>
+              <CardHeader>
             <CardTitle className="flex items-center gap-2 text-indigo-400">
               <Users className="w-6 h-6" /> How It Works
             </CardTitle>
-          </CardHeader>
-          <CardContent>
+              </CardHeader>
+              <CardContent>
             <ol className="text-gray-300 space-y-3 text-left list-decimal list-inside">
               <li>Assign each team member an <span className="text-purple-300 font-semibold">Access Level</span> (1–5)</li>
               <li>Set access levels on files, actions, and project sections</li>
@@ -184,7 +184,7 @@ export default function AccessLevelsPromo() {
             </ol>
           </CardContent>
         </Card>
-      </div>
+                            </div>
       <div className="w-full max-w-4xl bg-gradient-to-r from-purple-800/60 to-indigo-800/60 rounded-2xl p-8 mb-16 shadow-lg">
         <h2 className="text-2xl font-bold text-white mb-6 text-center">Access Level Examples</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6">
@@ -192,22 +192,22 @@ export default function AccessLevelsPromo() {
             <Lock className="w-10 h-10 text-purple-400 mb-2" />
             <span className="text-lg font-bold text-purple-300">Level 1</span>
             <span className="text-gray-300 text-sm mt-1">Strictly confidential<br />Top-level management only</span>
-          </div>
+                          </div>
           <div className="flex flex-col items-center">
             <Shield className="w-10 h-10 text-blue-400 mb-2" />
             <span className="text-lg font-bold text-blue-300">Level 2</span>
             <span className="text-gray-300 text-sm mt-1">Sensitive project data<br />Core team access</span>
-          </div>
+                        </div>
           <div className="flex flex-col items-center">
             <Star className="w-10 h-10 text-green-400 mb-2" />
             <span className="text-lg font-bold text-green-300">Level 3</span>
             <span className="text-gray-300 text-sm mt-1">General team files<br />Collaborators & advisors</span>
-          </div>
+                        </div>
           <div className="flex flex-col items-center">
             <Eye className="w-10 h-10 text-yellow-400 mb-2" />
             <span className="text-lg font-bold text-yellow-300">Level 4</span>
             <span className="text-gray-300 text-sm mt-1">View-only or external partners</span>
-          </div>
+                      </div>
           <div className="flex flex-col items-center">
             <UserPlus className="w-10 h-10 text-pink-400 mb-2" />
             <span className="text-lg font-bold text-pink-300">Level 5</span>

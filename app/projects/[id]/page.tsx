@@ -2395,14 +2395,14 @@ export default function ProjectDetails() {
 
                 {canSeeProjectFilesCard && (
                   <Card className="leonardo-card border-gray-800 mt-6">
-                    <CardHeader>
+              <CardHeader>
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
                           <CardTitle>Project Files</CardTitle>
-                          <CardDescription className="text-gray-400">
+                <CardDescription className="text-gray-400">
                             Files only visible to the project team, based on your access level
-                          </CardDescription>
-                        </div>
+                    </CardDescription>
+                      </div>
                         {user?.role !== 'viewer' && user?.role !== 'investor' && currentMember && (
                           <div className="flex flex-col gap-2">
                             <Select value={String(uploadAccessLevel)} onValueChange={v => setUploadAccessLevel(Number(v))}>
@@ -2417,7 +2417,7 @@ export default function ProjectDetails() {
                                 <SelectItem value="5">Level 5</SelectItem>
                               </SelectContent>
                             </Select>
-                            <Button
+                          <Button 
                               onClick={() => document.getElementById('team-files-upload')?.click()}
                               className="gradient-button w-full sm:w-auto"
                               disabled={isUploadingMedia}
@@ -2433,8 +2433,8 @@ export default function ProjectDetails() {
                                   Add File
                                 </>
                               )}
-                            </Button>
-                          </div>
+                          </Button>
+                        </div>
                         )}
                         <input
                           type="file"
@@ -2488,7 +2488,7 @@ export default function ProjectDetails() {
                                       <span className="ml-1">{file.access_level}</span>
                                     )}
                                   </p>
-                                </div>
+                              </div>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Button
@@ -2513,8 +2513,8 @@ export default function ProjectDetails() {
                                   className="text-red-400 hover:text-red-300"
                                   onClick={() => handleDeleteTeamFile(file)}
                                 >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
                               </div>
                             </div>
                           ))}
