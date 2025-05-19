@@ -517,6 +517,7 @@ const getFileIcon = (fileType: string) => {
 }
 
 export default function ProjectDetails() {
+  // All hooks must be at the top, before any return
   const params = useParams()
   const projectId = params.id as string
   const { user, loading: authLoading } = useAuth()
@@ -609,7 +610,6 @@ export default function ProjectDetails() {
     description: ''
   })
   const [selectedImage, setSelectedImage] = useState<number>(0)
-  // --- Edit Team Member Dialog State ---
   const [editPosition, setEditPosition] = useState('');
   const [editAccessLevel, setEditAccessLevel] = useState('1');
   const [isCropOpen, setIsCropOpen] = useState(false)
@@ -634,20 +634,20 @@ export default function ProjectDetails() {
     receipt_url: '',
     notes: ''
   })
-  // --- Project Files (Team Only) CRUD ---
   const [isRenamingTeamFile, setIsRenamingTeamFile] = useState(false);
   const [teamFileToRename, setTeamFileToRename] = useState<MediaFile | null>(null);
   const [newTeamFileName, setNewTeamFileName] = useState('');
-  // --- Project Files (Team Only) Upload Name Prompt ---
   const [pendingTeamFiles, setPendingTeamFiles] = useState<File[]>([]);
   const [isTeamFileNameDialogOpen, setIsTeamFileNameDialogOpen] = useState(false);
   const [teamFileNameInput, setTeamFileNameInput] = useState('');
   const [teamFileToUpload, setTeamFileToUpload] = useState<File | null>(null);
-  // --- Project Files (Team Only) State ---
   const [teamFiles, setTeamFiles] = useState<ProjectFile[]>([]);
   const [uploadAccessLevel, setUploadAccessLevel] = useState<number>(3);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [editingAccessLevel, setEditingAccessLevel] = useState<number>(3);
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const [editingFileName, setEditingFileName] = useState<string | null>(null);
+
   const fetchTeamFiles = async () => {
     if (!projectId) return;
     const { data, error } = await supabase
@@ -2102,6 +2102,7 @@ export default function ProjectDetails() {
   const handleEditAccessLevel = (file: ProjectFile) => {
     setEditingFileId(file.id);
     setEditingAccessLevel(file.access_level);
+    setEditingFileName(null); // Disable file name editing
   };
   const handleSaveAccessLevel = async (file: ProjectFile) => {
     await supabase.from('project_files').update({ access_level: editingAccessLevel }).eq('id', file.id);
@@ -2125,6 +2126,99 @@ export default function ProjectDetails() {
   console.log('Current member:', currentMember);
   console.log('User access level:', userAccessLevel);
   console.log('Visible files:', visibleFiles);
+
+  const allSelected = visibleFiles.length > 0 && selectedFileIds.length === visibleFiles.length;
+  const isIndeterminate = selectedFileIds.length > 0 && selectedFileIds.length < visibleFiles.length;
+
+  const handleSelectFile = (fileId: string) => {
+    setSelectedFileIds((prev) =>
+      prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      setSelectedFileIds([]);
+    } else {
+      setSelectedFileIds(visibleFiles.map((file) => file.id));
+    }
+  };
+
+  const handleDeselectAll = () => setSelectedFileIds([]);
+
+  const handleDeleteSelected = async () => {
+    if (!selectedFileIds.length) return;
+    
+    // Add confirmation dialog
+    if (!confirm(`Are you sure you want to delete ${selectedFileIds.length} selected file${selectedFileIds.length > 1 ? 's' : ''}?`)) {
+      return;
+    }
+
+    try {
+      // Delete each selected file
+      for (const fileId of selectedFileIds) {
+        const file = teamFiles.find(f => f.id === fileId);
+        if (!file) continue;
+
+        // Delete from storage
+        const { error: deleteError } = await supabase.storage
+          .from('partnerfiles')
+          .remove([`projects/${projectId}/${file.storage_name}`]);
+
+        if (deleteError) throw deleteError;
+
+        // Delete from database
+        const { error: dbError } = await supabase
+          .from('project_files')
+          .delete()
+          .eq('id', fileId);
+
+        if (dbError) throw dbError;
+      }
+
+      // Refresh files list
+      await fetchTeamFiles();
+      setSelectedFileIds([]);
+      toast.success('Selected files deleted successfully');
+    } catch (error) {
+      console.error('Error deleting files:', error);
+      toast.error('Failed to delete files');
+    }
+  };
+
+  const handleStartEditFileName = (file: ProjectFile) => {
+    setEditingFileName(file.id);
+    setNewFileName(file.name.split('.')[0]);
+    setEditingFileId(null); // Disable access level editing
+  };
+
+  const handleSaveFileName = async (file: ProjectFile) => {
+    if (!newFileName.trim()) return;
+    
+    try {
+      const fileExt = file.name.split('.').pop();
+      const newNameWithExt = `${newFileName.trim()}.${fileExt}`;
+      
+      const { error } = await supabase
+        .from('project_files')
+        .update({ name: newNameWithExt })
+        .eq('id', file.id);
+
+      if (error) throw error;
+      
+      await fetchTeamFiles();
+      setEditingFileName(null);
+      setNewFileName('');
+      toast.success('File renamed successfully');
+    } catch (error) {
+      toast.error('Failed to rename file');
+    }
+  };
+
+  const handleCancelEditFileName = () => {
+    setEditingFileName(null);
+    setNewFileName('');
+  };
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -2475,11 +2569,48 @@ export default function ProjectDetails() {
                         <div className="space-y-2">
                           {visibleFiles.map((file: ProjectFile, index: number) => (
                             <div key={file.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors">
-                              <div className="flex items-center space-x-3 min-w-0 flex-1">
-                                <span className="text-xs text-gray-400 w-5 text-right mr-2">{index + 1}</span>
+                              <input
+                                type="checkbox"
+                                checked={selectedFileIds.includes(file.id)}
+                                onChange={() => handleSelectFile(file.id)}
+                                className="accent-purple-500 w-4 h-4 mr-2"
+                                aria-label={`Select file ${file.name}`}
+                              />
+                              <span className="text-xs text-gray-400 w-5 text-right mr-2">{index + 1}</span>
                                 {getFileIcon(file.type)}
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-medium text-gray-200 truncate">{file.name}</p>
+                                  {editingFileName === file.id ? (
+                                    <div className="flex items-center gap-2">
+                                      <Input
+                                        value={newFileName}
+                                        onChange={(e) => setNewFileName(e.target.value)}
+                                        className="h-8 text-sm"
+                                        autoFocus
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleSaveFileName(file)}
+                                        className="h-8"
+                                      >
+                                        Save
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={handleCancelEditFileName}
+                                        className="h-8"
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <p 
+                                      className="text-sm font-medium text-gray-200 truncate cursor-pointer hover:text-blue-400"
+                                      onClick={() => handleStartEditFileName(file)}
+                                    >
+                                      {file.name}
+                                    </p>
+                                  )}
                                   <p className="text-xs text-gray-400 flex items-center gap-2">
                                     {formatFileSize(file.size)} • {new Date(file.created_at).toLocaleDateString()} • Access Level:
                                     {editingFileId === file.id ? (
@@ -2504,22 +2635,24 @@ export default function ProjectDetails() {
                                     )}
                                   </p>
                               </div>
-                              </div>
                               <div className="flex items-center gap-2">
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="text-gray-400 hover:text-blue-400"
+                                className="text-gray-400 hover:text-blue-400"
                                   onClick={() => window.open(file.url, '_blank')}
-                                  title="Download File"
+                                title="Download File"
                                 >
-                                  <Download className="w-4 h-4" />
+                                <Download className="w-4 h-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className="text-gray-400 hover:text-blue-400"
-                                  onClick={() => handleEditAccessLevel(file)}
+                                  onClick={() => {
+                                    handleEditAccessLevel(file);
+                                    handleStartEditFileName(file);
+                                  }}
                                 >
                                   <Pencil className="w-4 h-4" />
                                 </Button>
@@ -2538,6 +2671,39 @@ export default function ProjectDetails() {
                       ) : (
                         <div className="text-center py-8 text-gray-400">
                           No files available for your access level
+                        </div>
+                      )}
+                      {visibleFiles.length > 0 && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            ref={el => {
+                              if (el) el.indeterminate = isIndeterminate;
+                            }}
+                            onChange={handleSelectAll}
+                            className="accent-purple-500 w-4 h-4"
+                            aria-label="Select all files"
+                          />
+                          <span className="text-xs text-gray-400">Select All</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="ml-2"
+                            onClick={handleDeleteSelected}
+                            disabled={selectedFileIds.length === 0}
+                          >
+                            Delete Selected
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="ml-1"
+                            onClick={handleDeselectAll}
+                            disabled={selectedFileIds.length === 0}
+                          >
+                            Deselect All
+                          </Button>
                         </div>
                       )}
                     </CardContent>
