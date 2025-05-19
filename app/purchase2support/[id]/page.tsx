@@ -27,6 +27,10 @@ import { useProjects } from "@/hooks/useProjects"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -52,13 +56,75 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+function PaymentForm({ clientSecret, onSuccess }: { clientSecret: string, onSuccess: () => void }) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!stripe || !elements) {
+      return
+    }
+
+    setIsProcessing(true)
+
+    try {
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/purchase2support/success`,
+        },
+        redirect: 'if_required',
+      })
+
+      if (error) {
+        throw error
+      }
+
+      if (paymentIntent.status === 'succeeded') {
+        onSuccess()
+      }
+    } catch (error) {
+      console.error('Payment error:', error)
+      toast.error(error instanceof Error ? error.message : 'Payment failed. Please try again.')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement />
+      <Button
+        type="submit"
+        className="w-full gradient-button"
+        disabled={!stripe || isProcessing}
+      >
+        {isProcessing ? (
+          <>
+            <LoadingSpinner className="w-4 h-4 mr-2" />
+            Processing...
+          </>
+        ) : (
+          <>
+            <Heart className="w-4 h-4 mr-2" />
+            Complete Support
+          </>
+        )}
+      </Button>
+    </form>
+  )
+}
+
 export default function DonationPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const { user } = useAuth()
   const { projects, loading, error } = useProjects()
   const [donationAmount, setDonationAmount] = useState("")
   const [message, setMessage] = useState("")
-  const [isProcessing, setIsProcessing] = useState(false)
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [donationSuccess, setDonationSuccess] = useState(false)
 
   const resolvedParams = use(params)
@@ -108,9 +174,8 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
       return
     }
 
-    setIsProcessing(true)
     try {
-      const response = await fetch('/api/donations', {
+      const response = await fetch('/api/purchase2support/create-payment-intent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,23 +184,19 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
           projectId: project.id,
           amount: parseFloat(donationAmount),
           message,
-          isAnonymous: !user
         }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to process donation')
+        throw new Error(data.error || 'Failed to create payment intent')
       }
 
-      toast.success(`Thank you for your donation of $${donationAmount} to ${project.name}!`)
-      setDonationSuccess(true)
+      setClientSecret(data.clientSecret)
     } catch (error) {
-      console.error('Donation error:', error)
-      toast.error(error instanceof Error ? error.message : "Failed to process donation. Please try again.")
-    } finally {
-      setIsProcessing(false)
+      console.error('Payment intent error:', error)
+      toast.error(error instanceof Error ? error.message : "Failed to process payment. Please try again.")
     }
   }
 
@@ -266,6 +327,28 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                       className="min-h-[100px]"
                     />
                   </div>
+
+                  {/* Payment Form */}
+                  {clientSecret ? (
+                    <Elements stripe={stripePromise} options={{ clientSecret }}>
+                      <PaymentForm 
+                        clientSecret={clientSecret} 
+                        onSuccess={() => {
+                          toast.success(`Thank you for your support of $${donationAmount} to ${project.name}!`)
+                          setDonationSuccess(true)
+                        }} 
+                      />
+                    </Elements>
+                  ) : (
+                    <Button
+                      className="w-full gradient-button"
+                      onClick={handleDonate}
+                      disabled={!donationAmount}
+                    >
+                      <Heart className="w-4 h-4 mr-2" />
+                      Continue to Payment
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -285,27 +368,9 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                     <span className="font-medium">${donationAmount || '0'}</span>
                   </div>
 
-                  <Button
-                    className="w-full bg-pink-600 hover:bg-pink-700"
-                    onClick={handleDonate}
-                    disabled={isProcessing || !donationAmount}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <LoadingSpinner className="w-4 h-4 mr-2" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Heart className="w-4 h-4 mr-2" />
-                        Complete Support
-                      </>
-                    )}
-                  </Button>
-
                   <div className="flex items-center justify-center text-sm text-gray-400">
                     <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Secure support processing
+                    Secure payment processing
                   </div>
                 </div>
               </CardContent>

@@ -1,39 +1,188 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+import { headers } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-03-31.basil'
 });
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(req: Request) {
-  const body = await req.text();
-  const signature = req.headers.get('stripe-signature')!;
-
-    let event: Stripe.Event;
-
   try {
-      event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-        webhookSecret
-      );
-  } catch (err) {
+    const body = await req.text();
+    const headersList = await headers();
+    const signature = headersList.get('stripe-signature');
+
+    if (!signature) {
       return NextResponse.json(
-      { error: 'Webhook signature verification failed' },
+        { error: 'No signature found' },
         { status: 400 }
       );
     }
 
-  try {
+    let event: Stripe.Event;
+
+    try {
+      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err);
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 400 }
+      );
+    }
+
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+
     switch (event.type) {
+      case 'payment_intent.succeeded': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        
+        // Get project details from metadata
+        const { projectId, baseAmount, stripeFee, platformFee, message } = paymentIntent.metadata;
+
+        // Log event and metadata for debugging
+        console.log('Received Stripe event:', event.type, paymentIntent?.id, paymentIntent?.metadata);
+
+        // Create transaction record (using original supabase client)
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            id: paymentIntent.id,
+            amount: parseFloat(baseAmount),
+            type: 'deposit',
+            status: 'completed',
+            user_id: paymentIntent.customer as string,
+            project_id: projectId,
+            metadata: {
+              stripe_payment_intent_id: paymentIntent.id,
+              stripe_fee: stripeFee,
+              platform_fee: platformFee,
+              message: message || '',
+              payment_method: paymentIntent.payment_method_types[0],
+              transfer_destination: paymentIntent.transfer_data?.destination
+            }
+          });
+
+        if (transactionError) {
+          console.error('Error creating transaction:', transactionError);
+          return NextResponse.json(
+            { error: 'Failed to create transaction record' },
+            { status: 500 }
+          );
+        }
+
+        // Use service role key for public_supports insert
+        const serviceSupabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        const supporterId = paymentIntent.metadata?.user_id && paymentIntent.metadata.user_id !== '' ? paymentIntent.metadata.user_id : null;
+        console.log('Attempting insert into public_supports:', {
+          project_id: projectId,
+          supporter_id: supporterId,
+          amount: parseFloat(baseAmount),
+          currency: paymentIntent.currency,
+          status: paymentIntent.status,
+          message: message || null,
+          stripe_payment_intent_id: paymentIntent.id,
+          stripe_fee: stripeFee,
+          platform_fee: platformFee,
+          created_at: new Date().toISOString(),
+          metadata: paymentIntent.metadata || {}
+        });
+        const { error: supportError } = await serviceSupabase
+          .from('public_supports')
+          .insert({
+            project_id: projectId,
+            supporter_id: supporterId,
+            amount: parseFloat(baseAmount),
+            currency: paymentIntent.currency,
+            status: paymentIntent.status,
+            message: message || null,
+            stripe_payment_intent_id: paymentIntent.id,
+            stripe_fee: stripeFee,
+            platform_fee: platformFee,
+            created_at: new Date().toISOString(),
+            metadata: paymentIntent.metadata || {}
+          });
+
+        if (supportError) {
+          console.error('Error creating public support record:', supportError);
+        } else {
+          console.log('Successfully inserted public support record for:', paymentIntent.id);
+        }
+
+        // Fetch current funding
+        const { data: projectData, error: fetchError } = await supabase
+          .from('projects')
+          .select('current_funding')
+          .eq('id', projectId)
+          .single();
+
+        if (fetchError) {
+          console.error('Error fetching project funding:', fetchError);
+          return NextResponse.json(
+            { error: 'Failed to fetch project funding' },
+            { status: 500 }
+          );
+        }
+
+        const newFunding = (projectData?.current_funding || 0) + parseFloat(baseAmount);
+
+        // Update project's current funding
+        const { error: projectError } = await supabase
+          .from('projects')
+          .update({ current_funding: newFunding })
+          .eq('id', projectId);
+
+        if (projectError) {
+          console.error('Error updating project funding:', projectError);
+          return NextResponse.json(
+            { error: 'Failed to update project funding' },
+            { status: 500 }
+          );
+        }
+
+        break;
+      }
+
+      case 'payment_intent.payment_failed': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        
+        // Create failed transaction record
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            id: paymentIntent.id,
+            amount: paymentIntent.amount / 100, // Convert from cents
+            type: 'deposit',
+            status: 'failed',
+            user_id: paymentIntent.customer as string,
+            project_id: paymentIntent.metadata.projectId,
+            metadata: {
+              stripe_payment_intent_id: paymentIntent.id,
+              failure_reason: paymentIntent.last_payment_error?.message,
+              payment_method: paymentIntent.payment_method_types[0]
+            }
+          });
+
+        if (transactionError) {
+          console.error('Error creating failed transaction:', transactionError);
+          return NextResponse.json(
+            { error: 'Failed to create failed transaction record' },
+            { status: 500 }
+          );
+        }
+
+        break;
+      }
+
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
@@ -90,9 +239,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error('Error processing webhook:', error);
+    console.error('Webhook error:', error);
     return NextResponse.json(
-      { error: 'Error processing webhook' },
+      { error: 'Webhook handler failed' },
       { status: 500 }
     );
   }
