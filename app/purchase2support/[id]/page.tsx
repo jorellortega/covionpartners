@@ -200,6 +200,12 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
     }
   }
 
+  // Calculate fees for summary (user pays exactly the entered amount)
+  const supportAmount = parseFloat(donationAmount) || 0
+  const stripeFee = supportAmount > 0 ? (supportAmount * 0.029 + 0.30) : 0
+  const platformFee = supportAmount > 0 ? (supportAmount * 0.02) : 0
+  const netAmount = supportAmount - stripeFee - platformFee
+
   return (
     <div className="min-h-screen">
       <main className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
@@ -365,9 +371,20 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                 <div className="space-y-4">
                   <div className="flex justify-between items-center py-2 border-b border-gray-800">
                     <span className="text-gray-400">Support Amount</span>
-                    <span className="font-medium">${donationAmount || '0'}</span>
+                    <span className="font-medium">${supportAmount.toFixed(2)}</span>
                   </div>
-
+                  <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                    <span className="text-gray-400">Stripe Fee</span>
+                    <span className="font-medium">-${stripeFee.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                    <span className="text-gray-400">Platform Fee</span>
+                    <span className="font-medium">-${platformFee.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-800 font-bold">
+                    <span className="text-white">Project Receives</span>
+                    <span className="font-bold">${netAmount > 0 ? netAmount.toFixed(2) : '0.00'}</span>
+                  </div>
                   <div className="flex items-center justify-center text-sm text-gray-400">
                     <CheckCircle2 className="w-4 h-4 mr-2" />
                     Secure payment processing

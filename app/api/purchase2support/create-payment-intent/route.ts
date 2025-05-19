@@ -40,17 +40,17 @@ export async function POST(req: Request) {
       }, { status: 400 })
     }
 
-    // Calculate fees
+    // Calculate fees (user pays exactly the entered amount)
     const stripeFee = (amount * 0.029) + 0.30 // 2.9% + $0.30
     const platformFee = amount * 0.02 // 2%
-    const totalAmount = Math.round((amount + stripeFee + platformFee) * 100) // Convert to cents
+    const netAmount = amount - stripeFee - platformFee
 
     // Get user id if authenticated
     const { data: { user } } = await supabase.auth.getUser()
 
     // Create payment intent
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: totalAmount,
+      amount: Math.round(amount * 100), // User pays exactly this
       currency: 'usd',
       automatic_payment_methods: {
         enabled: true,
@@ -58,6 +58,7 @@ export async function POST(req: Request) {
       transfer_data: {
         destination: project.users.stripe_connect_account_id,
       },
+      application_fee_amount: Math.round(platformFee * 100),
       metadata: {
         projectId,
         user_id: user?.id || '',
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
         baseAmount: amount.toString(),
         stripeFee: stripeFee.toString(),
         platformFee: platformFee.toString(),
+        netAmount: netAmount.toString(),
       }
     })
 
