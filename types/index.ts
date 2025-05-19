@@ -123,4 +123,6 @@ export interface ProjectFile {
   created_at: string;
   team_only: boolean;
   access_level: number;
+  label_status?: string;
+  custom_label?: string;
 } 

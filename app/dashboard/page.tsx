@@ -1327,6 +1327,14 @@ export default function PartnerDashboard() {
                   <Settings className="w-4 h-4 mr-2" />
                   Settings
                 </Button>
+                <Button
+                  variant="outline"
+                  className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                  onClick={() => router.push('/createtoken')}
+                >
+                  <Star className="w-4 h-4 mr-2" />
+                  Create Token/Certificate
+                </Button>
               </CardContent>
             </Card>
 

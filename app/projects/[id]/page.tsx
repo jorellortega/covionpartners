@@ -48,6 +48,8 @@ import {
   FileType,
   FileJson,
   FileX,
+  Eye,
+  Archive,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -647,6 +649,9 @@ export default function ProjectDetails() {
   const [editingAccessLevel, setEditingAccessLevel] = useState<number>(3);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
   const [editingFileName, setEditingFileName] = useState<string | null>(null);
+  const [editingLabel, setEditingLabel] = useState<string | null>(null);
+  const [newLabel, setNewLabel] = useState('');
+  const [newLabelStatus, setNewLabelStatus] = useState('draft');
 
   const fetchTeamFiles = async () => {
     if (!projectId) return;
@@ -2220,6 +2225,47 @@ export default function ProjectDetails() {
     setNewFileName('');
   };
 
+  // Add this function to handle label updates
+  const handleSaveLabel = async (file: ProjectFile) => {
+    if (!newLabel.trim() && !newLabelStatus) return;
+    
+    try {
+      const { error } = await supabase
+        .from('project_files')
+        .update({ 
+          custom_label: newLabel.trim() || null,
+          label_status: newLabelStatus
+        })
+        .eq('id', file.id);
+
+      if (error) throw error;
+      
+      await fetchTeamFiles();
+      setEditingLabel(null);
+      setNewLabel('');
+      setNewLabelStatus('draft');
+      toast.success('Label updated successfully');
+    } catch (error) {
+      toast.error('Failed to update label');
+    }
+  };
+
+  // Add this function to get label icon
+  const getLabelIcon = (status: string) => {
+    switch (status) {
+      case 'draft':
+        return <FileText className="w-4 h-4 text-gray-400" />;
+      case 'completed':
+        return <CheckCircle className="w-4 h-4 text-green-400" />;
+      case 'in_review':
+        return <Eye className="w-4 h-4 text-blue-400" />;
+      case 'archived':
+        return <Archive className="w-4 h-4 text-gray-500" />;
+      default:
+        return <FileText className="w-4 h-4 text-gray-400" />;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header">
@@ -2568,17 +2614,19 @@ export default function ProjectDetails() {
                       ) : visibleFiles.length > 0 ? (
                         <div className="space-y-2">
                           {visibleFiles.map((file: ProjectFile, index: number) => (
-                            <div key={file.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors">
-                              <input
-                                type="checkbox"
-                                checked={selectedFileIds.includes(file.id)}
-                                onChange={() => handleSelectFile(file.id)}
-                                className="accent-purple-500 w-4 h-4 mr-2"
-                                aria-label={`Select file ${file.name}`}
-                              />
-                              <span className="text-xs text-gray-400 w-5 text-right mr-2">{index + 1}</span>
+                            <div key={file.id} className="flex items-center p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors">
+                              {/* Left: File info */}
+                              <div className="flex items-center min-w-0 flex-1 gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedFileIds.includes(file.id)}
+                                  onChange={() => handleSelectFile(file.id)}
+                                  className="accent-purple-500 w-4 h-4"
+                                  aria-label={`Select file ${file.name}`}
+                                />
+                                <span className="text-xs text-gray-400 w-5 text-right">{index + 1}</span>
                                 {getFileIcon(file.type)}
-                                <div className="min-w-0 flex-1">
+                                <div className="min-w-0 flex flex-col">
                                   {editingFileName === file.id ? (
                                     <div className="flex items-center gap-2">
                                       <Input
@@ -2605,7 +2653,7 @@ export default function ProjectDetails() {
                                     </div>
                                   ) : (
                                     <p 
-                                      className="text-sm font-medium text-gray-200 truncate cursor-pointer hover:text-blue-400"
+                                      className="text-lg font-bold text-white truncate cursor-pointer hover:text-blue-400"
                                       onClick={() => handleStartEditFileName(file)}
                                     >
                                       {file.name}
@@ -2634,16 +2682,92 @@ export default function ProjectDetails() {
                                       <span className="ml-1">{file.access_level}</span>
                                     )}
                                   </p>
+                                </div>
                               </div>
+                              {/* Middle: Label badge */}
+                              <div className="flex-1 flex justify-center">
+                                {editingLabel === file.id ? (
+                                  <div className="flex items-center gap-2">
+                                    <Select value={newLabelStatus} onValueChange={setNewLabelStatus}>
+                                      <SelectTrigger className="w-[120px] h-6 text-xs">
+                                        <SelectValue placeholder="Status" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="draft">Draft</SelectItem>
+                                        <SelectItem value="completed">Completed</SelectItem>
+                                        <SelectItem value="in_review">In Review</SelectItem>
+                                        <SelectItem value="archived">Archived</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <Input
+                                      value={newLabel}
+                                      onChange={(e) => setNewLabel(e.target.value)}
+                                      placeholder="Custom label (optional)"
+                                      className="h-6 text-xs w-[150px]"
+                                    />
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleSaveLabel(file)}
+                                      className="h-6 text-xs"
+                                    >
+                                      Save
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setEditingLabel(null);
+                                        setNewLabel('');
+                                        setNewLabelStatus('draft');
+                                      }}
+                                      className="h-6 text-xs"
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div
+                                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full font-semibold text-base cursor-pointer"
+                                    style={{
+                                      background: file.label_status === 'completed'
+                                        ? 'rgba(34,197,94,0.15)'
+                                        : file.label_status === 'in_review'
+                                        ? 'rgba(59,130,246,0.15)'
+                                        : file.label_status === 'archived'
+                                        ? 'rgba(156,163,175,0.15)'
+                                        : 'rgba(107,114,128,0.15)',
+                                      color: file.label_status === 'completed'
+                                        ? '#22c55e'
+                                        : file.label_status === 'in_review'
+                                        ? '#3b82f6'
+                                        : file.label_status === 'archived'
+                                        ? '#9ca3af'
+                                        : '#6b7280',
+                                      transition: 'background 0.2s, color 0.2s',
+                                    }}
+                                    onClick={() => {
+                                      setEditingLabel(file.id);
+                                      setNewLabel(file.custom_label || '');
+                                      setNewLabelStatus(file.label_status || 'draft');
+                                    }}
+                                  >
+                                    {getLabelIcon(file.label_status || 'draft')}
+                                    <span>
+                                      {file.custom_label || file.label_status || 'No label'}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              {/* Right: Actions */}
                               <div className="flex items-center gap-2">
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                className="text-gray-400 hover:text-blue-400"
+                                  className="text-gray-400 hover:text-blue-400"
                                   onClick={() => window.open(file.url, '_blank')}
-                                title="Download File"
+                                  title="Download File"
                                 >
-                                <Download className="w-4 h-4" />
+                                  <Download className="w-4 h-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -2662,8 +2786,8 @@ export default function ProjectDetails() {
                                   className="text-red-400 hover:text-red-300"
                                   onClick={() => handleDeleteTeamFile(file)}
                                 >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
                               </div>
                             </div>
                           ))}
