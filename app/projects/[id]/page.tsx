@@ -656,6 +656,8 @@ export default function ProjectDetails() {
       .eq('project_id', projectId)
       .eq('team_only', true)
       .order('created_at', { ascending: false });
+    console.log('Fetched team files:', data);
+    console.log('Fetch error:', error);
     if (!error && data) setTeamFiles(data);
   };
   useEffect(() => { fetchTeamFiles(); }, [projectId, isUploadingMedia]);
@@ -682,7 +684,7 @@ export default function ProjectDetails() {
         size: file.size,
         aspect_ratio: undefined,
         team_only: true,
-        access_level: uploadAccessLevel || 3,
+        access_level: userUploadAccessLevel,
       });
       if (insertError) throw insertError;
       fetchTeamFiles();
@@ -2108,11 +2110,21 @@ export default function ProjectDetails() {
     toast.success('Access level updated!');
   };
 
-  const userAccessLevel = isOwner ? 0 : Number(currentMember?.access_level) || 99;
+  const userAccessLevel = isOwner ? 5 : Number(currentMember?.access_level) || 99;
   const visibleFiles: ProjectFile[] = teamFiles.filter((file: ProjectFile) => userAccessLevel >= file.access_level);
 
   const allowedAccessLevels = [1, 2, 3, 4, 5];
   const canSeeProjectFilesCard = isOwner || allowedAccessLevels.includes(Number(currentMember?.access_level));
+
+  // Determine if the user can set access level
+  const canSetAccessLevel = isOwner || [4, 5].includes(Number(currentMember?.access_level));
+  const userUploadAccessLevel = canSetAccessLevel ? uploadAccessLevel : 1;
+
+  // Add these logs before the Project Files card render
+  console.log('Can see project files card:', canSeeProjectFilesCard);
+  console.log('Current member:', currentMember);
+  console.log('User access level:', userAccessLevel);
+  console.log('Visible files:', visibleFiles);
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -2405,18 +2417,20 @@ export default function ProjectDetails() {
                       </div>
                         {user?.role !== 'viewer' && user?.role !== 'investor' && currentMember && (
                           <div className="flex flex-col gap-2">
-                            <Select value={String(uploadAccessLevel)} onValueChange={v => setUploadAccessLevel(Number(v))}>
-                              <SelectTrigger className="w-[120px]">
-                                <SelectValue placeholder="Access Level" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="1">Level 1</SelectItem>
-                                <SelectItem value="2">Level 2</SelectItem>
-                                <SelectItem value="3">Level 3</SelectItem>
-                                <SelectItem value="4">Level 4</SelectItem>
-                                <SelectItem value="5">Level 5</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            {canSetAccessLevel && (
+                              <Select value={String(uploadAccessLevel)} onValueChange={v => setUploadAccessLevel(Number(v))}>
+                                <SelectTrigger className="w-[120px]">
+                                  <SelectValue placeholder="Access Level" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="1">Level 1</SelectItem>
+                                  <SelectItem value="2">Level 2</SelectItem>
+                                  <SelectItem value="3">Level 3</SelectItem>
+                                  <SelectItem value="4">Level 4</SelectItem>
+                                  <SelectItem value="5">Level 5</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
                           <Button 
                               onClick={() => document.getElementById('team-files-upload')?.click()}
                               className="gradient-button w-full sm:w-auto"
@@ -2462,6 +2476,7 @@ export default function ProjectDetails() {
                           {visibleFiles.map((file: ProjectFile, index: number) => (
                             <div key={file.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors">
                               <div className="flex items-center space-x-3 min-w-0 flex-1">
+                                <span className="text-xs text-gray-400 w-5 text-right mr-2">{index + 1}</span>
                                 {getFileIcon(file.type)}
                                 <div className="min-w-0 flex-1">
                                   <p className="text-sm font-medium text-gray-200 truncate">{file.name}</p>
@@ -2494,10 +2509,11 @@ export default function ProjectDetails() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="text-gray-400 hover:text-gray-200"
+                                  className="text-gray-400 hover:text-blue-400"
                                   onClick={() => window.open(file.url, '_blank')}
+                                  title="Download File"
                                 >
-                                  <FileText className="w-4 h-4" />
+                                  <Download className="w-4 h-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"
