@@ -2614,9 +2614,9 @@ export default function ProjectDetails() {
                       ) : visibleFiles.length > 0 ? (
                         <div className="space-y-2">
                           {visibleFiles.map((file: ProjectFile, index: number) => (
-                            <div key={file.id} className="flex flex-col md:flex-row items-start md:items-center p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors">
+                            <div key={file.id} className="flex flex-col md:flex-row items-start md:items-center p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors w-full">
                               {/* Left: File info */}
-                              <div className="flex items-center min-w-0 flex-1 gap-2">
+                              <div className="flex items-center min-w-0 flex-1 gap-2 w-full">
                                 <input
                                   type="checkbox"
                                   checked={selectedFileIds.includes(file.id)}
@@ -2626,13 +2626,13 @@ export default function ProjectDetails() {
                                 />
                                 <span className="text-xs text-gray-400 w-5 text-right">{index + 1}</span>
                                 {getFileIcon(file.type)}
-                                <div className="min-w-0 flex flex-col">
+                                <div className="min-w-0 flex flex-col w-full">
                                   {editingFileName === file.id ? (
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 w-full">
                                       <Input
                                         value={newFileName}
                                         onChange={(e) => setNewFileName(e.target.value)}
-                                        className="h-8 text-sm"
+                                        className="h-8 text-sm w-full"
                                         autoFocus
                                       />
                                       <Button
@@ -2653,13 +2653,13 @@ export default function ProjectDetails() {
                                     </div>
                                   ) : (
                                     <p 
-                                      className="text-lg font-bold text-white truncate cursor-pointer hover:text-blue-400"
+                                      className="text-lg font-bold text-white truncate cursor-pointer hover:text-blue-400 w-full"
                                       onClick={() => handleStartEditFileName(file)}
                                     >
                                       {file.name}
                                     </p>
                                   )}
-                                  <p className="text-xs text-gray-400 flex items-center gap-2">
+                                  <p className="text-xs text-gray-400 flex items-center gap-2 w-full">
                                     <span className="hidden md:inline opacity-50">{new Date(file.created_at).toLocaleDateString()}</span> • <span className="hidden md:inline opacity-25">Access Level:</span>
                                     {editingFileId === file.id ? (
                                       <span className="flex items-center gap-1 ml-1">
@@ -2685,9 +2685,9 @@ export default function ProjectDetails() {
                                 </div>
                               </div>
                               {/* Middle: Label badge */}
-                              <div className="flex-1 flex justify-center mt-2 md:mt-0">
+                              <div className="flex-1 flex justify-center mt-2 md:mt-0 w-full">
                                 {editingLabel === file.id ? (
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 w-full">
                                     <Select value={newLabelStatus} onValueChange={setNewLabelStatus}>
                                       <SelectTrigger className="w-[120px] h-6 text-xs">
                                         <SelectValue placeholder="Status" />
@@ -2727,7 +2727,7 @@ export default function ProjectDetails() {
                                   </div>
                                 ) : (
                                   <div
-                                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full font-semibold text-base cursor-pointer"
+                                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full font-semibold text-base cursor-pointer w-full justify-center"
                                     style={{
                                       background: file.label_status === 'completed'
                                         ? 'rgba(34,197,94,0.15)'
@@ -2759,7 +2759,7 @@ export default function ProjectDetails() {
                                 )}
                               </div>
                               {/* Right: Actions */}
-                              <div className="flex items-center gap-2 mt-2 md:mt-0">
+                              <div className="flex items-center gap-2 mt-2 md:mt-0 w-full md:w-auto justify-end">
                                 <Button
                                   variant="ghost"
                                   size="sm"
