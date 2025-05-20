@@ -2614,7 +2614,7 @@ export default function ProjectDetails() {
                       ) : visibleFiles.length > 0 ? (
                         <div className="space-y-2">
                           {visibleFiles.map((file: ProjectFile, index: number) => (
-                            <div key={file.id} className="flex items-center p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors">
+                            <div key={file.id} className="flex flex-col md:flex-row items-start md:items-center p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors">
                               {/* Left: File info */}
                               <div className="flex items-center min-w-0 flex-1 gap-2">
                                 <input
@@ -2685,7 +2685,7 @@ export default function ProjectDetails() {
                                 </div>
                               </div>
                               {/* Middle: Label badge */}
-                              <div className="flex-1 flex justify-center">
+                              <div className="flex-1 flex justify-center mt-2 md:mt-0">
                                 {editingLabel === file.id ? (
                                   <div className="flex items-center gap-2">
                                     <Select value={newLabelStatus} onValueChange={setNewLabelStatus}>
@@ -2759,7 +2759,7 @@ export default function ProjectDetails() {
                                 )}
                               </div>
                               {/* Right: Actions */}
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 mt-2 md:mt-0">
                                 <Button
                                   variant="ghost"
                                   size="sm"
