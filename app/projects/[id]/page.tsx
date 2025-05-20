@@ -2660,7 +2660,7 @@ export default function ProjectDetails() {
                                     </p>
                                   )}
                                   <p className="text-xs text-gray-400 flex items-center gap-2">
-                                    {formatFileSize(file.size)} • {new Date(file.created_at).toLocaleDateString()} • Access Level:
+                                    <span className="hidden md:inline opacity-50">{new Date(file.created_at).toLocaleDateString()}</span> • <span className="hidden md:inline opacity-25">Access Level:</span>
                                     {editingFileId === file.id ? (
                                       <span className="flex items-center gap-1 ml-1">
                                         <Select value={String(editingAccessLevel)} onValueChange={v => setEditingAccessLevel(Number(v))}>
@@ -2679,7 +2679,7 @@ export default function ProjectDetails() {
                                         <Button size="sm" variant="outline" className="ml-1 px-2 py-1 text-xs" onClick={() => setEditingFileId(null)}>Cancel</Button>
                                       </span>
                                     ) : (
-                                      <span className="ml-1">{file.access_level}</span>
+                                      <span className="ml-1 opacity-25 hidden md:inline">{file.access_level}</span>
                                     )}
                                   </p>
                                 </div>
