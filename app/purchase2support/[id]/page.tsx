@@ -98,9 +98,12 @@ function PaymentForm({ clientSecret, onSuccess }: { clientSecret: string, onSucc
           .from('public_supports')
           .select('*')
           .eq('stripe_payment_intent_id', paymentIntent.id)
-          .single()
+          .maybeSingle()
 
-        if (fetchError) throw fetchError
+        if (fetchError || !data) {
+          toast.info('Your token is being generated. Please check back in a moment or view it in My Tokens.')
+          return;
+        }
 
         setTokenData(data)
         setShowDownloadOptions(true)
@@ -626,11 +629,11 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-800">
                     <span className="text-gray-400">Stripe Fee</span>
-                    <span className="font-medium">-${stripeFee.toFixed(2)}</span>
+                    <span className="font-medium text-xs text-gray-400">-${stripeFee.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-800">
                     <span className="text-gray-400">Platform Fee</span>
-                    <span className="font-medium">-${platformFee.toFixed(2)}</span>
+                    <span className="font-medium text-xs text-gray-400">-${platformFee.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-800 font-bold">
                     <span className="text-white">Project Receives</span>
