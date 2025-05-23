@@ -92,21 +92,6 @@ function PaymentForm({ clientSecret, onSuccess }: { clientSecret: string, onSucc
       }
 
       if (paymentIntent.status === 'succeeded') {
-        // Fetch the newly created token data
-        const supabase = createClientComponentClient()
-        const { data, error: fetchError } = await supabase
-          .from('public_supports')
-          .select('*')
-          .eq('stripe_payment_intent_id', paymentIntent.id)
-          .maybeSingle()
-
-        if (fetchError || !data) {
-          toast.info('Your token is being generated. Please check back in a moment or view it in My Tokens.')
-          return;
-        }
-
-        setTokenData(data)
-        setShowDownloadOptions(true)
         onSuccess()
       }
     } catch (error) {
