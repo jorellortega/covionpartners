@@ -2555,41 +2555,51 @@ export default function ProjectDetails() {
                             Files only visible to the project team, based on your access level
                     </CardDescription>
                       </div>
-                        {user?.role !== 'viewer' && user?.role !== 'investor' && currentMember && (
-                          <div className="flex flex-col gap-2">
-                            {canSetAccessLevel && (
-                              <Select value={String(uploadAccessLevel)} onValueChange={v => setUploadAccessLevel(Number(v))}>
-                                <SelectTrigger className="w-[120px]">
-                                  <SelectValue placeholder="Access Level" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="1">Level 1</SelectItem>
-                                  <SelectItem value="2">Level 2</SelectItem>
-                                  <SelectItem value="3">Level 3</SelectItem>
-                                  <SelectItem value="4">Level 4</SelectItem>
-                                  <SelectItem value="5">Level 5</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            )}
-                          <Button 
-                              onClick={() => document.getElementById('team-files-upload')?.click()}
-                              className="gradient-button w-full sm:w-auto"
-                              disabled={isUploadingMedia}
-                            >
-                              {isUploadingMedia ? (
-                                <>
-                                  <LoadingSpinner className="w-4 h-4 mr-2" />
-                                  Uploading...
-                                </>
-                              ) : (
-                                <>
-                                  <FileText className="w-4 h-4 mr-2" />
-                                  Add File
-                                </>
-                              )}
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => router.push('/projectfiles')}
+                            className="w-full sm:w-auto"
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            View All Files
                           </Button>
+                          {user && !['viewer', 'investor'].includes(user.role) && currentMember && (
+                            <div className="flex flex-col gap-2">
+                              {canSetAccessLevel && (
+                                <Select value={String(uploadAccessLevel)} onValueChange={v => setUploadAccessLevel(Number(v))}>
+                                  <SelectTrigger className="w-[120px]">
+                                    <SelectValue placeholder="Access Level" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="1">Level 1</SelectItem>
+                                    <SelectItem value="2">Level 2</SelectItem>
+                                    <SelectItem value="3">Level 3</SelectItem>
+                                    <SelectItem value="4">Level 4</SelectItem>
+                                    <SelectItem value="5">Level 5</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              )}
+                              <Button 
+                                onClick={() => document.getElementById('team-files-upload')?.click()}
+                                className="gradient-button w-full sm:w-auto"
+                                disabled={isUploadingMedia}
+                              >
+                                {isUploadingMedia ? (
+                                  <>
+                                    <LoadingSpinner className="w-4 h-4 mr-2" />
+                                    Uploading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    Add File
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                        )}
                         <input
                           type="file"
                           id="team-files-upload"
@@ -2617,13 +2627,13 @@ export default function ProjectDetails() {
                             <div key={file.id} className="flex flex-col md:flex-row items-start md:items-center p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors w-full">
                               {/* Left: File info */}
                               <div className="flex items-center min-w-0 flex-1 gap-2 w-full">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedFileIds.includes(file.id)}
-                                  onChange={() => handleSelectFile(file.id)}
+                              <input
+                                type="checkbox"
+                                checked={selectedFileIds.includes(file.id)}
+                                onChange={() => handleSelectFile(file.id)}
                                   className="accent-purple-500 w-4 h-4"
-                                  aria-label={`Select file ${file.name}`}
-                                />
+                                aria-label={`Select file ${file.name}`}
+                              />
                                 <span className="text-xs text-gray-400 w-5 text-right">{index + 1}</span>
                                 {getFileIcon(file.type)}
                                 <div className="min-w-0 flex flex-col w-full">
@@ -2682,7 +2692,7 @@ export default function ProjectDetails() {
                                       <span className="ml-1 opacity-25 hidden md:inline">{file.access_level}</span>
                                     )}
                                   </p>
-                                </div>
+                              </div>
                               </div>
                               {/* Middle: Label badge */}
                               <div className="flex-1 flex justify-center mt-2 md:mt-0 w-full">
@@ -2763,11 +2773,11 @@ export default function ProjectDetails() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="text-gray-400 hover:text-blue-400"
+                                className="text-gray-400 hover:text-blue-400"
                                   onClick={() => window.open(file.url, '_blank')}
-                                  title="Download File"
+                                title="Download File"
                                 >
-                                  <Download className="w-4 h-4" />
+                                <Download className="w-4 h-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -2786,8 +2796,8 @@ export default function ProjectDetails() {
                                   className="text-red-400 hover:text-red-300"
                                   onClick={() => handleDeleteTeamFile(file)}
                                 >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
                               </div>
                             </div>
                           ))}

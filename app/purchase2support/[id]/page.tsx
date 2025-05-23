@@ -22,6 +22,8 @@ import {
   DollarSign,
   AlertCircle,
   CheckCircle2,
+  Gift,
+  Download,
 } from "lucide-react"
 import { useProjects } from "@/hooks/useProjects"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
@@ -29,10 +31,12 @@ import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
-import { jsPDF } from 'jspdf'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+const TOKEN_IMAGE_URL = "https://uytqyfpjdevrqmwqfthk.supabase.co/storage/v1/object/public/partnerfiles/branding/handshake.png"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -62,6 +66,8 @@ function PaymentForm({ clientSecret, onSuccess }: { clientSecret: string, onSucc
   const stripe = useStripe()
   const elements = useElements()
   const [isProcessing, setIsProcessing] = useState(false)
+  const [showDownloadOptions, setShowDownloadOptions] = useState(false)
+  const [tokenData, setTokenData] = useState<any>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,6 +92,18 @@ function PaymentForm({ clientSecret, onSuccess }: { clientSecret: string, onSucc
       }
 
       if (paymentIntent.status === 'succeeded') {
+        // Fetch the newly created token data
+        const supabase = createClientComponentClient()
+        const { data, error: fetchError } = await supabase
+          .from('public_supports')
+          .select('*')
+          .eq('stripe_payment_intent_id', paymentIntent.id)
+          .single()
+
+        if (fetchError) throw fetchError
+
+        setTokenData(data)
+        setShowDownloadOptions(true)
         onSuccess()
       }
     } catch (error) {
@@ -96,32 +114,161 @@ function PaymentForm({ clientSecret, onSuccess }: { clientSecret: string, onSucc
     }
   }
 
+  const handleDownloadToken = async () => {
+    if (!tokenData) return
+
+    const tokenElement = document.getElementById('token-image')
+    if (tokenElement) {
+      const canvas = await html2canvas(tokenElement, { backgroundColor: null, width: 240, height: 320, scale: 2 })
+      const link = document.createElement('a')
+      link.download = `token-${tokenData.token_serial}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    }
+  }
+
+  const handleDownloadCertificate = async () => {
+    if (!tokenData) return
+
+    const certificateElement = document.getElementById('certificate-image')
+    if (certificateElement) {
+      const canvas = await html2canvas(certificateElement, { backgroundColor: null, width: 240, height: 320, scale: 2 })
+      const link = document.createElement('a')
+      link.download = `certificate-${tokenData.certificate_number}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    }
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement />
-      <Button
-        type="submit"
-        className="w-full gradient-button"
-        disabled={!stripe || isProcessing}
-      >
-        {isProcessing ? (
-          <>
-            <LoadingSpinner className="w-4 h-4 mr-2" />
-            Processing...
-          </>
-        ) : (
-          <>
-            <Heart className="w-4 h-4 mr-2" />
-            Complete Support
-          </>
-        )}
-      </Button>
-    </form>
+    <div className="space-y-6">
+      {!showDownloadOptions ? (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <PaymentElement />
+          <Button
+            type="submit"
+            className="w-full gradient-button"
+            disabled={!stripe || isProcessing}
+          >
+            {isProcessing ? (
+              <>
+                <LoadingSpinner className="w-4 h-4 mr-2" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <Heart className="w-4 h-4 mr-2" />
+                Complete Purchase
+              </>
+            )}
+          </Button>
+        </form>
+      ) : (
+        <div className="space-y-6">
+          <div className="text-center space-y-2">
+            <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto" />
+            <h3 className="text-xl font-semibold">Purchase Successful!</h3>
+            <p className="text-gray-400">Your token has been created. You can download it below.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Token Preview */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">Your Token</h4>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadToken}
+                  className="text-purple-400 hover:text-purple-300"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Token
+                </Button>
+              </div>
+              <div className="relative aspect-[3/4] bg-gray-900 rounded-lg overflow-hidden">
+                <div id="token-image" className="absolute inset-0">
+                  <svg width="1600" height="2240" viewBox="0 0 1600 2240" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
+                    <defs>
+                      <linearGradient id="card-bg" x1="0" y1="0" x2="1600" y2="2240" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#4f46e5" />
+                        <stop offset="0.5" stopColor="#7c3aed" />
+                        <stop offset="1" stopColor="#ec4899" />
+                      </linearGradient>
+                      <radialGradient id="shine" cx="50%" cy="30%" r="70%">
+                        <stop offset="0%" stopColor="#fff" stopOpacity="0.25" />
+                        <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+                      </radialGradient>
+                    </defs>
+                    <rect x="40" y="40" width="1520" height="2160" rx="80" fill="url(#card-bg)" stroke="#fff" strokeWidth="16" />
+                    <rect x="40" y="40" width="1520" height="2160" rx="80" fill="url(#shine)" />
+                    <text x="50%" y="240" textAnchor="middle" fontSize="160" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="8">TOKEN</text>
+                    <text x="50%" y="380" textAnchor="middle" fontSize="72" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif" letterSpacing="8">COVION PARTNERS</text>
+                    <circle cx="800" cy="1100" r="400" fill="#141414" stroke="#fff" strokeWidth="12" />
+                    <image href={TOKEN_IMAGE_URL} x="500" y="800" width="600" height="600" style={{ filter: 'drop-shadow(0 0 24px #7c3aed88)' }} />
+                    <text x="50%" y="2000" textAnchor="middle" fontSize="80" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif">{tokenData?.token_serial || ''}</text>
+                    <text x="50%" y="2100" textAnchor="middle" fontSize="48" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif">Serial Number</text>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Certificate Preview */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">Your Certificate</h4>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadCertificate}
+                  className="text-purple-400 hover:text-purple-300"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Certificate
+                </Button>
+              </div>
+              <div className="relative aspect-[3/4] bg-gray-900 rounded-lg overflow-hidden">
+                <div id="certificate-image" className="absolute inset-0">
+                  <svg width="1600" height="2240" viewBox="0 0 1600 2240" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
+                    <defs>
+                      <linearGradient id="cert-bg" x1="0" y1="0" x2="1600" y2="2240" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#4f46e5" />
+                        <stop offset="0.5" stopColor="#7c3aed" />
+                        <stop offset="1" stopColor="#ec4899" />
+                      </linearGradient>
+                      <radialGradient id="cert-shine" cx="50%" cy="30%" r="70%">
+                        <stop offset="0%" stopColor="#fff" stopOpacity="0.25" />
+                        <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+                      </radialGradient>
+                    </defs>
+                    <rect x="40" y="40" width="1520" height="2160" rx="80" fill="url(#cert-bg)" stroke="#fff" strokeWidth="16" />
+                    <rect x="40" y="40" width="1520" height="2160" rx="80" fill="url(#cert-shine)" />
+                    <text x="50%" y="240" textAnchor="middle" fontSize="160" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="8">CERTIFICATE</text>
+                    <text x="50%" y="380" textAnchor="middle" fontSize="72" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif" letterSpacing="8">COVION PARTNERS</text>
+                    <circle cx="800" cy="1100" r="400" fill="#141414" stroke="#fff" strokeWidth="12" />
+                    <image href={TOKEN_IMAGE_URL} x="500" y="800" width="600" height="600" style={{ filter: 'drop-shadow(0 0 24px #7c3aed88)' }} />
+                    <text x="50%" y="2000" textAnchor="middle" fontSize="80" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif">{tokenData?.certificate_number || ''}</text>
+                    <text x="50%" y="2100" textAnchor="middle" fontSize="48" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif">Certificate Number</text>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              onClick={() => window.location.href = '/mytokens'}
+              className="text-purple-400 hover:text-purple-300"
+            >
+              View All My Tokens
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
-
-// Token image URL (handshake logo as token)
-const TOKEN_IMAGE_URL = "https://uytqyfpjdevrqmwqfthk.supabase.co/storage/v1/object/public/partnerfiles/branding/handshake.png"
 
 export default function DonationPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
@@ -131,6 +278,9 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
   const [message, setMessage] = useState("")
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [donationSuccess, setDonationSuccess] = useState(false)
+  const [tokens, setTokens] = useState<any[]>([])
+  const [loadingTokens, setLoadingTokens] = useState(true)
+  const supabase = createClientComponentClient()
 
   const resolvedParams = use(params)
   const project = projects?.find(p => p.id === resolvedParams.id)
@@ -140,6 +290,41 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
       router.push("/purchase2support/success")
     }
   }, [donationSuccess, router])
+
+  useEffect(() => {
+    const fetchTokens = async () => {
+      if (!project?.id) return
+      setLoadingTokens(true)
+      try {
+        const { data, error } = await supabase
+          .from('public_supports')
+          .select('id, certificate_number, token_serial, amount, created_at, metadata')
+          .eq('project_id', project.id)
+          .order('created_at', { ascending: false })
+        
+        if (error) throw error
+        setTokens(data || [])
+      } catch (error) {
+        console.error('Error fetching tokens:', error)
+        toast.error('Failed to load tokens')
+      } finally {
+        setLoadingTokens(false)
+      }
+    }
+
+    fetchTokens()
+  }, [project?.id, supabase])
+
+  const handleDownloadToken = async (tokenId: string) => {
+    const tokenElement = document.getElementById(`token-image-${tokenId}`)
+    if (tokenElement) {
+      const canvas = await html2canvas(tokenElement, { backgroundColor: null, width: 240, height: 320, scale: 2 })
+      const link = document.createElement('a')
+      link.download = `token-${tokenId}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    }
+  }
 
   if (loading) {
     return (
@@ -210,83 +395,6 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
   const stripeFee = supportAmount > 0 ? (supportAmount * 0.029 + 0.30) : 0
   const platformFee = supportAmount > 0 ? (supportAmount * 0.02) : 0
   const netAmount = supportAmount - stripeFee - platformFee
-
-  // Certificate preview data
-  const supporterName = user?.name || user?.email || 'Supporter'
-  const projectName = project?.name || 'Project'
-  const date = new Date().toLocaleDateString()
-
-  const handleDownloadCertificate = async () => {
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
-    doc.setFillColor(20, 20, 20)
-    doc.rect(0, 0, 842, 595, 'F')
-    doc.setDrawColor('#7c3aed')
-    doc.setLineWidth(8)
-    doc.roundedRect(30, 30, 782, 535, 24, 24, 'S')
-    // Load token image and add to PDF
-    const img = new window.Image()
-    img.crossOrigin = 'Anonymous'
-    img.src = TOKEN_IMAGE_URL
-    img.onload = function () {
-      doc.addImage(img, 'PNG', 90, 80, 120, 120, undefined, 'FAST')
-      doc.setFont('times', 'bold')
-      doc.setTextColor('#7c3aed')
-      doc.setFontSize(36)
-      doc.text('Certificate of Support', 421, 110, { align: 'center' })
-      doc.setFont('times', 'italic')
-      doc.setFontSize(18)
-      doc.setTextColor('#fff')
-      doc.text('This certifies that', 421, 170, { align: 'center' })
-      doc.setFont('times', 'bold')
-      doc.setFontSize(28)
-      doc.setTextColor('#fff')
-      doc.text(supporterName, 421, 210, { align: 'center' })
-      doc.setFont('times', 'italic')
-      doc.setFontSize(18)
-      doc.setTextColor('#fff')
-      doc.text('has generously supported the project', 421, 250, { align: 'center' })
-      doc.setFont('times', 'bold')
-      doc.setFontSize(24)
-      doc.setTextColor('#7c3aed')
-      doc.text(projectName, 421, 290, { align: 'center' })
-      doc.setFont('times', 'normal')
-      doc.setFontSize(18)
-      doc.setTextColor('#4f46e5')
-      doc.text(`with a contribution of $${supportAmount.toFixed(2)}`, 421, 330, { align: 'center' })
-      doc.setFontSize(16)
-      doc.setTextColor('#fff')
-      doc.text(`on ${date}`, 421, 370, { align: 'center' })
-      // Seal
-      doc.setFillColor('#7c3aed')
-      doc.circle(421, 440, 48, 'F')
-      doc.setFont('times', 'bold')
-      doc.setFontSize(22)
-      doc.setTextColor('#fff')
-      doc.text('Thank You', 421, 448, { align: 'center' })
-      // Footer
-      doc.setFont('times', 'italic')
-      doc.setFontSize(14)
-      doc.setTextColor('#ec4899')
-      doc.text('Covion Partners', 421, 520, { align: 'center' })
-      doc.save('thank-you-certificate.pdf')
-    }
-  }
-
-  // Generate a unique token serial number (timestamp-based for demo)
-  const tokenSerial = `CP-${Date.now().toString().slice(-8)}`
-
-  // Download the token as PNG
-  const handleDownloadToken = async () => {
-    const tokenElement = document.getElementById('covion-token-image')
-    if (tokenElement) {
-      // Render at 1600x2240 for high-res download
-      const canvas = await html2canvas(tokenElement, { backgroundColor: null, width: 1600, height: 2240, scale: 1 })
-      const link = document.createElement('a')
-      link.download = `${tokenSerial}.png`
-      link.href = canvas.toDataURL('image/png')
-      link.click()
-    }
-  }
 
   return (
     <div className="min-h-screen">
@@ -373,50 +481,84 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
             {/* Donation Form */}
             <Card className="border-gray-800">
               <CardHeader>
-                <CardTitle>Purchase to Support</CardTitle>
-                <CardDescription>Choose your support amount</CardDescription>
+                <CardTitle>Purchase Token</CardTitle>
+                <CardDescription>Buy a unique token to support this project</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {/* Large Previews of Certificate and Token, side by side, full width */}
-                  <div className="flex items-center justify-center gap-8 mb-4 w-full">
-                    {/* Certificate preview */}
-                    <div className="flex flex-col items-center">
-                      <div className="border-2 border-[#7c3aed] rounded-lg overflow-hidden" style={{ width: 120, height: 84, background: '#141414', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span className="text-base text-white font-serif">Certificate</span>
-                      </div>
-                      <span className="text-xs text-gray-300 mt-2 text-center max-w-[120px]">Downloadable Certificate of Support</span>
+                  {/* Project Tokens */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-purple-400">
+                      <Gift className="w-4 h-4" />
+                      <span className="font-medium">Available Tokens</span>
                     </div>
-                    {/* Token preview */}
-                    <div className="flex flex-col items-center">
-                      <div className="border-2 border-[#7c3aed] rounded-lg overflow-hidden" style={{ width: 96, height: 144, background: '#141414', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg width="72" height="108" viewBox="0 0 48 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <rect x="4" y="4" width="40" height="64" rx="8" fill="url(#tokenCardMini)" stroke="#fff" strokeWidth="3" />
-                          <defs>
-                            <linearGradient id="tokenCardMini" x1="0" y1="0" x2="48" y2="72" gradientUnits="userSpaceOnUse">
-                              <stop stopColor="#4f46e5" />
-                              <stop offset="0.5" stopColor="#7c3aed" />
-                              <stop offset="1" stopColor="#ec4899" />
-                            </linearGradient>
-                          </defs>
-                          <circle cx="24" cy="36" r="16" fill="#141414" stroke="#fff" strokeWidth="2" />
-                        </svg>
+                    {loadingTokens ? (
+                      <div className="flex items-center justify-center py-4">
+                        <LoadingSpinner className="w-6 h-6" />
                       </div>
-                      <span className="text-xs text-gray-300 mt-2 text-center max-w-[96px]">Unique Digital Token Card</span>
-                    </div>
+                    ) : tokens.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-6">
+                        {tokens.map((token) => (
+                          <div
+                            key={token.id}
+                            className="flex flex-col items-center"
+                          >
+                            <div 
+                              className="flex flex-col items-center justify-center"
+                              style={{ width: 120, height: 160 }}
+                            >
+                              <svg width="1600" height="2240" viewBox="0 0 1600 2240" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 120, height: 160, display: 'block', borderRadius: 24, boxShadow: '0 4px 24px #0008' }}>
+                                <defs>
+                                  <linearGradient id={`card-bg-${token.id}`} x1="0" y1="0" x2="1600" y2="2240" gradientUnits="userSpaceOnUse">
+                                    <stop stopColor="#4f46e5" />
+                                    <stop offset="0.5" stopColor="#7c3aed" />
+                                    <stop offset="1" stopColor="#ec4899" />
+                                  </linearGradient>
+                                  <radialGradient id={`shine-${token.id}`} cx="50%" cy="30%" r="70%">
+                                    <stop offset="0%" stopColor="#fff" stopOpacity="0.25" />
+                                    <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+                                  </radialGradient>
+                                </defs>
+                                <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#card-bg-${token.id})`} stroke="#fff" strokeWidth="16" />
+                                <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#shine-${token.id})`} />
+                                <text x="50%" y="240" textAnchor="middle" fontSize="160" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="8">TOKEN</text>
+                                <text x="50%" y="380" textAnchor="middle" fontSize="72" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif" letterSpacing="8">COVION PARTNERS</text>
+                                <circle cx="800" cy="1100" r="400" fill="#141414" stroke="#fff" strokeWidth="12" />
+                                <image href={TOKEN_IMAGE_URL} x="500" y="800" width="600" height="600" style={{ filter: 'drop-shadow(0 0 24px #7c3aed88)' }} />
+                                <text x="50%" y="2000" textAnchor="middle" fontSize="80" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif">{token.certificate_number || token.token_serial || ''}</text>
+                                <text x="50%" y="2100" textAnchor="middle" fontSize="48" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif">Serial Number</text>
+                              </svg>
+                            </div>
+                            <div className="text-xs text-gray-300 mt-2 text-center">
+                              {project?.name}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400 text-center py-4">
+                        No tokens have been created for this project yet.
+                      </div>
+                    )}
                   </div>
+
                   {/* Quick Amount Buttons */}
-                  <div className="grid grid-cols-3 gap-4">
-                    {[10, 25, 50, 100, 250, 500].map((amount) => (
-                      <Button
-                        key={amount}
-                        variant={donationAmount === amount.toString() ? "default" : "outline"}
-                        className="border-gray-700"
-                        onClick={() => setDonationAmount(amount.toString())}
-                      >
-                        ${amount}
-                      </Button>
-                    ))}
+                  <div className="space-y-4">
+                    <div className="text-sm text-gray-400 text-center">
+                      Choose any amount to receive your unique token
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      {[10, 25, 50, 100, 250, 500].map((amount) => (
+                        <Button
+                          key={amount}
+                          variant={donationAmount === amount.toString() ? "default" : "outline"}
+                          className="border-gray-700"
+                          onClick={() => setDonationAmount(amount.toString())}
+                        >
+                          ${amount}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Custom Amount Input */}
@@ -425,7 +567,7 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                       <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                       <Input
                         type="number"
-                        placeholder="Enter custom amount"
+                        placeholder="Or enter any custom amount"
                         value={donationAmount}
                         onChange={(e) => setDonationAmount(e.target.value)}
                         className="pl-10"
@@ -500,65 +642,6 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                   </div>
                 </div>
               </CardContent>
-            </Card>
-            {/* Certificate Preview */}
-            <Card className="border-4 border-[#7c3aed] bg-[#141414] shadow-2xl relative overflow-hidden mb-8">
-              <div className="absolute left-0 top-0 w-full h-full pointer-events-none">
-                <svg width="100%" height="100%" viewBox="0 0 400 250" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute inset-0">
-                  <rect x="10" y="10" width="380" height="230" rx="24" stroke="#7c3aed" strokeWidth="4" fill="none" />
-                </svg>
-              </div>
-              <CardHeader>
-                <CardTitle className="text-center text-3xl font-serif tracking-wide mb-2 bg-gradient-to-r from-[#4f46e5] via-[#7c3aed] to-[#ec4899] bg-clip-text text-transparent">Certificate of Support</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center space-y-2 py-4 font-serif text-white">
-                  <img src={TOKEN_IMAGE_URL} alt="Covion Partners Token" width={96} height={96} className="mx-auto rounded-full border-4 border-[#7c3aed] bg-white object-cover" style={{ width: 96, height: 96 }} />
-                  <div className="text-xs text-[#7c3aed] font-bold uppercase tracking-widest">Covion Partners Token</div>
-                  <div className="text-lg italic">This certifies that</div>
-                  <div className="text-2xl font-bold text-white mt-2">{supporterName}</div>
-                  <div className="text-lg italic mt-2">has generously supported the project</div>
-                  <div className="text-xl font-semibold text-[#7c3aed] mt-2">{projectName}</div>
-                  <div className="text-lg mt-2">with a contribution of <span className="font-bold text-[#4f46e5]">${supportAmount.toFixed(2)}</span></div>
-                  <div className="text-base text-gray-300 mt-2">on {date}</div>
-                  <div className="flex justify-center mt-6">
-                    <div className="rounded-full border-4 border-[#7c3aed] bg-[#f3e8ff] px-6 py-2 text-[#7c3aed] font-bold text-lg shadow">Thank You</div>
-                  </div>
-                  <div className="text-sm text-[#ec4899] mt-6 font-bold">Covion Partners</div>
-                  <Button className="mt-6 w-full" onClick={handleDownloadCertificate} disabled={supportAmount <= 0}>
-                    Download Certificate
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-            {/* Unique Covion Partners Token */}
-            <Card className="border-4 border-[#7c3aed] bg-[#141414] shadow-2xl relative overflow-hidden flex flex-col items-center py-8">
-              <div id="covion-token-image" className="flex flex-col items-center justify-center" style={{ width: 120, height: 160 }}>
-                <svg width="1600" height="2240" viewBox="0 0 1600 2240" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 120, height: 160, display: 'block', borderRadius: 24, boxShadow: '0 4px 24px #0008' }}>
-                  <defs>
-                    <linearGradient id="card-bg" x1="0" y1="0" x2="1600" y2="2240" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="#4f46e5" />
-                      <stop offset="0.5" stopColor="#7c3aed" />
-                      <stop offset="1" stopColor="#ec4899" />
-                    </linearGradient>
-                    <radialGradient id="shine" cx="50%" cy="30%" r="70%">
-                      <stop offset="0%" stopColor="#fff" stopOpacity="0.25" />
-                      <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-                    </radialGradient>
-                  </defs>
-                  <rect x="40" y="40" width="1520" height="2160" rx="80" fill="url(#card-bg)" stroke="#fff" strokeWidth="16" />
-                  <rect x="40" y="40" width="1520" height="2160" rx="80" fill="url(#shine)" />
-                  <text x="50%" y="260" textAnchor="middle" fontSize="120" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="8">Covion Partners</text>
-                  <text x="50%" y="400" textAnchor="middle" fontSize="72" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="4">TOKEN</text>
-                  <circle cx="800" cy="1100" r="400" fill="#141414" stroke="#fff" strokeWidth="12" />
-                  <image href={TOKEN_IMAGE_URL} x="500" y="800" width="600" height="600" style={{ filter: 'drop-shadow(0 0 24px #7c3aed88)' }} />
-                  <text x="50%" y="2000" textAnchor="middle" fontSize="80" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif">{tokenSerial}</text>
-                  <text x="50%" y="2100" textAnchor="middle" fontSize="48" fontWeight="bold" fill="#ec4899" fontFamily="Arial, sans-serif">Serial Number</text>
-                </svg>
-              </div>
-              <div className="text-xs text-[#7c3aed] font-bold uppercase tracking-widest mt-4">Covion Partners Token</div>
-              <div className="text-xs text-gray-300 mt-1">Serial: {tokenSerial}</div>
-              <Button className="mt-6 w-full" onClick={handleDownloadToken}>Download Token</Button>
             </Card>
           </div>
         </div>
