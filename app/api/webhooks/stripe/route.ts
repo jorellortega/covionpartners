@@ -13,11 +13,17 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(req: Request) {
   try {
-  const body = await req.text();
+    const body = await req.text();
     const headersList = await headers();
     const signature = headersList.get('stripe-signature');
 
+    // Log incoming request for debugging
+    console.log('--- Stripe Webhook Received ---');
+    console.log('Headers:', JSON.stringify([...headersList.entries()]));
+    console.log('Raw Body:', body);
+
     if (!signature) {
+      console.error('No signature found');
       return NextResponse.json(
         { error: 'No signature found' },
         { status: 400 }
@@ -26,9 +32,9 @@ export async function POST(req: Request) {
 
     let event: Stripe.Event;
 
-  try {
+    try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-  } catch (err) {
+    } catch (err) {
       console.error('Webhook signature verification failed:', err);
       return NextResponse.json(
         { error: 'Invalid signature' },
@@ -42,12 +48,10 @@ export async function POST(req: Request) {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        
+        console.log('Stripe paymentIntent:', JSON.stringify(paymentIntent, null, 2));
         // Get project details from metadata
-        const { projectId, baseAmount, stripeFee, platformFee, message } = paymentIntent.metadata;
-
-        // Log event and metadata for debugging
-        console.log('Received Stripe event:', event.type, paymentIntent?.id, paymentIntent?.metadata);
+        const { projectId, baseAmount, stripeFee, platformFee, message, user_id } = paymentIntent.metadata;
+        console.log('paymentIntent.metadata:', paymentIntent.metadata);
 
         // Create transaction record (using original supabase client)
         const { error: transactionError } = await supabase
@@ -96,7 +100,7 @@ export async function POST(req: Request) {
           created_at: new Date().toISOString(),
           metadata: paymentIntent.metadata || {}
         });
-        const { error: supportError } = await serviceSupabase
+        const { error: supportError, data: supportData } = await serviceSupabase
           .from('public_supports')
           .insert({
             project_id: projectId,
@@ -110,12 +114,14 @@ export async function POST(req: Request) {
             platform_fee: platformFee,
             created_at: new Date().toISOString(),
             metadata: paymentIntent.metadata || {}
-          });
+          })
+          .select()
+          .single();
 
         if (supportError) {
           console.error('Error creating public support record:', supportError);
         } else {
-          console.log('Successfully inserted public support record for:', paymentIntent.id);
+          console.log('Successfully inserted public support record:', supportData);
         }
 
         // Fetch current funding
@@ -237,12 +243,10 @@ export async function POST(req: Request) {
         console.log(`Unhandled event type: ${event.type}`);
     }
 
-    return NextResponse.json({ received: true });
-  } catch (error) {
-    console.error('Webhook error:', error);
-    return NextResponse.json(
-      { error: 'Webhook handler failed' },
-      { status: 500 }
-    );
+    // Always return 200 to Stripe
+    return NextResponse.json({ received: true }, { status: 200 });
+  } catch (err) {
+    console.error('Webhook handler error:', err);
+    return NextResponse.json({ error: 'Webhook handler error', details: String(err) }, { status: 500 });
   }
 } 

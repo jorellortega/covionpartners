@@ -24,11 +24,20 @@ function SuccessPageContent() {
 
   useEffect(() => {
     const fetchSupport = async () => {
-      if (!user) return setIsLoading(false)
+      if (!user) {
+        console.log('[DEBUG] No user found in useAuth');
+        setIsLoading(false)
+        return
+      }
       setIsLoading(true)
-      // Try to get projectId from search params
       const projectId = searchParams.get('project_id') || searchParams.get('project')
-      if (!projectId) return setIsLoading(false)
+      console.log('[DEBUG] user.id:', user.id)
+      console.log('[DEBUG] projectId:', projectId)
+      if (!projectId) {
+        console.log('[DEBUG] No projectId found in searchParams')
+        setIsLoading(false)
+        return
+      }
       // Fetch latest support for this user and project
       const { data, error } = await supabase
         .from('public_supports')
@@ -39,9 +48,11 @@ function SuccessPageContent() {
         .limit(1)
         .single()
       if (!error && data) {
+        console.log('[DEBUG] Fetched support record:', data)
         setSupport(data)
         setProjectName(data.project?.name || 'Project')
       } else {
+        console.log('[DEBUG] No support record found or error:', error)
         setSupport(null)
         setProjectName(searchParams.get('project_name') || 'Project')
       }
