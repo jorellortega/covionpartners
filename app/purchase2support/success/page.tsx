@@ -66,8 +66,8 @@ function SuccessPageContent() {
   const fallbackDate = new Date().toLocaleDateString()
 
   const supporterName = support?.supporter_name || fallbackSupporter
-  const certificateNumber = support?.certificate_number || fallbackCertNum
-  const tokenSerial = support?.token_serial || fallbackTokenSerial
+  const certificateNumber = support?.certificate_number || support?.metadata?.token_number || fallbackCertNum
+  const tokenSerial = support?.token_serial || support?.metadata?.token_number || fallbackTokenSerial
   const date = support?.created_at ? new Date(support.created_at).toLocaleDateString() : fallbackDate
 
   const handleDownloadCertificate = async () => {
@@ -114,12 +114,12 @@ function SuccessPageContent() {
       <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Certificate Card - styled like /createtoken */}
         <Card className="border-4 border-[#7c3aed] bg-[#141414] shadow-2xl relative overflow-hidden">
-          <CardHeader>
+        <CardHeader>
             <CardTitle className="text-center text-3xl font-serif tracking-wide mb-2 bg-gradient-to-r from-[#4f46e5] via-[#7c3aed] to-[#ec4899] bg-clip-text text-transparent">
               Certificate of Support
             </CardTitle>
-          </CardHeader>
-          <CardContent>
+        </CardHeader>
+        <CardContent>
             <div id="certificate-image" className="flex flex-col items-center space-y-2 py-4 font-serif text-white bg-[#141414] rounded-2xl" style={{ width: 320, minHeight: 400 }}>
               <img 
                 src={TOKEN_IMAGE_URL} 
@@ -178,8 +178,8 @@ function SuccessPageContent() {
             <Button className="mt-6 w-full" onClick={handleDownloadToken}>
               Download Token
             </Button>
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
       </div>
     </div>
   )

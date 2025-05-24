@@ -281,13 +281,14 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
 
   useEffect(() => {
     const fetchTokens = async () => {
-      if (!project?.id) return
+      if (!project?.id || !user?.id) return
       setLoadingTokens(true)
       try {
         const { data, error } = await supabase
           .from('public_supports')
-          .select('id, certificate_number, token_serial, amount, created_at, metadata')
+          .select('id, project_id, certificate_number, token_serial, amount, created_at, metadata, project:projects(name), supporter_name')
           .eq('project_id', project.id)
+          .eq('supporter_id', user.id)
           .order('created_at', { ascending: false })
         
         if (error) throw error
@@ -301,7 +302,7 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
     }
 
     fetchTokens()
-  }, [project?.id, supabase])
+  }, [project?.id, user?.id, supabase])
 
   const handleDownloadToken = async (tokenId: string) => {
     const tokenElement = document.getElementById(`token-image-${tokenId}`)
@@ -486,42 +487,67 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                       </div>
                     ) : tokens.length > 0 ? (
                       <div className="grid grid-cols-2 gap-6">
-                        {tokens.map((token) => (
-                          <div
-                            key={token.id}
-                            className="flex flex-col items-center"
-                          >
-                            <div 
-                              className="flex flex-col items-center justify-center"
-                              style={{ width: 120, height: 160 }}
-                            >
-                              <svg width="1600" height="2240" viewBox="0 0 1600 2240" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 120, height: 160, display: 'block', borderRadius: 24, boxShadow: '0 4px 24px #0008' }}>
-                          <defs>
-                                  <linearGradient id={`card-bg-${token.id}`} x1="0" y1="0" x2="1600" y2="2240" gradientUnits="userSpaceOnUse">
-                              <stop stopColor="#4f46e5" />
-                              <stop offset="0.5" stopColor="#7c3aed" />
-                              <stop offset="1" stopColor="#ec4899" />
-                            </linearGradient>
-                                  <radialGradient id={`shine-${token.id}`} cx="50%" cy="30%" r="70%">
-                                    <stop offset="0%" stopColor="#fff" stopOpacity="0.25" />
-                                    <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-                                  </radialGradient>
-                          </defs>
-                                <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#card-bg-${token.id})`} stroke="#fff" strokeWidth="16" />
-                                <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#shine-${token.id})`} />
-                                <text x="50%" y="240" textAnchor="middle" fontSize="160" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="8">TOKEN</text>
-                                <text x="50%" y="380" textAnchor="middle" fontSize="72" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif" letterSpacing="8">COVION PARTNERS</text>
-                                <circle cx="800" cy="1100" r="400" fill="#141414" stroke="#fff" strokeWidth="12" />
-                                <image href={TOKEN_IMAGE_URL} x="500" y="800" width="600" height="600" style={{ filter: 'drop-shadow(0 0 24px #7c3aed88)' }} />
-                                <text x="50%" y="2000" textAnchor="middle" fontSize="80" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif">{token.certificate_number || token.token_serial || ''}</text>
-                                <text x="50%" y="2100" textAnchor="middle" fontSize="48" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif">Serial Number</text>
-                        </svg>
+                        {tokens.map((token) => {
+                          console.log('DEBUG TOKEN:', token);
+                          return (
+                            <div key={token.id} className="flex flex-col md:flex-row items-center gap-6">
+                              {/* Certificate Card (styled, not SVG) */}
+                              <div className="border-4 border-[#7c3aed] bg-[#141414] shadow-2xl rounded-2xl max-w-xs w-full p-4 flex flex-col items-center font-serif text-white">
+                                <img 
+                                  src={TOKEN_IMAGE_URL} 
+                                  alt="Covion Partners Support" 
+                                  width={64} 
+                                  height={64} 
+                                  className="mx-auto rounded-full border-4 border-[#7c3aed] bg-white object-cover mb-2" 
+                                />
+                                <div className="text-lg italic mt-2">This certifies that</div>
+                                <div className="text-2xl font-bold text-white mt-2">
+                                  {token.supporter_name || 'Supporter'}
+                                </div>
+                                <div className="text-lg italic mt-2">has supported Covion Partners</div>
+                                <div className="text-xl font-semibold text-[#7c3aed] mt-2">
+                                  Certificate Number: <span className="font-bold">{token.certificate_number || token.metadata?.token_number || 'Not set'}</span>
+                                </div>
+                                <div className="text-base text-gray-300 mt-2">
+                                  on {token.created_at ? new Date(token.created_at).toLocaleDateString() : ''}
+                                </div>
+                                <div className="text-sm text-[#ec4899] mt-6 font-bold">Covion Partners</div>
+                                <div className="text-sm text-gray-500 mb-2">Amount: <span className="font-bold text-white">{token.amount}</span></div>
+                                <div className="text-xs text-gray-400">Created: {token.created_at ? new Date(token.created_at).toLocaleString() : ''}</div>
+                                <div className="text-xs text-gray-300 mt-2 text-center">
+                                  {token.project?.name || project?.name}
+                                </div>
+                              </div>
+                              {/* Token Card (SVG) */}
+                              <div className="flex flex-col items-center justify-center" style={{ width: 120, height: 160 }}>
+                                <svg width="1600" height="2240" viewBox="0 0 1600 2240" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 120, height: 160, display: 'block', borderRadius: 24, boxShadow: '0 4px 24px #0008' }}>
+                                  <defs>
+                                    <linearGradient id={`card-bg-${token.id}`} x1="0" y1="0" x2="1600" y2="2240" gradientUnits="userSpaceOnUse">
+                                      <stop stopColor="#4f46e5" />
+                                      <stop offset="0.5" stopColor="#7c3aed" />
+                                      <stop offset="1" stopColor="#ec4899" />
+                                    </linearGradient>
+                                    <radialGradient id={`shine-${token.id}`} cx="50%" cy="30%" r="70%">
+                                      <stop offset="0%" stopColor="#fff" stopOpacity="0.25" />
+                                      <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+                                    </radialGradient>
+                                  </defs>
+                                  <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#card-bg-${token.id})`} stroke="#fff" strokeWidth="16" />
+                                  <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#shine-${token.id})`} />
+                                  <text x="50%" y="240" textAnchor="middle" fontSize="160" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="8">TOKEN</text>
+                                  <text x="50%" y="380" textAnchor="middle" fontSize="72" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif" letterSpacing="8">COVION PARTNERS</text>
+                                  <circle cx="800" cy="1100" r="400" fill="#141414" stroke="#fff" strokeWidth="12" />
+                                  <image href={TOKEN_IMAGE_URL} x="500" y="800" width="600" height="600" style={{ filter: 'drop-shadow(0 0 24px #7c3aed88)' }} />
+                                  <text x="50%" y="2000" textAnchor="middle" fontSize="80" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif">{token.token_serial || token.metadata?.token_number || 'Not set'}</text>
+                                  <text x="50%" y="2100" textAnchor="middle" fontSize="48" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif">Serial Number</text>
+                                </svg>
+                                <div className="text-xs text-gray-300 mt-2 text-center">
+                                  {token.project?.name || project?.name}
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-300 mt-2 text-center">
-                              {project?.name}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="text-sm text-gray-400 text-center py-4">
