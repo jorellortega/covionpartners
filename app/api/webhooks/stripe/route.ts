@@ -12,6 +12,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(req: Request) {
+  console.log('[WEBHOOK] Stripe webhook called');
   try {
     const body = await req.text();
     const headersList = await headers();
