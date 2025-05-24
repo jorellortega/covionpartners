@@ -101,12 +101,12 @@ export async function POST(req: Request) {
           metadata: paymentIntent.metadata || {}
         };
         console.log('Attempting insert into public_supports:', supportPayload);
-        const { error: supportError, data: supportData } = await serviceSupabase
+        const { error: supportError, data: supportData, status, statusText } = await serviceSupabase
           .from('public_supports')
           .insert(supportPayload)
           .select()
           .single();
-
+        console.log('[WEBHOOK DEBUG] Insert response:', { supportData, supportError, status, statusText });
         if (supportError) {
           console.error('Error creating public support record:', supportError);
         } else {

@@ -31,12 +31,16 @@ function SuccessPageContent() {
       }
       setIsLoading(true)
       const projectId = searchParams.get('project_id')
+      console.log('[DEBUG] searchParams:', Object.fromEntries(searchParams.entries()))
+      console.log('[DEBUG] user.id:', user.id)
       console.log('[DEBUG] project_id from searchParams:', projectId)
       if (!projectId) {
         console.log('[DEBUG] No project_id found in searchParams')
         setIsLoading(false)
         return
       }
+      // Log the full query
+      console.log('[DEBUG] Querying public_supports with:', { user_id: user.id, project_id: projectId })
       const { data, error } = await supabase
         .from('public_supports')
         .select('*')
@@ -45,6 +49,7 @@ function SuccessPageContent() {
         .order('created_at', { ascending: false })
         .limit(1)
         .single()
+      console.log('[DEBUG] Supabase response:', { data, error })
       if (error) {
         console.log('[DEBUG] Error fetching support:', error)
       }
