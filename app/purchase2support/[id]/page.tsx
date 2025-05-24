@@ -574,10 +574,19 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                   </div>
 
                   {/* Payment Form */}
-                  {clientSecret && (
+                  {clientSecret ? (
                     <Elements stripe={stripePromise} options={{ clientSecret }}>
                       <PaymentForm clientSecret={clientSecret} onSuccess={() => setDonationSuccess(true)} projectId={project.id} />
                     </Elements>
+                  ) : (
+                    <Button
+                      className="w-full gradient-button"
+                      onClick={handleDonate}
+                      disabled={!donationAmount}
+                    >
+                      <Heart className="w-4 h-4 mr-2" />
+                      Continue to Payment
+                    </Button>
                   )}
                 </div>
               </CardContent>
