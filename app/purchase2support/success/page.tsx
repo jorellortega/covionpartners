@@ -30,32 +30,25 @@ function SuccessPageContent() {
         return
       }
       setIsLoading(true)
-      const projectId = searchParams.get('project_id') || searchParams.get('project')
-      console.log('[DEBUG] user.id:', user.id)
-      console.log('[DEBUG] projectId:', projectId)
+      const projectId = searchParams.get('project_id')
+      console.log('[DEBUG] project_id from searchParams:', projectId)
       if (!projectId) {
-        console.log('[DEBUG] No projectId found in searchParams')
+        console.log('[DEBUG] No project_id found in searchParams')
         setIsLoading(false)
         return
       }
-      // Fetch latest support for this user and project
       const { data, error } = await supabase
         .from('public_supports')
-        .select('*, project:projects(name)')
-        .eq('supporter_id', user.id)
+        .select('*')
+        .eq('user_id', user.id)
         .eq('project_id', projectId)
         .order('created_at', { ascending: false })
         .limit(1)
         .single()
-      if (!error && data) {
-        console.log('[DEBUG] Fetched support record:', data)
-        setSupport(data)
-        setProjectName(data.project?.name || 'Project')
-      } else {
-        console.log('[DEBUG] No support record found or error:', error)
-        setSupport(null)
-        setProjectName(searchParams.get('project_name') || 'Project')
+      if (error) {
+        console.log('[DEBUG] Error fetching support:', error)
       }
+      setSupport(data)
       setIsLoading(false)
     }
     fetchSupport()

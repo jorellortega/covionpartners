@@ -62,7 +62,7 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-function PaymentForm({ clientSecret, onSuccess }: { clientSecret: string, onSuccess: () => void }) {
+function PaymentForm({ clientSecret, onSuccess, projectId }: { clientSecret: string, onSuccess: () => void, projectId: string }) {
   const stripe = useStripe()
   const elements = useElements()
   const [isProcessing, setIsProcessing] = useState(false)
@@ -82,7 +82,7 @@ function PaymentForm({ clientSecret, onSuccess }: { clientSecret: string, onSucc
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: `${window.location.origin}/purchase2support/success`,
+          return_url: `${window.location.origin}/purchase2support/success?project_id=${projectId}`,
         },
         redirect: 'if_required',
       })
@@ -574,25 +574,10 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                   </div>
 
                   {/* Payment Form */}
-                  {clientSecret ? (
+                  {clientSecret && (
                     <Elements stripe={stripePromise} options={{ clientSecret }}>
-                      <PaymentForm 
-                        clientSecret={clientSecret} 
-                        onSuccess={() => {
-                          toast.success(`Thank you for your support of $${donationAmount} to ${project.name}!`)
-                          setDonationSuccess(true)
-                        }} 
-                      />
+                      <PaymentForm clientSecret={clientSecret} onSuccess={() => setDonationSuccess(true)} projectId={project.id} />
                     </Elements>
-                  ) : (
-                    <Button
-                      className="w-full gradient-button"
-                      onClick={handleDonate}
-                      disabled={!donationAmount}
-                    >
-                      <Heart className="w-4 h-4 mr-2" />
-                      Continue to Payment
-                    </Button>
                   )}
                 </div>
               </CardContent>
