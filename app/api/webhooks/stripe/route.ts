@@ -86,10 +86,10 @@ export async function POST(req: Request) {
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
-        const supporterId = paymentIntent.metadata?.user_id && paymentIntent.metadata.user_id !== '' ? paymentIntent.metadata.user_id : null;
-        console.log('Attempting insert into public_supports:', {
+        const userId = paymentIntent.metadata?.user_id && paymentIntent.metadata.user_id !== '' ? paymentIntent.metadata.user_id : null;
+        const supportPayload = {
           project_id: projectId,
-          supporter_id: supporterId,
+          user_id: userId,
           amount: parseFloat(baseAmount),
           currency: paymentIntent.currency,
           status: paymentIntent.status,
@@ -99,22 +99,11 @@ export async function POST(req: Request) {
           platform_fee: platformFee,
           created_at: new Date().toISOString(),
           metadata: paymentIntent.metadata || {}
-        });
+        };
+        console.log('Attempting insert into public_supports:', supportPayload);
         const { error: supportError, data: supportData } = await serviceSupabase
           .from('public_supports')
-          .insert({
-            project_id: projectId,
-            supporter_id: supporterId,
-            amount: parseFloat(baseAmount),
-            currency: paymentIntent.currency,
-            status: paymentIntent.status,
-            message: message || null,
-            stripe_payment_intent_id: paymentIntent.id,
-            stripe_fee: stripeFee,
-            platform_fee: platformFee,
-            created_at: new Date().toISOString(),
-            metadata: paymentIntent.metadata || {}
-          })
+          .insert(supportPayload)
           .select()
           .single();
 
