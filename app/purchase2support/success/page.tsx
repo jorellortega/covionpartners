@@ -51,14 +51,7 @@ function SuccessPageContent() {
       toast.error('Payment failed. Please try again.')
     }
 
-    // Redirect to main page after 5 seconds
-    const timeout = setTimeout(() => {
-      router.push('/purchase2support')
-    }, 5000)
-
     setIsLoading(false)
-
-    return () => clearTimeout(timeout)
   }, [router, searchParams])
 
   if (isLoading) {
