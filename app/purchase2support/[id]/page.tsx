@@ -517,21 +517,21 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                                 <div className="text-xs text-gray-300 mt-2 text-center">
                                   {token.project?.name || project?.name}
                                 </div>
-                              </div>
+                    </div>
                               {/* Token Card (SVG) */}
                               <div className="flex flex-col items-center justify-center" style={{ width: 120, height: 160 }}>
                                 <svg width="1600" height="2240" viewBox="0 0 1600 2240" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 120, height: 160, display: 'block', borderRadius: 24, boxShadow: '0 4px 24px #0008' }}>
-                                  <defs>
+                          <defs>
                                     <linearGradient id={`card-bg-${token.id}`} x1="0" y1="0" x2="1600" y2="2240" gradientUnits="userSpaceOnUse">
-                                      <stop stopColor="#4f46e5" />
-                                      <stop offset="0.5" stopColor="#7c3aed" />
-                                      <stop offset="1" stopColor="#ec4899" />
-                                    </linearGradient>
+                              <stop stopColor="#4f46e5" />
+                              <stop offset="0.5" stopColor="#7c3aed" />
+                              <stop offset="1" stopColor="#ec4899" />
+                            </linearGradient>
                                     <radialGradient id={`shine-${token.id}`} cx="50%" cy="30%" r="70%">
                                       <stop offset="0%" stopColor="#fff" stopOpacity="0.25" />
                                       <stop offset="100%" stopColor="#fff" stopOpacity="0" />
                                     </radialGradient>
-                                  </defs>
+                          </defs>
                                   <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#card-bg-${token.id})`} stroke="#fff" strokeWidth="16" />
                                   <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#shine-${token.id})`} />
                                   <text x="50%" y="240" textAnchor="middle" fontSize="160" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="8">TOKEN</text>
@@ -540,7 +540,7 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                                   <image href={TOKEN_IMAGE_URL} x="500" y="800" width="600" height="600" style={{ filter: 'drop-shadow(0 0 24px #7c3aed88)' }} />
                                   <text x="50%" y="2000" textAnchor="middle" fontSize="80" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif">{token.token_serial || token.metadata?.token_number || 'Not set'}</text>
                                   <text x="50%" y="2100" textAnchor="middle" fontSize="48" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif">Serial Number</text>
-                                </svg>
+                        </svg>
                                 <div className="text-xs text-gray-300 mt-2 text-center">
                                   {token.project?.name || project?.name}
                                 </div>
