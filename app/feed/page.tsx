@@ -43,6 +43,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogClose
 } from "@/components/ui/dialog"
 import { AdsenseAd } from '@/components/AdsenseAd'
 
@@ -212,6 +214,7 @@ export default function FeedPage() {
     }
 
     try {
+      console.log('DEBUG: Creating post', { user, newPost, mediaFiles })
       setUploadingMedia(true)
       
       // Upload media files first
@@ -225,7 +228,11 @@ export default function FeedPage() {
           .from('partnerfiles')
           .upload(filePath, file)
 
-        if (uploadError) throw uploadError
+        if (uploadError) {
+          console.error('DEBUG: Media upload error', uploadError)
+          alert('Media upload error: ' + uploadError.message)
+          throw uploadError
+        }
 
         const { data: { publicUrl } } = supabase.storage
           .from('partnerfiles')
@@ -248,7 +255,18 @@ export default function FeedPage() {
         })
         .select()
 
-      if (postError) throw postError
+      console.log('DEBUG: Post insert response', { post, postError })
+      if (postError) {
+        alert('Post insert error: ' + (postError as any)?.message)
+        throw postError
+      }
+
+      // Use the correct post id from the inserted post
+      const postId = Array.isArray(post) && post.length > 0 ? post[0].id : undefined;
+      if (!postId) {
+        alert('Could not get new post id')
+        throw new Error('No post id returned from insert')
+      }
 
       // Create the post details
       const detailsData = {
@@ -262,43 +280,48 @@ export default function FeedPage() {
       const { error: detailsError } = await supabase
         .from('post_details')
         .insert({
-          post_id: post.id,
+          post_id: postId,
           ...detailsData
         })
 
-      if (detailsError) throw detailsError
+      console.log('DEBUG: Post details insert response', { detailsError })
+      if (detailsError) {
+        alert('Post details insert error: ' + (detailsError as any)?.message)
+        throw detailsError
+      }
 
       // Reset form and refresh posts
-    setNewPost({
-      type: 'project',
-      content: '',
-      project: {
-        name: '',
-        description: '',
-        fundingGoal: '',
-        deadline: ''
-      },
-      deal: {
-        value: '',
-        status: 'In Progress',
-        partners: ['']
-      },
-      milestone: {
-        project: '',
-        achievement: '',
-        target: ''
-      },
-      partnership: {
-        newPartners: [''],
-        focus: ''
-      }
-    })
+      setNewPost({
+        type: 'project',
+        content: '',
+        project: {
+          name: '',
+          description: '',
+          fundingGoal: '',
+          deadline: ''
+        },
+        deal: {
+          value: '',
+          status: 'In Progress',
+          partners: ['']
+        },
+        milestone: {
+          project: '',
+          achievement: '',
+          target: ''
+        },
+        partnership: {
+          newPartners: [''],
+          focus: ''
+        }
+      })
       setMediaFiles([])
       setMediaPreview([])
-    setShowCreateForm(false)
+      setShowCreateForm(false)
       fetchPosts()
     } catch (error) {
       console.error('Error creating post:', error)
+      alert('Error creating post: ' + ((error as any)?.message || error))
     } finally {
       setUploadingMedia(false)
     }
@@ -595,14 +618,85 @@ export default function FeedPage() {
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {user && (
-          <div className="mb-8">
+          <>
             <Button
-              className="gradient-button w-full"
+              className="gradient-button w-full mb-8"
               onClick={() => setShowCreateForm(true)}
             >
               Create New Post
             </Button>
-          </div>
+            <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
+              <DialogContent className="max-w-lg w-full">
+                <DialogHeader>
+                  <DialogTitle>Create New Post</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleCreatePost} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Type</label>
+                    <select
+                      className="w-full rounded border-gray-700 bg-gray-900 text-white p-2"
+                      value={newPost.type}
+                      onChange={e => setNewPost({ ...newPost, type: e.target.value })}
+                      required
+                    >
+                      <option value="project">Project</option>
+                      <option value="deal">Deal</option>
+                      <option value="milestone">Milestone</option>
+                      <option value="partnership">Partnership</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Content</label>
+                    <textarea
+                      className="w-full rounded border-gray-700 bg-gray-900 text-white p-2 min-h-[80px]"
+                      value={newPost.content}
+                      onChange={e => setNewPost({ ...newPost, content: e.target.value })}
+                      placeholder="What's on your mind?"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Media (optional)</label>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,video/*"
+                      onChange={handleFileSelect}
+                      className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-800 file:text-white hover:file:bg-gray-700"
+                    />
+                    {mediaPreview.length > 0 && (
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {mediaPreview.map((url, idx) => (
+                          <div key={idx} className="relative group">
+                            {url.match(/image\//) ? (
+                              <img src={url} alt="preview" className="w-20 h-20 object-cover rounded" />
+                            ) : (
+                              <video src={url} className="w-20 h-20 object-cover rounded" controls />
+                            )}
+                            <button
+                              type="button"
+                              className="absolute top-0 right-0 bg-black bg-opacity-60 text-white rounded-full p-1 text-xs"
+                              onClick={() => handleRemoveMedia(idx)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit" className="gradient-button w-full" disabled={uploadingMedia}>
+                      {uploadingMedia ? 'Posting...' : 'Post'}
+                    </Button>
+                    <DialogClose asChild>
+                      <Button type="button" variant="outline" className="w-full mt-2">Cancel</Button>
+                    </DialogClose>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </>
         )}
 
         <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
