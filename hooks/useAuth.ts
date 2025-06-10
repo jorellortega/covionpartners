@@ -57,23 +57,6 @@ export function useAuth() {
     try {
       console.log('Attempting sign in with email:', email)
 
-      // First check if the user exists and their email status
-      const { data: userCheck } = await supabase
-        .from('auth.users')
-        .select('email_confirmed_at, email')
-        .eq('email', email)
-        .single()
-
-      if (userCheck && !userCheck.email_confirmed_at) {
-        return {
-          data: null,
-          error: {
-            message: "Please verify your email address before signing in. Check your inbox for the confirmation link.",
-            status: 'email_not_verified'
-          }
-        }
-      }
-
       // Proceed with sign in attempt
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -93,6 +76,17 @@ export function useAuth() {
           }
         }
         throw error
+      }
+
+      // Check if email is confirmed
+      if (data.user && !data.user.email_confirmed_at) {
+        return {
+          data: null,
+          error: {
+            message: "Please verify your email address before signing in. Check your inbox for the confirmation link.",
+            status: 'email_not_verified'
+          }
+        }
       }
 
       console.log('Sign in successful, user ID:', data.user?.id)

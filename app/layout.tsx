@@ -11,6 +11,14 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Covion Partners",
   description: "Covion Partners Platform",
+  icons: {
+    icon: [
+      {
+        url: '/favicon.svg',
+        type: 'image/svg+xml',
+      },
+    ],
+  },
 }
 
 export default function RootLayout({
@@ -22,8 +30,8 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <Providers>
-        <SiteHeader />
-        {children}
+          <SiteHeader />
+          {children}
           <Toaster />
         </Providers>
       </body>
