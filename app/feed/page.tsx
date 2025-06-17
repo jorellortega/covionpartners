@@ -291,33 +291,33 @@ export default function FeedPage() {
       }
 
       // Reset form and refresh posts
-      setNewPost({
-        type: 'project',
-        content: '',
-        project: {
-          name: '',
-          description: '',
-          fundingGoal: '',
-          deadline: ''
-        },
-        deal: {
-          value: '',
-          status: 'In Progress',
-          partners: ['']
-        },
-        milestone: {
-          project: '',
-          achievement: '',
-          target: ''
-        },
-        partnership: {
-          newPartners: [''],
-          focus: ''
-        }
-      })
+    setNewPost({
+      type: 'project',
+      content: '',
+      project: {
+        name: '',
+        description: '',
+        fundingGoal: '',
+        deadline: ''
+      },
+      deal: {
+        value: '',
+        status: 'In Progress',
+        partners: ['']
+      },
+      milestone: {
+        project: '',
+        achievement: '',
+        target: ''
+      },
+      partnership: {
+        newPartners: [''],
+        focus: ''
+      }
+    })
       setMediaFiles([])
       setMediaPreview([])
-      setShowCreateForm(false)
+    setShowCreateForm(false)
       fetchPosts()
     } catch (error) {
       console.error('Error creating post:', error)
@@ -563,45 +563,45 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-screen bg-gray-950 relative">
-      <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4 justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                className="text-gray-400 hover:text-purple-400"
-                onClick={() => router.back()}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-white">Activity Feed</h1>
-                <p className="text-gray-400 text-sm">Stay updated with the latest activities and opportunities</p>
+        <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md">
+          <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-4 justify-between">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  className="text-gray-400 hover:text-purple-400"
+                  onClick={() => router.back()}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+                <div>
+                  <h1 className="text-2xl font-bold text-white">Activity Feed</h1>
+                  <p className="text-gray-400 text-sm">Stay updated with the latest activities and opportunities</p>
+                </div>
               </div>
-            </div>
-            {/* Profile and Dashboard Icons on the right */}
-            <div className="flex items-center gap-2 ml-auto">
+              {/* Profile and Dashboard Icons on the right */}
+              <div className="flex items-center gap-2 ml-auto">
               {user ? (
                 <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-gray-400 hover:text-purple-400"
-                    onClick={() => router.push('/dashboard')}
-                    aria-label="Go to dashboard"
-                  >
-                    <LayoutDashboard className="w-7 h-7" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-gray-400 hover:text-purple-400"
-                    onClick={() => router.push(`/profile/${user?.id}`)}
-                    aria-label="Go to my profile"
-                  >
-                    <User className="w-7 h-7" />
-                  </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-400 hover:text-purple-400"
+                  onClick={() => router.push('/dashboard')}
+                  aria-label="Go to dashboard"
+                >
+                  <LayoutDashboard className="w-7 h-7" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-400 hover:text-purple-400"
+                onClick={() => router.push(`/profile/${user?.id}`)}
+                  aria-label="Go to my profile"
+                >
+                  <User className="w-7 h-7" />
+                </Button>
                 </>
               ) : (
                 <Button
@@ -611,31 +611,31 @@ export default function FeedPage() {
                   Sign in
                 </Button>
               )}
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {user && (
           <>
-            <Button
+              <Button 
               className="gradient-button w-full mb-8"
-              onClick={() => setShowCreateForm(true)}
-            >
+                onClick={() => setShowCreateForm(true)}
+              >
               Create New Post
-            </Button>
+              </Button>
             <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
               <DialogContent className="max-w-lg w-full">
                 <DialogHeader>
                   <DialogTitle>Create New Post</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleCreatePost} className="space-y-4">
-                  <div>
+                  <form onSubmit={handleCreatePost} className="space-y-4">
+                    <div>
                     <label className="block text-sm font-medium mb-1">Type</label>
                     <select
                       className="w-full rounded border-gray-700 bg-gray-900 text-white p-2"
-                      value={newPost.type}
+                        value={newPost.type}
                       onChange={e => setNewPost({ ...newPost, type: e.target.value })}
                       required
                     >
@@ -644,70 +644,70 @@ export default function FeedPage() {
                       <option value="milestone">Milestone</option>
                       <option value="partnership">Partnership</option>
                     </select>
-                  </div>
-                  <div>
+                    </div>
+                    <div>
                     <label className="block text-sm font-medium mb-1">Content</label>
                     <textarea
                       className="w-full rounded border-gray-700 bg-gray-900 text-white p-2 min-h-[80px]"
-                      value={newPost.content}
+                        value={newPost.content}
                       onChange={e => setNewPost({ ...newPost, content: e.target.value })}
                       placeholder="What's on your mind?"
-                      required
-                    />
-                  </div>
-                  <div>
+                        required
+                      />
+                    </div>
+                        <div>
                     <label className="block text-sm font-medium mb-1">Media (optional)</label>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*,video/*"
-                      onChange={handleFileSelect}
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*,video/*"
+                            onChange={handleFileSelect}
                       className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-800 file:text-white hover:file:bg-gray-700"
                     />
-                    {mediaPreview.length > 0 && (
+                      {mediaPreview.length > 0 && (
                       <div className="flex gap-2 mt-2 flex-wrap">
                         {mediaPreview.map((url, idx) => (
                           <div key={idx} className="relative group">
                             {url.match(/image\//) ? (
                               <img src={url} alt="preview" className="w-20 h-20 object-cover rounded" />
-                            ) : (
+                              ) : (
                               <video src={url} className="w-20 h-20 object-cover rounded" controls />
-                            )}
-                            <button
-                              type="button"
+                              )}
+                              <button
+                                type="button"
                               className="absolute top-0 right-0 bg-black bg-opacity-60 text-white rounded-full p-1 text-xs"
                               onClick={() => handleRemoveMedia(idx)}
-                            >
+                              >
                               ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   <DialogFooter>
                     <Button type="submit" className="gradient-button w-full" disabled={uploadingMedia}>
                       {uploadingMedia ? 'Posting...' : 'Post'}
-                    </Button>
+                      </Button>
                     <DialogClose asChild>
                       <Button type="button" variant="outline" className="w-full mt-2">Cancel</Button>
                     </DialogClose>
                   </DialogFooter>
-                </form>
+                  </form>
               </DialogContent>
             </Dialog>
           </>
-        )}
+            )}
 
         <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 mb-8">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="project" disabled style={{ opacity: 0.5, pointerEvents: 'none', cursor: 'not-allowed' }}>Projects</TabsTrigger>
-            <TabsTrigger value="deal" disabled style={{ opacity: 0.5, pointerEvents: 'none', cursor: 'not-allowed' }}>Deals</TabsTrigger>
-            <TabsTrigger value="partnership" disabled style={{ opacity: 0.5, pointerEvents: 'none', cursor: 'not-allowed' }}>Partnerships</TabsTrigger>
-          </TabsList>
+            <TabsList className="grid w-full grid-cols-4 mb-8">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="project" disabled style={{ opacity: 0.5, pointerEvents: 'none', cursor: 'not-allowed' }}>Projects</TabsTrigger>
+              <TabsTrigger value="deal" disabled style={{ opacity: 0.5, pointerEvents: 'none', cursor: 'not-allowed' }}>Deals</TabsTrigger>
+              <TabsTrigger value="partnership" disabled style={{ opacity: 0.5, pointerEvents: 'none', cursor: 'not-allowed' }}>Partnerships</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="all" className="space-y-6">
+            <TabsContent value="all" className="space-y-6">
             {loading ? (
               <div className="text-center text-gray-400">Loading posts...</div>
             ) : posts.length === 0 ? (
@@ -716,170 +716,93 @@ export default function FeedPage() {
               posts.map((item, idx) => (
                 <div key={item.id}>
                   <Card className="leonardo-card border-gray-800">
-                    <CardHeader className="flex flex-row items-center gap-4">
-                      <button
-                        className="flex items-center gap-2 group"
-                        onClick={() => router.push(`/profile/${item.user.id}`)}
-                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                        aria-label={`View profile of ${item.user.name || 'Unknown User'}`}
-                      >
-                        <Avatar>
+                  <CardHeader className="flex flex-row items-center gap-4">
+                    <button
+                      className="flex items-center gap-2 group"
+                      onClick={() => router.push(`/profile/${item.user.id}`)}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                      aria-label={`View profile of ${item.user.name || 'Unknown User'}`}
+                    >
+                      <Avatar>
                           <AvatarImage src={item.user.avatar || undefined} />
                           <AvatarFallback>{item.user.name ? item.user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'U'}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 text-left">
-                          <div className="flex items-center gap-2">
-                            <CardTitle className="text-lg group-hover:underline group-hover:text-purple-400 transition-colors">
-                              {item.user.name || 'Unknown User'}
-                            </CardTitle>
-                            <Badge variant="secondary" className="text-xs">
-                              {item.user.role}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-gray-400">{item.timestamp}</p>
+                      </Avatar>
+                      <div className="flex-1 text-left">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-lg group-hover:underline group-hover:text-purple-400 transition-colors">
+                            {item.user.name || 'Unknown User'}
+                          </CardTitle>
+                          <Badge variant="secondary" className="text-xs">
+                            {item.user.role}
+                          </Badge>
                         </div>
-                      </button>
-                      {getIconForType(item.type)}
-                    </CardHeader>
-                    <CardContent>
-                      {editingPostId === item.id ? (
-                        <Textarea
-                          value={editContent}
-                          onChange={e => setEditContent(e.target.value)}
-                          className="mb-4 bg-gray-900 border-gray-700 min-h-[80px]"
-                          autoFocus
-                        />
-                      ) : (
-                      <p className="text-gray-200 mb-4">{item.content}</p>
-                      )}
-                      
-                      {/* Media Display */}
-                      {item.media && item.media.length > 0 && (
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                          {item.media.map((media: any, index: number) => (
-                            <div key={index} className="relative group">
-                              {media.type === 'image' ? (
-                                <img
-                                  src={media.url}
-                                  alt={`Media ${index + 1}`}
-                                  className="w-full h-48 object-cover rounded-lg"
-                                />
-                              ) : (
-                                <video
-                                  src={media.url}
-                                  className="w-full h-48 object-cover rounded-lg"
-                                  controls
-                                />
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {/* Project Details */}
-                      {item.type === 'project' && (
-                        (item.name || item.description || item.fundingGoal || item.currentFunding || (item.deadline && !isNaN(new Date(item.deadline).getTime())) || (item.team && item.team.length > 0)) && (
-                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                            {item.name && (
-                          <h3 className="font-semibold text-white mb-2">{item.name}</h3>
-                            )}
-                            {item.description && (
-                          <p className="text-gray-400 text-sm mb-3">{item.description}</p>
-                            )}
-                          <div className="space-y-2">
-                              {item.fundingGoal && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-400">Funding Goal</span>
-                              <span className="text-white">${Number(item.fundingGoal).toLocaleString()}</span>
-                            </div>
-                              )}
-                              {item.currentFunding && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-400">Current Funding</span>
-                                  <span className="text-white">${Number(item.currentFunding).toLocaleString()}</span>
-                            </div>
-                              )}
-                              {item.deadline && !isNaN(new Date(item.deadline).getTime()) && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-400">Deadline</span>
-                              <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
-                            </div>
-                              )}
-                              {item.team && item.team.length > 0 && (
-                              <div className="mt-4">
-                                <span className="text-gray-400 text-sm">Team Members:</span>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  {item.team.map((member: any) => (
-                                    <Button
-                                      key={member.id}
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-xs"
-                                      onClick={() => router.push(`/profile/${member.id}`)}
-                                    >
-                                      {member.name}
-                                    </Button>
-                                  ))}
-                                </div>
-                              </div>
+                        <p className="text-sm text-gray-400">{item.timestamp}</p>
+                      </div>
+                    </button>
+                    {getIconForType(item.type)}
+                  </CardHeader>
+                  <CardContent>
+                    {editingPostId === item.id ? (
+                      <Textarea
+                        value={editContent}
+                        onChange={e => setEditContent(e.target.value)}
+                        className="mb-4 bg-gray-900 border-gray-700 min-h-[80px]"
+                        autoFocus
+                      />
+                    ) : (
+                    <p className="text-gray-200 mb-4">{item.content}</p>
+                    )}
+                    
+                    {/* Media Display */}
+                    {item.media && item.media.length > 0 && (
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        {item.media.map((media: any, index: number) => (
+                          <div key={index} className="relative group">
+                            {media.type === 'image' ? (
+                              <img
+                                src={media.url}
+                                alt={`Media ${index + 1}`}
+                                className="w-full h-48 object-cover rounded-lg"
+                              />
+                            ) : (
+                              <video
+                                src={media.url}
+                                className="w-full h-48 object-cover rounded-lg"
+                                controls
+                              />
                             )}
                           </div>
-                        </div>
-                        )
-                      )}
-
-                      {/* Deal Details */}
-                      {item.type === 'deal' && (
-                        (item.value || item.status || (item.partners && item.partners.length > 0)) && (
-                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                          {item.value && (
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-gray-400">Deal Value</span>
-                            <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
-                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Project Details */}
+                    {item.type === 'project' && (
+                      (item.name || item.description || item.fundingGoal || item.currentFunding || (item.deadline && !isNaN(new Date(item.deadline).getTime())) || (item.team && item.team.length > 0)) && (
+                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                          {item.name && (
+                        <h3 className="font-semibold text-white mb-2">{item.name}</h3>
                           )}
-                          {item.status && (
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-gray-400">Status</span>
-                            <Badge variant="secondary">{item.status}</Badge>
-                          </div>
+                          {item.description && (
+                        <p className="text-gray-400 text-sm mb-3">{item.description}</p>
                           )}
-                          {item.partners && item.partners.length > 0 && (
-                          <div className="mt-2">
-                            <span className="text-gray-400">Partners:</span>
-                            <div className="flex gap-2 mt-1">
-                                {item.partners.map((partner: any) => (
-                                <Button
-                                  key={partner.id}
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-xs"
-                                  onClick={() => router.push(`/profile/${partner.id}`)}
-                                >
-                                  {partner.name}
-                                </Button>
-                              ))}
-                            </div>
-                          </div>
-                          )}
-                        </div>
-                      )
-                      )}
-
-                      {/* Milestone Details */}
-                      {item.type === 'milestone' && (
-                        (item.project || item.achievement || (item.team && item.team.length > 0)) && (
-                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                            {item.project && (
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-gray-400">Project</span>
-                            <span className="text-white">{item.project}</span>
+                        <div className="space-y-2">
+                            {item.fundingGoal && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Funding Goal</span>
+                            <span className="text-white">${Number(item.fundingGoal).toLocaleString()}</span>
                           </div>
                             )}
-                            {item.achievement && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-400">Achievement</span>
-                            <span className="text-white">{item.achievement}</span>
+                            {item.currentFunding && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Current Funding</span>
+                                <span className="text-white">${Number(item.currentFunding).toLocaleString()}</span>
+                          </div>
+                            )}
+                            {item.deadline && !isNaN(new Date(item.deadline).getTime()) && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Deadline</span>
+                            <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
                           </div>
                             )}
                             {item.team && item.team.length > 0 && (
@@ -901,179 +824,256 @@ export default function FeedPage() {
                             </div>
                           )}
                         </div>
-                        )
-                      )}
+                      </div>
+                      )
+                    )}
 
-                      {/* Partnership Details */}
-                      {item.type === 'partnership' && (
-                        ((item.newPartners && item.newPartners.length > 0 && item.newPartners[0]) || item.focus) && (
-                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                            {item.newPartners && item.newPartners.length > 0 && item.newPartners[0] && (
-                          <div className="mb-2">
-                            <span className="text-gray-400">New Partners:</span>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {item.newPartners.map((partner: any) => (
+                    {/* Deal Details */}
+                    {item.type === 'deal' && (
+                      (item.value || item.status || (item.partners && item.partners.length > 0)) && (
+                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                        {item.value && (
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-gray-400">Deal Value</span>
+                          <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
+                        </div>
+                        )}
+                        {item.status && (
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-gray-400">Status</span>
+                          <Badge variant="secondary">{item.status}</Badge>
+                        </div>
+                        )}
+                        {item.partners && item.partners.length > 0 && (
+                        <div className="mt-2">
+                          <span className="text-gray-400">Partners:</span>
+                          <div className="flex gap-2 mt-1">
+                              {item.partners.map((partner: any) => (
+                              <Button
+                                key={partner.id}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => router.push(`/profile/${partner.id}`)}
+                              >
+                                {partner.name}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                        )}
+                      </div>
+                    )
+                    )}
+
+                    {/* Milestone Details */}
+                    {item.type === 'milestone' && (
+                      (item.project || item.achievement || (item.team && item.team.length > 0)) && (
+                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                          {item.project && (
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-gray-400">Project</span>
+                          <span className="text-white">{item.project}</span>
+                        </div>
+                          )}
+                          {item.achievement && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-400">Achievement</span>
+                          <span className="text-white">{item.achievement}</span>
+                        </div>
+                          )}
+                          {item.team && item.team.length > 0 && (
+                          <div className="mt-4">
+                            <span className="text-gray-400 text-sm">Team Members:</span>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {item.team.map((member: any) => (
                                 <Button
-                                  key={partner.id}
+                                  key={member.id}
                                   variant="outline"
                                   size="sm"
                                   className="text-xs"
-                                  onClick={() => router.push(`/profile/${partner.id}`)}
+                                  onClick={() => router.push(`/profile/${member.id}`)}
                                 >
-                                  {partner.name}
+                                  {member.name}
                                 </Button>
                               ))}
                             </div>
                           </div>
-                            )}
-                            {item.focus && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-400">Focus Area</span>
-                            <span className="text-white">{item.focus}</span>
-                          </div>
-                            )}
-                        </div>
-                        )
-                      )}
-
-                      {/* Interaction Buttons */}
-                      <div className="flex items-center gap-6 mt-4 pt-4 border-t border-gray-800">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={item.likedByCurrentUser ? "text-pink-500" : "text-gray-400 hover:text-white"}
-                          onClick={() => handleInteraction(item.id, 'like')}
-                        >
-                          <span className="text-lg mr-2" role="img" aria-label="clap">👏</span>
-                          {Number(item.likes) || 0}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={item.dislikedByCurrentUser ? "text-blue-500" : "text-gray-400 hover:text-white"}
-                          onClick={() => handleInteraction(item.id, 'dislike')}
-                        >
-                          <ThumbsDown className={`w-4 h-4 mr-2 ${item.dislikedByCurrentUser ? "fill-blue-500" : ""}`} />
-                          {Number(item.dislikes) || 0}
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-gray-400 hover:text-white"
-                          onClick={() => handleShowCommentBox(item.id)}
-                        >
-                          <MessageSquare className="w-4 h-4 mr-2" />
-                          {Number(item.comments) || 0}
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-gray-400 hover:text-white"
-                          onClick={() => handleInteraction(item.id, 'share')}
-                        >
-                          <Share2 className="w-4 h-4 mr-2" />
-                          {Number(item.shares) || 0}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={item.smhByCurrentUser ? "text-yellow-500" : "text-gray-400 hover:text-white"}
-                          onClick={() => handleInteraction(item.id, 'smh')}
-                        >
-                          <span className="text-lg mr-2" role="img" aria-label="smh">🤦</span>
-                          {Number(item.smh) || 0}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={item.trophyByCurrentUser ? "text-amber-500" : "text-gray-400 hover:text-white"}
-                          onClick={() => handleInteraction(item.id, 'trophy')}
-                        >
-                          <span className="text-lg mr-2" role="img" aria-label="trophy">🏆</span>
-                          {Number(item.trophy) || 0}
-                        </Button>
+                        )}
                       </div>
+                      )
+                    )}
 
-                      {/* Owner controls */}
-                      {user && user.id === item.user.id && (
-                        <div className="flex gap-2 ml-auto">
-                          {editingPostId === item.id ? (
-                            <>
-                              <Button size="icon" variant="ghost" onClick={() => handleSave(item)} title="Save">
-                                <Save className="w-4 h-4" />
+                    {/* Partnership Details */}
+                    {item.type === 'partnership' && (
+                      ((item.newPartners && item.newPartners.length > 0 && item.newPartners[0]) || item.focus) && (
+                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                          {item.newPartners && item.newPartners.length > 0 && item.newPartners[0] && (
+                        <div className="mb-2">
+                          <span className="text-gray-400">New Partners:</span>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {item.newPartners.map((partner: any) => (
+                              <Button
+                                key={partner.id}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => router.push(`/profile/${partner.id}`)}
+                              >
+                                {partner.name}
                               </Button>
-                              <Button size="icon" variant="ghost" onClick={() => { setEditingPostId(null); setEditContent('') }} title="Cancel">
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button size="icon" variant="ghost" onClick={() => handleEdit(item)} title="Edit">
-                                <Pencil className="w-4 h-4" />
-                              </Button>
-                              <Button size="icon" variant="ghost" onClick={() => handleDelete(item)} title="Delete">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </>
-                          )}
+                            ))}
+                          </div>
                         </div>
-                      )}
+                          )}
+                          {item.focus && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-400">Focus Area</span>
+                          <span className="text-white">{item.focus}</span>
+                        </div>
+                          )}
+                      </div>
+                      )
+                    )}
 
-                      {/* Comment input and comments */}
-                      {showCommentBox[item.id] && (
-                        <div className="mt-4 border-t border-gray-800 pt-4">
-                          <div className="flex items-start gap-2 mb-4">
-                            <Avatar>
+                    {/* Interaction Buttons */}
+                    <div className="flex items-center gap-6 mt-4 pt-4 border-t border-gray-800">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={item.likedByCurrentUser ? "text-pink-500" : "text-gray-400 hover:text-white"}
+                        onClick={() => handleInteraction(item.id, 'like')}
+                      >
+                        <span className="text-lg mr-2" role="img" aria-label="clap">👏</span>
+                        {Number(item.likes) || 0}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={item.dislikedByCurrentUser ? "text-blue-500" : "text-gray-400 hover:text-white"}
+                        onClick={() => handleInteraction(item.id, 'dislike')}
+                      >
+                        <ThumbsDown className={`w-4 h-4 mr-2 ${item.dislikedByCurrentUser ? "fill-blue-500" : ""}`} />
+                        {Number(item.dislikes) || 0}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-gray-400 hover:text-white"
+                        onClick={() => handleShowCommentBox(item.id)}
+                      >
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        {Number(item.comments) || 0}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-gray-400 hover:text-white"
+                        onClick={() => handleInteraction(item.id, 'share')}
+                      >
+                        <Share2 className="w-4 h-4 mr-2" />
+                        {Number(item.shares) || 0}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={item.smhByCurrentUser ? "text-yellow-500" : "text-gray-400 hover:text-white"}
+                        onClick={() => handleInteraction(item.id, 'smh')}
+                      >
+                        <span className="text-lg mr-2" role="img" aria-label="smh">🤦</span>
+                        {Number(item.smh) || 0}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={item.trophyByCurrentUser ? "text-amber-500" : "text-gray-400 hover:text-white"}
+                        onClick={() => handleInteraction(item.id, 'trophy')}
+                      >
+                        <span className="text-lg mr-2" role="img" aria-label="trophy">🏆</span>
+                        {Number(item.trophy) || 0}
+                      </Button>
+                    </div>
+
+                    {/* Owner controls */}
+                    {user && user.id === item.user.id && (
+                      <div className="flex gap-2 ml-auto">
+                        {editingPostId === item.id ? (
+                          <>
+                            <Button size="icon" variant="ghost" onClick={() => handleSave(item)} title="Save">
+                              <Save className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => { setEditingPostId(null); setEditContent('') }} title="Cancel">
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button size="icon" variant="ghost" onClick={() => handleEdit(item)} title="Edit">
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => handleDelete(item)} title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Comment input and comments */}
+                    {showCommentBox[item.id] && (
+                      <div className="mt-4 border-t border-gray-800 pt-4">
+                        <div className="flex items-start gap-2 mb-4">
+                          <Avatar>
                               <AvatarImage src={user?.user_metadata?.avatar_url || undefined} />
                               <AvatarFallback>{user?.user_metadata?.name ? user.user_metadata.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'U'}</AvatarFallback>
-                            </Avatar>
-                            <Textarea
-                              value={commentInputs[item.id] || ''}
-                              onChange={e => handleCommentInput(item.id, e.target.value)}
-                              placeholder="Add a comment..."
-                              className="flex-1 min-h-[60px] bg-gray-900 border-gray-700"
-                              disabled={!user}
-                            />
-                            <Button
-                              onClick={() => handleCommentSubmit(item.id)}
-                              disabled={!user || !commentInputs[item.id]?.trim()}
-                              className="self-end"
-                            >
-                              Post
-                            </Button>
-                          </div>
-                          {loadingComments[item.id] ? (
-                            <div className="text-gray-400">Loading comments...</div>
-                          ) : (
-                            <div className="space-y-3">
-                              {(comments[item.id] || []).length === 0 ? (
-                                <div className="text-gray-500 text-sm">No comments yet.</div>
-                              ) : (
-                                comments[item.id].map((c: any) => (
-                                  <div key={c.id} className="flex items-start gap-2">
-                                    <Avatar>
+                          </Avatar>
+                          <Textarea
+                            value={commentInputs[item.id] || ''}
+                            onChange={e => handleCommentInput(item.id, e.target.value)}
+                            placeholder="Add a comment..."
+                            className="flex-1 min-h-[60px] bg-gray-900 border-gray-700"
+                            disabled={!user}
+                          />
+                          <Button
+                            onClick={() => handleCommentSubmit(item.id)}
+                            disabled={!user || !commentInputs[item.id]?.trim()}
+                            className="self-end"
+                          >
+                            Post
+                          </Button>
+                        </div>
+                        {loadingComments[item.id] ? (
+                          <div className="text-gray-400">Loading comments...</div>
+                        ) : (
+                          <div className="space-y-3">
+                            {(comments[item.id] || []).length === 0 ? (
+                              <div className="text-gray-500 text-sm">No comments yet.</div>
+                            ) : (
+                              comments[item.id].map((c: any) => (
+                                <div key={c.id} className="flex items-start gap-2">
+                                  <Avatar>
                                       <AvatarImage src={c.user.avatar || undefined} />
                                       <AvatarFallback>{c.user.name ? c.user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'U'}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                      <div className="text-sm font-semibold text-white">{c.user.name}</div>
-                                      <div className="text-gray-300 text-sm">{c.content}</div>
-                                      <div className="text-xs text-gray-500">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</div>
-                                    </div>
+                                  </Avatar>
+                                  <div>
+                                    <div className="text-sm font-semibold text-white">{c.user.name}</div>
+                                    <div className="text-gray-300 text-sm">{c.content}</div>
+                                    <div className="text-xs text-gray-500">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</div>
                                   </div>
-                                ))
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
                   {(idx + 1) % 5 === 0 && <AdsenseAd />}
                 </div>
               ))
             )}
-          </TabsContent>
+            </TabsContent>
 
           <TabsContent value="project" className="space-y-6">
             {posts.filter(item => item.type === 'project').map((item) => (
@@ -1159,7 +1159,7 @@ export default function FeedPage() {
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-400">Current Funding</span>
                                 <span className="text-white">${Number(item.currentFunding).toLocaleString()}</span>
-                          </div>
+                        </div>
                             )}
                             {item.deadline && !isNaN(new Date(item.deadline).getTime()) && (
                         <div className="flex justify-between text-sm">
@@ -1338,8 +1338,8 @@ export default function FeedPage() {
                             ))}
                           </div>
                         </div>
-                        )}
-                      </div>
+                      )}
+                    </div>
                     )
                   )}
 

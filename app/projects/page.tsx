@@ -137,7 +137,11 @@ export default function ProjectsPage() {
           if (existingMember.status === 'pending') {
             throw new Error('Your join request is still pending approval')
           } else {
-            throw new Error('You are already a member of this project')
+            toast.info('You are already a member of this project. Redirecting...')
+            setTimeout(() => {
+              router.push(`/projects/${matchedProject.id}`)
+            }, 1000)
+            return;
           }
         }
 
@@ -296,7 +300,11 @@ export default function ProjectsPage() {
       }
 
       if (existingMember) {
-        throw new Error('You are already a member of this project')
+        toast.info('You are already a member of this project. Redirecting...')
+        setTimeout(() => {
+          router.push(`/projects/${projectData.id}`)
+        }, 1000)
+        return;
       }
 
       // Add user as team member

@@ -5,6 +5,7 @@ import { Inter } from "next/font/google"
 import { SiteHeader } from "@/components/site-header"
 import { Toaster } from "sonner"
 import Providers from "./providers"
+import Script from "next/script"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -28,6 +29,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        {/* Google AdSense script */}
+        <Script
+          id="adsense-script"
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5771281829620343"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
+      </head>
       <body className={inter.className}>
         <Providers>
           <SiteHeader />
