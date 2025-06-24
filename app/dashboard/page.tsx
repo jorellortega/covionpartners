@@ -1335,6 +1335,22 @@ export default function PartnerDashboard() {
                   <Star className="w-4 h-4 mr-2" />
                   Create Token/Certificate
                 </Button>
+                <Button
+                  variant="outline"
+                  className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                  onClick={() => router.push('/checktoken')}
+                >
+                  <Search className="w-4 h-4 mr-2" />
+                  Check Token/Certificate Authenticity
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400"
+                  onClick={() => router.push('/mytokens')}
+                >
+                  <Star className="w-4 h-4 mr-2" />
+                  My Tokens/Certificates
+                </Button>
               </CardContent>
             </Card>
 

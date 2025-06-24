@@ -268,6 +268,8 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
   const [donationSuccess, setDonationSuccess] = useState(false)
   const [tokens, setTokens] = useState<any[]>([])
   const [loadingTokens, setLoadingTokens] = useState(true)
+  const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null)
+  const [currentStep, setCurrentStep] = useState(1)
   const supabase = createClientComponentClient()
 
   const resolvedParams = use(params)
@@ -410,247 +412,290 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Project Information */}
-            <Card className="border-gray-800">
-              <CardHeader>
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 relative rounded-lg overflow-hidden">
-                    {project.media_files && project.media_files.length > 0 ? (
-                      <Image
-                        src={project.media_files[0].url}
-                        alt={project.name}
-                        fill
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gray-800/50 flex items-center justify-center">
-                        <Building2 className="w-8 h-8 text-purple-400/50" />
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <CardTitle>{project.name}</CardTitle>
-                      <StatusBadge status={project.status} />
-                    </div>
-                    <CardDescription className="text-gray-400">
-                      {project.description}
-                    </CardDescription>
-                  </div>
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Vertical Stepper */}
+          <div className="flex flex-row md:flex-col gap-4 md:gap-8 items-center md:items-start md:w-48">
+            {[1, 2, 3].map((step) => {
+              // Step enable logic
+              const canGoToStep =
+                step === 1 ||
+                (step === 2 && selectedTokenId) ||
+                (step === 3 && selectedTokenId && donationAmount && !isNaN(Number(donationAmount)) && Number(donationAmount) > 0);
+              const isActive = currentStep === step;
+              return (
+                <div key={step} className="flex items-center md:flex-col gap-2 md:gap-0">
+                  <button
+                    type="button"
+                    disabled={!canGoToStep}
+                    onClick={() => canGoToStep && setCurrentStep(step)}
+                    className={`w-8 h-8 flex items-center justify-center rounded-full border-2 font-bold text-lg transition-all focus:outline-none
+                      ${isActive ? 'bg-purple-500 text-white border-purple-500' : 'bg-gray-900 text-gray-400 border-gray-700'}
+                      ${canGoToStep ? 'cursor-pointer hover:border-purple-400 hover:text-purple-300' : 'cursor-not-allowed opacity-60'}`}
+                    aria-current={isActive ? 'step' : undefined}
+                    tabIndex={canGoToStep ? 0 : -1}
+                  >
+                    {step}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canGoToStep}
+                    onClick={() => canGoToStep && setCurrentStep(step)}
+                    className={`ml-2 md:ml-0 md:mt-2 text-xs md:text-sm font-medium text-left bg-transparent border-none p-0 m-0
+                      ${isActive ? 'text-purple-400' : 'text-gray-400'}
+                      ${canGoToStep ? 'cursor-pointer hover:text-purple-300' : 'cursor-not-allowed opacity-60'}`}
+                    tabIndex={canGoToStep ? 0 : -1}
+                  >
+                    {step === 1 ? 'Select Token' : step === 2 ? 'Select Price' : 'Continue to Payment'}
+                  </button>
+                  {step < 3 && <div className="hidden md:block w-1 h-8 bg-gray-700 mx-auto" />}
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="p-4 bg-pink-500/10 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center text-pink-400">
-                      <Heart className="w-4 h-4 mr-2" />
-                      <span>Support Progress</span>
-                    </div>
-                    <span className="text-white font-medium">
-                      ${project.current_funding?.toLocaleString() || '0'} / ${project.funding_goal?.toLocaleString() || '0'}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-700 rounded-full h-2">
-                    <div
-                      className="bg-pink-500 h-2 rounded-full"
-                      style={{ 
-                        width: `${project.funding_goal && project.current_funding 
-                          ? (project.current_funding / project.funding_goal * 100).toFixed(0) 
-                          : 0}%` 
-                      }}
-                    ></div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Donation Form */}
-            <Card className="border-gray-800">
-              <CardHeader>
-                <CardTitle>Purchase Token</CardTitle>
-                <CardDescription>Buy a unique token to support this project</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {/* Project Tokens */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-purple-400">
-                      <Gift className="w-4 h-4" />
-                      <span className="font-medium">Available Tokens</span>
-                    </div>
-                    {loadingTokens ? (
-                      <div className="flex items-center justify-center py-4">
-                        <LoadingSpinner className="w-6 h-6" />
-                      </div>
-                    ) : tokens.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-6">
-                        {tokens.map((token) => {
-                          console.log('DEBUG TOKEN:', token);
-                          return (
-                            <div key={token.id} className="flex flex-col md:flex-row items-center gap-6">
-                              {/* Certificate Card (styled, not SVG) */}
-                              <div className="border-4 border-[#7c3aed] bg-[#141414] shadow-2xl rounded-2xl max-w-xs w-full p-4 flex flex-col items-center font-serif text-white">
-                                <img 
-                                  src={TOKEN_IMAGE_URL} 
-                                  alt="Covion Partners Support" 
-                                  width={64} 
-                                  height={64} 
-                                  className="mx-auto rounded-full border-4 border-[#7c3aed] bg-white object-cover mb-2" 
-                                />
-                                <div className="text-lg italic mt-2">This certifies that</div>
-                                <div className="text-2xl font-bold text-white mt-2">
-                                  {token.supporter_name || 'Supporter'}
-                                </div>
-                                <div className="text-lg italic mt-2">has supported Covion Partners</div>
-                                <div className="text-xl font-semibold text-[#7c3aed] mt-2">
-                                  Certificate Number: <span className="font-bold">{token.certificate_number || token.metadata?.token_number || 'Not set'}</span>
-                                </div>
-                                <div className="text-base text-gray-300 mt-2">
-                                  on {token.created_at ? new Date(token.created_at).toLocaleDateString() : ''}
-                                </div>
-                                <div className="text-sm text-[#ec4899] mt-6 font-bold">Covion Partners</div>
-                                <div className="text-sm text-gray-500 mb-2">Amount: <span className="font-bold text-white">{token.amount}</span></div>
-                                <div className="text-xs text-gray-400">Created: {token.created_at ? new Date(token.created_at).toLocaleString() : ''}</div>
-                                <div className="text-xs text-gray-300 mt-2 text-center">
-                                  {token.project?.name || project?.name}
-                                </div>
-                    </div>
-                              {/* Token Card (SVG) */}
-                              <div className="flex flex-col items-center justify-center" style={{ width: 120, height: 160 }}>
-                                <svg width="1600" height="2240" viewBox="0 0 1600 2240" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 120, height: 160, display: 'block', borderRadius: 24, boxShadow: '0 4px 24px #0008' }}>
-                          <defs>
-                                    <linearGradient id={`card-bg-${token.id}`} x1="0" y1="0" x2="1600" y2="2240" gradientUnits="userSpaceOnUse">
-                              <stop stopColor="#4f46e5" />
-                              <stop offset="0.5" stopColor="#7c3aed" />
-                              <stop offset="1" stopColor="#ec4899" />
-                            </linearGradient>
-                                    <radialGradient id={`shine-${token.id}`} cx="50%" cy="30%" r="70%">
-                                      <stop offset="0%" stopColor="#fff" stopOpacity="0.25" />
-                                      <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-                                    </radialGradient>
-                          </defs>
-                                  <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#card-bg-${token.id})`} stroke="#fff" strokeWidth="16" />
-                                  <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#shine-${token.id})`} />
-                                  <text x="50%" y="240" textAnchor="middle" fontSize="160" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="8">TOKEN</text>
-                                  <text x="50%" y="380" textAnchor="middle" fontSize="72" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif" letterSpacing="8">COVION PARTNERS</text>
-                                  <circle cx="800" cy="1100" r="400" fill="#141414" stroke="#fff" strokeWidth="12" />
-                                  <image href={TOKEN_IMAGE_URL} x="500" y="800" width="600" height="600" style={{ filter: 'drop-shadow(0 0 24px #7c3aed88)' }} />
-                                  <text x="50%" y="2000" textAnchor="middle" fontSize="80" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif">{token.token_serial || token.metadata?.token_number || 'Not set'}</text>
-                                  <text x="50%" y="2100" textAnchor="middle" fontSize="48" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif">Serial Number</text>
-                        </svg>
-                                <div className="text-xs text-gray-300 mt-2 text-center">
-                                  {token.project?.name || project?.name}
-                                </div>
-                              </div>
+              );
+            })}
+          </div>
+          {/* Step Content */}
+          <div className="flex-1">
+            {currentStep === 1 && (
+              <>
+                <div className="mb-6 text-lg font-semibold text-purple-400">Step 1: Select a Token</div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+                  {tokens.map((token) => {
+                    const isCert = token.certificate_number || token.supporter_name || token.issued_at;
+                    const isSelected = selectedTokenId === token.id;
+                    const fullSerial = token.token_serial || token.metadata?.token_number || 'Not set';
+                    const shortSerial = fullSerial.length > 3 ? `${'*'.repeat(fullSerial.length - 3)}${fullSerial.slice(-3)}` : fullSerial;
+                    return (
+                      <div
+                        key={token.id}
+                        className={`flex flex-col items-center cursor-pointer transition-all duration-150 ${isSelected ? 'ring-4 ring-purple-400 scale-105' : 'hover:ring-2 hover:ring-purple-300'} rounded-2xl`}
+                        onClick={() => {
+                          setSelectedTokenId(token.id);
+                          setCurrentStep(2);
+                        }}
+                        tabIndex={0}
+                        role="button"
+                        aria-pressed={isSelected}
+                      >
+                        {isCert && (
+                          <div
+                            className="rounded-2xl shadow-lg border-2 border-purple-500 bg-[#141414] flex flex-col items-center justify-center relative mb-4"
+                            style={{ width: 220, height: 120, padding: 10 }}
+                          >
+                            <div className="absolute inset-0 rounded-2xl border-2 border-purple-500 pointer-events-none" style={{ zIndex: 1 }} />
+                            <div className="absolute left-3 top-3" style={{ zIndex: 2 }}>
+                              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="16" cy="16" r="16" fill="#141414" />
+                                <path d="M7.5 13.5L10 16C10.5 16.5 11.5 16.5 12 16L16.5 11.5C17 11 17 10 16.5 9.5L15 8C14.5 7.5 13.5 7.5 13 8L8.5 12.5C8 13 8 13.5 7.5 13.5Z" stroke="#a78bfa" strokeWidth="1.5" fill="none"/>
+                              </svg>
                             </div>
-                          );
-                        })}
+                            <div className="flex flex-col items-center justify-center w-full h-full" style={{ zIndex: 2 }}>
+                              <div className="text-xs font-bold text-purple-400 text-center mb-1">Certificate of Support</div>
+                              <div className="text-[10px] italic text-white text-center">This certifies that</div>
+                              <div className="text-xs font-bold text-white text-center mt-0.5">{token.supporter_name || 'Supporter'}</div>
+                              <div className="text-[10px] italic text-white text-center mt-0.5">has supported Covion Partners</div>
+                              <div className="text-xs font-bold text-purple-400 text-center mt-0.5">{token.certificate_number || (token.token_serial ? `CP-${token.token_serial}` : '')}</div>
+                              <div className="text-[9px] text-white text-center mt-0.5">{token.issued_at ? new Date(token.issued_at).toLocaleDateString() : token.created_at ? new Date(token.created_at).toLocaleDateString() : ''}</div>
+                              <div className="text-[9px] font-bold text-white text-center mt-0.5">Covion Partners</div>
+                              <div className="text-[8px] italic text-pink-400 text-center mt-0.5">Thank you for your support!</div>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex flex-col items-center justify-center" style={{ width: 120, height: 160 }}>
+                          <svg width="1600" height="2240" viewBox="0 0 1600 2240" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 120, height: 160, display: 'block', borderRadius: 24, boxShadow: '0 4px 24px #0008' }}>
+                            <defs>
+                              <linearGradient id={`card-bg-${token.id}`} x1="0" y1="0" x2="1600" y2="2240" gradientUnits="userSpaceOnUse">
+                                <stop stopColor="#4f46e5" />
+                                <stop offset="0.5" stopColor="#7c3aed" />
+                                <stop offset="1" stopColor="#ec4899" />
+                              </linearGradient>
+                              <radialGradient id={`shine-${token.id}`} cx="50%" cy="30%" r="70%">
+                                <stop offset="0%" stopColor="#fff" stopOpacity="0.25" />
+                                <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+                              </radialGradient>
+                            </defs>
+                            <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#card-bg-${token.id})`} stroke="#fff" strokeWidth="16" />
+                            <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#shine-${token.id})`} />
+                            <text x="50%" y="240" textAnchor="middle" fontSize="160" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="8">TOKEN</text>
+                            <text x="50%" y="380" textAnchor="middle" fontSize="72" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif" letterSpacing="8">COVION PARTNERS</text>
+                            <circle cx="800" cy="1100" r="400" fill="#141414" stroke="#fff" strokeWidth="12" />
+                            <image href={TOKEN_IMAGE_URL} x="500" y="800" width="600" height="600" style={{ filter: 'drop-shadow(0 0 24px #7c3aed88)' }} />
+                            <text x="50%" y="2000" textAnchor="middle" fontSize="80" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif">{shortSerial}</text>
+                            <text x="50%" y="2100" textAnchor="middle" fontSize="48" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif">Serial Number</text>
+                          </svg>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="text-sm text-gray-400 text-center py-4">
-                        No tokens have been created for this project yet.
-                    </div>
-                    )}
+                    );
+                  })}
+                </div>
+                <div className="flex justify-end mt-6">
+                  <Button
+                    onClick={() => selectedTokenId && setCurrentStep(2)}
+                    disabled={!selectedTokenId}
+                    className="bg-purple-500 text-white"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </>
+            )}
+            {currentStep === 2 && (
+              <>
+                <div className="mb-6 text-lg font-semibold text-purple-400">Step 2: Select a Price</div>
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-400 text-center">
+                    Choose any amount to receive your unique token
                   </div>
-
-                  {/* Quick Amount Buttons */}
-                  <div className="space-y-4">
-                    <div className="text-sm text-gray-400 text-center">
-                      Choose any amount to receive your unique token
-                    </div>
                   <div className="grid grid-cols-3 gap-4">
                     {[10, 25, 50, 100, 250, 500].map((amount) => (
                       <Button
                         key={amount}
                         variant={donationAmount === amount.toString() ? "default" : "outline"}
                         className="border-gray-700"
-                        onClick={() => setDonationAmount(amount.toString())}
+                        onClick={() => {
+                          setDonationAmount(amount.toString());
+                          setCurrentStep(3);
+                        }}
                       >
                         ${amount}
                       </Button>
                     ))}
-                    </div>
                   </div>
-
-                  {/* Custom Amount Input */}
-                  <div>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                      <Input
-                        type="number"
-                        placeholder="Or enter any custom amount"
-                        value={donationAmount}
-                        onChange={(e) => setDonationAmount(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Message */}
-                  <div>
-                    <Textarea
-                      placeholder="Add a message of support (optional)"
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      className="min-h-[100px]"
+                </div>
+                <div className="mt-4">
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      type="number"
+                      placeholder="Or enter any custom amount"
+                      value={donationAmount}
+                      onChange={(e) => setDonationAmount(e.target.value)}
+                      className="pl-10"
                     />
                   </div>
-
-                  {/* Payment Form */}
-                  {clientSecret ? (
-                    <Elements stripe={stripePromise} options={{ clientSecret }}>
-                      <PaymentForm clientSecret={clientSecret} onSuccess={() => setDonationSuccess(true)} projectId={project.id} />
-                    </Elements>
-                  ) : (
-                    <Button
-                      className="w-full gradient-button"
-                      onClick={handleDonate}
-                      disabled={!donationAmount}
-                    >
-                      <Heart className="w-4 h-4 mr-2" />
-                      Continue to Payment
-                    </Button>
-                  )}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Donation Summary */}
-            <Card className="border-gray-800">
-              <CardHeader>
-                <CardTitle>Support Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center py-2 border-b border-gray-800">
-                    <span className="text-gray-400">Support Amount</span>
-                    <span className="font-medium">${supportAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-gray-800">
-                    <span className="text-gray-400">Stripe Fee</span>
-                    <span className="font-medium text-xs text-gray-400">-${stripeFee.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-gray-800">
-                    <span className="text-gray-400">Platform Fee</span>
-                    <span className="font-medium text-xs text-gray-400">-${platformFee.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-gray-800 font-bold">
-                    <span className="text-white">Project Receives</span>
-                    <span className="font-bold">${netAmount > 0 ? netAmount.toFixed(2) : '0.00'}</span>
-                  </div>
-                  <div className="flex items-center justify-center text-sm text-gray-400">
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Secure payment processing
+                <div className="flex justify-between mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentStep(1)}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    onClick={() => donationAmount && setCurrentStep(3)}
+                    disabled={!donationAmount || isNaN(Number(donationAmount)) || Number(donationAmount) <= 0}
+                    className="bg-purple-500 text-white"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </>
+            )}
+            {currentStep === 3 && (
+              <>
+                <div className="mb-6 text-lg font-semibold text-purple-400">Step 3: Review & Continue to Payment</div>
+                <div className="w-full max-w-2xl mx-auto mt-4 bg-[#18132a] rounded-xl shadow-lg p-6 flex flex-col md:flex-row items-center md:items-start gap-8">
+                  {/* Token on the left */}
+                  {tokens.filter(t => t.id === selectedTokenId).map(token => {
+                    const fullSerial = token.token_serial || token.metadata?.token_number || 'Not set';
+                    const shortSerial = fullSerial.length > 3 ? `${'*'.repeat(fullSerial.length - 3)}${fullSerial.slice(-3)}` : fullSerial;
+                    // Use /mytokens logic for certificate number
+                    const certNumber = token.certificate_number || (token.token_serial ? `CP-${token.token_serial}` : '');
+                    const supporter = token.supporter_name || 'Supporter';
+                    const issued = token.issued_at ? new Date(token.issued_at).toLocaleDateString() : token.created_at ? new Date(token.created_at).toLocaleDateString() : 'N/A';
+                    return (
+                      <div key={token.id} className="flex flex-col items-center mb-4 md:mb-0">
+                        <div className="flex flex-col items-center justify-center" style={{ width: 100, height: 133 }}>
+                          <svg width="1600" height="2240" viewBox="0 0 1600 2240" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 100, height: 133, display: 'block', borderRadius: 24, boxShadow: '0 4px 24px #0008' }}>
+                            <defs>
+                              <linearGradient id={`card-bg-review-${token.id}`} x1="0" y1="0" x2="1600" y2="2240" gradientUnits="userSpaceOnUse">
+                                <stop stopColor="#4f46e5" />
+                                <stop offset="0.5" stopColor="#7c3aed" />
+                                <stop offset="1" stopColor="#ec4899" />
+                              </linearGradient>
+                              <radialGradient id={`shine-review-${token.id}`} cx="50%" cy="30%" r="70%">
+                                <stop offset="0%" stopColor="#fff" stopOpacity="0.25" />
+                                <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+                              </radialGradient>
+                            </defs>
+                            <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#card-bg-review-${token.id})`} stroke="#fff" strokeWidth="16" />
+                            <rect x="40" y="40" width="1520" height="2160" rx="80" fill={`url(#shine-review-${token.id})`} />
+                            <text x="50%" y="240" textAnchor="middle" fontSize="160" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="8">TOKEN</text>
+                            <text x="50%" y="380" textAnchor="middle" fontSize="72" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif" letterSpacing="8">COVION PARTNERS</text>
+                            <circle cx="800" cy="1100" r="400" fill="#141414" stroke="#fff" strokeWidth="12" />
+                            <image href={TOKEN_IMAGE_URL} x="500" y="800" width="600" height="600" style={{ filter: 'drop-shadow(0 0 24px #7c3aed88)' }} />
+                            <text x="50%" y="2000" textAnchor="middle" fontSize="80" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif">{shortSerial}</text>
+                            <text x="50%" y="2100" textAnchor="middle" fontSize="48" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif">Serial Number</text>
+                          </svg>
+                        </div>
+                        <div className="mt-2 text-base text-gray-300">Serial: <span className="font-bold text-white">{shortSerial}</span></div>
+                        {/* Mini certificate preview under token, matching /mytokens */}
+                        <div
+                          className="mt-4 rounded-xl shadow border-2 border-purple-500 bg-[#18132a] flex flex-col items-center justify-center relative"
+                          style={{ width: 120, height: 60, padding: 4 }}
+                        >
+                          <div className="absolute inset-0 rounded-xl border-2 border-purple-500 pointer-events-none" style={{ zIndex: 1 }} />
+                          <div className="absolute left-2 top-2" style={{ zIndex: 2 }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <circle cx="12" cy="12" r="12" fill="#141414" />
+                              <path d="M7.5 13.5L10 16C10.5 16.5 11.5 16.5 12 16L16.5 11.5C17 11 17 10 16.5 9.5L15 8C14.5 7.5 13.5 7.5 13 8L8.5 12.5C8 13 8 13.5 7.5 13.5Z" stroke="#a78bfa" strokeWidth="1.2" fill="none"/>
+                            </svg>
+                          </div>
+                          <div className="flex flex-col items-center justify-center w-full h-full" style={{ zIndex: 2 }}>
+                            <div className="text-[9px] font-bold text-purple-400 text-center mb-0.5">Certificate of Support</div>
+                            <div className="text-[7px] italic text-white text-center">This certifies that</div>
+                            <div className="text-[8px] font-bold text-white text-center mt-0.5">{supporter}</div>
+                            <div className="text-[7px] italic text-white text-center mt-0.5">has supported Covion Partners</div>
+                            <div className="text-[8px] font-bold text-purple-400 text-center mt-0.5">{certNumber}</div>
+                            <div className="text-[7px] text-white text-center mt-0.5">{issued}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {/* Summary details on the right */}
+                  <div className="flex-1 w-full">
+                    <div className="mb-2 text-lg font-semibold text-white">Summary</div>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                      <span className="text-gray-400">Selected Price</span>
+                      <span className="font-bold text-green-400 text-lg">${donationAmount}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                      <span className="text-gray-400">Stripe Fee</span>
+                      <span className="font-medium text-xs text-gray-400">-${stripeFee.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                      <span className="text-gray-400">Platform Fee</span>
+                      <span className="font-medium text-xs text-gray-400">-${platformFee.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-800 font-bold">
+                      <span className="text-white">Project Receives</span>
+                      <span className="font-bold">${netAmount > 0 ? netAmount.toFixed(2) : '0.00'}</span>
+                    </div>
+                    <div className="flex items-center justify-center text-sm text-gray-400 mt-2">
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Secure payment processing
+                    </div>
+                    <div className="flex justify-center mt-8">
+                      <Button
+                        className="bg-purple-500 text-white text-xl px-8 py-4 rounded-2xl shadow-lg"
+                        style={{ fontSize: '1.5rem', fontWeight: 700 }}
+                        onClick={handleDonate}
+                        disabled={!selectedTokenId || !donationAmount}
+                      >
+                        Continue to Payment
+                      </Button>
+                    </div>
+                    <div className="flex justify-center mt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => setCurrentStep(2)}
+                      >
+                        Back
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </>
+            )}
           </div>
         </div>
       </main>

@@ -141,7 +141,7 @@ export default function CreateTokenPage() {
       doc.setFont('times', 'bold')
       doc.setFontSize(24)
       doc.setTextColor('#7c3aed')
-      doc.text(`Certificate Number: CP-${createdToken.tokenNumber}`, 421, 290, { align: 'center' })
+      doc.text(`Certificate Number: ${maskTokenNumber('CP-' + createdToken.tokenNumber)}`, 421, 290, { align: 'center' })
       doc.setFontSize(16)
       doc.setTextColor('#fff')
       doc.text(`on ${date}`, 421, 330, { align: 'center' })
@@ -214,6 +214,8 @@ export default function CreateTokenPage() {
         toast.error('Failed to save certificate info');
       } else {
         toast.success('Certificate info saved!');
+        // Redirect to mytokens page after successful save
+        router.push('/mytokens');
       }
     } catch (err) {
       toast.error('Error saving certificate info');
@@ -221,6 +223,16 @@ export default function CreateTokenPage() {
       setCreating(false);
     }
   };
+
+  // Add a helper to mask the token number
+  function maskTokenNumber(tokenNumber: string) {
+    if (!tokenNumber) return '';
+    // Remove CP- prefix if present
+    const prefix = tokenNumber.startsWith('CP-') ? 'CP-' : '';
+    const num = tokenNumber.replace('CP-', '');
+    if (num.length <= 3) return prefix + num;
+    return prefix + '*'.repeat(num.length - 3) + num.slice(-3);
+  }
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>
@@ -331,48 +343,45 @@ export default function CreateTokenPage() {
 
         {createdToken && (
           <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="flex flex-row gap-4 justify-center items-start flex-wrap">
               {/* Certificate Card */}
-              <Card className="border-4 border-[#7c3aed] bg-[#141414] shadow-2xl relative overflow-hidden">
+              <Card className="border-2 border-[#7c3aed] bg-[#141414] shadow-lg relative overflow-hidden max-w-xs w-full">
                 <CardHeader>
-                  <CardTitle className="text-center text-3xl font-serif tracking-wide mb-2 bg-gradient-to-r from-[#4f46e5] via-[#7c3aed] to-[#ec4899] bg-clip-text text-transparent">
+                  <CardTitle className="text-center text-xl font-serif tracking-wide mb-2 bg-gradient-to-r from-[#4f46e5] via-[#7c3aed] to-[#ec4899] bg-clip-text text-transparent">
                     Certificate of Support
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col items-center space-y-2 py-4 font-serif text-white">
+                  <div className="flex flex-col items-center space-y-1 py-2 font-serif text-white">
                     <img 
                       src={TOKEN_IMAGE_URL} 
                       alt="Covion Partners Support" 
-                      width={96} 
-                      height={96} 
-                      className="mx-auto rounded-full border-4 border-[#7c3aed] bg-white object-cover" 
+                      width={56} 
+                      height={56} 
+                      className="mx-auto rounded-full border-2 border-[#7c3aed] bg-white object-cover" 
                     />
-                    <div className="text-lg italic mt-2">This certifies that</div>
-                    <div className="text-2xl font-bold text-white mt-2">{supporterName}</div>
-                    <div className="text-lg italic mt-2">has supported Covion Partners</div>
-                    <div className="text-xl font-semibold text-[#7c3aed] mt-2">Certificate Number: CP-{createdToken.tokenNumber}</div>
-                    <div className="text-base text-gray-300 mt-2">on {date}</div>
-                    <div className="text-sm text-[#ec4899] mt-6 font-bold">Covion Partners</div>
-                    <Button className="mt-6 w-full" onClick={handleDownloadCertificate}>
-                      Download Certificate
-                    </Button>
+                    <div className="text-sm italic mt-1">This certifies that</div>
+                    <div className="text-lg font-bold text-white mt-1">{supporterName}</div>
+                    <div className="text-sm italic mt-1">has supported Covion Partners</div>
+                    <div className="text-base font-semibold text-[#7c3aed] mt-1">Certificate Number: {maskTokenNumber('CP-' + createdToken.tokenNumber)}</div>
+                    <div className="text-xs text-gray-300 mt-1">on {date}</div>
+                    <div className="text-xs text-[#ec4899] mt-3 font-bold">Covion Partners</div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Token Card */}
-              <Card className="border-4 border-[#7c3aed] bg-[#141414] shadow-2xl relative overflow-hidden">
+              <Card className="border-2 border-[#7c3aed] bg-[#141414] shadow-lg relative overflow-hidden max-w-xs w-full">
                 <CardHeader>
-                  <CardTitle className="text-center text-3xl font-serif tracking-wide mb-2 bg-gradient-to-r from-[#4f46e5] via-[#7c3aed] to-[#ec4899] bg-clip-text text-transparent">
+                  <CardTitle className="text-center text-xl font-serif tracking-wide mb-2 bg-gradient-to-r from-[#4f46e5] via-[#7c3aed] to-[#ec4899] bg-clip-text text-transparent">
                     Digital Token
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col items-center py-8">
-                  <div id="covion-token-image" className="flex flex-col items-center justify-center" style={{ width: 240, height: 320 }}>
-                    <svg width="1600" height="2240" viewBox="0 0 1600 2240" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 240, height: 320, display: 'block', borderRadius: 24, boxShadow: '0 4px 24px #0008' }}>
+                <CardContent className="flex flex-col items-center py-4">
+                  <div id="covion-token-image" className="flex flex-col items-center justify-center" style={{ width: 120, height: 160 }}>
+                    <svg width="120" height="160" viewBox="0 0 800 1120" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 120, height: 160, display: 'block', borderRadius: 16, boxShadow: '0 2px 12px #0008' }}>
                       <defs>
-                        <linearGradient id="card-bg" x1="0" y1="0" x2="1600" y2="2240" gradientUnits="userSpaceOnUse">
+                        <linearGradient id="card-bg" x1="0" y1="0" x2="800" y2="1120" gradientUnits="userSpaceOnUse">
                           <stop stopColor="#4f46e5" />
                           <stop offset="0.5" stopColor="#7c3aed" />
                           <stop offset="1" stopColor="#ec4899" />
@@ -382,22 +391,19 @@ export default function CreateTokenPage() {
                           <stop offset="100%" stopColor="#fff" stopOpacity="0" />
                         </radialGradient>
                       </defs>
-                      <rect x="40" y="40" width="1520" height="2160" rx="80" fill="url(#card-bg)" stroke="#fff" strokeWidth="16" />
-                      <rect x="40" y="40" width="1520" height="2160" rx="80" fill="url(#shine)" />
-                      <text x="50%" y="240" textAnchor="middle" fontSize="160" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="8">TOKEN</text>
-                      <text x="50%" y="380" textAnchor="middle" fontSize="72" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif" letterSpacing="8">COVION PARTNERS</text>
-                      <circle cx="800" cy="1100" r="400" fill="#141414" stroke="#fff" strokeWidth="12" />
-                      <image href={TOKEN_IMAGE_URL} x="500" y="800" width="600" height="600" style={{ filter: 'drop-shadow(0 0 24px #7c3aed88)' }} />
-                      <text x="50%" y="2000" textAnchor="middle" fontSize="80" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif">CP-{createdToken.tokenNumber}</text>
-                      <text x="50%" y="2100" textAnchor="middle" fontSize="48" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif">Serial Number</text>
+                      <rect x="10" y="10" width="780" height="1100" rx="32" fill="url(#card-bg)" stroke="#fff" strokeWidth="8" />
+                      <rect x="10" y="10" width="780" height="1100" rx="32" fill="url(#shine)" />
+                      <text x="400" y="80" textAnchor="middle" fontSize="64" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="2">TOKEN</text>
+                      <text x="400" y="140" textAnchor="middle" fontSize="24" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif" letterSpacing="2">COVION PARTNERS</text>
+                      <circle cx="400" cy="560" r="160" fill="#141414" stroke="#fff" strokeWidth="6" />
+                      <image href={TOKEN_IMAGE_URL} x="280" y="440" width="240" height="240" style={{ filter: 'drop-shadow(0 0 8px #7c3aed88)' }} />
+                      <text x="400" y="1000" textAnchor="middle" fontSize="28" fontWeight="bold" fill="#fff" fontFamily="Arial, sans-serif">{maskTokenNumber('CP-' + createdToken.tokenNumber)}</text>
+                      <text x="400" y="1060" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#000" fontFamily="Arial, sans-serif">Serial Number</text>
                     </svg>
                   </div>
                   <div className="text-xs text-gray-300 mt-1">
-                    Serial: CP-{createdToken.tokenNumber}
+                    Serial: {maskTokenNumber('CP-' + createdToken.tokenNumber)}
                   </div>
-                  <Button className="mt-6 w-full" onClick={handleDownloadToken}>
-                    Download Token
-                  </Button>
                 </CardContent>
               </Card>
             </div>

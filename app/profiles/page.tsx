@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 
 interface Profile {
   id: string
@@ -153,17 +154,20 @@ export default function ProfilesPage() {
         // Fetch profiles and join users for avatar_url
         const { data, error } = await supabase
           .from('profiles')
-          .select('*, users: user_id (avatar_url)')
+          .select('*, users: user_id (avatar_url, name)')
           .order('created_at', { ascending: false })
         if (error) throw error
         // Map avatar_url from users table into each profile
         const merged = (data || []).map((profile: any) => ({
           ...profile,
+          name: profile.name || (profile.users?.name ?? 'Unknown User'),
           avatar_url: profile.users?.avatar_url || profile.avatar_url || '/placeholder-avatar.jpg',
-          user_id: profile.users?.user_id
+          user_id: profile.users?.user_id || profile.user_id
         }))
-        setProfiles(merged)
-        setFilteredProfiles(merged)
+        // Only keep profiles with a valid user_id
+        const filtered = merged.filter(profile => !!profile.user_id)
+        setProfiles(filtered)
+        setFilteredProfiles(filtered)
       } catch (error) {
         console.error('Error fetching profiles:', error)
         toast.error('Failed to load profiles')
@@ -217,7 +221,7 @@ export default function ProfilesPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Profiles</h1>
-          <p className="text-gray-400">Discover and connect with professionals in our community</p>
+          <p className="text-gray-400">Discover, connect with, and hire talented professionals in our community for your next project or team.</p>
         </div>
 
         {/* Search and Filters */}
@@ -268,20 +272,18 @@ export default function ProfilesPage() {
               <Card
                 key={profile.id}
                 className="leonardo-card border-gray-800 hover:border-blue-500/50 transition-colors cursor-pointer"
-                onClick={() => router.push(`/profile/${profile.user_id || profile.id}`)}
+                onClick={() => router.push(`/profile/${profile.user_id}`)}
               >
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
                     <div className="relative w-16 h-16 rounded-full overflow-hidden flex-shrink-0">
-                      <Image
-                        src={profile.avatar_url}
-                        alt={profile.name}
-                        fill
-                        className="object-cover"
-                      />
+                      <Avatar className="w-16 h-16">
+                        <AvatarImage src={profile.avatar_url} alt={`Avatar of ${profile.name}`} />
+                        <AvatarFallback>{profile.name ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}</AvatarFallback>
+                      </Avatar>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold text-white truncate">{profile.name}</h3>
+                      <h3 className="text-lg font-semibold text-white truncate">{profile.name || 'Unknown User'}</h3>
                       <p className="text-gray-400 text-sm mb-2">{profile.role}</p>
                       <div className="flex flex-wrap gap-2 mb-2">
                         {profile.company && (
