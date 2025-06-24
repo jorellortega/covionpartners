@@ -173,4 +173,18 @@ VALUES
   
   -- Software expenses
   ('038720f6-b3bb-4d93-a452-c147184b9050', 'e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e', 'Project Management Software', 500.00, 'Software', 'Paid', '2024-04-01', 'https://storage.example.com/receipts/pm_software.pdf', 'Monthly subscription'),
-  ('038720f6-b3bb-4d93-a452-c147184b9050', 'e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e', 'Design Software License', 1800.00, 'Software', 'Approved', '2024-06-01', 'https://storage.example.com/receipts/design_software.pdf', 'Annual license renewal'); 
+  ('038720f6-b3bb-4d93-a452-c147184b9050', 'e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e', 'Design Software License', 1800.00, 'Software', 'Approved', '2024-06-01', 'https://storage.example.com/receipts/design_software.pdf', 'Annual license renewal');
+
+-- Seed data for group_chats
+INSERT INTO group_chats (id, name, description, avatar_url, is_private, created_by, created_at, updated_at)
+VALUES
+  (gen_random_uuid(), 'Product Team', 'Chat for all product team discussions', 'https://ui-avatars.com/api/?name=Product+Team', false, NULL, timezone('utc', now()), timezone('utc', now())),
+  (gen_random_uuid(), 'Marketing Crew', 'Marketing strategies and campaigns', 'https://ui-avatars.com/api/?name=Marketing+Crew', false, NULL, timezone('utc', now()), timezone('utc', now())),
+  (gen_random_uuid(), 'Private Founders', 'Confidential founder-only chat', 'https://ui-avatars.com/api/?name=Founders', true, NULL, timezone('utc', now()), timezone('utc', now())); 
+
+-- Backfill profiles table for all users without a profile
+INSERT INTO profiles (id, full_name, avatar_url, created_at, updated_at)
+SELECT u.id, COALESCE(u.full_name, u.email), NULL, NOW(), NOW()
+FROM users u
+LEFT JOIN profiles p ON u.id = p.id
+WHERE p.id IS NULL; 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
 
 interface PaymentMethod {
   id: string;
@@ -31,8 +32,22 @@ export default function PayPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
+  const [allActiveUsers, setAllActiveUsers] = useState<any[]>([]);
   const supabase = createClientComponentClient();
   const { teamMembers, loading: loadingTeamMembers } = useTeamMembers(selectedProject);
+  const searchParams = useSearchParams();
+
+  // Fetch all users with Covion Bank status 'Active' on mount
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, name, email, stripe_connect_account_id')
+        .not('stripe_connect_account_id', 'is', null);
+      setAllActiveUsers(users || []);
+    };
+    fetchUsers();
+  }, [supabase]);
 
   // Fetch user's projects and payment methods on mount
   useEffect(() => {
@@ -71,53 +86,18 @@ export default function PayPage() {
         index === self.findIndex((p) => p.id === project.id)
       );
       setProjects(uniqueProjects);
-      if (uniqueProjects.length > 0) {
-        setSelectedProject(uniqueProjects[0].id);
-      }
-
-      // Fetch payment methods
-      const response = await fetch('/api/payment-methods/list');
-      if (response.ok) {
-        const data = await response.json();
-        setPaymentMethods(data.paymentMethods || []);
-        if (data.paymentMethods?.length > 0) {
-          setSelectedPaymentMethod(data.paymentMethods[0].id);
-        }
-      }
     };
 
     fetchData();
   }, [supabase]);
 
-  // Fetch team members with Stripe Connect status
-  const [teamMembersWithStripe, setTeamMembersWithStripe] = useState<any[]>([]);
+  // Preselect recipient from query param if possible
   useEffect(() => {
-    const fetchStripeStatus = async () => {
-      if (!selectedProject) return;
-      const { data: members } = await supabase
-        .from('team_members')
-        .select('user_id')
-        .eq('project_id', selectedProject);
-      if (!members) return;
-      const userIds = members.map((m: any) => m.user_id);
-      // Also add project owner
-      const { data: project } = await supabase
-        .from('projects')
-        .select('owner_id')
-        .eq('id', selectedProject)
-        .single();
-      if (project && !userIds.includes(project.owner_id)) {
-        userIds.push(project.owner_id);
-      }
-      // Fetch users with stripe_connect_account_id
-      const { data: users } = await supabase
-        .from('users')
-        .select('id, name, email, stripe_connect_account_id')
-        .in('id', userIds);
-      setTeamMembersWithStripe(users || []);
-    };
-    fetchStripeStatus();
-  }, [selectedProject, supabase]);
+    const recipientParam = searchParams.get("recipient");
+    if (recipientParam && allActiveUsers.some(m => m.id === recipientParam)) {
+      setRecipientId(recipientParam);
+    }
+  }, [searchParams, allActiveUsers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,7 +131,7 @@ export default function PayPage() {
           amount: transferAmount,
           recipientId: recipientId,
           paymentMethodId: selectedPaymentMethod,
-          projectId: selectedProject,
+          ...(selectedProject && { projectId: selectedProject }),
         }),
       });
 
@@ -176,8 +156,8 @@ export default function PayPage() {
     <div className="max-w-lg mx-auto py-10">
       <Card>
         <CardHeader>
-          <CardTitle>Send Payment to a Team Member</CardTitle>
-          <CardDescription>Select a project and a team member to pay.</CardDescription>
+          <CardTitle>Send Payment</CardTitle>
+          <CardDescription>Send a payment to any user with Covion Bank status Active.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -187,10 +167,9 @@ export default function PayPage() {
                 id="project"
                 value={selectedProject}
                 onChange={e => setSelectedProject(e.target.value)}
-                required
                 className="w-full p-2 border rounded bg-white text-black"
               >
-                <option value="" disabled>Select a project</option>
+                <option value="">No project</option>
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>{project.name}</option>
                 ))}
@@ -203,12 +182,10 @@ export default function PayPage() {
                 id="recipient"
                 value={recipientId}
                 onChange={e => setRecipientId(e.target.value)}
-                required
                 className="w-full p-2 border rounded bg-white text-black"
-                disabled={!selectedProject || loadingTeamMembers}
               >
-                <option value="" disabled>{loadingTeamMembers ? "Loading team members..." : "Select a team member"}</option>
-                {teamMembersWithStripe
+                <option value="" disabled>Select a user</option>
+                {allActiveUsers
                   .filter(member => member.id !== currentUserId)
                   .map(member => (
                     <option key={member.id} value={member.id}>
@@ -217,7 +194,7 @@ export default function PayPage() {
                   ))}
               </select>
               {recipientId && (() => {
-                const selected = teamMembersWithStripe.find(m => m.id === recipientId);
+                const selected = allActiveUsers.find(m => m.id === recipientId);
                 if (!selected) return null;
                 return (
                   <div className="mt-2 flex items-center space-x-2 text-sm">

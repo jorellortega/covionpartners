@@ -40,7 +40,9 @@ import {
   Trash2,
   Pencil,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Handshake,
+  CreditCard
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -746,6 +748,10 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                               toast.error('You must be logged in to send a message.');
                               return;
                             }
+                            if (user.id === profileData.user_id) {
+                              toast.error('You cannot message yourself.');
+                              return;
+                            }
                             const formData = new FormData(e.target as HTMLFormElement);
                             const subject = formData.get('subject');
                             const content = formData.get('content');
@@ -779,6 +785,62 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                             <Button type="submit" className="gradient-button w-full">Send Message</Button>
                           </DialogFooter>
                         </form>
+                      </DialogContent>
+                    </Dialog>
+                    {/* Pay Button */}
+                    <Link href={`/pay?recipient=${profileData.user_id}`} passHref legacyBehavior>
+                      <Button variant="outline" size="sm" className="flex items-center gap-2">
+                        <CreditCard className="w-4 h-4" />
+                        Pay
+                      </Button>
+                    </Link>
+                    {/* Projects Button */}
+                    <Link href={`/userprojects/${profileData.user_id}`} passHref legacyBehavior>
+                      <Button variant="outline" size="sm" className="flex items-center gap-2">
+                        <Briefcase className="w-4 h-4" />
+                        Projects
+                      </Button>
+                    </Link>
+                    {/* Make Deal Modal */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="flex items-center gap-2">
+                          <Handshake className="w-4 h-4" />
+                          Make Deal
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Start a Deal with this User</DialogTitle>
+                        </DialogHeader>
+                        <div className="flex flex-col gap-4 mt-4">
+                          <Link href="#" passHref legacyBehavior>
+                            <Button className="w-full gradient-button flex items-center gap-2" onClick={e => {
+                              if (user?.id === profileData.user_id) {
+                                e.preventDefault();
+                                toast.error('You cannot make a deal with yourself.');
+                              } else {
+                                router.push(`/makedeal?partner=${profileData.user_id}`);
+                              }
+                            }}>
+                              <Briefcase className="w-4 h-4" />
+                              From Project
+                            </Button>
+                          </Link>
+                          <Link href="#" passHref legacyBehavior>
+                            <Button className="w-full gradient-button flex items-center gap-2" onClick={e => {
+                              if (user?.id === profileData.user_id) {
+                                e.preventDefault();
+                                toast.error('You cannot make a deal with yourself.');
+                              } else {
+                                router.push(`/customdeal?partner=${profileData.user_id}`);
+                              }
+                            }}>
+                              <Handshake className="w-4 h-4" />
+                              Custom Deal
+                            </Button>
+                          </Link>
+                        </div>
                       </DialogContent>
                     </Dialog>
                   </div>
