@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ interface PaymentMethod {
   };
 }
 
-export default function PayPage() {
+function PayPageContent() {
   const [recipientId, setRecipientId] = useState("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -262,5 +262,13 @@ export default function PayPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function PayPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PayPageContent />
+    </Suspense>
   );
 } 
