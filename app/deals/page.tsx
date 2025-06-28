@@ -18,7 +18,8 @@ import {
   Filter,
   SortAsc,
   Pencil,
-  Trash2
+  Trash2,
+  Users
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
@@ -26,6 +27,7 @@ import { useDeals } from "@/hooks/useDeals"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/lib/supabase"
+import Head from "next/head"
 
 export default function DealsPage() {
   const router = useRouter()
@@ -69,178 +71,46 @@ export default function DealsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white px-4 sm:px-8">
-      <div className="w-full max-w-full md:max-w-7xl mx-auto space-y-8">
-        <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            onClick={() => router.back()}
-            className="text-gray-400 hover:text-white"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-            </Button>
+    <>
+      <Head>
+        <title>Deal Making Hub | Discover, Negotiate, and Close Deals</title>
+        <meta name="description" content="Discover, negotiate, and close deals with powerful collaboration and transaction tools. Manage confidentiality, streamline negotiations, and grow your business." />
+      </Head>
+      <div className="min-h-screen bg-gray-950 text-white px-4 sm:px-8 flex flex-col items-center justify-center">
+        <div className="max-w-2xl w-full mx-auto text-center py-20">
+          <div className="flex flex-col items-center mb-8">
+            <span className="bg-gradient-to-r from-purple-500 to-blue-500 rounded-full p-4 mb-4">
+              <Handshake className="w-12 h-12 text-white" />
+            </span>
+            <h1 className="text-4xl sm:text-5xl font-extrabold mb-4">Deal Making Hub</h1>
+            <p className="text-lg text-gray-300 mb-6">
+              Discover, negotiate, and close deals with partners and clients using powerful collaboration and transaction tools. Manage confidentiality, streamline negotiations, and grow your business.
+            </p>
           </div>
-          <Button
-            onClick={() => router.push('/makedeal')}
-            className="gradient-button"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Make New Deal
-          </Button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
+            <div className="bg-gray-800/40 rounded-xl p-6 flex flex-col items-center">
+              <Shield className="w-8 h-8 text-purple-400 mb-2" />
+              <h3 className="font-semibold text-xl mb-2">Confidentiality Controls</h3>
+              <p className="text-gray-400">Set deals as public, private, or confidential to control visibility and access.</p>
         </div>
-
-        <Card className="leonardo-card border-gray-800">
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-            <CardTitle className="text-2xl">Deals</CardTitle>
-                <CardDescription>Manage your business deals and partnerships</CardDescription>
-              </div>
+            <div className="bg-gray-800/40 rounded-xl p-6 flex flex-col items-center">
+              <Users className="w-8 h-8 text-blue-400 mb-2" />
+              <h3 className="font-semibold text-xl mb-2">Collaboration Tools</h3>
+              <p className="text-gray-400">Invite partners, assign roles, and communicate directly within each deal.</p>
             </div>
-          </CardHeader>
-          <CardContent>
-            {/* Search and Filters */}
-            <div className="flex flex-col md:flex-row gap-4 mb-8">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Search deals..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filter
-                </Button>
-                <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white">
-                  <SortAsc className="h-4 w-4 mr-2" />
-                  Sort
-                </Button>
-              </div>
+            <div className="bg-gray-800/40 rounded-xl p-6 flex flex-col items-center">
+              <CheckCircle className="w-8 h-8 text-green-400 mb-2" />
+              <h3 className="font-semibold text-xl mb-2">Streamlined Negotiations</h3>
+              <p className="text-gray-400">Track deal status, manage offers, and keep negotiations organized.</p>
             </div>
-
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
-              </div>
-            ) : error ? (
-              <div className="text-center py-12">
-                <p className="text-red-400">Error loading deals: {error}</p>
-              </div>
-            ) : filteredDeals.length > 0 ? (
-              <div className="space-y-4">
-                {filteredDeals.map((deal) => (
-                  <div
-                    key={deal.id}
-                    className="p-4 bg-gray-800/30 rounded-lg border border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer"
-                    onClick={() => router.push(`/deals/${deal.id}`)}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {deal.confidentiality_level === 'public' ? (
-                          <Globe className="w-5 h-5 text-blue-400" />
-                        ) : deal.confidentiality_level === 'private' ? (
-                          <Lock className="w-5 h-5 text-gray-400" />
-                        ) : (
-                          <Shield className="w-5 h-5 text-purple-400" />
-                        )}
-                        <div>
-                          <h3 className="font-medium text-lg">{deal.title}</h3>
-                          <p className="text-sm text-gray-400 line-clamp-1">
-                            {deal.description}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-2 mt-2">
-                            <Badge variant="outline" className="capitalize">
-                              {deal.deal_type}
-                            </Badge>
-                            <Badge 
-                              variant={
-                                deal.confidentiality_level === 'public' 
-                                  ? 'outline' 
-                                  : deal.confidentiality_level === 'private'
-                                  ? 'secondary'
-                                  : 'destructive'
-                              }
-                              className="capitalize"
-                            >
-                              {deal.confidentiality_level}
-                            </Badge>
-                            <select
-                              className="ml-0 sm:ml-2 bg-gray-900 border border-gray-700 text-white rounded px-2 py-1 text-xs mt-2 sm:mt-0"
-                              value={deal.confidentiality_level}
-                              disabled={updatingId === deal.id}
-                              onChange={e => handleChangeVisibility(deal.id, e.target.value)}
-                            >
-                              <option value="public">Public</option>
-                              <option value="private">Private</option>
-                              <option value="confidential">Confidential</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 mt-4 sm:mt-0 flex-wrap">
-                        {deal.status === 'pending' ? (
-                          <Clock className="w-5 h-5 text-yellow-500" />
-                        ) : deal.status === 'accepted' ? (
-                          <CheckCircle className="w-5 h-5 text-green-500" />
-                        ) : (
-                          <XCircle className="w-5 h-5 text-red-500" />
-                        )}
-                        <Badge 
-                          variant={
-                            deal.status === 'pending'
-                              ? 'outline'
-                              : deal.status === 'accepted'
-                              ? 'secondary'
-                              : 'destructive'
-                          }
-                          className="capitalize"
-                        >
-                          {deal.status}
-                        </Badge>
-                        <Button size="icon" variant="outline" className="border-gray-700" title="Edit">
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button size="icon" variant="destructive" onClick={() => handleDelete(deal.id)} disabled={updatingId === deal.id} title="Delete">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+            <div className="bg-gray-800/40 rounded-xl p-6 flex flex-col items-center">
+              <Lock className="w-8 h-8 text-gray-400 mb-2" />
+              <h3 className="font-semibold text-xl mb-2">Secure Transactions</h3>
+              <p className="text-gray-400">All deals are protected with robust security and privacy features.</p>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <div className="mx-auto w-24 h-24 bg-gray-800/30 rounded-full flex items-center justify-center mb-4">
-                  <Handshake className="w-12 h-12 text-gray-400" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-300 mb-2">
-                  No deals found
-                </h3>
-                <p className="text-gray-400 mb-6">
-                  {searchQuery
-                    ? "Try adjusting your search terms"
-                    : "Create your first deal to get started"}
-              </p>
-              <Button
-                  onClick={() => router.push('/makedeal')}
-                className="gradient-button"
-              >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Make New Deal
-              </Button>
-            </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
-    </div>
+    </>
   )
 } 

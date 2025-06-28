@@ -158,6 +158,7 @@ export default function ManagePaymentsPage() {
   const [allTransactionsLoading, setAllTransactionsLoading] = useState(true);
   const [stripeSummary, setStripeSummary] = useState<any>(null);
   const [payoutDetails, setPayoutDetails] = useState<any>(null);
+  const [showStripeSummary, setShowStripeSummary] = useState(false);
 
   // Add Stripe Elements appearance configuration
   const appearance: Appearance = {
@@ -613,24 +614,35 @@ export default function ManagePaymentsPage() {
 
       <main className="w-full px-4 sm:px-6 lg:px-8 max-w-full md:max-w-7xl mx-auto py-6">
         {/* Stripe payout summary box */}
-        {stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled && stripeSummary &&
-          typeof stripeSummary.in_transit === 'number' &&
-          typeof stripeSummary.upcoming_payout === 'number' &&
-          typeof stripeSummary.available === 'number' &&
-          typeof stripeSummary.total === 'number' && (
-          <div className="mb-6 p-4 rounded-lg border border-blue-700 bg-blue-900/10 text-blue-200">
-            <div className="font-bold text-blue-300 mb-2">Stripe Payout Summary</div>
-            <div className="flex flex-col gap-1 text-sm">
-              <div>On the way to your bank: <span className="font-bold">${stripeSummary.in_transit.toFixed(2)}</span></div>
-              <div>Upcoming payout (estimated): <span className="font-bold">${stripeSummary.upcoming_payout.toFixed(2)}</span>{stripeSummary.upcoming_payout_estimated_arrival && (
-                <span> (arrives {new Date(stripeSummary.upcoming_payout_estimated_arrival).toLocaleDateString()})</span>
-              )}</div>
-              <div>Available in your balance: <span className="font-bold">${stripeSummary.available.toFixed(2)}</span></div>
-              <div>Total balance: <span className="font-bold">${stripeSummary.total.toFixed(2)}</span></div>
-              <div>Payouts go to: <span className="font-bold">{stripeSummary.payout_destination?.bank_name || 'Bank'} •••• {stripeSummary.payout_destination?.last4 || '----'}</span> ({stripeSummary.payout_schedule})</div>
-            </div>
-          </div>
-        )}
+        <div className="mb-4">
+          <button
+            className="text-blue-300 font-semibold focus:outline-none hover:underline mb-2"
+            onClick={() => setShowStripeSummary(v => !v)}
+            aria-expanded={showStripeSummary}
+            aria-controls="stripe-payout-summary"
+            type="button"
+          >
+            {showStripeSummary ? 'Hide Stripe Payout Summary' : 'Show Stripe Payout Summary'}
+          </button>
+          {showStripeSummary && stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled && stripeSummary &&
+            typeof stripeSummary.in_transit === 'number' &&
+            typeof stripeSummary.upcoming_payout === 'number' &&
+            typeof stripeSummary.available === 'number' &&
+            typeof stripeSummary.total === 'number' && (
+              <div id="stripe-payout-summary" className="p-4 rounded-lg border border-blue-700 bg-blue-900/10 text-blue-200">
+                <div className="font-bold text-blue-300 mb-2">Stripe Payout Summary</div>
+                <div className="flex flex-col gap-1 text-sm">
+                  <div>On the way to your bank: <span className="font-bold">${stripeSummary.in_transit.toFixed(2)}</span></div>
+                  <div>Upcoming payout (estimated): <span className="font-bold">${stripeSummary.upcoming_payout.toFixed(2)}</span>{stripeSummary.upcoming_payout_estimated_arrival && (
+                    <span> (arrives {new Date(stripeSummary.upcoming_payout_estimated_arrival).toLocaleDateString()})</span>
+                  )}</div>
+                  <div>Available in your balance: <span className="font-bold">${stripeSummary.available.toFixed(2)}</span></div>
+                  <div>Total balance: <span className="font-bold">${stripeSummary.total.toFixed(2)}</span></div>
+                  <div>Payouts go to: <span className="font-bold">{stripeSummary.payout_destination?.bank_name || 'Bank'} •••• {stripeSummary.payout_destination?.last4 || '----'}</span> ({stripeSummary.payout_schedule})</div>
+                </div>
+              </div>
+            )}
+        </div>
 
         {/* Payment Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

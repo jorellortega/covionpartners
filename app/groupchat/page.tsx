@@ -48,6 +48,15 @@ export default function GroupChatPage() {
   const [userSearch, setUserSearch] = useState('')
   const [messages, setMessages] = useState<any[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
+  const [postTaskDialogOpen, setPostTaskDialogOpen] = useState(false)
+  const [taskSearch, setTaskSearch] = useState('')
+  const [selectedProject, setSelectedProject] = useState<string>('')
+  const [projects, setProjects] = useState<any[]>([])
+  const [tasks, setTasks] = useState<any[]>([])
+  const [filteredTasks, setFilteredTasks] = useState<any[]>([])
+  const [postProjectDialogOpen, setPostProjectDialogOpen] = useState(false)
+  const [projectSearch, setProjectSearch] = useState('')
+  const [filteredProjects, setFilteredProjects] = useState<any[]>([])
 
   const fetchGroupChats = async () => {
     const { data, error } = await supabase
@@ -224,6 +233,96 @@ export default function GroupChatPage() {
     }
     setAddMemberLoading(false)
   }
+
+  // Fetch projects and tasks when dialog opens
+  useEffect(() => {
+    if (!postTaskDialogOpen && !postProjectDialogOpen) return;
+    const fetchProjectsAndTasks = async () => {
+      const { data: projectsData } = await supabase.from('projects').select('id, name');
+      setProjects(projectsData || []);
+      const { data: tasksData } = await supabase.from('tasks').select('id, title, description, project_id');
+      setTasks(tasksData || []);
+      setFilteredTasks(tasksData || []);
+    };
+    fetchProjectsAndTasks();
+  }, [postTaskDialogOpen, postProjectDialogOpen]);
+
+  // Filter tasks by project or search
+  useEffect(() => {
+    let filtered = tasks;
+    if (selectedProject) {
+      filtered = filtered.filter(t => t.project_id === selectedProject);
+    }
+    if (taskSearch) {
+      filtered = filtered.filter(t => t.title.toLowerCase().includes(taskSearch.toLowerCase()));
+    }
+    setFilteredTasks(filtered);
+  }, [taskSearch, selectedProject, tasks]);
+
+  const handlePostTaskToChat = async (task: any) => {
+    if (!selectedGroup || !user) return;
+    // Compose the message as a JSON string
+    const messageContent = JSON.stringify({
+      type: 'task',
+      taskId: task.id,
+      title: task.title,
+      description: task.description,
+      projectId: task.project_id,
+      projectName: (projects.find(p => p.id === task.project_id)?.name) || ''
+    });
+    const { error } = await supabase.from('group_chat_messages').insert({
+      group_chat_id: selectedGroup.id,
+      sender_id: user.id,
+      content: messageContent,
+    });
+    if (!error) {
+      setPostTaskDialogOpen(false);
+      fetchMessages();
+    }
+  };
+
+  // Fetch projects when dialog opens
+  useEffect(() => {
+    if (!postProjectDialogOpen) return;
+    const fetchProjects = async () => {
+      const { data: projectsData } = await supabase.from('projects').select('id, name, description, status, created_at, owner');
+      setProjects(projectsData || []);
+      setFilteredProjects(projectsData || []);
+    };
+    fetchProjects();
+  }, [postProjectDialogOpen]);
+
+  // Filter projects by search
+  useEffect(() => {
+    let filtered = projects;
+    if (projectSearch) {
+      filtered = filtered.filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase()));
+    }
+    setFilteredProjects(filtered);
+  }, [projectSearch, projects]);
+
+  const handlePostProjectToChat = async (project: any) => {
+    if (!selectedGroup || !user) return;
+    // Compose the message as a JSON string
+    const messageContent = JSON.stringify({
+      type: 'project',
+      projectId: project.id,
+      name: project.name,
+      description: project.description,
+      status: project.status,
+      created_at: project.created_at,
+      owner: project.owner || ''
+    });
+    const { error } = await supabase.from('group_chat_messages').insert({
+      group_chat_id: selectedGroup.id,
+      sender_id: user.id,
+      content: messageContent,
+    });
+    if (!error) {
+      setPostProjectDialogOpen(false);
+      fetchMessages();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 relative">
@@ -460,25 +559,142 @@ export default function GroupChatPage() {
                 ) : messages.length === 0 ? (
                   <div className="text-gray-400">No messages yet.</div>
                 ) : (
-                  messages.map(msg => (
-                    <div key={msg.id} className={`flex items-start gap-3 ${msg.sender_id === user?.id ? 'justify-end' : ''}`}>
-                      {msg.sender_id !== user?.id && (
-                        <Avatar className="w-8 h-8">
-                          <AvatarImage src={msg.sender?.avatar_url || undefined} />
-                          <AvatarFallback>{msg.sender?.name ? msg.sender.name[0] : '?'}</AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div>
-                        <div className={`px-4 py-2 rounded-lg ${msg.sender_id === user?.id ? 'bg-cyan-700/80 text-white' : 'bg-gray-800/80 text-gray-100'}`}>
-                          <span className="font-medium">{msg.sender?.name || 'Unknown'}</span>
-                          <div>{msg.content}</div>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {new Date(msg.created_at).toLocaleString()}
+                  messages.map(msg => {
+                    let isTaskCard = false;
+                    let isProjectCard = false;
+                    let parsed = null;
+                    try {
+                      parsed = JSON.parse(msg.content);
+                      if (parsed && parsed.type === 'task') isTaskCard = true;
+                      if (parsed && parsed.type === 'project') isProjectCard = true;
+                    } catch {}
+                    return (
+                      <div key={msg.id} className={`flex items-start gap-3 ${msg.sender_id === user?.id ? 'justify-end' : ''}`}>
+                        {msg.sender_id !== user?.id && (
+                          <Avatar className="w-8 h-8">
+                            <AvatarImage src={msg.sender?.avatar_url || undefined} />
+                            <AvatarFallback>{msg.sender?.name ? msg.sender.name[0] : '?'}</AvatarFallback>
+                          </Avatar>
+                        )}
+                        <div>
+                          <div className={`px-4 py-2 rounded-lg ${isTaskCard || isProjectCard ? 'bg-transparent' : (msg.sender_id === user?.id ? 'bg-cyan-700/80 text-white' : 'bg-gray-800/80 text-gray-100')}`}>
+                            <span className="font-medium">{msg.sender?.name || 'Unknown'}</span>
+                            <div>
+                              {isTaskCard ? (
+                                (() => {
+                                  // Status and priority badges (fallback to default if not present)
+                                  const status = parsed.status || 'pending';
+                                  const priority = parsed.priority || 'medium';
+                                  const statusBadgeClass =
+                                    status === 'completed'
+                                      ? 'bg-green-500/20 text-green-400'
+                                      : status === 'in_progress'
+                                      ? 'bg-blue-500/20 text-blue-400'
+                                      : 'bg-yellow-500/20 text-yellow-400';
+                                  const priorityBadgeClass =
+                                    priority === 'high'
+                                      ? 'bg-red-500/20 text-red-400'
+                                      : priority === 'medium'
+                                      ? 'bg-yellow-500/20 text-yellow-400'
+                                      : 'bg-green-500/20 text-green-400';
+                                  return (
+                                    <div className="mt-2 p-4 rounded-xl bg-black border border-gray-800 text-left shadow-md max-w-md">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-white font-bold text-lg">{parsed.title}</span>
+                                        <span className={`ml-2 ${statusBadgeClass} inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold`}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+                                        <span className={`ml-2 ${priorityBadgeClass} inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold`}>{priority.charAt(0).toUpperCase() + priority.slice(1)} Priority</span>
+                                      </div>
+                                      <div className="text-gray-300 text-sm mb-2">{parsed.description}</div>
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-gray-400 text-xs">Project:</span>
+                                        <span className="bg-purple-500/20 text-purple-400 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">{parsed.projectName}</span>
+                                      </div>
+                                      {parsed.due_date && (
+                                        <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
+                                          <svg className="w-4 h-4 mr-1 inline-block" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                          Due: {new Date(parsed.due_date).toLocaleDateString()}
+                                        </div>
+                                      )}
+                                      <a
+                                        href={`/task/${parsed.taskId}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-block mt-2 px-3 py-1 bg-purple-700 text-white rounded hover:bg-purple-800 text-xs font-medium"
+                                      >
+                                        View Task Details
+                                      </a>
+                                    </div>
+                                  );
+                                })()
+                              ) : isProjectCard ? (
+                                <div className="p-0">
+                                  <div className="flex items-center bg-black border border-purple-500/50 rounded-xl p-6 shadow-md max-w-md">
+                                    <div className="flex-shrink-0 w-14 h-14 rounded-full bg-purple-900/40 flex items-center justify-center mr-6 overflow-hidden">
+                                      {parsed.thumbnail || parsed.image ? (
+                                        <img
+                                          src={parsed.thumbnail || parsed.image}
+                                          alt={parsed.name}
+                                          className="w-14 h-14 object-cover rounded-full"
+                                        />
+                                      ) : (
+                                        <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4a2 2 0 012-2h2a2 2 0 012 2v4m0 0h4m-4 0v-4m4 4v-4a2 2 0 012-2h2a2 2 0 012 2v4m0 0h-4m4 0v-4" /></svg>
+                                      )}
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="text-gray-300 text-lg font-semibold">{parsed.name}</span>
+                                        {parsed.status && (
+                                          <span className={`ml-2 border px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                            parsed.status.toLowerCase() === 'active' ? 'bg-green-500/20 text-green-400 border-green-500/50' :
+                                            parsed.status.toLowerCase() === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' :
+                                            parsed.status.toLowerCase() === 'completed' ? 'bg-blue-500/20 text-blue-400 border-blue-500/50' :
+                                            parsed.status.toLowerCase() === 'on hold' ? 'bg-red-500/20 text-red-400 border-red-500/50' :
+                                            'bg-gray-500/20 text-gray-400 border-gray-500/50'
+                                          }`}>
+                                            {parsed.status.charAt(0).toUpperCase() + parsed.status.slice(1)}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {parsed.description && (
+                                        <div className="text-gray-400 text-sm mb-2 line-clamp-2">{parsed.description}</div>
+                                      )}
+                                      <div className="flex items-center gap-4 mt-2">
+                                        {parsed.budget && (
+                                          <div className="text-sm text-gray-400">Budget: <span className="text-white font-bold">${Number(parsed.budget).toLocaleString()}</span></div>
+                                        )}
+                                        {parsed.progress !== undefined && (
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-gray-400 text-sm">Progress:</span>
+                                            <span className="text-white font-bold">{parsed.progress}%</span>
+                                          </div>
+                                        )}
+                                        {parsed.deadline && (
+                                          <div className="text-sm text-gray-400">Deadline: <span className="text-white font-bold">{new Date(parsed.deadline).toLocaleDateString()}</span></div>
+                                        )}
+                                      </div>
+                                      <a
+                                        href={`/projects/${parsed.projectId}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-block mt-4 text-purple-400 hover:underline text-xs font-medium"
+                                      >
+                                        View Project
+                                      </a>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>{msg.content}</div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {new Date(msg.created_at).toLocaleString()}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
 
@@ -497,6 +713,110 @@ export default function GroupChatPage() {
                 >
                   <Send className="w-4 h-4" />
                 </Button>
+                <Dialog open={postTaskDialogOpen} onOpenChange={setPostTaskDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-cyan-700 text-cyan-400 hover:bg-cyan-900/20 ml-2"
+                      onClick={() => setPostTaskDialogOpen(true)}
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> Post Task
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Post a Task</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Search by Project</label>
+                        <select
+                          className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white"
+                          value={selectedProject}
+                          onChange={e => setSelectedProject(e.target.value)}
+                        >
+                          <option value="">All Projects</option>
+                          {projects.map((p: any) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Search by Task Title</label>
+                        <Input
+                          placeholder="Type to search tasks..."
+                          value={taskSearch}
+                          onChange={e => setTaskSearch(e.target.value)}
+                        />
+                      </div>
+                      <div className="max-h-60 overflow-y-auto mt-2">
+                        {filteredTasks.length === 0 ? (
+                          <div className="text-gray-400">No tasks found.</div>
+                        ) : (
+                          filteredTasks.map((task: any) => (
+                            <div
+                              key={task.id}
+                              className="p-2 border-b border-gray-800 cursor-pointer hover:bg-cyan-900/10 rounded"
+                              onClick={() => handlePostTaskToChat(task)}
+                            >
+                              <div className="font-medium text-white">{task.title}</div>
+                              <div className="text-sm text-gray-400">{task.description}</div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="ghost" onClick={() => setPostTaskDialogOpen(false)}>Cancel</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-purple-700 text-purple-400 hover:bg-purple-900/20 ml-2"
+                  onClick={() => setPostProjectDialogOpen(true)}
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Post Project
+                </Button>
+                <Dialog open={postProjectDialogOpen} onOpenChange={setPostProjectDialogOpen}>
+                  <DialogTrigger asChild></DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Post a Project</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Search by Project Name</label>
+                        <Input
+                          placeholder="Type to search projects..."
+                          value={projectSearch}
+                          onChange={e => setProjectSearch(e.target.value)}
+                        />
+                      </div>
+                      <div className="max-h-60 overflow-y-auto mt-2">
+                        {projects.filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase())).length === 0 ? (
+                          <div className="text-gray-400">No projects found.</div>
+                        ) : (
+                          projects.filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase())).map((project: any) => (
+                            <div
+                              key={project.id}
+                              className="p-2 border-b border-gray-800 cursor-pointer hover:bg-purple-900/10 rounded"
+                              onClick={() => handlePostProjectToChat(project)}
+                            >
+                              <div className="font-medium text-white">{project.name}</div>
+                              <div className="text-sm text-gray-400">{project.description}</div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="ghost" onClick={() => setPostProjectDialogOpen(false)}>Cancel</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardContent>
           </Card>

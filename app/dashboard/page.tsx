@@ -1010,6 +1010,12 @@ export default function PartnerDashboard() {
                       Team Management
                     </Button>
                   </Link>
+                  <Link href="http://localhost:3000/userprojects/e0704fc5-b3f5-4f80-82e2-7d3ec76f3b2e" target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Public Projects
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
 
@@ -1290,6 +1296,46 @@ export default function PartnerDashboard() {
                   </Link>
                     </>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* Job Board Card */}
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/5 to-purple-500/5 hover:from-blue-500/10 hover:to-purple-500/10 transition-colors">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-xl">
+                    <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mr-3">
+                      <Briefcase className="w-5 h-5 text-blue-400" />
+                    </div>
+                    Job Board
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-gray-400 mb-2">Manage your job postings and applications.</p>
+                  <Link href="/jobs">
+                    <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 mb-2">
+                      <Briefcase className="w-4 h-4 mr-2" /> View Job Board
+                    </Button>
+                  </Link>
+                  <Link href="/jobs/post">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400 mb-2">
+                      <Plus className="w-4 h-4 mr-2" /> Post a Job
+                    </Button>
+                  </Link>
+                  <Link href="/buildbusiness">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400 mb-2">
+                      <Briefcase className="w-4 h-4 mr-2" /> Create Organization
+                    </Button>
+                  </Link>
+                  <Link href="/myorganizations">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400 mb-2">
+                      <Users className="w-4 h-4 mr-2" /> My Organizations
+                    </Button>
+                  </Link>
+                  <Link href="/jobs?my=1">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
+                      <Users className="w-4 h-4 mr-2" /> My Job Applications
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </div>
