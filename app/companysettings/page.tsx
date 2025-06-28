@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 
-export default function CompanySettingsPage() {
+function CompanySettingsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const orgId = searchParams.get("org")
@@ -186,5 +186,17 @@ export default function CompanySettingsPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function CompanySettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <span className="text-gray-400">Loading...</span>
+      </div>
+    }>
+      <CompanySettingsContent />
+    </Suspense>
   )
 } 
