@@ -283,14 +283,13 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
 
   useEffect(() => {
     const fetchTokens = async () => {
-      if (!project?.id || !user?.id) return
+      if (!project?.id) return
       setLoadingTokens(true)
       try {
         const { data, error } = await supabase
           .from('public_supports')
           .select('id, project_id, certificate_number, token_serial, amount, created_at, metadata, project:projects(name), supporter_name')
           .eq('project_id', project.id)
-          .eq('supporter_id', user.id)
           .order('created_at', { ascending: false })
         
         if (error) throw error
@@ -304,7 +303,7 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
     }
 
     fetchTokens()
-  }, [project?.id, user?.id, supabase])
+  }, [project?.id, supabase])
 
   const handleDownloadToken = async (tokenId: string) => {
     const tokenElement = document.getElementById(`token-image-${tokenId}`)

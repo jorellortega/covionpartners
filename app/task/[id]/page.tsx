@@ -69,6 +69,7 @@ export default function TaskDetailPage() {
   const router = useRouter()
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleInput, setTitleInput] = useState("")
+  const [newNoteTitle, setNewNoteTitle] = useState("")
 
   useEffect(() => {
     const fetchTask = async () => {
@@ -279,15 +280,18 @@ export default function TaskDetailPage() {
   };
 
   const handleAddNote = async () => {
-    if (!newNote.trim() || !user) return;
+    if (!newNote.trim() || !user || !task) return;
     const { error } = await supabase.from('notes').insert({
       entity_type: 'task',
       entity_id: taskId,
       content: newNote,
-      created_by: user.id
+      created_by: user.id,
+      entity_title: task.title,
+      note_title: newNoteTitle
     });
     if (!error) {
       setNewNote("");
+      setNewNoteTitle("");
       // Refetch notes
       const { data } = await supabase
         .from('notes')
@@ -534,9 +538,16 @@ export default function TaskDetailPage() {
                           value={editingContent}
                           onChange={e => setEditingContent(e.target.value)}
                           className="min-h-[60px] bg-gray-900/50 border-gray-800"
-                />
-              ) : (
-                        <p className="text-gray-300 whitespace-pre-wrap">{note.content}</p>
+                        />
+                      ) : (
+                        <>
+                          <div className="text-lg font-semibold text-white mb-1">
+                            <Link href={`/notes/${note.id}`} className="underline hover:text-blue-400">
+                              {note.note_title || <span className="text-gray-500 italic">(No title)</span>}
+                            </Link>
+                          </div>
+                          <p className="text-gray-300 whitespace-pre-wrap">{note.content}</p>
+                        </>
                       )}
                       {/* Delete confirmation */}
                       {deletingNoteId === note.id && (
@@ -551,17 +562,21 @@ export default function TaskDetailPage() {
                 </div>
               )}
               <div className="mt-4">
+                <input
+                  type="text"
+                  className="w-full mb-2 px-3 py-2 rounded bg-gray-900 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Note Title"
+                  value={newNoteTitle}
+                  onChange={e => setNewNoteTitle(e.target.value)}
+                />
                 <Textarea
                   value={newNote}
                   onChange={e => setNewNote(e.target.value)}
                   placeholder="Add a note..."
-                  className="min-h-[100px] bg-gray-900/50 border-gray-800"
+                  rows={3}
+                  className="mb-2"
                 />
-                <Button
-                  className="mt-2 bg-yellow-600 hover:bg-yellow-700"
-                  onClick={handleAddNote}
-                  disabled={!newNote.trim() || !user}
-                >
+                <Button onClick={handleAddNote} disabled={!newNote.trim()} className="bg-yellow-600 hover:bg-yellow-700 w-full">
                   Add Note
                 </Button>
               </div>

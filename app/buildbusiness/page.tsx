@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 
 export default function BuildBusinessPage() {
   const router = useRouter()
@@ -26,6 +27,26 @@ export default function BuildBusinessPage() {
     location: "",
     custom_link: ""
   })
+  const [orgCount, setOrgCount] = useState<number>(0)
+  const [isLimitDialogOpen, setIsLimitDialogOpen] = useState(false)
+
+  // Fetch organization count for public users
+  useEffect(() => {
+    if (!user || user.role !== 'public') return
+    async function fetchOrgCount() {
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('owner_id', user.id)
+      if (!error && data) {
+        setOrgCount(data.length)
+      }
+    }
+    fetchOrgCount()
+  }, [user])
+
+  const reachedPublicLimit = user?.role === 'public' && orgCount >= 1
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -140,9 +161,50 @@ export default function BuildBusinessPage() {
                 <Label htmlFor="custom_link">Custom Link/Handle</Label>
                 <Input id="custom_link" name="custom_link" value={form.custom_link} onChange={handleChange} placeholder="Any custom link or handle" disabled={loading || uploading} />
               </div>
-              <Button type="submit" className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600" disabled={loading || uploading}>
+              <Button type="submit" className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600" disabled={loading || uploading || reachedPublicLimit}>
                 {loading ? "Creating..." : uploading ? "Uploading Logo..." : "Create Organization"}
               </Button>
+              {reachedPublicLimit && (
+                <>
+                  <button
+                    type="button"
+                    className="text-xs text-red-400 ml-2 align-middle font-semibold hover:underline focus:underline focus:outline-none"
+                    onClick={() => setIsLimitDialogOpen(true)}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                  >
+                    Limit reached
+                  </button>
+                  <Dialog open={isLimitDialogOpen} onOpenChange={setIsLimitDialogOpen}>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Organization Creation Limit</DialogTitle>
+                        <DialogDescription>
+                          You have reached the maximum of 1 organization for public users.<br />
+                          To create more organizations, please upgrade your account.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="flex justify-end gap-4 mt-6">
+                        <Button
+                          variant="outline"
+                          className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                          onClick={() => setIsLimitDialogOpen(false)}
+                        >
+                          Close
+                        </Button>
+                        <Button
+                          className="gradient-button hover:bg-purple-700"
+                          onClick={() => {
+                            setIsLimitDialogOpen(false)
+                            router.push('/account-types')
+                          }}
+                        >
+                          Upgrade Account
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
             </form>
           </CardContent>
         </Card>

@@ -64,7 +64,8 @@ import {
   ExternalLink as LinkIcon,
   Heart,
   ArrowDownToLine,
-  History
+  History,
+  StickyNote
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -1248,6 +1249,11 @@ export default function PartnerDashboard() {
                       <Users className="w-4 h-4 mr-2" /> Activity Feed
                     </Button>
                   </Link>
+                  <Link href="/notes">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400">
+                      <StickyNote className="w-4 h-4 mr-2" /> Notes
+                    </Button>
+                  </Link>
                   <Link href="/profiles">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400">
                       <User className="w-4 h-4 mr-2" /> Profiles
@@ -1331,9 +1337,9 @@ export default function PartnerDashboard() {
                       <Users className="w-4 h-4 mr-2" /> My Organizations
                     </Button>
                   </Link>
-                  <Link href="/jobs?my=1">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
-                      <Users className="w-4 h-4 mr-2" /> My Job Applications
+                  <Link href="/jobportal">
+                    <Button variant="secondary" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400 mb-2">
+                      <Briefcase className="w-4 h-4 mr-2" /> Job Portal Dashboard
                     </Button>
                   </Link>
                 </CardContent>

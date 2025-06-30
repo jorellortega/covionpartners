@@ -66,6 +66,12 @@ export default function ProjectsPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [isLimitDialogOpen, setIsLimitDialogOpen] = useState(false)
+
+  // Count how many projects the current user owns
+  const ownedProjectsCount = user ? projects.filter(p => p.owner_id === user.id).length : 0;
+  const isPublicUser = user?.role === 'public';
+  const reachedPublicLimit = isPublicUser && ownedProjectsCount >= 4;
 
   const handleDeleteProject = async (projectId: string) => {
     try {
@@ -400,16 +406,60 @@ export default function ProjectsPage() {
             <h1 className="text-3xl font-bold text-white flex items-center gap-4">
               Projects
               {user && user.role !== 'investor' && (
-                <Button
-                  onClick={handleNewProjectClick}
-                  className="ml-4"
-                  variant="outline"
-                  size="icon"
-                  title="New Project"
-                  aria-label="New Project"
-                >
-                  <Plus className="w-5 h-5" />
-                </Button>
+                <span className="ml-4">
+                  <Button
+                    onClick={handleNewProjectClick}
+                    className="ml-0"
+                    variant="outline"
+                    size="icon"
+                    title={reachedPublicLimit ? 'Public users can only create up to 4 projects.' : 'New Project'}
+                    aria-label="New Project"
+                    disabled={reachedPublicLimit}
+                  >
+                    <Plus className="w-5 h-5" />
+                  </Button>
+                  {reachedPublicLimit && (
+                    <>
+                      <button
+                        type="button"
+                        className="text-xs text-red-400 ml-2 align-middle font-semibold hover:underline focus:underline focus:outline-none"
+                        onClick={() => setIsLimitDialogOpen(true)}
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                      >
+                        Limit reached
+                      </button>
+                      <Dialog open={isLimitDialogOpen} onOpenChange={setIsLimitDialogOpen}>
+                        <DialogContent className="sm:max-w-[425px]">
+                          <DialogHeader>
+                            <DialogTitle>Project Creation Limit</DialogTitle>
+                            <DialogDescription>
+                              You have reached the maximum of 4 projects for public users.<br />
+                              To create more projects, please upgrade your account.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="flex justify-end gap-4 mt-6">
+                            <Button
+                              variant="outline"
+                              className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                              onClick={() => setIsLimitDialogOpen(false)}
+                            >
+                              Close
+                            </Button>
+                            <Button
+                              className="gradient-button hover:bg-purple-700"
+                              onClick={() => {
+                                setIsLimitDialogOpen(false);
+                                router.push('/account-types');
+                              }}
+                            >
+                              Upgrade Account
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </>
+                  )}
+                </span>
               )}
             </h1>
           </div>

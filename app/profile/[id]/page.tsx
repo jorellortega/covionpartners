@@ -107,6 +107,7 @@ interface ProfileData {
     visibility: string
   }[]
   avatar_url?: string
+  nickname?: string
 }
 
 const defaultProfileData: ProfileData = {
@@ -226,7 +227,8 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
             technologies: [],
             visibility: project.visibility || ''
           })) || [],
-          avatar_url: userData?.avatar_url || '/placeholder-avatar.jpg'
+          avatar_url: userData?.avatar_url || '/placeholder-avatar.jpg',
+          nickname: profile?.nickname || userData?.nickname || undefined
         }
         setProfileData(transformedData)
       } catch (err) {
@@ -604,7 +606,12 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                       </div>
                     )}
                   </div>
-                  <h1 className="text-2xl font-bold text-white mb-1">{profileData.name}</h1>
+                  <h1 className="text-2xl font-bold text-white mb-1">
+                    {profileData.name}
+                    {profileData.nickname && profileData.nickname.trim() !== '' && (
+                      <span className="ml-2 text-base text-blue-400 font-normal">({profileData.nickname})</span>
+                    )}
+                  </h1>
                   <p className="text-gray-400 mb-4">{profileData.role}</p>
                   <div className="flex gap-2 mb-6">
                     {profileData.company && (
@@ -730,7 +737,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                       </a>
                     )}
                   </div>
-                  <div className="flex gap-2 mb-4">
+                  <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-4">
                     {/* Message User Dialog */}
                     <Dialog>
                       <DialogTrigger asChild>

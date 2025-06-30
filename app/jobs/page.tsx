@@ -13,6 +13,8 @@ import { Plus, Search, MapPin, Briefcase, DollarSign, Users, Eye, Send } from "l
 import { Job } from "@/app/types"
 import { supabase } from "@/lib/supabase"
 import Link from "next/link"
+import { useAuth } from "@/hooks/useAuth"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 
 const jobTypes = [
   { value: "full-time", label: "Full Time" },
@@ -48,6 +50,9 @@ export default function JobsPage() {
   const [remoteOnly, setRemoteOnly] = useState(false)
   const [selectedSkills, setSelectedSkills] = useState<string[]>([])
   const router = useRouter()
+  const { user, loading: userLoading } = useAuth();
+  const [publicJobCount, setPublicJobCount] = useState<number>(0);
+  const [isLimitDialogOpen, setIsLimitDialogOpen] = useState(false);
 
   useEffect(() => {
     async function fetchJobsAndOrgs() {
@@ -93,6 +98,24 @@ export default function JobsPage() {
   useEffect(() => {
     filterJobs()
   }, [jobs, search, location, jobType, experienceLevel, remoteOnly, selectedSkills])
+
+  useEffect(() => {
+    if (!user || user.role !== 'public') return;
+    async function fetchPublicJobCount() {
+      if (!user) return;
+      const now = new Date();
+      const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, created_at')
+        .eq('employer_id', user.id)
+        .gte('created_at', firstOfMonth.toISOString())
+      if (!error && data) {
+        setPublicJobCount(data.length);
+      }
+    }
+    fetchPublicJobCount();
+  }, [user]);
 
   const filterJobs = () => {
     let filtered = jobs
@@ -157,6 +180,8 @@ export default function JobsPage() {
     })
   }
 
+  const reachedPublicLimit = user?.role === 'public' && publicJobCount >= 2;
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-950">
@@ -197,13 +222,58 @@ export default function JobsPage() {
           <p className="text-gray-400 text-lg mb-6">
             Discover amazing job opportunities from innovative companies
           </p>
-          <Button
-            onClick={() => router.push('/jobs/post')}
-            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Post a Job
-          </Button>
+          <span>
+            <Button
+              onClick={() => router.push('/jobs/post')}
+              className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+              disabled={reachedPublicLimit}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Post a Job
+            </Button>
+            {reachedPublicLimit && (
+              <>
+                <button
+                  type="button"
+                  className="text-xs text-red-400 ml-2 align-middle font-semibold hover:underline focus:underline focus:outline-none"
+                  onClick={() => setIsLimitDialogOpen(true)}
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                >
+                  Limit reached
+                </button>
+                <Dialog open={isLimitDialogOpen} onOpenChange={setIsLimitDialogOpen}>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Job Posting Limit</DialogTitle>
+                      <DialogDescription>
+                        You have reached the maximum of 2 job posts for public users this month.<br />
+                        The limit resets at the start of each new month.<br />
+                        To post more jobs, please upgrade your account.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-end gap-4 mt-6">
+                      <Button
+                        variant="outline"
+                        className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                        onClick={() => setIsLimitDialogOpen(false)}
+                      >
+                        Close
+                      </Button>
+                      <Button
+                        className="gradient-button hover:bg-purple-700"
+                        onClick={() => {
+                          setIsLimitDialogOpen(false);
+                          router.push('/account-types');
+                        }}
+                      >
+                        Upgrade Account
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </>
+            )}
+          </span>
         </div>
 
         {/* Search and Filters */}
