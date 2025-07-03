@@ -1,5 +1,6 @@
 "use client"
 
+import React from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { MessageSquare, Send, Users, Plus, Bell } from 'lucide-react'
+import { MessageSquare, Send, Users, Plus, Bell, Edit, Trash2, Save, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import {
   Dialog,
@@ -57,6 +58,12 @@ export default function GroupChatPage() {
   const [postProjectDialogOpen, setPostProjectDialogOpen] = useState(false)
   const [projectSearch, setProjectSearch] = useState('')
   const [filteredProjects, setFilteredProjects] = useState<any[]>([])
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editMessageContent, setEditMessageContent] = useState('')
+  const [groupFiles, setGroupFiles] = useState<any[]>([])
 
   const fetchGroupChats = async () => {
     const { data, error } = await supabase
@@ -104,10 +111,10 @@ export default function GroupChatPage() {
   const fetchMessages = async () => {
     if (!selectedGroup) return;
     setMessagesLoading(true);
-    // Fetch messages for this group, join sender info
+    // Fetch messages for this group, join sender info, and include attachment_url
     const { data, error } = await supabase
       .from('group_chat_messages')
-      .select('id, content, created_at, sender_id, sender:sender_id (name, email, avatar_url)')
+      .select('id, content, created_at, sender_id, sender:sender_id (name, email, avatar_url), attachment_url')
       .eq('group_chat_id', selectedGroup.id)
       .order('created_at', { ascending: true });
     if (!error && data) {
@@ -161,14 +168,17 @@ export default function GroupChatPage() {
 
   // Update handleSendMessage to insert into group_chat_messages
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedGroup || !user) return;
+    if (uploading) return; // Prevent sending while uploading
+    if ((!newMessage.trim() && !attachmentUrl) || !selectedGroup || !user) return;
     const { error } = await supabase.from('group_chat_messages').insert({
       group_chat_id: selectedGroup.id,
       sender_id: user.id,
       content: newMessage.trim(),
+      attachment_url: attachmentUrl || null,
     });
     if (!error) {
       setNewMessage('');
+      setAttachmentUrl(null); // Only clear after successful send
       fetchMessages();
     }
   };
@@ -324,6 +334,68 @@ export default function GroupChatPage() {
     }
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    setUploading(true)
+    const fileExt = file.name.split('.').pop()
+    const filePath = `groupchat_files/${user.id}/${Date.now()}.${fileExt}`
+    const { data, error } = await supabase.storage.from('partnerfiles').upload(filePath, file)
+    if (error) {
+      alert('Failed to upload attachment')
+      setUploading(false)
+      return
+    }
+    const { data: publicUrlData } = supabase.storage.from('partnerfiles').getPublicUrl(filePath)
+    setAttachmentUrl(publicUrlData.publicUrl)
+    setUploading(false)
+  }
+
+  const handleEditMessage = (msg: any) => {
+    setEditingMessageId(msg.id)
+    setEditMessageContent(msg.content)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null)
+    setEditMessageContent('')
+  }
+
+  const handleSaveEdit = async (msg: any) => {
+    if (!editMessageContent.trim()) return
+    const { error } = await supabase.from('group_chat_messages').update({ content: editMessageContent.trim() }).eq('id', msg.id)
+    if (!error) {
+      setEditingMessageId(null)
+      setEditMessageContent('')
+      fetchMessages()
+    }
+  }
+
+  const handleDeleteMessage = async (msg: any) => {
+    if (!window.confirm('Delete this message?')) return
+    const { error } = await supabase.from('group_chat_messages').delete().eq('id', msg.id)
+    if (!error) fetchMessages()
+  }
+
+  const fetchGroupFiles = async () => {
+    if (!selectedGroup) return;
+    const { data, error } = await supabase
+      .from('group_chat_messages')
+      .select('id, attachment_url, created_at, sender_id, sender:sender_id (name, email, avatar_url)')
+      .eq('group_chat_id', selectedGroup.id)
+      .not('attachment_url', 'is', null)
+      .order('created_at', { ascending: false });
+    if (!error && data) {
+      setGroupFiles(data);
+    } else {
+      setGroupFiles([]);
+    }
+  }
+
+  useEffect(() => {
+    fetchGroupFiles();
+  }, [selectedGroup, messages]);
+
   return (
     <div className="min-h-screen bg-gray-950 relative">
       <header className="leonardo-header">
@@ -447,7 +519,6 @@ export default function GroupChatPage() {
               )}
             </CardContent>
           </Card>
-
           {/* Chat Area */}
           <Card className="leonardo-card border-gray-800 lg:col-span-3">
             <CardHeader className="pb-3">
@@ -568,6 +639,7 @@ export default function GroupChatPage() {
                       if (parsed && parsed.type === 'task') isTaskCard = true;
                       if (parsed && parsed.type === 'project') isProjectCard = true;
                     } catch {}
+                    const isEditing = editingMessageId === msg.id;
                     return (
                       <div key={msg.id} className={`flex items-start gap-3 ${msg.sender_id === user?.id ? 'justify-end' : ''}`}>
                         {msg.sender_id !== user?.id && (
@@ -579,115 +651,157 @@ export default function GroupChatPage() {
                         <div>
                           <div className={`px-4 py-2 rounded-lg ${isTaskCard || isProjectCard ? 'bg-transparent' : (msg.sender_id === user?.id ? 'bg-cyan-700/80 text-white' : 'bg-gray-800/80 text-gray-100')}`}>
                             <span className="font-medium">{msg.sender?.name || 'Unknown'}</span>
-                            <div>
-                              {isTaskCard ? (
-                                (() => {
-                                  // Status and priority badges (fallback to default if not present)
-                                  const status = parsed.status || 'pending';
-                                  const priority = parsed.priority || 'medium';
-                                  const statusBadgeClass =
-                                    status === 'completed'
-                                      ? 'bg-green-500/20 text-green-400'
-                                      : status === 'in_progress'
-                                      ? 'bg-blue-500/20 text-blue-400'
-                                      : 'bg-yellow-500/20 text-yellow-400';
-                                  const priorityBadgeClass =
-                                    priority === 'high'
-                                      ? 'bg-red-500/20 text-red-400'
-                                      : priority === 'medium'
-                                      ? 'bg-yellow-500/20 text-yellow-400'
-                                      : 'bg-green-500/20 text-green-400';
-                                  return (
-                                    <div className="mt-2 p-4 rounded-xl bg-black border border-gray-800 text-left shadow-md max-w-md">
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-white font-bold text-lg">{parsed.title}</span>
-                                        <span className={`ml-2 ${statusBadgeClass} inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold`}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
-                                        <span className={`ml-2 ${priorityBadgeClass} inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold`}>{priority.charAt(0).toUpperCase() + priority.slice(1)} Priority</span>
-                                      </div>
-                                      <div className="text-gray-300 text-sm mb-2">{parsed.description}</div>
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-gray-400 text-xs">Project:</span>
-                                        <span className="bg-purple-500/20 text-purple-400 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">{parsed.projectName}</span>
-                                      </div>
-                                      {parsed.due_date && (
-                                        <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
-                                          <svg className="w-4 h-4 mr-1 inline-block" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                          Due: {new Date(parsed.due_date).toLocaleDateString()}
-                                        </div>
-                                      )}
-                                      <a
-                                        href={`/task/${parsed.taskId}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-block mt-2 px-3 py-1 bg-purple-700 text-white rounded hover:bg-purple-800 text-xs font-medium"
-                                      >
-                                        View Task Details
-                                      </a>
-                                    </div>
-                                  );
-                                })()
-                              ) : isProjectCard ? (
-                                <div className="p-0">
-                                  <div className="flex items-center bg-black border border-purple-500/50 rounded-xl p-6 shadow-md max-w-md">
-                                    <div className="flex-shrink-0 w-14 h-14 rounded-full bg-purple-900/40 flex items-center justify-center mr-6 overflow-hidden">
-                                      {parsed.thumbnail || parsed.image ? (
-                                        <img
-                                          src={parsed.thumbnail || parsed.image}
-                                          alt={parsed.name}
-                                          className="w-14 h-14 object-cover rounded-full"
-                                        />
-                                      ) : (
-                                        <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4a2 2 0 012-2h2a2 2 0 012 2v4m0 0h4m-4 0v-4m4 4v-4a2 2 0 012-2h2a2 2 0 012 2v4m0 0h-4m4 0v-4" /></svg>
-                                      )}
-                                    </div>
-                                    <div className="flex-1">
-                                      <div className="flex items-center justify-between mb-1">
-                                        <span className="text-gray-300 text-lg font-semibold">{parsed.name}</span>
-                                        {parsed.status && (
-                                          <span className={`ml-2 border px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                            parsed.status.toLowerCase() === 'active' ? 'bg-green-500/20 text-green-400 border-green-500/50' :
-                                            parsed.status.toLowerCase() === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' :
-                                            parsed.status.toLowerCase() === 'completed' ? 'bg-blue-500/20 text-blue-400 border-blue-500/50' :
-                                            parsed.status.toLowerCase() === 'on hold' ? 'bg-red-500/20 text-red-400 border-red-500/50' :
-                                            'bg-gray-500/20 text-gray-400 border-gray-500/50'
-                                          }`}>
-                                            {parsed.status.charAt(0).toUpperCase() + parsed.status.slice(1)}
-                                          </span>
-                                        )}
-                                      </div>
-                                      {parsed.description && (
-                                        <div className="text-gray-400 text-sm mb-2 line-clamp-2">{parsed.description}</div>
-                                      )}
-                                      <div className="flex items-center gap-4 mt-2">
-                                        {parsed.budget && (
-                                          <div className="text-sm text-gray-400">Budget: <span className="text-white font-bold">${Number(parsed.budget).toLocaleString()}</span></div>
-                                        )}
-                                        {parsed.progress !== undefined && (
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-gray-400 text-sm">Progress:</span>
-                                            <span className="text-white font-bold">{parsed.progress}%</span>
-                                          </div>
-                                        )}
-                                        {parsed.deadline && (
-                                          <div className="text-sm text-gray-400">Deadline: <span className="text-white font-bold">{new Date(parsed.deadline).toLocaleDateString()}</span></div>
-                                        )}
-                                      </div>
-                                      <a
-                                        href={`/projects/${parsed.projectId}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-block mt-4 text-purple-400 hover:underline text-xs font-medium"
-                                      >
-                                        View Project
-                                      </a>
-                                    </div>
-                                  </div>
-                                </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {isEditing ? (
+                                <>
+                                  <input
+                                    className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white w-full"
+                                    value={editMessageContent}
+                                    onChange={e => setEditMessageContent(e.target.value)}
+                                  />
+                                  <Button size="icon" variant="ghost" onClick={() => handleSaveEdit(msg)}><Save className="w-4 h-4" /></Button>
+                                  <Button size="icon" variant="ghost" onClick={handleCancelEdit}><X className="w-4 h-4" /></Button>
+                                </>
                               ) : (
-                                <div>{msg.content}</div>
+                                <>
+                                  {isTaskCard ? (
+                                    (() => {
+                                      // Status and priority badges (fallback to default if not present)
+                                      const status = parsed.status || 'pending';
+                                      const priority = parsed.priority || 'medium';
+                                      const statusBadgeClass =
+                                        status === 'completed'
+                                          ? 'bg-green-500/20 text-green-400'
+                                          : status === 'in_progress'
+                                          ? 'bg-blue-500/20 text-blue-400'
+                                          : 'bg-yellow-500/20 text-yellow-400';
+                                      const priorityBadgeClass =
+                                        priority === 'high'
+                                          ? 'bg-red-500/20 text-red-400'
+                                          : priority === 'medium'
+                                          ? 'bg-yellow-500/20 text-yellow-400'
+                                          : 'bg-green-500/20 text-green-400';
+                                      return (
+                                        <div className="mt-2 p-4 rounded-xl bg-black border border-gray-800 text-left shadow-md max-w-md">
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-white font-bold text-lg">{parsed.title}</span>
+                                            <span className={`ml-2 ${statusBadgeClass} inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold`}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+                                            <span className={`ml-2 ${priorityBadgeClass} inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold`}>{priority.charAt(0).toUpperCase() + priority.slice(1)} Priority</span>
+                                          </div>
+                                          <div className="text-gray-300 text-sm mb-2">{parsed.description}</div>
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-gray-400 text-xs">Project:</span>
+                                            <span className="bg-purple-500/20 text-purple-400 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">{parsed.projectName}</span>
+                                          </div>
+                                          {parsed.due_date && (
+                                            <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
+                                              <svg className="w-4 h-4 mr-1 inline-block" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                              Due: {new Date(parsed.due_date).toLocaleDateString()}
+                                            </div>
+                                          )}
+                                          <a
+                                            href={`/task/${parsed.taskId}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-block mt-2 px-3 py-1 bg-purple-700 text-white rounded hover:bg-purple-800 text-xs font-medium"
+                                          >
+                                            View Task Details
+                                          </a>
+                                        </div>
+                                      );
+                                    })()
+                                  ) : isProjectCard ? (
+                                    <div className="p-0">
+                                      <div className="flex items-center bg-black border border-purple-500/50 rounded-xl p-6 shadow-md max-w-md">
+                                        <div className="flex-shrink-0 w-14 h-14 rounded-full bg-purple-900/40 flex items-center justify-center mr-6 overflow-hidden">
+                                          {parsed.thumbnail || parsed.image ? (
+                                            <img
+                                              src={parsed.thumbnail || parsed.image}
+                                              alt={parsed.name}
+                                              className="w-14 h-14 object-cover rounded-full"
+                                            />
+                                          ) : (
+                                            <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4a2 2 0 012-2h2a2 2 0 012 2v4m0 0h4m-4 0v-4m4 4v-4a2 2 0 012-2h2a2 2 0 012 2v4m0 0h-4m4 0v-4" /></svg>
+                                          )}
+                                        </div>
+                                        <div className="flex-1">
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="text-gray-300 text-lg font-semibold">{parsed.name}</span>
+                                            {parsed.status && (
+                                              <span className={`ml-2 border px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                                parsed.status.toLowerCase() === 'active' ? 'bg-green-500/20 text-green-400 border-green-500/50' :
+                                                parsed.status.toLowerCase() === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' :
+                                                parsed.status.toLowerCase() === 'completed' ? 'bg-blue-500/20 text-blue-400 border-blue-500/50' :
+                                                parsed.status.toLowerCase() === 'on hold' ? 'bg-red-500/20 text-red-400 border-red-500/50' :
+                                                'bg-gray-500/20 text-gray-400 border-gray-500/50'
+                                              }`}>
+                                                {parsed.status.charAt(0).toUpperCase() + parsed.status.slice(1)}
+                                              </span>
+                                            )}
+                                          </div>
+                                          {parsed.description && (
+                                            <div className="text-gray-400 text-sm mb-2 line-clamp-2">{parsed.description}</div>
+                                          )}
+                                          <div className="flex items-center gap-4 mt-2">
+                                            {parsed.budget && (
+                                              <div className="text-sm text-gray-400">Budget: <span className="text-white font-bold">${Number(parsed.budget).toLocaleString()}</span></div>
+                                            )}
+                                            {parsed.progress !== undefined && (
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-gray-400 text-sm">Progress:</span>
+                                                <span className="text-white font-bold">{parsed.progress}%</span>
+                                              </div>
+                                            )}
+                                            {parsed.deadline && (
+                                              <div className="text-sm text-gray-400">Deadline: <span className="text-white font-bold">{new Date(parsed.deadline).toLocaleDateString()}</span></div>
+                                            )}
+                                          </div>
+                                          <a
+                                            href={`/projects/${parsed.projectId}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-block mt-4 text-purple-400 hover:underline text-xs font-medium"
+                                          >
+                                            View Project
+                                          </a>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div>{msg.content}</div>
+                                  )}
+                                </>
+                              )}
+                              {msg.sender_id === user?.id && (
+                                <>
+                                  <Button size="icon" variant="ghost" className="ml-2" onClick={() => handleEditMessage(msg)}><Edit className="w-4 h-4" /></Button>
+                                  <Button size="icon" variant="ghost" onClick={() => handleDeleteMessage(msg)}><Trash2 className="w-4 h-4" /></Button>
+                                </>
                               )}
                             </div>
                           </div>
+                          {msg.attachment_url && (
+                            <div className="mt-2">
+                              {msg.attachment_url.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) ? (
+                                <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer">
+                                  <img
+                                    src={msg.attachment_url}
+                                    alt="Attachment"
+                                    className="max-w-xs max-h-48 rounded shadow border border-gray-700 hover:opacity-90 transition"
+                                  />
+                                </a>
+                              ) : (
+                                <a
+                                  href={msg.attachment_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-400 underline"
+                                >
+                                  Download Attachment
+                                </a>
+                              )}
+                            </div>
+                          )}
                           <div className="text-xs text-gray-500 mt-1">
                             {new Date(msg.created_at).toLocaleString()}
                           </div>
@@ -710,9 +824,29 @@ export default function GroupChatPage() {
                 <Button 
                   className="bg-cyan-600 hover:bg-cyan-700"
                   onClick={handleSendMessage}
+                  disabled={uploading || (!newMessage.trim() && !attachmentUrl)}
                 >
                   <Send className="w-4 h-4" />
                 </Button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={handleFileChange}
+                  disabled={uploading}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="text-green-400 border-green-500 hover:bg-green-500/10"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? 'Uploading...' : 'Attach File'}
+                </Button>
+                {attachmentUrl && (
+                  <span className="text-xs text-green-400 ml-2">Attachment added</span>
+                )}
                 <Dialog open={postTaskDialogOpen} onOpenChange={setPostTaskDialogOpen}>
                   <DialogTrigger asChild>
                     <Button
@@ -818,6 +952,60 @@ export default function GroupChatPage() {
                   </DialogContent>
                 </Dialog>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+        {/* Files Card below the main cards */}
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Files</CardTitle>
+            </CardHeader>
+            <CardContent className="max-h-[500px] overflow-y-auto">
+              {groupFiles.length === 0 ? (
+                <div className="text-gray-400">No files shared yet.</div>
+              ) : (
+                <div className="flex flex-wrap gap-4">
+                  {groupFiles.map((fileMsg, idx) => (
+                    <React.Fragment key={fileMsg.id}>
+                      <div className="flex flex-col items-center p-2 rounded hover:bg-gray-800/40 transition w-32">
+                        <Avatar className="w-8 h-8 mb-1">
+                          <AvatarImage src={fileMsg.sender?.avatar_url || undefined} />
+                          <AvatarFallback>{fileMsg.sender?.name ? fileMsg.sender.name[0] : '?'}</AvatarFallback>
+                        </Avatar>
+                        <div className="font-medium text-xs text-white truncate">{fileMsg.sender?.name || 'Unknown'}</div>
+                        <div className="text-xs text-gray-400 truncate">{new Date(fileMsg.created_at).toLocaleString()}</div>
+                        {fileMsg.attachment_url && (
+                          fileMsg.attachment_url.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) ? (
+                            <a href={fileMsg.attachment_url} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={fileMsg.attachment_url}
+                                alt="Attachment"
+                                className="w-12 h-12 object-cover rounded border border-gray-700 mt-1"
+                              />
+                            </a>
+                          ) : (
+                            <a
+                              href={fileMsg.attachment_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-400 underline block mt-1"
+                            >
+                              Download File
+                            </a>
+                          )
+                        )}
+                      </div>
+                      {/* Vertical separator, except after the last item */}
+                      {idx < groupFiles.length - 1 && (
+                        <div className="flex items-center">
+                          <div className="h-20 mx-2 border-l-2 border-white/40 rounded-full" />
+                        </div>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

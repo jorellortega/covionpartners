@@ -55,6 +55,8 @@ export async function POST(request: Request) {
       )
     }
 
+    // Calculate 2% platform fee (in cents)
+    const platformFee = Math.round(amount * 100 * 0.02);
     // Create a payment intent
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // Convert to cents
@@ -63,6 +65,8 @@ export async function POST(request: Request) {
       payment_method: paymentMethodId,
       off_session: true,
       confirm: true,
+      // Platform fee logic: 2% goes to platform, rest to recipient
+      application_fee_amount: platformFee,
       transfer_data: {
         destination: recipient.stripe_connect_account_id,
       },
@@ -70,6 +74,7 @@ export async function POST(request: Request) {
         project_id: projectId,
         sender_id: user.id,
         recipient_id: recipientId,
+        platform_fee: platformFee,
       },
     })
 

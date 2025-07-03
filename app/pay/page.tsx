@@ -86,6 +86,18 @@ function PayPageContent() {
         index === self.findIndex((p) => p.id === project.id)
       );
       setProjects(uniqueProjects);
+
+      // Fetch payment methods (NEW)
+      try {
+        const response = await fetch('/api/payment-methods/list');
+        if (!response.ok) {
+          throw new Error('Failed to fetch payment methods');
+        }
+        const data = await response.json();
+        setPaymentMethods(data.paymentMethods || []);
+      } catch (err) {
+        toast.error('Failed to load payment methods');
+      }
     };
 
     fetchData();
@@ -239,6 +251,12 @@ function PayPageContent() {
                 required
                 placeholder="0.00"
               />
+              {/* Subtle platform fee display */}
+              {amount && !isNaN(Number(amount)) && Number(amount) > 0 && (
+                <div className="text-xs text-gray-400 mt-1" style={{ fontStyle: 'italic' }}>
+                  Includes a small 2% platform fee (${(Number(amount) * 0.02).toFixed(2)})
+                </div>
+              )}
             </div>
 
             <div>
