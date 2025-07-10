@@ -152,7 +152,7 @@ export default function Home() {
                   className="leonardo-card p-6 cursor-pointer hover:shadow-lg transition-all"
                   onClick={() =>
                     card.key === 'jobs' ? router.push('/jobs') :
-                    card.key === 'deal' ? router.push('/deals') :
+                    card.key === 'deal' ? router.push('/deals-feature') :
                     card.key === 'project' ? router.push('/projectsinfo') :
                     card.key === 'finance' ? router.push('/financialhub') :
                     card.key === 'workflow' ? router.push('/workflowhub') :

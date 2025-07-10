@@ -65,7 +65,8 @@ import {
   Heart,
   ArrowDownToLine,
   History,
-  StickyNote
+  StickyNote,
+  UploadCloud
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -1054,6 +1055,46 @@ export default function PartnerDashboard() {
                 </CardContent>
               </Card>
 
+              {/* My Organization Card */}
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/5 to-blue-500/5 hover:from-indigo-500/10 hover:to-blue-500/10 transition-colors">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-xl">
+                    <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center mr-3">
+                      <Building2 className="w-5 h-5 text-indigo-400" />
+                    </div>
+                    My Organization
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Link href="/myorganizations">
+                    <Button className="w-full bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 mb-2">
+                      <Users className="w-4 h-4 mr-2" /> View My Organizations
+                    </Button>
+                  </Link>
+                  <Link href="/createorganization">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <Building2 className="w-4 h-4 mr-2" /> Create Organization
+                    </Button>
+                  </Link>
+                  <Link href="/business-expense">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <Briefcase className="w-4 h-4 mr-2" /> Business Expenses
+                    </Button>
+                  </Link>
+                  <Link href="/work-dashboard">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <FolderKanban className="w-4 h-4 mr-2" /> Work Dashboard
+                    </Button>
+                  </Link>
+                  {/* TODO: Replace 'my' with the actual organization slug dynamically */}
+                  <Link href="/company/my/documents">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <UploadCloud className="w-4 h-4 mr-2" /> Organization Documents
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
               {/* Deal Hub */}
               <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/5 to-emerald-500/5 hover:from-green-500/10 hover:to-emerald-500/10 transition-colors">
                 <CardHeader className="pb-3">
@@ -1129,6 +1170,12 @@ export default function PartnerDashboard() {
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
                       <BarChart2 className="w-4 h-4 mr-2" />
                       Portfolio
+                    </Button>
+                  </Link>
+                  <Link href="/opendeals">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Open Deals
                     </Button>
                   </Link>
                     </>

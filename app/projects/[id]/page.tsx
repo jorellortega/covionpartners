@@ -2023,21 +2023,26 @@ export default function ProjectDetails() {
         .from('expenses')
         .insert([{
           project_id: projectId,
+          user_id: user?.id,
           description: newExpense.description,
           amount: Number(newExpense.amount),
           category: newExpense.category,
           status: newExpense.status,
           due_date: newExpense.due_date,
           receipt_url: newExpense.receipt_url,
-          notes: newExpense.notes,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          notes: newExpense.notes
         }])
-        .select()
+        .select(`
+          *,
+          user:user_id (
+            id,
+            email
+          )
+        `)
         .single();
 
       if (error) throw error;
-      setExpenses(prev => [...prev, data]);
+      setExpenses(prev => [data, ...prev]);
       setNewExpense({ description: '', amount: '', category: '', status: 'Pending', due_date: '', receipt_url: '', notes: '' });
       setShowAddExpense(false);
       toast.success('Expense added successfully');
@@ -2058,11 +2063,16 @@ export default function ProjectDetails() {
           status: editExpense.status,
           due_date: editExpense.due_date,
           receipt_url: editExpense.receipt_url,
-          notes: editExpense.notes,
-          updated_at: new Date().toISOString()
+          notes: editExpense.notes
         })
         .eq('id', editExpense.id)
-        .select()
+        .select(`
+          *,
+          user:user_id (
+            id,
+            email
+          )
+        `)
         .single();
 
       if (error) throw error;
@@ -3431,6 +3441,156 @@ export default function ProjectDetails() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Expenses Section */}
+            {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
+              <Card className="leonardo-card border-gray-800">
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle className="flex items-center">
+                        <DollarSign className="w-5 h-5 mr-2" />
+                        Project Expenses
+                      </CardTitle>
+                      <CardDescription>Track and manage project expenses</CardDescription>
+                    </div>
+                    {user?.role !== 'viewer' && (
+                      <Button
+                        onClick={() => setShowAddExpense(true)}
+                        className="gradient-button"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Expense
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loadingExpenses ? (
+                    <div className="text-center py-8">
+                      <LoadingSpinner />
+                      <p className="text-gray-400 mt-2">Loading expenses...</p>
+                    </div>
+                  ) : expenses.length > 0 ? (
+                    <div className="space-y-4">
+                      {/* Expenses Overview */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                          <h3 className="text-white font-medium">Total Expenses</h3>
+                          <p className="text-2xl text-green-400">
+                            ${expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0).toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                          <h3 className="text-white font-medium">Pending Expenses</h3>
+                          <p className="text-2xl text-yellow-400">
+                            ${expenses.filter(expense => expense.status === 'Pending').reduce((sum, expense) => sum + (expense.amount || 0), 0).toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                          <h3 className="text-white font-medium">Approved Expenses</h3>
+                          <p className="text-2xl text-green-400">
+                            ${expenses.filter(expense => expense.status === 'Approved').reduce((sum, expense) => sum + (expense.amount || 0), 0).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Expenses Table */}
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm text-left text-gray-400">
+                          <thead className="bg-gray-800 text-gray-300">
+                            <tr>
+                              <th className="px-4 py-2">Description</th>
+                              <th className="px-4 py-2">Amount</th>
+                              <th className="px-4 py-2">Category</th>
+                              <th className="px-4 py-2">Status</th>
+                              <th className="px-4 py-2">Due Date</th>
+                              <th className="px-4 py-2">Added By</th>
+                              <th className="px-4 py-2">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {expenses.map((expense) => (
+                              <tr key={expense.id} className="border-b border-gray-800">
+                                <td className="px-4 py-2">{expense.description}</td>
+                                <td className="px-4 py-2">${(expense.amount || 0).toFixed(2)}</td>
+                                <td className="px-4 py-2">{expense.category}</td>
+                                <td className="px-4 py-2">
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      expense.status === 'Approved'
+                                        ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                                        : expense.status === 'Pending'
+                                        ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                                        : expense.status === 'Rejected'
+                                        ? 'bg-red-500/20 text-red-400 border-red-500/50'
+                                        : 'bg-blue-500/20 text-blue-400 border-blue-500/50'
+                                    }
+                                  >
+                                    {expense.status}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-2">
+                                  {expense.due_date ? formatDate(expense.due_date) : 'N/A'}
+                                </td>
+                                <td className="px-4 py-2">
+                                  {expense.user?.email || 'Unknown'}
+                                </td>
+                                <td className="px-4 py-2">
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-gray-400 hover:text-blue-400"
+                                      onClick={() => router.push(`/expense/${expense.id}`)}
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </Button>
+                                    {user?.role !== 'viewer' && (
+                                      <>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="text-gray-400 hover:text-purple-400"
+                                          onClick={() => {
+                                            setEditExpense(expense);
+                                            setShowEditExpense(true);
+                                          }}
+                                        >
+                                          <Pencil className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="text-gray-400 hover:text-red-400"
+                                          onClick={() => {
+                                            setEditExpense(expense);
+                                            setShowDeleteExpense(true);
+                                          }}
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <DollarSign className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-400">No expenses yet</h3>
+                      <p className="text-gray-500 mt-1">Add expenses to track project costs</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
                   </div>
 
           {/* Sidebar */}

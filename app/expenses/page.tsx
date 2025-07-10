@@ -1,58 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-const mockExpenses = [
-  {
-    id: 1,
-    date: "2023-10-01",
-    description: "Office Supplies",
-    amount: 150.00,
-    category: "Supplies",
-    status: "Approved",
-    project: "Project A",
-    organization: "Org A",
-    item: "Item 1",
-    split: "Equal",
-    dueDate: "2023-10-15"
-  },
-  {
-    id: 2,
-    date: "2023-10-05",
-    description: "Client Dinner",
-    amount: 200.00,
-    category: "Entertainment",
-    status: "Pending",
-    project: "Project B",
-    organization: "Org B",
-    item: "Item 2",
-    split: "Proportional",
-    dueDate: "2023-10-20"
-  },
-  {
-    id: 3,
-    date: "2023-10-10",
-    description: "Software Subscription",
-    amount: 50.00,
-    category: "Software",
-    status: "Approved",
-    project: "Project A",
-    organization: "Org A",
-    item: "Item 3",
-    split: "Equal",
-    dueDate: "2023-10-25"
-  }
-]
+import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/hooks/useAuth"
+import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { DollarSign, Plus, Pencil, Trash2 } from "lucide-react"
 
 export default function ExpensesPage() {
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
-  const [expenses, setExpenses] = useState(mockExpenses)
+  const [expenses, setExpenses] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedExpense, setSelectedExpense] = useState<string | null>(null)
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [userPayments, setUserPayments] = useState<Record<string, { paid: boolean; amount: number }>>({
@@ -61,13 +27,46 @@ export default function ExpensesPage() {
     "User 3": { paid: false, amount: 50 }
   })
 
+  // Fetch expenses from database
+  const fetchExpenses = async () => {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('expenses')
+        .select(`
+          *,
+          user:user_id (
+            id,
+            email
+          ),
+          project:project_id (
+            id,
+            name
+          )
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setExpenses(data || [])
+    } catch (error) {
+      console.error('Error fetching expenses:', error)
+      toast.error('Failed to fetch expenses')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchExpenses()
+  }, [])
+
   const expensesByCategory = expenses.reduce((acc, expense) => {
     if (!acc[expense.category]) {
       acc[expense.category] = []
     }
     acc[expense.category].push(expense)
     return acc
-  }, {} as Record<string, typeof expenses>)
+  }, {} as Record<string, any[]>)
 
   const handleExpenseSelect = (expenseId: string) => {
     setSelectedExpense(expenseId)
@@ -75,6 +74,22 @@ export default function ExpensesPage() {
 
   const handleUserSelect = (userId: string) => {
     setSelectedUsers([...selectedUsers, userId])
+  }
+
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString()
+    } catch (error) {
+      return 'Invalid date'
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-950 py-10 px-4 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    )
   }
 
   return (
@@ -88,15 +103,15 @@ export default function ExpensesPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
               <h3 className="text-white font-medium">Total Expenses</h3>
-              <p className="text-2xl text-green-400">${expenses.reduce((sum, expense) => sum + expense.amount, 0).toFixed(2)}</p>
+              <p className="text-2xl text-green-400">${expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0).toFixed(2)}</p>
             </div>
             <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
               <h3 className="text-white font-medium">Pending Expenses</h3>
-              <p className="text-2xl text-yellow-400">${expenses.filter(expense => expense.status === 'Pending').reduce((sum, expense) => sum + expense.amount, 0).toFixed(2)}</p>
+              <p className="text-2xl text-yellow-400">${expenses.filter(expense => expense.status === 'Pending').reduce((sum, expense) => sum + (expense.amount || 0), 0).toFixed(2)}</p>
             </div>
             <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
               <h3 className="text-white font-medium">Approved Expenses</h3>
-              <p className="text-2xl text-green-400">${expenses.filter(expense => expense.status === 'Approved').reduce((sum, expense) => sum + expense.amount, 0).toFixed(2)}</p>
+              <p className="text-2xl text-green-400">${expenses.filter(expense => expense.status === 'Approved').reduce((sum, expense) => sum + (expense.amount || 0), 0).toFixed(2)}</p>
             </div>
           </div>
         </CardContent>
@@ -113,41 +128,44 @@ export default function ExpensesPage() {
               <table className="min-w-full text-sm text-left text-gray-400">
                 <thead className="bg-gray-800 text-gray-300">
                   <tr>
-                    <th className="px-4 py-2">Item</th>
                     <th className="px-4 py-2">Description</th>
                     <th className="px-4 py-2">Amount</th>
                     <th className="px-4 py-2">Category</th>
                     <th className="px-4 py-2">Project</th>
-                    <th className="px-4 py-2">Organization</th>
                     <th className="px-4 py-2">Status</th>
-                    <th className="px-4 py-2">Split</th>
                     <th className="px-4 py-2">Due Date</th>
+                    <th className="px-4 py-2">Added By</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {categoryExpenses.map((expense) => (
+                  {(categoryExpenses as any[]).map((expense: any) => (
                     <tr key={expense.id} className="border-b border-gray-800">
-                      <td className="px-4 py-2">{expense.item}</td>
                       <td className="px-4 py-2">{expense.description}</td>
-                      <td className="px-4 py-2">${expense.amount.toFixed(2)}</td>
+                      <td className="px-4 py-2">${(expense.amount || 0).toFixed(2)}</td>
                       <td className="px-4 py-2">{expense.category}</td>
-                      <td className="px-4 py-2">{expense.project}</td>
-                      <td className="px-4 py-2">{expense.organization}</td>
-                      <td className="px-4 py-2 capitalize">
-                        <Select defaultValue={expense.status}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Due">Due</SelectItem>
-                            <SelectItem value="Paid">Paid</SelectItem>
-                            <SelectItem value="Pending">Pending</SelectItem>
-                            <SelectItem value="Overdue">Overdue</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      <td className="px-4 py-2">{expense.project?.name || 'Unknown Project'}</td>
+                      <td className="px-4 py-2">
+                        <Badge
+                          variant="outline"
+                          className={
+                            expense.status === 'Approved'
+                              ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                              : expense.status === 'Pending'
+                              ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                              : expense.status === 'Rejected'
+                              ? 'bg-red-500/20 text-red-400 border-red-500/50'
+                              : 'bg-blue-500/20 text-blue-400 border-blue-500/50'
+                          }
+                        >
+                          {expense.status}
+                        </Badge>
                       </td>
-                      <td className="px-4 py-2">{expense.split}</td>
-                      <td className="px-4 py-2">{expense.dueDate}</td>
+                      <td className="px-4 py-2">
+                        {expense.due_date ? formatDate(expense.due_date) : 'N/A'}
+                      </td>
+                      <td className="px-4 py-2">
+                        {expense.user?.email || 'Unknown'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -156,6 +174,16 @@ export default function ExpensesPage() {
           </CardContent>
         </Card>
       ))}
+
+      {expenses.length === 0 && (
+        <Card className="w-full max-w-3xl mb-8">
+          <CardContent className="text-center py-8">
+            <DollarSign className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-400">No expenses found</h3>
+            <p className="text-gray-500 mt-1">Add expenses to projects to see them here</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* User Payments Card */}
       <Card className="w-full max-w-3xl mb-8">
@@ -171,7 +199,7 @@ export default function ExpensesPage() {
               <SelectContent>
                 {expenses.map((expense) => (
                   <SelectItem key={expense.id} value={expense.id.toString()}>
-                    {expense.description} - ${expense.amount.toFixed(2)}
+                    {expense.description} - ${(expense.amount || 0).toFixed(2)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -216,7 +244,7 @@ export default function ExpensesPage() {
               <SelectContent>
                 {expenses.map((expense) => (
                   <SelectItem key={expense.id} value={expense.id.toString()}>
-                    {expense.description} - ${expense.amount.toFixed(2)}
+                    {expense.description} - ${(expense.amount || 0).toFixed(2)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -239,71 +267,52 @@ export default function ExpensesPage() {
           <CardTitle>Add Expense</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-end">
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">Add Expense</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Expense</DialogTitle>
-                </DialogHeader>
-                {/* Mock form, does not save */}
                 <div className="space-y-4">
-                  <Input placeholder="Date" disabled />
-                  <Input placeholder="Description" disabled />
-                  <Input placeholder="Amount" disabled />
-                  <Select disabled>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Input id="description" placeholder="Enter expense description" />
+              </div>
+              <div>
+                <Label htmlFor="amount">Amount</Label>
+                <Input id="amount" type="number" placeholder="0.00" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="category">Category</Label>
+                <Select>
                     <SelectTrigger>
-                      <SelectValue placeholder="Category" />
+                    <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Supplies">Supplies</SelectItem>
-                      <SelectItem value="Entertainment">Entertainment</SelectItem>
-                      <SelectItem value="Software">Software</SelectItem>
+                    <SelectItem value="supplies">Supplies</SelectItem>
+                    <SelectItem value="travel">Travel</SelectItem>
+                    <SelectItem value="software">Software</SelectItem>
+                    <SelectItem value="marketing">Marketing</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select disabled>
+              </div>
+              <div>
+                <Label htmlFor="status">Status</Label>
+                <Select>
                     <SelectTrigger>
-                      <SelectValue placeholder="Project" />
+                    <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Project A">Project A</SelectItem>
-                      <SelectItem value="Project B">Project B</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select disabled>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Organization" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Org A">Org A</SelectItem>
-                      <SelectItem value="Org B">Org B</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select disabled>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Item" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Item 1">Item 1</SelectItem>
-                      <SelectItem value="Item 2">Item 2</SelectItem>
-                      <SelectItem value="Item 3">Item 3</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select disabled>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Split" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Equal">Equal</SelectItem>
-                      <SelectItem value="Proportional">Proportional</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <Button className="w-full mt-4" disabled>Save (Mock Only)</Button>
-              </DialogContent>
-            </Dialog>
+            </div>
+            <Button className="w-full">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Expense
+            </Button>
           </div>
         </CardContent>
       </Card>

@@ -42,7 +42,8 @@ import {
   FileText,
   RefreshCw,
   Handshake,
-  CreditCard
+  CreditCard,
+  Eye
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -57,6 +58,7 @@ import {
 } from "@/components/ui/dialog"
 import Link from 'next/link'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { QRCodeCanvas } from 'qrcode.react'
 
 interface MediaItem {
   id: number
@@ -108,6 +110,8 @@ interface ProfileData {
   }[]
   avatar_url?: string
   nickname?: string
+  title1?: string
+  title2?: string
 }
 
 const defaultProfileData: ProfileData = {
@@ -128,7 +132,9 @@ const defaultProfileData: ProfileData = {
   experience: [],
   education: [],
   completed_projects: [],
-  avatar_url: '/placeholder-avatar.jpg'
+  avatar_url: '/placeholder-avatar.jpg',
+  title1: '',
+  title2: '',
 }
 
 export default function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -160,14 +166,21 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const [publicProjectIds, setPublicProjectIds] = useState<string[]>([])
   const [profileMissing, setProfileMissing] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const qrRef = useRef<HTMLDivElement>(null)
+  // Add state for editing titles
+  const [editingTitle1, setEditingTitle1] = useState(false)
+  const [editingTitle2, setEditingTitle2] = useState(false)
+  const [title1Value, setTitle1Value] = useState("")
+  const [title2Value, setTitle2Value] = useState("")
+  // 1. Add state for organization
+  const [organization, setOrganization] = useState<{ id: string, name: string, slug: string } | null>(null)
 
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
         setIsLoading(true)
         setError(null)
-
-        // Fetch user data (for avatar and email)
+        // Fetch user data (for avatar, email, and titles)
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('*')
@@ -176,7 +189,35 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
         if (userError) {
           console.error('Error fetching user data:', userError)
         }
-
+        // 2. In useEffect, after fetching userData, fetch the user's organization
+        let org = null
+        // Try as owner first
+        let { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .select('id, name, slug')
+          .eq('owner_id', id)
+          .maybeSingle()
+        if (!orgError && orgData) {
+          org = orgData
+        } else {
+          // Try as team member
+          const { data: teamData, error: teamError } = await supabase
+            .from('team_members')
+            .select('organization_id')
+            .eq('user_id', id)
+            .maybeSingle()
+          if (!teamError && teamData && teamData.organization_id) {
+            const { data: orgData2, error: orgError2 } = await supabase
+              .from('organizations')
+              .select('id, name, slug')
+              .eq('id', teamData.organization_id)
+              .maybeSingle()
+            if (!orgError2 && orgData2) {
+              org = orgData2
+            }
+          }
+        }
+        setOrganization(org)
         // Fetch profile data (for everything else)
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -188,7 +229,6 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
         } else {
           setProfileMissing(false)
         }
-
         // Fetch user's completed projects from projects table
         const { data: projectsData, error: projectsError } = await supabase
           .from('projects')
@@ -199,7 +239,6 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
         if (projectsError) {
           console.error('Error fetching projects:', projectsError)
         }
-
         // Merge user and profile data
         const transformedData: ProfileData = {
           id: profile?.id || id,
@@ -228,7 +267,9 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
             visibility: project.visibility || ''
           })) || [],
           avatar_url: userData?.avatar_url || '/placeholder-avatar.jpg',
-          nickname: profile?.nickname || userData?.nickname || undefined
+          nickname: profile?.nickname || userData?.nickname || undefined,
+          title1: userData?.title1 || '',
+          title2: userData?.title2 || '',
         }
         setProfileData(transformedData)
       } catch (err) {
@@ -434,6 +475,25 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
     }
   }
 
+  // Update profile field for users table (for titles)
+  const updateUserField = async (field: string, value: any) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ [field]: value })
+        .eq('id', profileData.user_id)
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+      setProfileData(prev => ({ ...prev, [field]: value }))
+      toast.success('Profile updated successfully')
+    } catch (error) {
+      console.error('Error updating user:', error)
+      toast.error('Failed to update profile')
+    }
+  }
+
   // Skill handlers
   const handleAddSkill = async () => {
     if (!newSkill.trim()) return
@@ -612,7 +672,93 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                       <span className="ml-2 text-base text-blue-400 font-normal">({profileData.nickname})</span>
                     )}
                   </h1>
+                  {/* Titles Inline Edit */}
+                  <div className="flex flex-row items-center gap-2 mb-2 justify-center">
+                    {/* Title 1 */}
+                    {editingTitle1 ? (
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault()
+                          await updateUserField('title1', title1Value)
+                          setEditingTitle1(false)
+                        }}
+                        className="flex items-center"
+                      >
+                        <input
+                          value={title1Value}
+                          onChange={e => setTitle1Value(e.target.value)}
+                          className="bg-gray-800 text-blue-400 border-blue-500/50 border rounded px-2 py-0.5 text-sm w-32"
+                          maxLength={100}
+                          autoFocus
+                        />
+                        <button type="submit" className="ml-1 text-blue-400 text-xs">✔</button>
+                        <button type="button" className="ml-1 text-gray-400 text-xs" onClick={() => setEditingTitle1(false)}>✖</button>
+                      </form>
+                    ) : (
+                      profileData.title1 && (
+                        <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50 group-hover:cursor-pointer relative px-4 py-1 text-base font-semibold">
+                          {profileData.title1}
+                          {isOwner && (
+                            <span
+                              className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              onClick={() => { setEditingTitle1(true); setTitle1Value(profileData.title1 || ""); }}
+                            >
+                              <Pencil className="w-3 h-3 inline-block align-middle ml-1" />
+                            </span>
+                          )}
+                        </Badge>
+                      )
+                    )}
+                    {/* Title 2 */}
+                    {editingTitle2 ? (
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault()
+                          await updateUserField('title2', title2Value)
+                          setEditingTitle2(false)
+                        }}
+                        className="flex items-center"
+                      >
+                        <input
+                          value={title2Value}
+                          onChange={e => setTitle2Value(e.target.value)}
+                          className="bg-gray-800 text-purple-400 border-purple-500/50 border rounded px-2 py-0.5 text-sm w-32"
+                          maxLength={100}
+                          autoFocus
+                        />
+                        <button type="submit" className="ml-1 text-purple-400 text-xs">✔</button>
+                        <button type="button" className="ml-1 text-gray-400 text-xs" onClick={() => setEditingTitle2(false)}>✖</button>
+                      </form>
+                    ) : (
+                      profileData.title2 && (
+                        <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50 group-hover:cursor-pointer relative px-4 py-1 text-base font-semibold">
+                          {profileData.title2}
+                          {isOwner && (
+                            <span
+                              className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              onClick={() => { setEditingTitle2(true); setTitle2Value(profileData.title2 || ""); }}
+                            >
+                              <Pencil className="w-3 h-3 inline-block align-middle ml-1" />
+                            </span>
+                          )}
+                        </Badge>
+                      )
+                    )}
+                  </div>
                   <p className="text-gray-400 mb-4">{profileData.role}</p>
+                  {organization && (
+                    <div className="mb-2 text-center">
+                      <a
+                        href={`http://localhost:3000/company/${organization.slug}`}
+                        className="text-white text-base font-semibold hover:text-blue-400 transition-colors"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ textDecoration: 'none' }}
+                      >
+                        {organization.name}
+                      </a>
+                    </div>
+                  )}
                   <div className="flex gap-2 mb-6">
                     {profileData.company && (
                       <div className="relative group inline-block">
@@ -625,7 +771,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                             <input
                               value={editValue}
                               onChange={e => setEditValue(e.target.value)}
-                              className="bg-gray-800 text-blue-400 border-none rounded px-2 py-0.5 text-sm"
+                              className="bg-gray-800 text-white border-none rounded px-2 py-0.5 text-sm"
                               style={{ width: 'auto', minWidth: '60px' }}
                               autoFocus
                               onBlur={() => setEditingField(null)}
@@ -633,18 +779,18 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                             <button type="submit" className="ml-1 text-blue-400 text-xs">✔</button>
                           </form>
                         ) : (
-                          <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50 group-hover:cursor-pointer relative">
+                          <span className="text-white text-base font-semibold group relative">
                             {profileData.company}
                             {isOwner && (
                               <span
-                                className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                 style={{ pointerEvents: 'auto' }}
                                 onClick={e => { e.stopPropagation(); setEditingField('company'); setEditValue(profileData.company); }}
                               >
-                                <Pencil className="w-3 h-3 inline-block align-middle" />
+                                <Pencil className="w-3 h-3 inline-block align-middle ml-1" />
                               </span>
                             )}
-                          </Badge>
+                          </span>
                         )}
                       </div>
                     )}
@@ -667,18 +813,18 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                             <button type="submit" className="ml-1 text-purple-400 text-xs">✔</button>
                           </form>
                         ) : (
-                          <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50 group-hover:cursor-pointer relative">
+                          <span className="text-purple-400 text-base font-semibold group relative">
                             {profileData.location}
                             {isOwner && (
                               <span
-                                className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                 style={{ pointerEvents: 'auto' }}
                                 onClick={e => { e.stopPropagation(); setEditingField('location'); setEditValue(profileData.location); }}
                               >
-                                <Pencil className="w-3 h-3 inline-block align-middle" />
+                                <Pencil className="w-3 h-3 inline-block align-middle ml-1" />
                               </span>
                             )}
-                          </Badge>
+                          </span>
                         )}
                       </div>
                     )}
@@ -845,6 +991,13 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                             }}>
                               <Handshake className="w-4 h-4" />
                               Custom Deal
+                            </Button>
+                          </Link>
+                          {/* View Open Deals Option */}
+                          <Link href={`/profile/${profileData.user_id}/deals`} passHref legacyBehavior>
+                            <Button className="w-full gradient-button flex items-center gap-2" variant="secondary">
+                              <Eye className="w-4 h-4" />
+                              View Open Deals
                             </Button>
                           </Link>
                         </div>
@@ -1249,6 +1402,28 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           </CardContent>
         </Card>
       </main>
+      {/* QR Code at the bottom */}
+      <div className="w-full flex flex-col items-center justify-center py-8">
+        <div className="mb-2 text-gray-400 text-sm">Profile Barcode</div>
+        <div ref={qrRef}>
+          <QRCodeCanvas value={`${typeof window !== 'undefined' ? window.location.origin : ''}/profile/${id}`} size={128} bgColor="#18181b" fgColor="#fff" />
+        </div>
+        <button
+          className="mt-3 px-4 py-2 bg-gray-800 text-gray-200 rounded hover:bg-gray-700 transition"
+          onClick={() => {
+            const canvas = qrRef.current?.querySelector('canvas')
+            if (canvas) {
+              const url = canvas.toDataURL('image/png')
+              const link = document.createElement('a')
+              link.href = url
+              link.download = `profile-barcode-${id}.png`
+              link.click()
+            }
+          }}
+        >
+          Download Barcode
+        </button>
+      </div>
     </div>
   )
 } 
