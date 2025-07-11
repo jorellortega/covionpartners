@@ -15,6 +15,27 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { DollarSign, Plus, Pencil, Trash2, Repeat, FileText } from "lucide-react";
+import Link from 'next/link';
+
+// Helper to parse YYYY-MM-DD as local date
+function parseLocalDate(dateString: string): Date | null {
+  if (!dateString) return null;
+  const [year, month, day] = dateString.split('-').map(Number);
+  // month is 0-based in JS Date
+  return new Date(year, month - 1, day);
+}
+
+// Helper to determine if recurring badge should be red and if verified should be auto-off
+function shouldBeRedAndUnverify(expense: any) {
+  if (!expense.is_recurring || !expense.due_date) return false;
+  const due = parseLocalDate(expense.due_date);
+  if (!due) return false;
+  const now = new Date();
+  const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (expense.recurrence === 'Monthly' && diffDays <= 14 && diffDays >= 0) return true;
+  if (expense.recurrence === 'Yearly' && diffDays <= 60 && diffDays >= 0) return true;
+  return false;
+}
 
 export default function BusinessExpensePage() {
   const { user } = useAuth();
@@ -34,7 +55,8 @@ export default function BusinessExpensePage() {
     notes: "",
     recurrence: "One-time",
     is_recurring: false,
-    next_payment_date: ""
+    next_payment_date: "",
+    verified: false
   });
   const [editExpense, setEditExpense] = useState<any>(null);
   const [showEdit, setShowEdit] = useState(false);
@@ -208,6 +230,7 @@ export default function BusinessExpensePage() {
             recurrence: newExpense.is_recurring ? newExpense.recurrence : "One-time",
             is_recurring: newExpense.is_recurring,
             next_payment_date: newExpense.is_recurring && newExpense.next_payment_date ? newExpense.next_payment_date : null,
+            verified: newExpense.verified,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           }
@@ -217,7 +240,7 @@ export default function BusinessExpensePage() {
       if (error) throw error;
       setExpenses(prev => [data, ...prev]);
       setShowAdd(false);
-      setNewExpense({ description: "", amount: "", category: "", status: "Pending", due_date: "", receipt_url: "", notes: "", recurrence: "One-time", is_recurring: false, next_payment_date: "" });
+      setNewExpense({ description: "", amount: "", category: "", status: "Pending", due_date: "", receipt_url: "", notes: "", recurrence: "One-time", is_recurring: false, next_payment_date: "", verified: false });
       toast.success("Expense added successfully");
     } catch (error) {
       toast.error("Failed to add expense");
@@ -236,6 +259,10 @@ export default function BusinessExpensePage() {
           due_date: editExpense.due_date,
           receipt_url: editExpense.receipt_url,
           notes: editExpense.notes,
+          is_recurring: editExpense.is_recurring,
+          recurrence: editExpense.is_recurring ? editExpense.recurrence : "One-time",
+          next_payment_date: editExpense.is_recurring && editExpense.next_payment_date ? editExpense.next_payment_date : null,
+          verified: editExpense.verified,
           updated_at: new Date().toISOString()
         })
         .eq("id", editExpense.id)
@@ -288,6 +315,11 @@ export default function BusinessExpensePage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="flex justify-end mb-4">
+            <Link href="/business-expense-history">
+              <Button variant="outline" className="mr-2">View Expense History</Button>
+            </Link>
           </div>
 
           {/* Analytics Cards */}
@@ -412,6 +444,29 @@ export default function BusinessExpensePage() {
                   <Input placeholder="Due Date" type="date" value={newExpense.due_date} onChange={e => setNewExpense({ ...newExpense, due_date: e.target.value })} />
                   <Input placeholder="Receipt URL" value={newExpense.receipt_url} onChange={e => setNewExpense({ ...newExpense, receipt_url: e.target.value })} />
                   <Input placeholder="Notes" value={newExpense.notes} onChange={e => setNewExpense({ ...newExpense, notes: e.target.value })} />
+                  <Select
+                    value={newExpense.status}
+                    onValueChange={val => setNewExpense({ ...newExpense, status: val })}
+                  >
+                    <SelectTrigger className="w-full leonardo-input text-white">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Paid">Paid</SelectItem>
+                      <SelectItem value="Unpaid">Unpaid</SelectItem>
+                      <SelectItem value="Overdue">Overdue</SelectItem>
+                      <SelectItem value="Partially Paid">Partially Paid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="add_verified"
+                      checked={newExpense.verified}
+                      onChange={e => setNewExpense({ ...newExpense, verified: e.target.checked })}
+                    />
+                    <label htmlFor="add_verified" className="text-gray-300">Verified</label>
+                  </div>
                 </div>
                 <Button onClick={handleAddExpense} className="mt-4 w-full bg-cyan-700 text-white">Add Expense</Button>
               </DialogContent>
@@ -446,6 +501,7 @@ export default function BusinessExpensePage() {
                       <table className="min-w-full text-sm text-left text-gray-400">
                         <thead className="bg-gray-800 text-gray-300">
                           <tr>
+                            <th className="px-2 py-2"></th> {/* Checkbox column */}
                             <th className="px-4 py-2">Description</th>
                             <th className="px-4 py-2">Amount</th>
                             <th className="px-4 py-2">Status</th>
@@ -455,26 +511,70 @@ export default function BusinessExpensePage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {(categoryExpenses as any[]).map((expense: any) => (
-                            <tr key={expense.id} className="border-b border-gray-800">
-                              <td className="px-4 py-2">{expense.description}</td>
-                              <td className="px-4 py-2">${(expense.amount || 0).toFixed(2)}</td>
-                              <td className="px-4 py-2">
-                                {expense.is_recurring && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-900 text-green-400 mr-2">
-                                    <Repeat className="w-3 h-3 mr-1" /> Recurring
-                                  </span>
-                                )}
-                                {expense.status}
-                              </td>
-                              <td className="px-4 py-2">{expense.due_date ? new Date(expense.due_date).toLocaleDateString() : ''}</td>
-                              <td className="px-4 py-2">{expense.notes}</td>
-                              <td className="px-4 py-2 flex gap-2">
-                                <Button size="icon" variant="ghost" onClick={() => { setEditExpense(expense); setShowEdit(true); }}><Pencil className="w-4 h-4" /></Button>
-                                <Button size="icon" variant="ghost" onClick={() => handleDeleteExpense(expense.id)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
-                              </td>
-                            </tr>
-                          ))}
+                          {(categoryExpenses as any[]).map((expense: any) => {
+                            const needsRed = shouldBeRedAndUnverify(expense);
+                            if (needsRed && expense.verified) {
+                              // Auto-unverify in UI and DB
+                              setTimeout(async () => {
+                                setExpenses(prev => prev.map(exp => exp.id === expense.id ? { ...exp, verified: false } : exp));
+                                await supabase
+                                  .from("expenses")
+                                  .update({ verified: false, updated_at: new Date().toISOString() })
+                                  .eq("id", expense.id);
+                              }, 0);
+                            }
+                            return (
+                              <tr key={expense.id} className="border-b border-gray-800">
+                                <td className="px-2 py-2 text-center">
+                                  {expense.verified ? (
+                                    <span
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-900 text-blue-400 ml-2 cursor-pointer"
+                                      onClick={async () => {
+                                        const newVerified = false;
+                                        setExpenses(prev => prev.map(exp => exp.id === expense.id ? { ...exp, verified: newVerified } : exp));
+                                        await supabase
+                                          .from("expenses")
+                                          .update({ verified: newVerified, updated_at: new Date().toISOString() })
+                                          .eq("id", expense.id);
+                                      }}
+                                      title="Click to unverify"
+                                    >
+                                      <span className="mr-1">✓</span>Verified
+                                    </span>
+                                  ) : (
+                                    <input
+                                      type="checkbox"
+                                      checked={false}
+                                      onChange={async (e) => {
+                                        const newVerified = true;
+                                        setExpenses(prev => prev.map(exp => exp.id === expense.id ? { ...exp, verified: newVerified } : exp));
+                                        await supabase
+                                          .from("expenses")
+                                          .update({ verified: newVerified, updated_at: new Date().toISOString() })
+                                          .eq("id", expense.id);
+                                      }}
+                                    />
+                                  )}
+                                </td>
+                                <td className="px-4 py-2">{expense.description}</td>
+                                <td className="px-4 py-2">${(expense.amount || 0).toFixed(2)}</td>
+                                <td className={`px-4 py-2${expense.status === 'Paid' ? ' paid-tint' : ''}`}>
+                                  {expense.is_recurring && (
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${needsRed ? 'bg-red-900 text-red-400' : 'bg-green-900 text-green-400'} mr-2`}>
+                                      <Repeat className="w-3 h-3 mr-1" /> Recurring
+                                    </span>
+                                  )}
+                                  {expense.status}
+                                </td>
+                                <td className="px-4 py-2">{parseLocalDate(expense.due_date) ? parseLocalDate(expense.due_date)!.toLocaleDateString() : ''}</td>
+                                <td className="px-4 py-2">{expense.notes}</td>
+                                <td className="px-4 py-2 flex gap-2">
+                                  <Button size="icon" variant="ghost" onClick={() => { setEditExpense(expense); setShowEdit(true); }}><Pencil className="w-4 h-4" /></Button>
+                                  <Button size="icon" variant="ghost" onClick={() => handleDeleteExpense(expense.id)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
                           {/* Total row */}
                           <tr className="border-t border-gray-800 font-bold">
                             <td className="px-4 py-2 text-right" colSpan={1}>Total</td>
@@ -607,6 +707,41 @@ export default function BusinessExpensePage() {
               <Input placeholder="Description" value={editExpense.description} onChange={e => setEditExpense({ ...editExpense, description: e.target.value })} />
               <Input placeholder="Amount" type="number" value={editExpense.amount} onChange={e => setEditExpense({ ...editExpense, amount: e.target.value })} />
               <Input placeholder="Category" value={editExpense.category} onChange={e => setEditExpense({ ...editExpense, category: e.target.value })} />
+              {/* Recurring expense fields for edit */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="edit_is_recurring"
+                  checked={editExpense.is_recurring}
+                  onChange={e => setEditExpense({ ...editExpense, is_recurring: e.target.checked })}
+                />
+                <label htmlFor="edit_is_recurring" className="text-gray-300">Recurring Expense</label>
+              </div>
+              {editExpense.is_recurring && (
+                <div className="flex flex-col gap-2">
+                  <Select
+                    value={editExpense.recurrence}
+                    onValueChange={val => setEditExpense({ ...editExpense, recurrence: val })}
+                  >
+                    <SelectTrigger className="w-full leonardo-input text-white">
+                      <SelectValue placeholder="Recurrence" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Monthly">Monthly</SelectItem>
+                      <SelectItem value="Yearly">Yearly</SelectItem>
+                      <SelectItem value="Quarterly">Quarterly</SelectItem>
+                      <SelectItem value="One-time">One-time</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    placeholder="Next Payment Date"
+                    type="date"
+                    value={editExpense.next_payment_date || ""}
+                    onChange={e => setEditExpense({ ...editExpense, next_payment_date: e.target.value })}
+                    className="leonardo-input text-white"
+                  />
+                </div>
+              )}
               <Input placeholder="Due Date" type="date" value={editExpense.due_date} onChange={e => setEditExpense({ ...editExpense, due_date: e.target.value })} />
               <Input placeholder="Receipt URL" value={editExpense.receipt_url} onChange={e => setEditExpense({ ...editExpense, receipt_url: e.target.value })} />
               <Input placeholder="Notes" value={editExpense.notes} onChange={e => setEditExpense({ ...editExpense, notes: e.target.value })} />
@@ -615,11 +750,21 @@ export default function BusinessExpensePage() {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="Approved">Approved</SelectItem>
-                  <SelectItem value="Rejected">Rejected</SelectItem>
+                  <SelectItem value="Paid">Paid</SelectItem>
+                  <SelectItem value="Unpaid">Unpaid</SelectItem>
+                  <SelectItem value="Overdue">Overdue</SelectItem>
+                  <SelectItem value="Partially Paid">Partially Paid</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="edit_verified"
+                  checked={editExpense.verified}
+                  onChange={e => setEditExpense({ ...editExpense, verified: e.target.checked })}
+                />
+                <label htmlFor="edit_verified" className="text-gray-300">Verified</label>
+              </div>
             </div>
           )}
           <Button onClick={handleEditExpense} className="mt-4 w-full bg-cyan-700 text-white">Update Expense</Button>

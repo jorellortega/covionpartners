@@ -148,6 +148,19 @@ export default function BusinessExpensePage() {
     }
   };
 
+  const tableHeaders = [
+    'Description',
+    'Amount',
+    'Category',
+    'Status',
+    'Recurrence',
+    'Recurring',
+    'Next Payment',
+    'Due Date',
+    'Verified',
+    'Actions',
+  ];
+
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
       <Card className="leonardo-card border-gray-800 mb-8">
@@ -182,23 +195,23 @@ export default function BusinessExpensePage() {
                   <DialogTitle>Add Organization Expense</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <Input placeholder="Description" value={newExpense.description} onChange={e => setNewExpense({ ...newExpense, description: e.target.value })} />
+                  <Input placeholder="Description" value={newExpense.description || ""} onChange={e => setNewExpense({ ...newExpense, description: e.target.value })} />
                   <div className="flex items-center bg-gray-900 border border-gray-700 rounded px-3 focus-within:ring-2 focus-within:ring-cyan-500">
                     <span className="text-gray-400 mr-2 select-none w-5 text-center">$</span>
                     <input
                       className="bg-transparent outline-none w-full text-white py-2 pl-0"
                       placeholder="Amount"
                       type="number"
-                      value={newExpense.amount}
+                      value={newExpense.amount || ""}
                       onChange={e => setNewExpense({ ...newExpense, amount: e.target.value })}
                       min="0"
                       step="0.01"
                     />
                   </div>
-                  <Input placeholder="Category" value={newExpense.category} onChange={e => setNewExpense({ ...newExpense, category: e.target.value })} />
-                  <Input placeholder="Due Date" type="date" value={newExpense.due_date} onChange={e => setNewExpense({ ...newExpense, due_date: e.target.value })} />
-                  <Input placeholder="Receipt URL" value={newExpense.receipt_url} onChange={e => setNewExpense({ ...newExpense, receipt_url: e.target.value })} />
-                  <Input placeholder="Notes" value={newExpense.notes} onChange={e => setNewExpense({ ...newExpense, notes: e.target.value })} />
+                  <Input placeholder="Category" value={newExpense.category || ""} onChange={e => setNewExpense({ ...newExpense, category: e.target.value })} />
+                  <Input placeholder="Due Date" type="date" value={newExpense.due_date || ""} onChange={e => setNewExpense({ ...newExpense, due_date: e.target.value })} />
+                  <Input placeholder="Receipt URL" value={newExpense.receipt_url || ""} onChange={e => setNewExpense({ ...newExpense, receipt_url: e.target.value })} />
+                  <Input placeholder="Notes" value={newExpense.notes || ""} onChange={e => setNewExpense({ ...newExpense, notes: e.target.value })} />
                   <Select value={newExpense.recurrence || ''} onValueChange={val => setNewExpense({ ...newExpense, recurrence: val })}>
                     <SelectTrigger className="w-full max-w-md bg-gray-900 border-gray-700 text-white">
                       <SelectValue placeholder="Recurrence" />
@@ -211,10 +224,15 @@ export default function BusinessExpensePage() {
                     </SelectContent>
                   </Select>
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" checked={!!newExpense.is_recurring} onChange={e => setNewExpense({ ...newExpense, is_recurring: e.target.checked })} />
-                    <Label>Recurring</Label>
+                    <input
+                      id="add-recurring"
+                      type="checkbox"
+                      checked={!!newExpense.is_recurring}
+                      onChange={e => setNewExpense({ ...newExpense, is_recurring: e.target.checked })}
+                    />
+                    <Label htmlFor="add-recurring">Recurring</Label>
                   </div>
-                  <Input placeholder="Next Payment Date" type="date" value={newExpense.next_payment_date || ''} onChange={e => setNewExpense({ ...newExpense, next_payment_date: e.target.value })} />
+                  <Input placeholder="Next Payment Date" type="date" value={newExpense.next_payment_date || ""} onChange={e => setNewExpense({ ...newExpense, next_payment_date: e.target.value })} />
                 </div>
                 <Button onClick={handleAddExpense} className="mt-4 w-full bg-cyan-700 text-white">Add Expense</Button>
               </DialogContent>
@@ -229,63 +247,88 @@ export default function BusinessExpensePage() {
               <table className="min-w-full text-sm text-left">
                 <thead>
                   <tr className="text-gray-400 border-b border-gray-800">
-                    <th className="py-2 px-4">Description</th>
-                    <th className="py-2 px-4">Amount</th>
-                    <th className="py-2 px-4">Category</th>
-                    <th className="py-2 px-4">Status</th>
-                    <th className="py-2 px-4">Recurrence</th>
-                    <th className="py-2 px-4">Recurring</th>
-                    <th className="py-2 px-4">Next Payment</th>
-                    <th className="py-2 px-4">Due Date</th>
-                    <th className="py-2 px-4">Actions</th>
+                    {tableHeaders.map((header, idx) => (
+                      <th key={idx} className="py-2 px-4">{header}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {expenses.map(expense => (
-                    <tr key={expense.id} className="border-b border-gray-900 hover:bg-gray-800/30">
-                      <td className="py-2 px-4 text-white">{expense.description}</td>
-                      <td className="py-2 px-4 text-white">${expense.amount}</td>
-                      <td className="py-2 px-4 text-white">{expense.category}</td>
-                      <td className="py-2 px-4">
-                        <span
-                          className={
-                            `inline-block px-4 py-1 rounded-full font-semibold text-sm border transition ` +
-                            (expense.status === 'Paid'
-                              ? 'bg-green-900/40 text-green-400 border-green-500/50'
-                              : expense.status === 'Unpaid'
-                              ? 'bg-yellow-900/40 text-yellow-400 border-yellow-500/50'
-                              : expense.status === 'Overdue'
-                              ? 'bg-red-900/40 text-red-400 border-red-500/50'
-                              : 'bg-blue-900/40 text-blue-400 border-blue-500/50')
-                          }
-                        >
-                          {expense.status}
-                        </span>
-                      </td>
-                      <td className="py-2 px-4">
-                        {expense.recurrence ? (
-                          <span className="inline-block px-3 py-1 rounded-full bg-blue-900/40 text-blue-300 border border-blue-500/30 text-xs font-semibold">
-                            {expense.recurrence}
+                  {(() => {
+                    return expenses.filter(Boolean).map(expense => (
+                      <tr key={expense.id} className="border-b border-gray-900 hover:bg-gray-800/30">
+                        <td className="py-2 px-4 text-white">{expense.description || <span>-</span>}</td>
+                        <td className="py-2 px-4 text-white">{expense.amount !== undefined && expense.amount !== null ? `$${expense.amount}` : <span>-</span>}</td>
+                        <td className="py-2 px-4 text-white">{expense.category || <span>-</span>}</td>
+                        <td className="py-2 px-4">
+                          <span
+                            className={
+                              `inline-block px-4 py-1 rounded-full font-semibold text-sm border transition ` +
+                              (expense.status === 'Paid'
+                                ? 'bg-green-900/40 text-green-400 border-green-500/50'
+                                : expense.status === 'Unpaid'
+                                ? 'bg-yellow-900/40 text-yellow-400 border-yellow-500/50'
+                                : expense.status === 'Overdue'
+                                ? 'bg-red-900/40 text-red-400 border-red-500/50'
+                                : 'bg-blue-900/40 text-blue-400 border-blue-500/50')
+                            }
+                            style={{ border: '2px solid lime', zIndex: 1, position: 'relative' }}
+                          >
+                            {expense.status || <span>-</span>}
                           </span>
-                        ) : '-'}
-                      </td>
-                      <td className="py-2 px-4 text-center">
-                        {expense.is_recurring ? (
-                          <span title="Recurring" className="text-green-400 font-bold">✓</span>
-                        ) : (
-                          <span title="Not Recurring" className="text-gray-500">—</span>
-                        )}
-                      </td>
-                      <td className="py-2 px-4 text-white">
-                        {expense.next_payment_date ? new Date(expense.next_payment_date).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="py-2 px-4 text-white">{expense.due_date}</td>
-                      <td className="py-2 px-4 flex gap-2">
-                        <Button size="icon" variant="ghost" onClick={() => { setEditExpense(expense); setShowEdit(true); }}><Pencil className="w-4 h-4" /></Button>
-                        <Button size="icon" variant="ghost" onClick={() => handleDeleteExpense(expense.id)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-2 px-4">
+                          {expense.recurrence ? (
+                            <span className="inline-block px-3 py-1 rounded-full bg-blue-900/40 text-blue-300 border border-blue-500/30 text-xs font-semibold">
+                              {expense.recurrence}
+                            </span>
+                          ) : <span>-</span>}
+                        </td>
+                        <td className="py-2 px-4 text-center">
+                          {expense.is_recurring ? (
+                            <span title="Recurring" className="text-green-400 font-bold">✓</span>
+                          ) : (
+                            <span title="Not Recurring" className="text-gray-500">—</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-4 text-white">
+                          {expense.next_payment_date ? new Date(expense.next_payment_date).toLocaleDateString() : <span>-</span>}
+                        </td>
+                        <td className="py-2 px-4 text-white">{expense.due_date || <span>-</span>}</td>
+                        <td className="py-2 px-4 text-center" style={{ border: '2px solid red', position: 'relative', zIndex: 10, background: '#222' }}>
+                          {expense.verified ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-900 text-blue-400 ml-2 cursor-pointer">
+                              <span className="mr-1">✓</span>Verified
+                            </span>
+                          ) : (
+                            <input
+                              type="checkbox"
+                              style={{ zIndex: 20, position: 'relative' }}
+                              checked={!!expense.verified}
+                              onClick={e => e.stopPropagation()}
+                              onChange={async (e) => {
+                                const newVerified = e.target.checked;
+                                setExpenses(prev => prev.map(exp => exp.id === expense.id ? { ...exp, verified: newVerified } : exp));
+                                const { data, error } = await supabase
+                                  .from("expenses")
+                                  .update({ verified: newVerified, updated_at: new Date().toISOString() })
+                                  .eq("id", expense.id);
+                                if (error) {
+                                  console.error('DEBUG: Supabase update error', error);
+                                }
+                              }}
+                            />
+                          )}
+                          <div style={{ fontSize: '10px', color: '#aaa' }}>Raw: {String(expense.verified)}</div>
+                        </td>
+                        <td className="py-2 px-4">
+                          <div className="flex gap-2">
+                            <Button size="icon" variant="ghost" onClick={() => { setEditExpense(expense); setShowEdit(true); }}><Pencil className="w-4 h-4" /></Button>
+                            <Button size="icon" variant="ghost" onClick={() => handleDeleteExpense(expense.id)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ));
+                  })()}
                 </tbody>
               </table>
             </div>
@@ -300,12 +343,12 @@ export default function BusinessExpensePage() {
           </DialogHeader>
           {editExpense && (
             <div className="space-y-4">
-              <Input placeholder="Description" value={editExpense.description} onChange={e => setEditExpense({ ...editExpense, description: e.target.value })} />
-              <Input placeholder="Amount" type="number" value={editExpense.amount} onChange={e => setEditExpense({ ...editExpense, amount: e.target.value })} />
-              <Input placeholder="Category" value={editExpense.category} onChange={e => setEditExpense({ ...editExpense, category: e.target.value })} />
-              <Input placeholder="Due Date" type="date" value={editExpense.due_date} onChange={e => setEditExpense({ ...editExpense, due_date: e.target.value })} />
-              <Input placeholder="Receipt URL" value={editExpense.receipt_url} onChange={e => setEditExpense({ ...editExpense, receipt_url: e.target.value })} />
-              <Input placeholder="Notes" value={editExpense.notes} onChange={e => setEditExpense({ ...editExpense, notes: e.target.value })} />
+              <Input placeholder="Description" value={editExpense.description || ""} onChange={e => setEditExpense({ ...editExpense, description: e.target.value })} />
+              <Input placeholder="Amount" type="number" value={editExpense.amount || ""} onChange={e => setEditExpense({ ...editExpense, amount: e.target.value })} />
+              <Input placeholder="Category" value={editExpense.category || ""} onChange={e => setEditExpense({ ...editExpense, category: e.target.value })} />
+              <Input placeholder="Due Date" type="date" value={editExpense.due_date || ""} onChange={e => setEditExpense({ ...editExpense, due_date: e.target.value })} />
+              <Input placeholder="Receipt URL" value={editExpense.receipt_url || ""} onChange={e => setEditExpense({ ...editExpense, receipt_url: e.target.value })} />
+              <Input placeholder="Notes" value={editExpense.notes || ""} onChange={e => setEditExpense({ ...editExpense, notes: e.target.value })} />
               <Select value={editExpense.status} onValueChange={val => setEditExpense({ ...editExpense, status: val })}>
                 <SelectTrigger className="w-full max-w-md bg-gray-900 border-gray-700 text-white">
                   <SelectValue placeholder="Status" />
@@ -328,10 +371,15 @@ export default function BusinessExpensePage() {
                 </SelectContent>
               </Select>
               <div className="flex items-center gap-2">
-                <input type="checkbox" checked={!!editExpense.is_recurring} onChange={e => setEditExpense({ ...editExpense, is_recurring: e.target.checked })} />
-                <Label>Recurring</Label>
+                <input
+                  id="edit-recurring"
+                  type="checkbox"
+                  checked={!!editExpense.is_recurring}
+                  onChange={e => setEditExpense({ ...editExpense, is_recurring: e.target.checked })}
+                />
+                <Label htmlFor="edit-recurring">Recurring</Label>
               </div>
-              <Input placeholder="Next Payment Date" type="date" value={editExpense.next_payment_date || ''} onChange={e => setEditExpense({ ...editExpense, next_payment_date: e.target.value })} />
+              <Input placeholder="Next Payment Date" type="date" value={editExpense.next_payment_date || ""} onChange={e => setEditExpense({ ...editExpense, next_payment_date: e.target.value })} />
             </div>
           )}
           <Button onClick={handleEditExpense} className="mt-4 w-full bg-cyan-700 text-white">Update Expense</Button>
