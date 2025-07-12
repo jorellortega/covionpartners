@@ -69,34 +69,25 @@ export default function CreateOrganization() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [organizationToDelete, setOrganizationToDelete] = useState<string | null>(null)
 
-  // Fetch organizations with owner names
+  // Fetch organizations owned by the current user
   const fetchOrganizations = async () => {
     try {
-      // First get organizations
+      if (!user) return
+
+      // Get organizations owned by the current user
       const { data: orgs, error: orgsError } = await supabase
         .from("organizations")
         .select("*")
+        .eq("owner_id", user.id)
         .order("created_at", { ascending: false })
 
       if (orgsError) throw orgsError
 
-      // Then get owner details for each organization
-      const orgsWithOwners = await Promise.all(
-        (orgs || []).map(async (org) => {
-          const { data: ownerData, error: ownerError } = await supabase
-            .from("users")
-            .select("name")
-            .eq("id", org.owner_id)
-            .single()
-
-          if (ownerError) {
-            console.error("Error fetching owner:", ownerError)
-            return { ...org, owner_name: "Unknown" }
-          }
-
-          return { ...org, owner_name: ownerData.name }
-        })
-      )
+      // Add owner name (which will be the current user)
+      const orgsWithOwners = (orgs || []).map((org) => ({
+        ...org,
+        owner_name: user.name || user.email || "You"
+      }))
 
       setOrganizations(orgsWithOwners)
     } catch (error) {
@@ -107,14 +98,47 @@ export default function CreateOrganization() {
 
   const fetchProjects = async () => {
     try {
-      const { data: projectsData, error: projectsError } = await supabase
+      if (!user) return
+
+      // First get projects where user is the owner
+      const { data: ownedProjects, error: ownedError } = await supabase
         .from("projects")
         .select("*")
+        .eq("owner_id", user.id)
         .order("name")
       
-      if (projectsError) throw projectsError
+      if (ownedError) throw ownedError
+
+      // Then get projects where user is a team member
+      const { data: teamMemberships, error: teamError } = await supabase
+        .from("team_members")
+        .select("project_id")
+        .eq("user_id", user.id)
       
-      setProjects(projectsData || [])
+      if (teamError) throw teamError
+      
+      let memberProjects: any[] = []
+      
+      if (teamMemberships && teamMemberships.length > 0) {
+        const projectIds = teamMemberships.map(tm => tm.project_id)
+        
+        const { data: joinedProjects, error: joinedError } = await supabase
+          .from("projects")
+          .select("*")
+          .in("id", projectIds)
+          .order("name")
+        
+        if (joinedError) throw joinedError
+        memberProjects = joinedProjects || []
+      }
+      
+      // Combine owned and member projects, removing duplicates
+      const allProjects = [...(ownedProjects || []), ...memberProjects]
+      const uniqueProjects = allProjects.filter((project, index, self) =>
+        index === self.findIndex(p => p.id === project.id)
+      )
+      
+      setProjects(uniqueProjects)
     } catch (error) {
       console.error("Error fetching projects:", error)
       toast.error("Failed to load projects")
@@ -123,19 +147,14 @@ export default function CreateOrganization() {
     }
   }
 
-  // Check if user is admin and load organizations
+  // Check if user is authenticated and load organizations
   useEffect(() => {
     if (!user) {
       setLoading(true)
       return
     }
 
-    if (user.role !== "admin") {
-      toast.error("Only administrators can access this page")
-      router.push("/")
-      return
-    }
-
+    // Allow any authenticated user to create organizations
     fetchOrganizations()
     fetchProjects()
     setLoading(false)
@@ -440,7 +459,7 @@ export default function CreateOrganization() {
               Project Associations
             </CardTitle>
             <CardDescription>
-              Associate existing projects with organizations
+              Associate existing projects with your organizations
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -454,14 +473,86 @@ export default function CreateOrganization() {
                   No projects available
                 </p>
               ) : (
-                <div className="space-y-4">
-                  {projects.map((project) => (
+                <>
+                  {/* Select All Section */}
+                  <div className="border rounded-lg p-4 bg-gray-50/50">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-lg">Bulk Associate Projects</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Associate multiple unassociated projects with an organization
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value=""
+                          onValueChange={(value) => {
+                            if (value) {
+                              const unassociatedProjects = projects.filter(p => !p.organization_id)
+                              if (unassociatedProjects.length > 0) {
+                                // Associate all unassociated projects
+                                unassociatedProjects.forEach(project => {
+                                  handleAssociateProject(project.id, value)
+                                })
+                                toast.success(`Associated ${unassociatedProjects.length} projects with ${organizations.find(org => org.id === value)?.name}`)
+                              } else {
+                                toast.info("No unassociated projects to associate")
+                              }
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Select organization" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {organizations.length === 0 ? (
+                              <SelectItem value="" disabled>
+                                No organizations available
+                              </SelectItem>
+                            ) : (
+                              organizations.map((org) => (
+                                <SelectItem key={org.id} value={org.id}>
+                                  {org.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const associatedProjects = projects.filter(p => p.organization_id)
+                            if (associatedProjects.length > 0) {
+                              // Remove all associations
+                              associatedProjects.forEach(project => {
+                                handleRemoveAssociation(project.id)
+                              })
+                              toast.success(`Removed associations from ${associatedProjects.length} projects`)
+                            } else {
+                              toast.info("No associated projects to remove")
+                            }
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Remove All
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      {projects.filter(p => !p.organization_id).length} unassociated projects • {projects.filter(p => p.organization_id).length} associated projects
+                    </div>
+                  </div>
+
+                  {/* Individual Projects */}
+                  <div className="space-y-4">
+                    {projects.map((project) => (
                     <div
                       key={project.id}
                       className="border rounded-lg p-4 space-y-3 hover:bg-accent/50 transition-colors"
                     >
                       <div className="flex items-start justify-between">
-                        <div>
+                        <div className="flex-1">
                           <h3 className="font-semibold text-lg">{project.name}</h3>
                           <p className="text-sm text-muted-foreground">
                             {project.description || "No description"}
@@ -469,44 +560,68 @@ export default function CreateOrganization() {
                         </div>
                         <div className="flex items-center gap-2">
                           {project.organization_id ? (
-                            <>
+                            <div className="flex items-center gap-2">
                               <span className="text-xs font-medium bg-green-500/10 text-green-500 px-2 py-1 rounded-full">
                                 Associated
                               </span>
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-red-500 hover:text-red-600"
+                                variant="outline"
+                                size="sm"
+                                className="text-red-500 hover:text-red-600 border-red-500/20"
                                 onClick={() => handleRemoveAssociation(project.id)}
                               >
-                                <X className="h-4 w-4" />
+                                <X className="h-4 w-4 mr-1" />
+                                Remove
                               </Button>
-                  </>
-                ) : (
-                            <Select
-                              value={selectedProject}
-                              onValueChange={(value) => {
-                                setSelectedProject(value)
-                                handleAssociateProject(project.id, value)
-                              }}
-                            >
-                              <SelectTrigger className="w-[200px]">
-                                <SelectValue placeholder="Select organization" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {organizations.map((org) => (
-                                  <SelectItem key={org.id} value={org.id}>
-                                    {org.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium bg-gray-500/10 text-gray-500 px-2 py-1 rounded-full">
+                                Unassociated
+                              </span>
+                              <Select
+                                value=""
+                                onValueChange={(value) => {
+                                  if (value) {
+                                    handleAssociateProject(project.id, value)
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="w-[200px]">
+                                  <SelectValue placeholder="Select organization" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {organizations.length === 0 ? (
+                                    <SelectItem value="" disabled>
+                                      No organizations available
+                                    </SelectItem>
+                                  ) : (
+                                    organizations.map((org) => (
+                                      <SelectItem key={org.id} value={org.id}>
+                                        {org.name}
+                                      </SelectItem>
+                                    ))
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                         </div>
                       </div>
+                      
+                      {/* Show current association if exists */}
+                      {project.organization_id && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Check className="h-4 w-4 text-green-500" />
+                          <span>
+                            Associated with: {organizations.find(org => org.id === project.organization_id)?.name || 'Unknown Organization'}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+                                      ))}
+                  </div>
+                </>
               )}
             </div>
           </CardContent>
