@@ -60,6 +60,9 @@ export interface Project {
   show_make_deal?: boolean
   show_invest?: boolean
   show_collaborate?: boolean
+  show_project_info?: boolean
+  show_project_overview?: boolean
+  show_project_expenses?: boolean
 }
 
 export interface ProjectRole {

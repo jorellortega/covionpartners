@@ -51,6 +51,9 @@ import {
   Eye,
   Archive,
   StickyNote,
+  List,
+  Grid,
+  AlignJustify,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -78,6 +81,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 import { TaskList } from '@/components/task-list'
 import { Textarea } from "@/components/ui/textarea"
@@ -655,7 +659,19 @@ export default function ProjectDetails() {
   const [newLabelStatus, setNewLabelStatus] = useState('draft');
   const [notes, setNotes] = useState<any[]>([])
   const [newNote, setNewNote] = useState("")
+  const [newNoteTitle, setNewNoteTitle] = useState("")
   const [loadingNotes, setLoadingNotes] = useState(false)
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [editingNoteTitle, setEditingNoteTitle] = useState("")
+  const [editingNoteContent, setEditingNoteContent] = useState("")
+  
+  // Card visibility toggle states
+  const [updatingProjectInfoSetting, setUpdatingProjectInfoSetting] = useState(false)
+  const [updatingProjectOverviewSetting, setUpdatingProjectOverviewSetting] = useState(false)
+  const [updatingProjectExpensesSetting, setUpdatingProjectExpensesSetting] = useState(false)
+  const [updatingProjectAccessSetting, setUpdatingProjectAccessSetting] = useState(false);
+  // Add state for view mode
+  const [fileViewMode, setFileViewMode] = useState<'list' | 'grid' | 'compact'>('compact');
 
   const fetchTeamFiles = async () => {
     if (!projectId) return;
@@ -959,23 +975,52 @@ export default function ProjectDetails() {
 
   // Fetch notes for this project
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId || typeof projectId !== 'string' || projectId.length < 10) return;
     const fetchNotes = async () => {
       setLoadingNotes(true)
-      const { data, error } = await supabase
-        .from('notes')
-        .select('*, created_by:created_by (id, full_name, email)')
-        .eq('entity_type', 'project')
-        .eq('entity_id', projectId)
-        .order('created_at', { ascending: false })
-      if (!error) setNotes(data || [])
-      setLoadingNotes(false)
+      try {
+        const { data, error } = await supabase
+          .from('notes')
+          .select('*')
+          .eq('entity_type', 'project')
+          .eq('entity_id', projectId)
+          .order('created_at', { ascending: false })
+        if (error) {
+          console.error('Error fetching notes:', error)
+        }
+        setNotes(data || [])
+      } catch (err) {
+        console.error('Error in fetchNotes:', err)
+      } finally {
+        setLoadingNotes(false)
+      }
     }
     fetchNotes()
   }, [projectId])
 
+  const handleRefreshNotes = async () => {
+    if (!projectId || typeof projectId !== 'string' || projectId.length < 10) return;
+    setLoadingNotes(true)
+    try {
+      const { data, error } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('entity_type', 'project')
+        .eq('entity_id', projectId)
+        .order('created_at', { ascending: false })
+      if (error) {
+        console.error('Error refreshing notes:', error)
+      }
+      setNotes(data || [])
+    } catch (err) {
+      console.error('Error in handleRefreshNotes:', err)
+    } finally {
+      setLoadingNotes(false)
+    }
+  }
+
   const handleAddNote = async () => {
-    if (!newNote.trim() || !user) return
+    if ((!newNote.trim() && !newNoteTitle.trim()) || !user) return
     const { data, error } = await supabase
       .from('notes')
       .insert([{
@@ -984,7 +1029,7 @@ export default function ProjectDetails() {
         content: newNote.trim(),
         created_by: user.id,
         created_at: new Date().toISOString(),
-        note_title: '',
+        note_title: newNoteTitle.trim(),
         entity_title: project?.name || '',
       }])
       .select()
@@ -992,6 +1037,7 @@ export default function ProjectDetails() {
     if (!error && data) {
       setNotes(prev => [data, ...prev])
       setNewNote("")
+      setNewNoteTitle("")
     }
   }
   const handleDeleteNote = async (noteId: string) => {
@@ -2322,6 +2368,114 @@ export default function ProjectDetails() {
     }
   };
 
+  const handleStartEditNote = (note: any) => {
+    setEditingNoteId(note.id)
+    setEditingNoteTitle(note.note_title || "")
+    setEditingNoteContent(note.content || "")
+  }
+  const handleCancelEditNote = () => {
+    setEditingNoteId(null)
+    setEditingNoteTitle("")
+    setEditingNoteContent("")
+  }
+  const handleSaveEditNote = async () => {
+    if (!editingNoteId || (!editingNoteTitle.trim() && !editingNoteContent.trim())) return
+    const { data, error } = await supabase
+      .from('notes')
+      .update({
+        note_title: editingNoteTitle.trim(),
+        content: editingNoteContent.trim(),
+      })
+      .eq('id', editingNoteId)
+      .select()
+      .single()
+    if (!error && data) {
+      setNotes(prev => prev.map(n => n.id === editingNoteId ? data : n))
+      handleCancelEditNote()
+    }
+  }
+
+  // Card visibility toggle handlers
+  const handleToggleProjectInfo = async () => {
+    if (!project) return;
+    setUpdatingProjectInfoSetting(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .update({ show_project_info: !project.show_project_info })
+        .eq('id', project.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setProject(data);
+      toast.success(`Project Information card is now ${data.show_project_info ? 'visible' : 'hidden'}`);
+    } catch (err) {
+      toast.error('Failed to update project information visibility');
+    } finally {
+      setUpdatingProjectInfoSetting(false);
+    }
+  };
+
+  const handleToggleProjectOverview = async () => {
+    if (!project) return;
+    setUpdatingProjectOverviewSetting(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .update({ show_project_overview: !project.show_project_overview })
+        .eq('id', project.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setProject(data);
+      toast.success(`Project Overview card is now ${data.show_project_overview ? 'visible' : 'hidden'}`);
+    } catch (err) {
+      toast.error('Failed to update project overview visibility');
+    } finally {
+      setUpdatingProjectOverviewSetting(false);
+    }
+  };
+
+  const handleToggleProjectExpenses = async () => {
+    if (!project) return;
+    setUpdatingProjectExpensesSetting(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .update({ show_project_expenses: !project.show_project_expenses })
+        .eq('id', project.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setProject(data);
+      toast.success(`Project Expenses card is now ${data.show_project_expenses ? 'visible' : 'hidden'}`);
+    } catch (err) {
+      toast.error('Failed to update project expenses visibility');
+    } finally {
+      setUpdatingProjectExpensesSetting(false);
+    }
+  };
+
+  const handleToggleProjectAccess = async () => {
+    if (!project) return;
+    setUpdatingProjectAccessSetting(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .update({ show_project_access: !project.show_project_access })
+        .eq('id', project.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setProject(data);
+      toast.success(`Project Access card is now ${data.show_project_access ? 'visible' : 'hidden'}`);
+    } catch (err) {
+      toast.error('Failed to update Project Access visibility');
+    } finally {
+      setUpdatingProjectAccessSetting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header">
@@ -2603,59 +2757,88 @@ export default function ProjectDetails() {
 
                 {canSeeProjectFilesCard && (
                   <Card className="leonardo-card border-gray-800 mt-6">
-              <CardHeader>
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                          <CardTitle>Project Files</CardTitle>
-                <CardDescription className="text-gray-400">
-                            Files only visible to the project team, based on your access level
-                    </CardDescription>
+                    <CardHeader>
+                      <div className="mb-2">
+                        <CardTitle>Project Files</CardTitle>
+                        <CardDescription className="text-gray-400">
+                          Files only visible to the project team, based on your access level
+                        </CardDescription>
                       </div>
-                        <div className="flex flex-col gap-2">
+                      <div className="flex flex-row flex-wrap items-center justify-between gap-2 w-full">
+                        {/* Left group: view switcher, View All Files, Level dropdown */}
+                        <div className="flex flex-row flex-wrap items-center gap-2">
+                          <div className="flex items-center gap-1 bg-gray-800/50 rounded-lg p-1">
+                            <Button
+                              variant={fileViewMode === 'list' ? 'default' : 'ghost'}
+                              size="sm"
+                              onClick={() => setFileViewMode('list')}
+                              className="h-8 w-8 p-0"
+                              aria-label="List view"
+                            >
+                              <List className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant={fileViewMode === 'grid' ? 'default' : 'ghost'}
+                              size="sm"
+                              onClick={() => setFileViewMode('grid')}
+                              className="h-8 w-8 p-0"
+                              aria-label="Grid view"
+                            >
+                              <Grid className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant={fileViewMode === 'compact' ? 'default' : 'ghost'}
+                              size="sm"
+                              onClick={() => setFileViewMode('compact')}
+                              className="h-8 w-8 p-0"
+                              aria-label="Compact view"
+                            >
+                              <AlignJustify className="w-4 h-4" />
+                            </Button>
+                          </div>
                           <Button
                             variant="outline"
                             onClick={() => router.push(`/projectfiles/${projectId}`)}
-                            className="w-full sm:w-auto"
+                            className="w-auto"
                           >
                             <FileText className="w-4 h-4 mr-2" />
                             View All Files
                           </Button>
-                          {user && !['viewer', 'investor'].includes(user.role) && currentMember && (
-                            <div className="flex flex-col gap-2">
-                              {canSetAccessLevel && (
-                                <Select value={String(uploadAccessLevel)} onValueChange={v => setUploadAccessLevel(Number(v))}>
-                                  <SelectTrigger className="w-[120px]">
-                                    <SelectValue placeholder="Access Level" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="1">Level 1</SelectItem>
-                                    <SelectItem value="2">Level 2</SelectItem>
-                                    <SelectItem value="3">Level 3</SelectItem>
-                                    <SelectItem value="4">Level 4</SelectItem>
-                                    <SelectItem value="5">Level 5</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              )}
-                              <Button 
-                                onClick={() => document.getElementById('team-files-upload')?.click()}
-                                className="gradient-button w-full sm:w-auto"
-                                disabled={isUploadingMedia}
-                              >
-                                {isUploadingMedia ? (
-                                  <>
-                                    <LoadingSpinner className="w-4 h-4 mr-2" />
-                                    Uploading...
-                                  </>
-                                ) : (
-                                  <>
-                                    <FileText className="w-4 h-4 mr-2" />
-                                    Add File
-                                  </>
-                                )}
-                              </Button>
-                            </div>
+                          {user && !['viewer', 'investor'].includes(user.role) && currentMember && canSetAccessLevel && (
+                            <Select value={String(uploadAccessLevel)} onValueChange={v => setUploadAccessLevel(Number(v))}>
+                              <SelectTrigger className="w-[120px]">
+                                <SelectValue placeholder="Access Level" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1">Level 1</SelectItem>
+                                <SelectItem value="2">Level 2</SelectItem>
+                                <SelectItem value="3">Level 3</SelectItem>
+                                <SelectItem value="4">Level 4</SelectItem>
+                                <SelectItem value="5">Level 5</SelectItem>
+                              </SelectContent>
+                            </Select>
                           )}
                         </div>
+                        {/* Right: Add File button */}
+                        {user && !['viewer', 'investor'].includes(user.role) && currentMember && (
+                          <Button
+                            onClick={() => document.getElementById('team-files-upload')?.click()}
+                            className="gradient-button w-auto ml-auto"
+                            disabled={isUploadingMedia}
+                          >
+                            {isUploadingMedia ? (
+                              <>
+                                <LoadingSpinner className="w-4 h-4 mr-2" />
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <FileText className="w-4 h-4 mr-2" />
+                                Add File
+                              </>
+                            )}
+                          </Button>
+                        )}
                         <input
                           type="file"
                           id="team-files-upload"
@@ -2678,222 +2861,237 @@ export default function ProjectDetails() {
                           You must be a team member to view project files.
                         </div>
                       ) : visibleFiles.length > 0 ? (
-                        <div className="space-y-2">
-                          {visibleFiles.map((file: ProjectFile, index: number) => (
-                            <div key={file.id} className="flex flex-col md:flex-row items-start md:items-center p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors w-full">
-                              {/* Left: File info */}
-                              <div className="flex items-center min-w-0 flex-1 gap-2 w-full">
-                              <input
-                                type="checkbox"
-                                checked={selectedFileIds.includes(file.id)}
-                                onChange={() => handleSelectFile(file.id)}
-                                  className="accent-purple-500 w-4 h-4"
-                                aria-label={`Select file ${file.name}`}
-                              />
-                                <span className="text-xs text-gray-400 w-5 text-right">{index + 1}</span>
-                                {getFileIcon(file.type)}
-                                <div className="min-w-0 flex flex-col w-full">
+                        <div>
+                          {fileViewMode === 'list' && (
+                            <div className="space-y-2">
+                              {visibleFiles.slice(0, 7).map((file: ProjectFile, index: number) => (
+                                <div key={file.id} className="flex flex-col md:flex-row items-start md:items-center p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors w-full">
+                                  {/* Left: File info */}
+                                  <div className="flex items-center min-w-0 flex-1 gap-2 w-full">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedFileIds.includes(file.id)}
+                                      onChange={() => handleSelectFile(file.id)}
+                                      className="accent-purple-500 w-4 h-4"
+                                      aria-label={`Select file ${file.name}`}
+                                    />
+                                    <span className="text-xs text-gray-400 w-5 text-right">{index + 1}</span>
+                                    {getFileIcon(file.type)}
+                                    <div className="min-w-0 flex flex-col w-full">
+                                      {editingFileName === file.id ? (
+                                        <div className="flex items-center gap-2 w-full">
+                                          <Input
+                                            value={newFileName}
+                                            onChange={(e) => setNewFileName(e.target.value)}
+                                            className="h-8 text-sm w-full"
+                                            autoFocus
+                                          />
+                                          <Button
+                                            size="sm"
+                                            onClick={() => handleSaveFileName(file)}
+                                            className="h-8"
+                                          >
+                                            Save
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={handleCancelEditFileName}
+                                            className="h-8"
+                                          >
+                                            Cancel
+                                          </Button>
+                                        </div>
+                                      ) : (
+                                        <p 
+                                          className="text-lg font-bold text-white truncate cursor-pointer hover:text-blue-400 w-full"
+                                          onClick={() => handleStartEditFileName(file)}
+                                        >
+                                          {file.name}
+                                        </p>
+                                      )}
+                                      <p className="text-xs text-gray-400 flex items-center gap-2 w-full">
+                                        <span className="hidden md:inline opacity-50">{new Date(file.created_at).toLocaleDateString()}</span> • <span className="hidden md:inline opacity-25">Access Level:</span>
+                                        {editingFileId === file.id ? (
+                                          <span className="flex items-center gap-1 ml-1">
+                                            <Select value={String(editingAccessLevel)} onValueChange={v => setEditingAccessLevel(Number(v))}>
+                                              <SelectTrigger className="w-[70px] h-6 text-xs">
+                                                <SelectValue placeholder="Level" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="1">1</SelectItem>
+                                                <SelectItem value="2">2</SelectItem>
+                                                <SelectItem value="3">3</SelectItem>
+                                                <SelectItem value="4">4</SelectItem>
+                                                <SelectItem value="5">5</SelectItem>
+                                              </SelectContent>
+                                            </Select>
+                                            <Button size="sm" className="ml-1 px-2 py-1 text-xs" onClick={() => handleSaveAccessLevel(file)}>Save</Button>
+                                            <Button size="sm" variant="outline" className="ml-1 px-2 py-1 text-xs" onClick={() => setEditingFileId(null)}>Cancel</Button>
+                                          </span>
+                                        ) : (
+                                          <span className="ml-1 opacity-25 hidden md:inline">{file.access_level}</span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  {/* Middle: Label badge */}
+                                  <div className="flex-1 flex justify-center mt-2 md:mt-0 w-full">
+                                    {editingLabel === file.id ? (
+                                      <div className="flex items-center gap-2 w-full">
+                                        <Select value={newLabelStatus} onValueChange={setNewLabelStatus}>
+                                          <SelectTrigger className="w-[120px] h-6 text-xs">
+                                            <SelectValue placeholder="Status" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="draft">Draft</SelectItem>
+                                            <SelectItem value="completed">Completed</SelectItem>
+                                            <SelectItem value="in_review">In Review</SelectItem>
+                                            <SelectItem value="archived">Archived</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        <Input
+                                          value={newLabel}
+                                          onChange={(e) => setNewLabel(e.target.value)}
+                                          placeholder="Custom label (optional)"
+                                          className="h-6 text-xs w-[150px]"
+                                        />
+                                        <Button
+                                          size="sm"
+                                          onClick={() => handleSaveLabel(file)}
+                                          className="h-6 text-xs"
+                                        >
+                                          Save
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => {
+                                            setEditingLabel(null);
+                                            setNewLabel('');
+                                            setNewLabelStatus('draft');
+                                          }}
+                                          className="h-6 text-xs"
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <FileText className="w-4 h-4 text-gray-400" />
+                                        <span className="text-xs text-gray-400">{file.custom_label || file.label_status || "draft"}</span>
+                                        <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => { setEditingLabel(file.id); setNewLabel(file.custom_label || ""); setNewLabelStatus(file.label_status || "draft"); }}><Pencil className="w-4 h-4" /></Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {/* Right: Actions */}
+                                  <div className="flex items-center gap-2 mt-2 md:mt-0 w-full md:w-auto justify-end">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-gray-400 hover:text-blue-400"
+                                      onClick={() => window.open(file.url, '_blank')}
+                                      title="Download File"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-gray-400 hover:text-blue-400"
+                                      onClick={() => handleStartEditFileName(file)}
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-red-400 hover:text-red-300"
+                                      onClick={() => handleDeleteTeamFile(file)}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {fileViewMode === 'grid' && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                              {visibleFiles.slice(0, 7).map((file: ProjectFile) => (
+                                <div key={file.id} className="flex flex-col items-center p-4 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors">
+                                  <div className="mb-2">{getFileIcon(file.type)}</div>
                                   {editingFileName === file.id ? (
-                                    <div className="flex items-center gap-2 w-full">
+                                    <div className="flex flex-col items-center w-full gap-2">
                                       <Input
                                         value={newFileName}
                                         onChange={(e) => setNewFileName(e.target.value)}
                                         className="h-8 text-sm w-full"
                                         autoFocus
                                       />
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleSaveFileName(file)}
-                                        className="h-8"
-                                      >
-                                        Save
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={handleCancelEditFileName}
-                                        className="h-8"
-                                      >
-                                        Cancel
-                                      </Button>
+                                      <div className="flex gap-2">
+                                        <Button size="sm" onClick={() => handleSaveFileName(file)} className="h-8">Save</Button>
+                                        <Button size="sm" variant="outline" onClick={handleCancelEditFileName} className="h-8">Cancel</Button>
+                                      </div>
                                     </div>
                                   ) : (
-                                    <p 
-                                      className="text-lg font-bold text-white truncate cursor-pointer hover:text-blue-400 w-full"
-                                      onClick={() => handleStartEditFileName(file)}
-                                    >
-                                      {file.name}
-                                    </p>
+                                    <div className="font-semibold text-white text-center truncate w-full mb-1 cursor-pointer hover:text-blue-400" onClick={() => handleStartEditFileName(file)}>{file.name}</div>
                                   )}
-                                  <p className="text-xs text-gray-400 flex items-center gap-2 w-full">
-                                    <span className="hidden md:inline opacity-50">{new Date(file.created_at).toLocaleDateString()}</span> • <span className="hidden md:inline opacity-25">Access Level:</span>
-                                    {editingFileId === file.id ? (
-                                      <span className="flex items-center gap-1 ml-1">
-                                        <Select value={String(editingAccessLevel)} onValueChange={v => setEditingAccessLevel(Number(v))}>
-                                          <SelectTrigger className="w-[70px] h-6 text-xs">
-                                            <SelectValue placeholder="Level" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="1">1</SelectItem>
-                                            <SelectItem value="2">2</SelectItem>
-                                            <SelectItem value="3">3</SelectItem>
-                                            <SelectItem value="4">4</SelectItem>
-                                            <SelectItem value="5">5</SelectItem>
-                                          </SelectContent>
-                                        </Select>
-                                        <Button size="sm" className="ml-1 px-2 py-1 text-xs" onClick={() => handleSaveAccessLevel(file)}>Save</Button>
-                                        <Button size="sm" variant="outline" className="ml-1 px-2 py-1 text-xs" onClick={() => setEditingFileId(null)}>Cancel</Button>
-                                      </span>
-                                    ) : (
-                                      <span className="ml-1 opacity-25 hidden md:inline">{file.access_level}</span>
-                                    )}
-                                  </p>
-                              </div>
-                              </div>
-                              {/* Middle: Label badge */}
-                              <div className="flex-1 flex justify-center mt-2 md:mt-0 w-full">
-                                {editingLabel === file.id ? (
-                                  <div className="flex items-center gap-2 w-full">
-                                    <Select value={newLabelStatus} onValueChange={setNewLabelStatus}>
-                                      <SelectTrigger className="w-[120px] h-6 text-xs">
-                                        <SelectValue placeholder="Status" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="draft">Draft</SelectItem>
-                                        <SelectItem value="completed">Completed</SelectItem>
-                                        <SelectItem value="in_review">In Review</SelectItem>
-                                        <SelectItem value="archived">Archived</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                    <Input
-                                      value={newLabel}
-                                      onChange={(e) => setNewLabel(e.target.value)}
-                                      placeholder="Custom label (optional)"
-                                      className="h-6 text-xs w-[150px]"
-                                    />
-                                    <Button
-                                      size="sm"
-                                      onClick={() => handleSaveLabel(file)}
-                                      className="h-6 text-xs"
-                                    >
-                                      Save
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        setEditingLabel(null);
-                                        setNewLabel('');
-                                        setNewLabelStatus('draft');
-                                      }}
-                                      className="h-6 text-xs"
-                                    >
-                                      Cancel
-                                    </Button>
+                                  <div className="text-xs text-gray-400 mb-2">{formatFileSize(file.size)}</div>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <FileText className="w-4 h-4 text-gray-400" />
+                                    <span className="text-xs text-gray-400">{file.custom_label || file.label_status || "draft"}</span>
+                                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => { setEditingLabel(file.id); setNewLabel(file.custom_label || ""); setNewLabelStatus(file.label_status || "draft"); }}><Pencil className="w-4 h-4" /></Button>
                                   </div>
-                                ) : (
-                                  <div
-                                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full font-semibold text-base cursor-pointer w-full justify-center"
-                                    style={{
-                                      background: file.label_status === 'completed'
-                                        ? 'rgba(34,197,94,0.15)'
-                                        : file.label_status === 'in_review'
-                                        ? 'rgba(59,130,246,0.15)'
-                                        : file.label_status === 'archived'
-                                        ? 'rgba(156,163,175,0.15)'
-                                        : 'rgba(107,114,128,0.15)',
-                                      color: file.label_status === 'completed'
-                                        ? '#22c55e'
-                                        : file.label_status === 'in_review'
-                                        ? '#3b82f6'
-                                        : file.label_status === 'archived'
-                                        ? '#9ca3af'
-                                        : '#6b7280',
-                                      transition: 'background 0.2s, color 0.2s',
-                                    }}
-                                    onClick={() => {
-                                      setEditingLabel(file.id);
-                                      setNewLabel(file.custom_label || '');
-                                      setNewLabelStatus(file.label_status || 'draft');
-                                    }}
-                                  >
-                                    {getLabelIcon(file.label_status || 'draft')}
-                                    <span>
-                                      {file.custom_label || file.label_status || 'No label'}
-                                    </span>
+                                  <div className="flex gap-2">
+                                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => window.open(file.url, '_blank')} title="Download File"><Download className="w-4 h-4" /></Button>
+                                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => handleStartEditFileName(file)}><Pencil className="w-4 h-4" /></Button>
+                                    <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300" onClick={() => handleDeleteTeamFile(file)}><Trash2 className="w-4 h-4" /></Button>
                                   </div>
-                                )}
-                              </div>
-                              {/* Right: Actions */}
-                              <div className="flex items-center gap-2 mt-2 md:mt-0 w-full md:w-auto justify-end">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                className="text-gray-400 hover:text-blue-400"
-                                  onClick={() => window.open(file.url, '_blank')}
-                                title="Download File"
-                                >
-                                <Download className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-gray-400 hover:text-blue-400"
-                                  onClick={() => {
-                                    handleEditAccessLevel(file);
-                                    handleStartEditFileName(file);
-                                  }}
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-red-400 hover:text-red-300"
-                                  onClick={() => handleDeleteTeamFile(file)}
-                                >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                              </div>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          )}
+                          {fileViewMode === 'compact' && (
+                            <div className="divide-y divide-gray-800 border border-gray-800 rounded-lg overflow-hidden">
+                              {visibleFiles.slice(0, 7).map((file: ProjectFile) => (
+                                <div key={file.id} className="flex items-center px-3 py-2 bg-gray-900 hover:bg-gray-800 transition-colors">
+                                  <span className="mr-2">{getFileIcon(file.type)}</span>
+                                  {editingFileName === file.id ? (
+                                    <Input
+                                      value={newFileName}
+                                      onChange={(e) => setNewFileName(e.target.value)}
+                                      className="h-8 text-sm flex-1"
+                                      autoFocus
+                                      onBlur={handleCancelEditFileName}
+                                      onKeyDown={e => { if (e.key === 'Enter') handleSaveFileName(file); }}
+                                    />
+                                  ) : (
+                                    <span className="flex-1 truncate text-white text-sm cursor-pointer hover:text-blue-400" onClick={() => handleStartEditFileName(file)}>{file.name}</span>
+                                  )}
+                                  <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => window.open(file.url, '_blank')} title="Download File"><Download className="w-4 h-4" /></Button>
+                                  <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => handleStartEditFileName(file)}><Pencil className="w-4 h-4" /></Button>
+                                  <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300" onClick={() => handleDeleteTeamFile(file)}><Trash2 className="w-4 h-4" /></Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {visibleFiles.length > 7 && (
+                            <div className="text-center mt-4">
+                              <Button
+                                variant="outline"
+                                className="bg-black text-white rounded-lg font-semibold text-base px-6 py-3 flex items-center justify-center mx-auto hover:bg-gray-900 border-none shadow-none"
+                                onClick={() => router.push(`/projectfiles/${projectId}`)}
+                              >
+                                <FileText className="w-5 h-5 mr-2" />
+                                View All Files
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="text-center py-8 text-gray-400">
-                          No files available for your access level
-                        </div>
-                      )}
-                      {visibleFiles.length > 0 && (
-                        <div className="flex items-center gap-2 mb-2">
-                          <input
-                            type="checkbox"
-                            checked={allSelected}
-                            ref={el => {
-                              if (el) el.indeterminate = isIndeterminate;
-                            }}
-                            onChange={handleSelectAll}
-                            className="accent-purple-500 w-4 h-4"
-                            aria-label="Select all files"
-                          />
-                          <span className="text-xs text-gray-400">Select All</span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="ml-2"
-                            onClick={handleDeleteSelected}
-                            disabled={selectedFileIds.length === 0}
-                          >
-                            Delete Selected
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="ml-1"
-                            onClick={handleDeselectAll}
-                            disabled={selectedFileIds.length === 0}
-                          >
-                            Deselect All
-                          </Button>
+                          No files found for this project.
                         </div>
                       )}
                     </CardContent>
@@ -2971,117 +3169,129 @@ export default function ProjectDetails() {
                 </Dialog>
 
                 {/* Project Access */}
-                {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
-                  <Card className="leonardo-card border-gray-800">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle>Project Access</CardTitle>
-                          <CardDescription className="text-gray-400">
-                            Share access to this project with team members
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-6">
-                        <div className="bg-gray-800/30 p-4 rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="text-sm font-medium">Project Key</div>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => {
-                                navigator.clipboard.writeText(project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase());
-                                toast.success("Project key copied to clipboard!");
-                              }}
-                            >
-                              <Copy className="w-4 h-4 mr-2" />
-                              Copy Key
-                            </Button>
+                <div className="mb-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Switch
+                      checked={!!project?.show_project_access}
+                      onCheckedChange={handleToggleProjectAccess}
+                      disabled={updatingProjectAccessSetting}
+                    />
+                    <span className="text-sm text-gray-300">
+                      {project?.show_project_access ? 'Show Project Access' : 'Hide Project Access'}
+                    </span>
+                  </div>
+                  {project?.show_project_access !== false && !isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
+                    <Card className="leonardo-card border-gray-800">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle>Project Access</CardTitle>
+                            <CardDescription className="text-gray-400">
+                              Share access to this project with team members
+                            </CardDescription>
                           </div>
-                          <div className="font-mono text-xl bg-gray-900/50 p-3 rounded flex items-center justify-center">
-                            {project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase()}
-                          </div>
-                          <p className="text-sm text-gray-400 mt-2">
-                            Share this key with users you want to invite to the project. They can use it to request access.
-                          </p>
                         </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-6">
+                          <div className="bg-gray-800/30 p-4 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-sm font-medium">Project Key</div>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => {
+                                  navigator.clipboard.writeText(project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase());
+                                  toast.success("Project key copied to clipboard!");
+                                }}
+                              >
+                                <Copy className="w-4 h-4 mr-2" />
+                                Copy Key
+                              </Button>
+                            </div>
+                            <div className="font-mono text-xl bg-gray-900/50 p-3 rounded flex items-center justify-center">
+                              {project?.project_key || 'COV-' + Math.random().toString(36).substring(2, 7).toUpperCase()}
+                            </div>
+                            <p className="text-sm text-gray-400 mt-2">
+                              Share this key with users you want to invite to the project. They can use it to request access.
+                            </p>
+                          </div>
 
-                        <div>
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="text-sm font-medium">Pending Join Requests</div>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={refreshTeamMembers}
-                            >
-                              <RefreshCw className="w-4 h-4 mr-2" />
-                              Refresh
-                            </Button>
-                          </div>
-                          <div className="space-y-3">
-                            {teamMembers
-                              .filter(member => member.status === 'pending')
-                              .map((member) => (
-                                <div
-                                  key={member.id}
-                                  className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg"
-                                >
-                                  <div className="flex items-center">
-                                    <Avatar className="w-10 h-10 mr-3">
-                                      <AvatarImage src={member.user?.avatar_url || undefined} />
-                                      <AvatarFallback>{member.user?.name?.[0] || member.user?.email?.[0] || '?'}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                      <h4 className="font-medium text-white">{member.user?.name || member.user?.email}</h4>
-                                      {member.position && (
-                                        <Badge variant="default" className="mt-1">{member.position}</Badge>
-                                      )}
-                                      {member.access_level && (
-                                        <p className="text-xs text-gray-400">Access Level: {member.access_level}</p>
-                                      )}
-                                      </div>
-                                      </div>
-                                  {user?.role && (['partner', 'admin', 'investor', 'ceo'] as const).includes(user.role as any) && !isAccessLevel3 && (
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="text-gray-400 hover:text-purple-400"
-                                        onClick={() => handleEditMember(member)}
+                          <div>
+                            <div className="flex items-center justify-between mb-4">
+                              <div className="text-sm font-medium">Pending Join Requests</div>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={refreshTeamMembers}
+                              >
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                                Refresh
+                              </Button>
+                            </div>
+                            <div className="space-y-3">
+                              {teamMembers
+                                .filter(member => member.status === 'pending')
+                                .map((member) => (
+                                  <div
+                                    key={member.id}
+                                    className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg"
+                                  >
+                                    <div className="flex items-center">
+                                      <Avatar className="w-10 h-10 mr-3">
+                                        <AvatarImage src={member.user?.avatar_url || undefined} />
+                                        <AvatarFallback>{member.user?.name?.[0] || member.user?.email?.[0] || '?'}</AvatarFallback>
+                                      </Avatar>
+                                      <div>
+                                        <h4 className="font-medium text-white">{member.user?.name || member.user?.email}</h4>
+                                        {member.position && (
+                                          <Badge variant="default" className="mt-1">{member.position}</Badge>
+                                        )}
+                                        {member.access_level && (
+                                          <p className="text-xs text-gray-400">Access Level: {member.access_level}</p>
+                                        )}
+                                        </div>
+                                        </div>
+                                    {user?.role && (['partner', 'admin', 'investor', 'ceo'] as const).includes(user.role as any) && !isAccessLevel3 && (
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="text-gray-400 hover:text-purple-400"
+                                          onClick={() => handleEditMember(member)}
+                                        >
+                                          <Pencil className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="text-gray-400 hover:text-purple-400"
+                                          onClick={() => handleRemoveMember(member.id)}
                                       >
-                                        <Pencil className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="text-gray-400 hover:text-purple-400"
-                                        onClick={() => handleRemoveMember(member.id)}
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                    )}
                                   </div>
-                                  )}
+                                ))}
+                              {!loading && teamMembers.filter(member => member.status === 'pending').length === 0 && (
+                                <div className="text-center py-6">
+                                  <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                                  <h3 className="text-lg font-medium text-gray-400">
+                                    No pending requests
+                                  </h3>
+                                  <p className="text-gray-500 mt-1">
+                                    Share your project key to invite team members
+                                  </p>
                                 </div>
-                              ))}
-                            {!loading && teamMembers.filter(member => member.status === 'pending').length === 0 && (
-                              <div className="text-center py-6">
-                                <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-gray-400">
-                                  No pending requests
-                                </h3>
-                                <p className="text-gray-500 mt-1">
-                                  Share your project key to invite team members
-                                </p>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
 
             {/* Schedule Section */}
             <Card className="leonardo-card border-gray-800">
@@ -3488,8 +3698,23 @@ export default function ProjectDetails() {
               </CardContent>
             </Card>
 
+            {/* Project Expenses Toggle */}
+            {user && project && user.id === (project.owner_id || project.owner?.id) && (
+              <div className="flex items-center gap-3 mb-4">
+                <Switch
+                  checked={!!project.show_project_expenses}
+                  onCheckedChange={handleToggleProjectExpenses}
+                  disabled={updatingProjectExpensesSetting}
+                  id="toggle-project-expenses"
+                />
+                <Label htmlFor="toggle-project-expenses">
+                  {project.show_project_expenses ? 'Show Project Expenses' : 'Hide Project Expenses'}
+                </Label>
+              </div>
+            )}
+
             {/* Expenses Section */}
-            {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
+            {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && project?.show_project_expenses !== false && (
               <Card className="leonardo-card border-gray-800">
                 <CardHeader>
                   <div className="flex justify-between items-center">
@@ -3650,7 +3875,14 @@ export default function ProjectDetails() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex gap-2 items-start">
+                    <div className="flex flex-col gap-2 items-start md:flex-row md:gap-2">
+                      <Input
+                        value={newNoteTitle}
+                        onChange={e => setNewNoteTitle(e.target.value)}
+                        placeholder="Note title (optional)"
+                        className="flex-1 bg-gray-800/30"
+                        disabled={loadingNotes}
+                      />
                       <Textarea
                         value={newNote}
                         onChange={e => setNewNote(e.target.value)}
@@ -3660,7 +3892,7 @@ export default function ProjectDetails() {
                       />
                       <Button
                         onClick={handleAddNote}
-                        disabled={!newNote.trim() || loadingNotes}
+                        disabled={(!newNote.trim() && !newNoteTitle.trim()) || loadingNotes}
                         className="gradient-button self-end"
                       >
                         Add
@@ -3674,13 +3906,50 @@ export default function ProjectDetails() {
                       <div className="space-y-3">
                         {notes.map(note => (
                           <div key={note.id} className="p-3 bg-gray-800/50 rounded-lg flex justify-between items-start">
-                            <div>
-                              <div className="text-sm text-white whitespace-pre-line">{note.content}</div>
-                              <div className="text-xs text-gray-400 mt-1">
-                                By {note.created_by?.full_name || note.created_by?.email || 'Unknown'} on {note.created_at ? new Date(note.created_at).toLocaleDateString() : ''}
-                              </div>
+                            <div className="w-full">
+                              {editingNoteId === note.id ? (
+                                <>
+                                  <Input
+                                    value={editingNoteTitle}
+                                    onChange={e => setEditingNoteTitle(e.target.value)}
+                                    placeholder="Note title (optional)"
+                                    className="mb-2 bg-gray-900"
+                                    disabled={loadingNotes}
+                                  />
+                                  <Textarea
+                                    value={editingNoteContent}
+                                    onChange={e => setEditingNoteContent(e.target.value)}
+                                    placeholder="Edit note content..."
+                                    className="mb-2 bg-gray-900"
+                                    disabled={loadingNotes}
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button size="sm" className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600" onClick={handleSaveEditNote} disabled={loadingNotes || (!editingNoteTitle.trim() && !editingNoteContent.trim())}>
+                                      Save
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="border-gray-700" onClick={handleCancelEditNote} disabled={loadingNotes}>
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  {note.note_title && (
+                                    <div className="text-base font-semibold text-white mb-1">{note.note_title}</div>
+                                  )}
+                                  <div className="text-sm text-white whitespace-pre-line">{note.content}</div>
+                                  <div className="text-xs text-gray-400 mt-1">
+                                    By {note.created_by?.full_name || note.created_by?.email || 'Unknown'} on {note.created_at ? new Date(note.created_at).toLocaleDateString() : ''}
+                                  </div>
+                                </>
+                              )}
                             </div>
-                            {(user?.id === note.created_by?.id || isOwner) && (
+                            {(user?.id === note.created_by?.id || isOwner) && editingNoteId !== note.id && (
+                              <Button size="icon" variant="ghost" className="text-blue-400 hover:text-blue-300 mr-1" onClick={() => handleStartEditNote(note)}>
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                            )}
+                            {(user?.id === note.created_by?.id || isOwner) && editingNoteId !== note.id && (
                               <Button size="icon" variant="ghost" className="text-red-400 hover:text-red-300" onClick={() => handleDeleteNote(note.id)}>
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -3837,12 +4106,58 @@ export default function ProjectDetails() {
                       )}
                     </Button>
                   </div>
+
+                  {/* Card Visibility Toggles */}
+                  <div className="space-y-4 mt-6 pt-6 border-t border-gray-800">
+                    <h4 className="text-sm font-medium text-gray-400">Card Visibility</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-300">Project Information</span>
+                        <Switch
+                          checked={project?.show_project_info !== false}
+                          onCheckedChange={handleToggleProjectInfo}
+                          disabled={updatingProjectInfoSetting}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-300">Project Overview</span>
+                        <Switch
+                          checked={project?.show_project_overview !== false}
+                          onCheckedChange={handleToggleProjectOverview}
+                          disabled={updatingProjectOverviewSetting}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-300">Project Expenses</span>
+                        <Switch
+                          checked={project?.show_project_expenses !== false}
+                          onCheckedChange={handleToggleProjectExpenses}
+                          disabled={updatingProjectExpensesSetting}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}
 
+            {/* Project Overview Toggle */}
+            {user && project && user.id === (project.owner_id || project.owner?.id) && (
+              <div className="flex items-center gap-3 mb-4">
+                <Switch
+                  checked={!!project.show_project_overview}
+                  onCheckedChange={handleToggleProjectOverview}
+                  disabled={updatingProjectOverviewSetting}
+                  id="toggle-project-overview"
+                />
+                <Label htmlFor="toggle-project-overview">
+                  {project.show_project_overview ? 'Show Project Overview' : 'Hide Project Overview'}
+                </Label>
+              </div>
+            )}
+
             {/* Project Overview */}
-            {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
+            {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && project?.show_project_overview !== false && (
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -4009,7 +4324,25 @@ export default function ProjectDetails() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
           {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
             <div className="lg:col-span-2">
-              <ProjectInfoCard project={project} />
+              {/* Project Information Toggle */}
+              {user && project && user.id === (project.owner_id || project.owner?.id) && (
+                <div className="flex items-center gap-3 mb-4">
+                  <Switch
+                    checked={!!project.show_project_info}
+                    onCheckedChange={handleToggleProjectInfo}
+                    disabled={updatingProjectInfoSetting}
+                    id="toggle-project-info"
+                  />
+                  <Label htmlFor="toggle-project-info">
+                    {project.show_project_info ? 'Show Project Information' : 'Hide Project Information'}
+                  </Label>
+                </div>
+              )}
+              
+              {/* Project Information Card */}
+              {project?.show_project_info !== false && (
+                <ProjectInfoCard project={project} />
+              )}
             </div>
           )}
           <div className={user?.role !== 'viewer' ? '' : 'lg:col-span-3'}>

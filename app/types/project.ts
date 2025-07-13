@@ -11,4 +11,5 @@ export interface Project {
   target_market: string;
   accepts_support: boolean;
   open_positions: any[];
+  show_project_access?: boolean;
 } 

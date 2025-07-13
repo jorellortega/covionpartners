@@ -9,6 +9,8 @@ import { FileText, Download, Pencil, Trash2, Plus, List, Grid, AlignJustify, Sea
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { toast } from "sonner";
+import { Document, Page, pdfjs } from 'react-pdf';
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface ProjectFile {
   id: string;
@@ -498,7 +500,35 @@ export default function ProjectFilesPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {filteredFiles.map((file, index) => (
                     <div key={file.id} className="flex flex-col items-center p-4 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors">
-                      <div className="mb-2">{getFileIcon(file.type)}</div>
+                      <div className="mb-2">
+                        {file.type.startsWith('image/') ? (
+                          <img src={file.url} alt={file.name} className="w-16 h-16 object-cover rounded" />
+                        ) : file.type.includes('pdf') ? (
+                          <div className="w-16 h-16 flex items-center justify-center bg-white rounded">
+                            <span className="font-bold text-xs text-gray-800">PDF</span>
+                          </div>
+                        ) : file.type.includes('doc') || file.type.includes('wordprocessingml') ? (
+                          <div className="w-16 h-16 flex items-center justify-center bg-white rounded">
+                            <span className="font-bold text-xs text-blue-700">DOCX</span>
+                          </div>
+                        ) : file.type.includes('xls') || file.type.includes('spreadsheetml') ? (
+                          <div className="w-16 h-16 flex items-center justify-center bg-white rounded">
+                            <span className="font-bold text-xs text-green-700">XLSX</span>
+                          </div>
+                        ) : file.type.includes('ppt') || file.type.includes('presentationml') ? (
+                          <div className="w-16 h-16 flex items-center justify-center bg-white rounded">
+                            <span className="font-bold text-xs text-orange-700">PPTX</span>
+                          </div>
+                        ) : file.type.startsWith('video/') ? (
+                          <video src={file.url} className="w-16 h-16 rounded" />
+                        ) : file.type.startsWith('audio/') ? (
+                          <audio src={file.url} controls className="w-16 h-8" />
+                        ) : (
+                          <div className="w-16 h-16 flex items-center justify-center bg-gray-200 rounded">
+                            <span className="font-bold text-xs text-gray-500">FILE</span>
+                          </div>
+                        )}
+                      </div>
                       {editingFileName === file.id ? (
                         <div className="flex flex-col items-center w-full gap-2">
                           <Input
