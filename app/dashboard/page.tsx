@@ -1023,6 +1023,11 @@ export default function PartnerDashboard() {
                       Public Projects
                     </Button>
                   </Link>
+                  <Link href="/workmode">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
+                      <Workflow className="w-4 h-4 mr-2" /> Workmode
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
 
@@ -1111,6 +1116,11 @@ export default function PartnerDashboard() {
                   <Link href="/company/my/documents">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
                       <UploadCloud className="w-4 h-4 mr-2" /> Organization Documents
+                    </Button>
+                  </Link>
+                  <Link href="/workmode">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <Workflow className="w-4 h-4 mr-2" /> Workmode
                     </Button>
                   </Link>
                 </CardContent>

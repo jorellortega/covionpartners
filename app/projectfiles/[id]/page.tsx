@@ -10,6 +10,9 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { toast } from "sonner";
 import { Document, Page, pdfjs } from 'react-pdf';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import bcrypt from 'bcryptjs';
+import React from 'react';
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface ProjectFile {
@@ -25,6 +28,7 @@ interface ProjectFile {
   access_level: number;
   custom_label?: string;
   label_status?: string;
+  folder_id?: string | null;
 }
 
 export default function ProjectFilesPage() {
@@ -48,25 +52,108 @@ export default function ProjectFilesPage() {
   const [uploadAccessLevel, setUploadAccessLevel] = useState<number>(1);
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'compact'>('grid');
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<'files' | 'desktop'>('files');
+
+  const [desktopCurrentFolder, setDesktopCurrentFolder] = useState<string | null>(null);
+  const [desktopFolders, setDesktopFolders] = useState<any[]>([]);
+  const [desktopFiles, setDesktopFiles] = useState<ProjectFile[]>([]);
+  const [desktopLoading, setDesktopLoading] = useState(false);
+  const [desktopPasswordPrompt, setDesktopPasswordPrompt] = useState<{folder: any, open: boolean}>({folder: null, open: false});
+  const [desktopPasswordInput, setDesktopPasswordInput] = useState('');
+  const [desktopPasswordError, setDesktopPasswordError] = useState('');
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderPassword, setNewFolderPassword] = useState('');
+  const [newFolderHint, setNewFolderHint] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [draggedFileId, setDraggedFileId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{x: number, y: number, file: any} | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   useEffect(() => {
     const fetchFiles = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("project_files")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("created_at", { ascending: false });
-      if (error) {
-        toast.error("Failed to fetch files");
-        setFiles([]);
-      } else {
-        setFiles(data || []);
-      }
+      // Fetch from project_files
+      const { data: pfData, error: pfError } = await supabase
+        .from('project_files')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+      // Fetch from timeline_files
+      const { data: tfData, error: tfError } = await supabase
+        .from('timeline_files')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('uploaded_at', { ascending: false });
+      // Map both to ProjectFile interface
+      const pfMapped = (pfData || []).map(f => ({
+        id: f.id,
+        project_id: f.project_id,
+        name: f.name,
+        storage_name: f.storage_name,
+        url: f.url,
+        type: f.type,
+        size: f.size || 0,
+        created_at: f.created_at,
+        team_only: f.team_only,
+        access_level: f.access_level,
+        custom_label: f.custom_label,
+        label_status: f.label_status,
+      }));
+      const tfMapped = (tfData || []).map(f => ({
+        id: f.id,
+        project_id: f.project_id,
+        name: f.file_name,
+        storage_name: f.file_url,
+        url: supabase.storage.from('partnerfiles').getPublicUrl(f.file_url).data.publicUrl,
+        type: f.file_name.split('.').pop() || '',
+        size: f.size || 0,
+        created_at: f.uploaded_at,
+        team_only: false,
+        access_level: 1,
+        custom_label: undefined,
+        label_status: undefined,
+      }));
+      // Merge and sort by date descending
+      const allFiles = [...pfMapped, ...tfMapped].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setFiles(allFiles);
       setLoading(false);
     };
     if (projectId) fetchFiles();
   }, [projectId, isUploading]);
+
+  // Fetch folders and files for the project
+  useEffect(() => {
+    const fetchDesktopData = async () => {
+      setDesktopLoading(true);
+      const { data: folders } = await supabase.from('folders').select('*').eq('project_id', projectId);
+      // Fetch files from both tables
+      const { data: pfData } = await supabase.from('project_files').select('*').eq('project_id', projectId);
+      const { data: tfData } = await supabase.from('timeline_files').select('*').eq('project_id', projectId);
+      // Map files to ProjectFile interface
+      const pfMapped = (pfData || []).map(f => ({ ...f }));
+      const tfMapped = (tfData || []).map(f => ({
+        id: f.id,
+        project_id: f.project_id,
+        name: f.file_name,
+        storage_name: f.file_url,
+        url: supabase.storage.from('partnerfiles').getPublicUrl(f.file_url).data.publicUrl,
+        type: f.file_name.split('.').pop() || '',
+        size: f.size || 0,
+        created_at: f.uploaded_at,
+        team_only: false,
+        access_level: 1,
+        custom_label: undefined,
+        label_status: undefined,
+        folder_id: f.folder_id || null,
+      }));
+      setDesktopFolders(folders || []);
+      setDesktopFiles([...pfMapped, ...tfMapped]);
+      setDesktopLoading(false);
+    };
+    fetchDesktopData();
+  }, [projectId]);
 
   const handleSelectFile = (fileId: string) => {
     setSelectedFileIds((prev) =>
@@ -218,6 +305,195 @@ export default function ProjectFilesPage() {
 
   const filteredFiles = files.filter(file => file.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
+  const isImageFile = (fileName: string) => /\.(png|jpe?g)$/i.test(fileName);
+
+  // Add mock desktop files/folders for the Desktop View tab
+  const mockDesktopItems = [
+    { id: 'folder-1', type: 'folder', name: 'Designs' },
+    { id: 'folder-2', type: 'folder', name: 'Docs' },
+    { id: 'file-1', type: 'image', name: 'logo.png', url: 'https://placehold.co/80x80/png' },
+    { id: 'file-2', type: 'pdf', name: 'Specs.pdf', url: '' },
+    { id: 'file-3', type: 'doc', name: 'Proposal.docx', url: '' },
+    { id: 'file-4', type: 'image', name: 'screenshot.jpg', url: 'https://placehold.co/80x80/jpg' },
+  ];
+
+  // Get folders/files for current folder
+  const currentFolders = desktopFolders.filter(f => (desktopCurrentFolder ? f.parent_folder_id === desktopCurrentFolder : !f.parent_folder_id));
+  const currentFiles = desktopFiles.filter(f => (desktopCurrentFolder ? f.folder_id === desktopCurrentFolder : !f.folder_id));
+  const currentFolderObj = desktopFolders.find(f => f.id === desktopCurrentFolder);
+
+  // Password prompt logic
+  const handleOpenFolder = (folder: any) => {
+    if (folder.password_hash) {
+      setDesktopPasswordPrompt({folder, open: true});
+      setDesktopPasswordInput('');
+      setDesktopPasswordError('');
+    } else {
+      setDesktopCurrentFolder(folder.id);
+    }
+  };
+  const handlePasswordSubmit = async () => {
+    if (!desktopPasswordPrompt.folder) return;
+    const match = await bcrypt.compare(desktopPasswordInput, desktopPasswordPrompt.folder.password_hash || '');
+    if (match) {
+      setDesktopCurrentFolder(desktopPasswordPrompt.folder.id);
+      setDesktopPasswordPrompt({folder: null, open: false});
+      setDesktopPasswordInput('');
+      setDesktopPasswordError('');
+    } else {
+      setDesktopPasswordError('Incorrect password.');
+    }
+  };
+  const handleDesktopBack = () => {
+    if (!desktopCurrentFolder) return;
+    const parent = desktopFolders.find(f => f.id === desktopCurrentFolder)?.parent_folder_id;
+    setDesktopCurrentFolder(parent || null);
+  };
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+    setCreatingFolder(true);
+    let password_hash = null;
+    if (newFolderPassword) {
+      password_hash = await bcrypt.hash(newFolderPassword, 10);
+    }
+    await supabase.from('folders').insert({
+      project_id: projectId,
+      name: newFolderName.trim(),
+      parent_folder_id: desktopCurrentFolder,
+      password_hash,
+      password_hint: newFolderHint.trim() || null,
+    });
+    setShowNewFolder(false);
+    setNewFolderName('');
+    setNewFolderPassword('');
+    setNewFolderHint('');
+    setCreatingFolder(false);
+    // Refetch folders
+    const { data: folders } = await supabase.from('folders').select('*').eq('project_id', projectId);
+    setDesktopFolders(folders || []);
+  };
+
+  const handleFileDragStart = (fileId: string) => {
+    setDraggedFileId(fileId);
+  };
+  const handleFolderDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+  const handleFolderDrop = async (folderId: string | null) => {
+    if (!draggedFileId) return;
+    // Find file in desktopFiles
+    const file = desktopFiles.find(f => f.id === draggedFileId);
+    if (!file) return;
+    // Determine which table to update
+    const table = file.storage_name ? 'project_files' : 'timeline_files';
+    await supabase.from(table).update({ folder_id: folderId }).eq('id', file.id);
+    setDraggedFileId(null);
+    // Refetch files
+    const { data: pfData } = await supabase.from('project_files').select('*').eq('project_id', projectId);
+    const { data: tfData } = await supabase.from('timeline_files').select('*').eq('project_id', projectId);
+    const pfMapped = (pfData || []).map(f => ({ ...f }));
+    const tfMapped = (tfData || []).map(f => ({
+      id: f.id,
+      project_id: f.project_id,
+      name: f.file_name,
+      storage_name: f.file_url,
+      url: supabase.storage.from('partnerfiles').getPublicUrl(f.file_url).data.publicUrl,
+      type: f.file_name.split('.').pop() || '',
+      size: f.size || 0,
+      created_at: f.uploaded_at,
+      team_only: false,
+      access_level: 1,
+      custom_label: undefined,
+      label_status: undefined,
+      folder_id: f.folder_id || null,
+    }));
+    setDesktopFiles([...pfMapped, ...tfMapped]);
+  };
+
+  const handleFileContextMenu = (e: React.MouseEvent, file: any) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, file });
+  };
+  const handleMoveToRoot = async (file: any) => {
+    const table = file.storage_name ? 'project_files' : 'timeline_files';
+    await supabase.from(table).update({ folder_id: null }).eq('id', file.id);
+    setContextMenu(null);
+    // Refetch files
+    const { data: pfData } = await supabase.from('project_files').select('*').eq('project_id', projectId);
+    const { data: tfData } = await supabase.from('timeline_files').select('*').eq('project_id', projectId);
+    const pfMapped = (pfData || []).map(f => ({ ...f }));
+    const tfMapped = (tfData || []).map(f => ({
+      id: f.id,
+      project_id: f.project_id,
+      name: f.file_name,
+      storage_name: f.file_url,
+      url: supabase.storage.from('partnerfiles').getPublicUrl(f.file_url).data.publicUrl,
+      type: f.file_name.split('.').pop() || '',
+      size: f.size || 0,
+      created_at: f.uploaded_at,
+      team_only: false,
+      access_level: 1,
+      custom_label: undefined,
+      label_status: undefined,
+      folder_id: f.folder_id || null,
+    }));
+    setDesktopFiles([...pfMapped, ...tfMapped]);
+  };
+  const handleCloseContextMenu = () => setContextMenu(null);
+
+  const handleStartRename = (item: any) => {
+    setRenamingId(item.id);
+    setRenameValue(item.name);
+  };
+  const handleRenameSubmit = async (item: any, isFolder: boolean) => {
+    if (!renameValue.trim() || renameValue === item.name) {
+      setRenamingId(null);
+      return;
+    }
+    const table = isFolder ? 'folders' : (item.storage_name ? 'project_files' : 'timeline_files');
+    await supabase.from(table).update({ name: renameValue.trim() }).eq('id', item.id);
+    setRenamingId(null);
+    // Refetch folders/files
+    if (isFolder) {
+      const { data: folders } = await supabase.from('folders').select('*').eq('project_id', projectId);
+      setDesktopFolders(folders || []);
+    } else {
+      const { data: pfData } = await supabase.from('project_files').select('*').eq('project_id', projectId);
+      const { data: tfData } = await supabase.from('timeline_files').select('*').eq('project_id', projectId);
+      const pfMapped = (pfData || []).map(f => ({ ...f }));
+      const tfMapped = (tfData || []).map(f => ({
+        id: f.id,
+        project_id: f.project_id,
+        name: f.file_name,
+        storage_name: f.file_url,
+        url: supabase.storage.from('partnerfiles').getPublicUrl(f.file_url).data.publicUrl,
+        type: f.file_name.split('.').pop() || '',
+        size: f.size || 0,
+        created_at: f.uploaded_at,
+        team_only: false,
+        access_level: 1,
+        custom_label: undefined,
+        label_status: undefined,
+        folder_id: f.folder_id || null,
+      }));
+      setDesktopFiles([...pfMapped, ...tfMapped]);
+    }
+  };
+
+  // Helper to build breadcrumb path
+  function getBreadcrumbPath(folders: any[], currentId: string | null) {
+    const path: any[] = [];
+    let curr = folders.find(f => f.id === currentId);
+    while (curr) {
+      path.unshift(curr);
+      curr = folders.find(f => f.id === curr.parent_folder_id);
+    }
+    return path;
+  }
+
+  const breadcrumbPath = getBreadcrumbPath(desktopFolders, desktopCurrentFolder);
+
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
       <Card className="leonardo-card border-gray-800 mt-6">
@@ -300,89 +576,228 @@ export default function ProjectFilesPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Search Bar */}
-          <div className="relative mb-4">
-            <Input
-              placeholder="Search files..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9"
-            />
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          </div>
-          {loading ? (
-            <div className="flex justify-center items-center py-8">
-              <LoadingSpinner className="w-8 h-8" />
-            </div>
-          ) : filteredFiles.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              No files found for this project.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {/* View Mode Rendering */}
-              {viewMode === 'list' && (
-                <>
-                  <div className="flex items-center gap-2 mb-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedFileIds.length === files.length && files.length > 0}
-                      onChange={handleSelectAll}
-                      className="accent-purple-500 w-4 h-4"
-                      aria-label="Select all files"
-                    />
-                    <span className="text-xs text-gray-400">Select All</span>
-                  </div>
-                  {filteredFiles.map((file, index) => (
-                    <div key={file.id} className="flex flex-col md:flex-row items-start md:items-center p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors w-full">
-                      {/* Left: File info */}
-                      <div className="flex items-center min-w-0 flex-1 gap-2 w-full">
+          <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'files' | 'desktop')} className="mb-4">
+            <TabsList>
+              <TabsTrigger value="files">Files</TabsTrigger>
+              <TabsTrigger value="desktop">Desktop View</TabsTrigger>
+            </TabsList>
+            <TabsContent value="files">
+              {/* Search Bar */}
+              <div className="relative mb-4">
+                <Input
+                  placeholder="Search files..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-9"
+                />
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              </div>
+              {loading ? (
+                <div className="flex justify-center items-center py-8">
+                  <LoadingSpinner className="w-8 h-8" />
+                </div>
+              ) : filteredFiles.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  No files found for this project.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* View Mode Rendering */}
+                  {viewMode === 'list' && (
+                    <>
+                      <div className="flex items-center gap-2 mb-2">
                         <input
                           type="checkbox"
-                          checked={selectedFileIds.includes(file.id)}
-                          onChange={() => handleSelectFile(file.id)}
+                          checked={selectedFileIds.length === files.length && files.length > 0}
+                          onChange={handleSelectAll}
                           className="accent-purple-500 w-4 h-4"
-                          aria-label={`Select file ${file.name}`}
+                          aria-label="Select all files"
                         />
-                        <span className="text-xs text-gray-400 w-5 text-right">{index + 1}</span>
-                        {getFileIcon(file.type)}
-                        <div className="min-w-0 flex flex-col w-full">
-                          {editingFileName === file.id ? (
-                            <div className="flex items-center gap-2 w-full">
-                              <Input
-                                value={newFileName}
-                                onChange={(e) => setNewFileName(e.target.value)}
-                                className="h-8 text-sm w-full"
-                                autoFocus
-                              />
-                              <Button
-                                size="sm"
-                                onClick={() => handleSaveFileName(file)}
-                                className="h-8"
-                              >
-                                Save
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={handleCancelEditFileName}
-                                className="h-8"
-                              >
-                                Cancel
-                              </Button>
+                        <span className="text-xs text-gray-400">Select All</span>
+                      </div>
+                      {filteredFiles.map((file, index) => (
+                        <div key={file.id} className="flex flex-col md:flex-row items-start md:items-center p-3 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors w-full">
+                          {/* Left: File info */}
+                          <div className="flex items-center min-w-0 flex-1 gap-2 w-full">
+                            <input
+                              type="checkbox"
+                              checked={selectedFileIds.includes(file.id)}
+                              onChange={() => handleSelectFile(file.id)}
+                              className="accent-purple-500 w-4 h-4"
+                              aria-label={`Select file ${file.name}`}
+                            />
+                            <span className="text-xs text-gray-400 w-5 text-right">{index + 1}</span>
+                            {isImageFile(file.name) ? (
+                              <img src={file.url} alt={file.name} className="w-14 h-14 object-cover rounded border border-gray-700" />
+                            ) : (
+                              getFileIcon(file.type)
+                            )}
+                            <div className="min-w-0 flex flex-col w-full">
+                              {editingFileName === file.id ? (
+                                <div className="flex items-center gap-2 w-full">
+                                  <Input
+                                    value={newFileName}
+                                    onChange={(e) => setNewFileName(e.target.value)}
+                                    className="h-8 text-sm w-full"
+                                    autoFocus
+                                  />
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleSaveFileName(file)}
+                                    className="h-8"
+                                  >
+                                    Save
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleCancelEditFileName}
+                                    className="h-8"
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              ) : (
+                                <p
+                                  className="text-lg font-bold text-white truncate cursor-pointer hover:text-blue-400 w-full"
+                                  onClick={() => handleStartEditFileName(file)}
+                                >
+                                  {file.name}
+                                </p>
+                              )}
+                              <p className="text-xs text-gray-400 flex items-center gap-2 w-full">
+                                <span className="hidden md:inline opacity-50">{new Date(file.created_at).toLocaleDateString()}</span> • <span className="hidden md:inline opacity-25">Access Level:</span>
+                                {editingFileId === file.id ? (
+                                  <span className="flex items-center gap-1 ml-1">
+                                    <Select value={String(editingAccessLevel)} onValueChange={v => setEditingAccessLevel(Number(v))}>
+                                      <SelectTrigger className="w-[70px] h-6 text-xs">
+                                        <SelectValue placeholder="Level" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="1">1</SelectItem>
+                                        <SelectItem value="2">2</SelectItem>
+                                        <SelectItem value="3">3</SelectItem>
+                                        <SelectItem value="4">4</SelectItem>
+                                        <SelectItem value="5">5</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <Button size="sm" className="ml-1 px-2 py-1 text-xs" onClick={() => handleSaveAccessLevel(file)}>Save</Button>
+                                    <Button size="sm" variant="outline" className="ml-1 px-2 py-1 text-xs" onClick={() => setEditingFileId(null)}>Cancel</Button>
+                                  </span>
+                                ) : (
+                                  <span className="ml-1 opacity-25 hidden md:inline">{file.access_level}</span>
+                                )}
+                              </p>
                             </div>
-                          ) : (
-                            <p
-                              className="text-lg font-bold text-white truncate cursor-pointer hover:text-blue-400 w-full"
+                          </div>
+                          {/* Middle: Label badge */}
+                          <div className="flex-1 flex justify-center mt-2 md:mt-0 w-full">
+                            {editingLabel === file.id ? (
+                              <div className="flex items-center gap-2 w-full">
+                                <Select value={newLabelStatus} onValueChange={setNewLabelStatus}>
+                                  <SelectTrigger className="w-[120px] h-6 text-xs">
+                                    <SelectValue placeholder="Status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="draft">Draft</SelectItem>
+                                    <SelectItem value="completed">Completed</SelectItem>
+                                    <SelectItem value="in_review">In Review</SelectItem>
+                                    <SelectItem value="archived">Archived</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Input
+                                  value={newLabel}
+                                  onChange={(e) => setNewLabel(e.target.value)}
+                                  placeholder="Custom label (optional)"
+                                  className="h-6 text-xs w-[150px]"
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleSaveLabel(file)}
+                                  className="h-6 text-xs"
+                                >
+                                  Save
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingLabel(null);
+                                    setNewLabel("");
+                                    setNewLabelStatus("draft");
+                                  }}
+                                  className="h-6 text-xs"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-gray-400" />
+                                <span className="text-xs text-gray-400">{file.custom_label || file.label_status || "draft"}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-gray-400 hover:text-blue-400"
+                                  onClick={() => {
+                                    setEditingLabel(file.id);
+                                    setNewLabel(file.custom_label || "");
+                                    setNewLabelStatus(file.label_status || "draft");
+                                  }}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                          {/* Right: Actions */}
+                          <div className="flex items-center gap-2 mt-2 md:mt-0 w-full md:w-auto justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-400 hover:text-blue-400"
+                              onClick={() => window.open(file.url, '_blank')}
+                              title="Download File"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-400 hover:text-blue-400"
                               onClick={() => handleStartEditFileName(file)}
                             >
-                              {file.name}
-                            </p>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-400 hover:text-red-300"
+                              onClick={() => handleDeleteFile(file)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {viewMode === 'grid' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {filteredFiles.map((file, index) => (
+                        <div key={file.id} className="flex flex-col items-center p-4 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors">
+                          {isImageFile(file.name) ? (
+                            <img src={file.url} alt={file.name} className="w-24 h-24 object-cover rounded border border-gray-700 mb-2" />
+                          ) : (
+                            <div className="w-24 h-24 flex items-center justify-center bg-gray-700/40 rounded border border-gray-700 mb-2">
+                              {getFileIcon(file.type)}
+                            </div>
                           )}
-                          <p className="text-xs text-gray-400 flex items-center gap-2 w-full">
-                            <span className="hidden md:inline opacity-50">{new Date(file.created_at).toLocaleDateString()}</span> • <span className="hidden md:inline opacity-25">Access Level:</span>
+                          <div className="w-full text-center">
+                            <div className="text-base font-semibold text-white truncate">{file.name}</div>
+                            <div className="text-xs text-gray-400 mb-2">{formatFileSize(file.size)}</div>
                             {editingFileId === file.id ? (
-                              <span className="flex items-center gap-1 ml-1">
+                              <div className="flex items-center gap-1 mb-2">
                                 <Select value={String(editingAccessLevel)} onValueChange={v => setEditingAccessLevel(Number(v))}>
                                   <SelectTrigger className="w-[70px] h-6 text-xs">
                                     <SelectValue placeholder="Level" />
@@ -397,241 +812,269 @@ export default function ProjectFilesPage() {
                                 </Select>
                                 <Button size="sm" className="ml-1 px-2 py-1 text-xs" onClick={() => handleSaveAccessLevel(file)}>Save</Button>
                                 <Button size="sm" variant="outline" className="ml-1 px-2 py-1 text-xs" onClick={() => setEditingFileId(null)}>Cancel</Button>
-                              </span>
+                              </div>
                             ) : (
-                              <span className="ml-1 opacity-25 hidden md:inline">{file.access_level}</span>
+                              <div className="text-xs text-gray-400 mb-2">Access Level: <span className="opacity-50">{file.access_level}</span></div>
                             )}
-                          </p>
+                            {editingLabel === file.id ? (
+                              <div className="flex flex-col items-center gap-2 w-full mb-2">
+                                <Select value={newLabelStatus} onValueChange={setNewLabelStatus}>
+                                  <SelectTrigger className="w-[120px] h-6 text-xs">
+                                    <SelectValue placeholder="Status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="draft">Draft</SelectItem>
+                                    <SelectItem value="completed">Completed</SelectItem>
+                                    <SelectItem value="in_review">In Review</SelectItem>
+                                    <SelectItem value="archived">Archived</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Input
+                                  value={newLabel}
+                                  onChange={(e) => setNewLabel(e.target.value)}
+                                  placeholder="Custom label (optional)"
+                                  className="h-6 text-xs w-full"
+                                />
+                                <div className="flex gap-2">
+                                  <Button size="sm" onClick={() => handleSaveLabel(file)} className="h-6 text-xs">Save</Button>
+                                  <Button size="sm" variant="outline" onClick={() => { setEditingLabel(null); setNewLabel(""); setNewLabelStatus("draft"); }} className="h-6 text-xs">Cancel</Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 mb-2">
+                                <FileText className="w-4 h-4 text-gray-400" />
+                                <span className="text-xs text-gray-400">{file.custom_label || file.label_status || "draft"}</span>
+                                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => { setEditingLabel(file.id); setNewLabel(file.custom_label || ""); setNewLabelStatus(file.label_status || "draft"); }}><Pencil className="w-4 h-4" /></Button>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => window.open(file.url, '_blank')} title="Download File"><Download className="w-4 h-4" /></Button>
+                            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => handleStartEditFileName(file)}><Pencil className="w-4 h-4" /></Button>
+                            <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300" onClick={() => handleDeleteFile(file)}><Trash2 className="w-4 h-4" /></Button>
+                          </div>
                         </div>
-                      </div>
-                      {/* Middle: Label badge */}
-                      <div className="flex-1 flex justify-center mt-2 md:mt-0 w-full">
-                        {editingLabel === file.id ? (
-                          <div className="flex items-center gap-2 w-full">
-                            <Select value={newLabelStatus} onValueChange={setNewLabelStatus}>
-                              <SelectTrigger className="w-[120px] h-6 text-xs">
-                                <SelectValue placeholder="Status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="draft">Draft</SelectItem>
-                                <SelectItem value="completed">Completed</SelectItem>
-                                <SelectItem value="in_review">In Review</SelectItem>
-                                <SelectItem value="archived">Archived</SelectItem>
-                              </SelectContent>
-                            </Select>
+                      ))}
+                    </div>
+                  )}
+                  {viewMode === 'compact' && (
+                    <div className="divide-y divide-gray-800 border border-gray-800 rounded-lg overflow-hidden">
+                      {filteredFiles.map((file, index) => (
+                        <div key={file.id} className="flex items-center px-3 py-2 bg-gray-900 hover:bg-gray-800 transition-colors">
+                          {isImageFile(file.name) ? (
+                            <img src={file.url} alt={file.name} className="w-10 h-10 object-cover rounded border border-gray-700 mr-2" />
+                          ) : (
+                            <span className="mr-2">{getFileIcon(file.type)}</span>
+                          )}
+                          {editingFileName === file.id ? (
                             <Input
-                              value={newLabel}
-                              onChange={(e) => setNewLabel(e.target.value)}
-                              placeholder="Custom label (optional)"
-                              className="h-6 text-xs w-[150px]"
+                              value={newFileName}
+                              onChange={(e) => setNewFileName(e.target.value)}
+                              className="h-8 text-sm flex-1"
+                              autoFocus
+                              onBlur={handleCancelEditFileName}
+                              onKeyDown={e => { if (e.key === 'Enter') handleSaveFileName(file); }}
                             />
-                            <Button
-                              size="sm"
-                              onClick={() => handleSaveLabel(file)}
-                              className="h-6 text-xs"
-                            >
-                              Save
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setEditingLabel(null);
-                                setNewLabel("");
-                                setNewLabelStatus("draft");
-                              }}
-                              className="h-6 text-xs"
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-gray-400" />
-                            <span className="text-xs text-gray-400">{file.custom_label || file.label_status || "draft"}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-gray-400 hover:text-blue-400"
-                              onClick={() => {
-                                setEditingLabel(file.id);
-                                setNewLabel(file.custom_label || "");
-                                setNewLabelStatus(file.label_status || "draft");
-                              }}
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                      {/* Right: Actions */}
-                      <div className="flex items-center gap-2 mt-2 md:mt-0 w-full md:w-auto justify-end">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-gray-400 hover:text-blue-400"
-                          onClick={() => window.open(file.url, '_blank')}
-                          title="Download File"
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-gray-400 hover:text-blue-400"
-                          onClick={() => handleStartEditFileName(file)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-400 hover:text-red-300"
-                          onClick={() => handleDeleteFile(file)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                          ) : (
+                            <span className="flex-1 truncate text-white text-sm cursor-pointer hover:text-blue-400" onClick={() => handleStartEditFileName(file)}>{file.name}</span>
+                          )}
+                          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => window.open(file.url, '_blank')} title="Download File"><Download className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => handleStartEditFileName(file)}><Pencil className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300" onClick={() => handleDeleteFile(file)}><Trash2 className="w-4 h-4" /></Button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </>
-              )}
-              {viewMode === 'grid' && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {filteredFiles.map((file, index) => (
-                    <div key={file.id} className="flex flex-col items-center p-4 bg-gray-800/50 rounded-lg group hover:bg-gray-800/70 transition-colors">
-                      <div className="mb-2">
-                        {file.type.startsWith('image/') ? (
-                          <img src={file.url} alt={file.name} className="w-16 h-16 object-cover rounded" />
-                        ) : file.type.includes('pdf') ? (
-                          <div className="w-16 h-16 flex items-center justify-center bg-white rounded">
-                            <span className="font-bold text-xs text-gray-800">PDF</span>
-                          </div>
-                        ) : file.type.includes('doc') || file.type.includes('wordprocessingml') ? (
-                          <div className="w-16 h-16 flex items-center justify-center bg-white rounded">
-                            <span className="font-bold text-xs text-blue-700">DOCX</span>
-                          </div>
-                        ) : file.type.includes('xls') || file.type.includes('spreadsheetml') ? (
-                          <div className="w-16 h-16 flex items-center justify-center bg-white rounded">
-                            <span className="font-bold text-xs text-green-700">XLSX</span>
-                          </div>
-                        ) : file.type.includes('ppt') || file.type.includes('presentationml') ? (
-                          <div className="w-16 h-16 flex items-center justify-center bg-white rounded">
-                            <span className="font-bold text-xs text-orange-700">PPTX</span>
-                          </div>
-                        ) : file.type.startsWith('video/') ? (
-                          <video src={file.url} className="w-16 h-16 rounded" />
-                        ) : file.type.startsWith('audio/') ? (
-                          <audio src={file.url} controls className="w-16 h-8" />
-                        ) : (
-                          <div className="w-16 h-16 flex items-center justify-center bg-gray-200 rounded">
-                            <span className="font-bold text-xs text-gray-500">FILE</span>
-                          </div>
-                        )}
-                      </div>
-                      {editingFileName === file.id ? (
-                        <div className="flex flex-col items-center w-full gap-2">
-                          <Input
-                            value={newFileName}
-                            onChange={(e) => setNewFileName(e.target.value)}
-                            className="h-8 text-sm w-full"
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={() => handleSaveFileName(file)} className="h-8">Save</Button>
-                            <Button size="sm" variant="outline" onClick={handleCancelEditFileName} className="h-8">Cancel</Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="font-semibold text-white text-center truncate w-full mb-1 cursor-pointer hover:text-blue-400" onClick={() => handleStartEditFileName(file)}>{file.name}</div>
-                      )}
-                      <div className="text-xs text-gray-400 mb-2">{formatFileSize(file.size)}</div>
-                      {editingFileId === file.id ? (
-                        <div className="flex items-center gap-1 mb-2">
-                          <Select value={String(editingAccessLevel)} onValueChange={v => setEditingAccessLevel(Number(v))}>
-                            <SelectTrigger className="w-[70px] h-6 text-xs">
-                              <SelectValue placeholder="Level" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1">1</SelectItem>
-                              <SelectItem value="2">2</SelectItem>
-                              <SelectItem value="3">3</SelectItem>
-                              <SelectItem value="4">4</SelectItem>
-                              <SelectItem value="5">5</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button size="sm" className="ml-1 px-2 py-1 text-xs" onClick={() => handleSaveAccessLevel(file)}>Save</Button>
-                          <Button size="sm" variant="outline" className="ml-1 px-2 py-1 text-xs" onClick={() => setEditingFileId(null)}>Cancel</Button>
-                        </div>
-                      ) : (
-                        <div className="text-xs text-gray-400 mb-2">Access Level: <span className="opacity-50">{file.access_level}</span></div>
-                      )}
-                      {editingLabel === file.id ? (
-                        <div className="flex flex-col items-center gap-2 w-full mb-2">
-                          <Select value={newLabelStatus} onValueChange={setNewLabelStatus}>
-                            <SelectTrigger className="w-[120px] h-6 text-xs">
-                              <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="draft">Draft</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                              <SelectItem value="in_review">In Review</SelectItem>
-                              <SelectItem value="archived">Archived</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            value={newLabel}
-                            onChange={(e) => setNewLabel(e.target.value)}
-                            placeholder="Custom label (optional)"
-                            className="h-6 text-xs w-full"
-                          />
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={() => handleSaveLabel(file)} className="h-6 text-xs">Save</Button>
-                            <Button size="sm" variant="outline" onClick={() => { setEditingLabel(null); setNewLabel(""); setNewLabelStatus("draft"); }} className="h-6 text-xs">Cancel</Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 mb-2">
-                          <FileText className="w-4 h-4 text-gray-400" />
-                          <span className="text-xs text-gray-400">{file.custom_label || file.label_status || "draft"}</span>
-                          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => { setEditingLabel(file.id); setNewLabel(file.custom_label || ""); setNewLabelStatus(file.label_status || "draft"); }}><Pencil className="w-4 h-4" /></Button>
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => window.open(file.url, '_blank')} title="Download File"><Download className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => handleStartEditFileName(file)}><Pencil className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300" onClick={() => handleDeleteFile(file)}><Trash2 className="w-4 h-4" /></Button>
-                      </div>
-                    </div>
-                  ))}
+                  )}
                 </div>
               )}
-              {viewMode === 'compact' && (
-                <div className="divide-y divide-gray-800 border border-gray-800 rounded-lg overflow-hidden">
-                  {filteredFiles.map((file, index) => (
-                    <div key={file.id} className="flex items-center px-3 py-2 bg-gray-900 hover:bg-gray-800 transition-colors">
-                      <span className="mr-2">{getFileIcon(file.type)}</span>
-                      {editingFileName === file.id ? (
-                        <Input
-                          value={newFileName}
-                          onChange={(e) => setNewFileName(e.target.value)}
-                          className="h-8 text-sm flex-1"
-                          autoFocus
-                          onBlur={handleCancelEditFileName}
-                          onKeyDown={e => { if (e.key === 'Enter') handleSaveFileName(file); }}
-                        />
-                      ) : (
-                        <span className="flex-1 truncate text-white text-sm cursor-pointer hover:text-blue-400" onClick={() => handleStartEditFileName(file)}>{file.name}</span>
-                      )}
-                      <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => window.open(file.url, '_blank')} title="Download File"><Download className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => handleStartEditFileName(file)}><Pencil className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300" onClick={() => handleDeleteFile(file)}><Trash2 className="w-4 h-4" /></Button>
+            </TabsContent>
+            <TabsContent value="desktop">
+              {/* Covion Operating System Title */}
+              <div className="w-full flex justify-center mb-6">
+                <h2 className="text-2xl font-bold text-white tracking-wide drop-shadow-lg">Covion Operating System</h2>
+              </div>
+              <div className="flex items-center gap-2 mb-4">
+                <Button size="sm" variant="outline" onClick={() => setShowNewFolder(true)}>+ New Folder</Button>
+                {desktopCurrentFolder && (
+                  <Button size="sm" variant="ghost" onClick={handleDesktopBack}>&larr; Back</Button>
+                )}
+                <span className="text-gray-400">{currentFolderObj ? currentFolderObj.name : 'Root'}</span>
+              </div>
+              {showNewFolder && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                  <div className="bg-gray-900 rounded-lg p-6 shadow-xl w-full max-w-xs">
+                    <div className="text-lg font-semibold mb-2 text-white">Create New Folder</div>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white mb-2"
+                      placeholder="Folder name"
+                      value={newFolderName}
+                      onChange={e => setNewFolderName(e.target.value)}
+                      autoFocus
+                    />
+                    <input
+                      type="password"
+                      className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white mb-2"
+                      placeholder="Password (optional)"
+                      value={newFolderPassword}
+                      onChange={e => setNewFolderPassword(e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white mb-2"
+                      placeholder="Password hint (optional)"
+                      value={newFolderHint}
+                      onChange={e => setNewFolderHint(e.target.value)}
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleCreateFolder} disabled={creatingFolder}>{creatingFolder ? 'Creating...' : 'Create'}</Button>
+                      <Button size="sm" variant="outline" onClick={() => setShowNewFolder(false)} disabled={creatingFolder}>Cancel</Button>
                     </div>
-                  ))}
+                  </div>
                 </div>
               )}
-            </div>
-          )}
+              {desktopPasswordPrompt.open && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                  <div className="bg-gray-900 rounded-lg p-6 shadow-xl w-full max-w-xs">
+                    <div className="text-lg font-semibold mb-2 text-white">Password Required</div>
+                    {desktopPasswordPrompt.folder.password_hint && (
+                      <div className="text-xs text-gray-400 mb-2">Hint: {desktopPasswordPrompt.folder.password_hint}</div>
+                    )}
+                    <input
+                      type="password"
+                      className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white mb-2"
+                      placeholder="Enter password"
+                      value={desktopPasswordInput}
+                      onChange={e => setDesktopPasswordInput(e.target.value)}
+                    />
+                    {desktopPasswordError && <div className="text-red-400 text-xs mb-2">{desktopPasswordError}</div>}
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handlePasswordSubmit}>Unlock</Button>
+                      <Button size="sm" variant="outline" onClick={() => setDesktopPasswordPrompt({folder: null, open: false})}>Cancel</Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="w-full max-w-2xl mx-auto grid grid-cols-4 gap-8 mt-4">
+                {currentFolders.map(folder => (
+                  <div
+                    key={folder.id}
+                    className="flex flex-col items-center group cursor-pointer"
+                    onClick={() => handleOpenFolder(folder)}
+                    onDragOver={handleFolderDragOver}
+                    onDrop={() => handleFolderDrop(folder.id)}
+                    style={{ border: draggedFileId ? '2px dashed #facc15' : undefined }}
+                  >
+                    <div className="w-16 h-16 flex items-center justify-center bg-yellow-200/80 rounded-lg border-2 border-yellow-400 mb-2 relative">
+                      <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h3.28a2 2 0 011.42.59l1.42 1.42A2 2 0 0012.72 8H19a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>
+                      {folder.password_hash && <span className="absolute top-1 right-1 text-yellow-700" title="Password protected">🔒</span>}
+                    </div>
+                    {renamingId === folder.id ? (
+                      <input
+                        className="text-xs text-gray-200 font-medium truncate w-20 text-center group-hover:text-blue-400 bg-gray-800 border border-gray-700 rounded px-1 py-0.5"
+                        value={renameValue}
+                        autoFocus
+                        onChange={e => setRenameValue(e.target.value)}
+                        onBlur={() => handleRenameSubmit(folder, true)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleRenameSubmit(folder, true); if (e.key === 'Escape') setRenamingId(null); }}
+                      />
+                    ) : (
+                      <div
+                        className="text-xs text-gray-200 font-medium truncate w-20 text-center group-hover:text-blue-400"
+                        onClick={e => { e.stopPropagation(); handleStartRename(folder); }}
+                      >
+                        {folder.name}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {currentFiles.map(item => (
+                  <div
+                    key={item.id}
+                    className="flex flex-col items-center group cursor-pointer"
+                    draggable
+                    onDragStart={() => handleFileDragStart(item.id)}
+                    onDragEnd={() => setDraggedFileId(null)}
+                    onContextMenu={e => handleFileContextMenu(e, item)}
+                  >
+                    {isImageFile(item.name) ? (
+                      <img src={item.url} alt={item.name} className="w-16 h-16 object-cover rounded-lg border-2 border-blue-400 mb-2" />
+                    ) : (
+                      <div className="w-16 h-16 flex items-center justify-center bg-gray-700/40 rounded border border-gray-700 mb-2">
+                        <span className="font-bold text-xs text-gray-500">FILE</span>
+                      </div>
+                    )}
+                    {renamingId === item.id ? (
+                      <input
+                        className="text-xs text-gray-200 font-medium truncate w-20 text-center group-hover:text-blue-400 bg-gray-800 border border-gray-700 rounded px-1 py-0.5"
+                        value={renameValue}
+                        autoFocus
+                        onChange={e => setRenameValue(e.target.value)}
+                        onBlur={() => handleRenameSubmit(item, false)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleRenameSubmit(item, false); if (e.key === 'Escape') setRenamingId(null); }}
+                      />
+                    ) : (
+                      <div
+                        className="text-xs text-gray-200 font-medium truncate w-20 text-center group-hover:text-blue-400"
+                        onClick={e => { e.stopPropagation(); handleStartRename(item); }}
+                      >
+                        {item.name}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {contextMenu && (
+                <div
+                  className="fixed z-50 bg-gray-900 border border-gray-700 rounded shadow-lg py-1 px-2"
+                  style={{ top: contextMenu.y, left: contextMenu.x }}
+                  onClick={handleCloseContextMenu}
+                  onContextMenu={e => e.preventDefault()}
+                >
+                  {contextMenu.file.folder_id && (
+                    <button
+                      className="block w-full text-left px-3 py-1 text-sm text-blue-300 hover:bg-gray-800 rounded"
+                      onClick={() => handleMoveToRoot(contextMenu.file)}
+                    >
+                      Move to Root
+                    </button>
+                  )}
+                  <button
+                    className="block w-full text-left px-3 py-1 text-sm text-gray-300 hover:bg-gray-800 rounded"
+                    onClick={handleCloseContextMenu}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+              {/* Breadcrumb Path Bar */}
+              <div className="w-full max-w-2xl mx-auto mt-8 flex items-center gap-2 justify-center select-none">
+                <span className="text-xs text-gray-400 font-bold mr-2">PATH =</span>
+                {/* Root drop target */}
+                <div
+                  className={`px-3 py-1 rounded cursor-pointer ${draggedFileId ? 'bg-blue-900/30 border border-blue-400' : 'bg-gray-800 border border-gray-700'}`}
+                  onDragOver={handleFolderDragOver}
+                  onDrop={() => handleFolderDrop(null)}
+                  title="Move to Root"
+                >
+                  Root
+                </div>
+                {breadcrumbPath.map((folder, idx) => (
+                  <React.Fragment key={folder.id}>
+                    <span className="text-gray-500 mx-1">/</span>
+                    <div
+                      className={`px-3 py-1 rounded cursor-pointer ${draggedFileId ? 'bg-blue-900/30 border border-blue-400' : 'bg-gray-800 border border-gray-700'}`}
+                      onDragOver={handleFolderDragOver}
+                      onDrop={() => handleFolderDrop(folder.id)}
+                      title={folder.name}
+                    >
+                      {folder.name}
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>

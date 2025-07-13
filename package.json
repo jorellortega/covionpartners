@@ -44,6 +44,7 @@
     "@supabase/supabase-js": "latest",
     "@tanstack/react-query": "^5.74.11",
     "autoprefixer": "^10.4.20",
+    "bcryptjs": "^3.0.2",
     "chart.js": "^4.4.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { User, Users, Clock, MessageCircle, FileText, StickyNote, FolderKanban, CheckCircle, Activity, Plus, RefreshCw, Target, Calendar, TrendingUp, Download, Eye, MoreHorizontal, Flag, Zap, AlertCircle, Crown, Code, Palette, Shield, Server } from "lucide-react"
+import { User, Users, Clock, MessageCircle, FileText, StickyNote, FolderKanban, CheckCircle, Activity, Plus, RefreshCw, Target, Calendar, TrendingUp, Download, Eye, MoreHorizontal, Flag, Zap, AlertCircle, Crown, Code, Palette, Shield, Server, Edit, Trash2, Send, Save, X, Lock, Unlock } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -20,8 +20,34 @@ import {
 } from "@/components/ui/select"
 import { supabase } from '@/lib/supabase'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Send, Edit, Trash2, Save, X } from 'lucide-react'
 import { useRouter } from "next/navigation"
+import { User as BaseUser } from '@/types'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { toast } from "sonner"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+interface UserWithStatus extends BaseUser {
+  status?: string;
+}
 
 // Mock data
 const mockProject = {
@@ -133,64 +159,6 @@ const mockTimeline = [
   }
 ]
 
-const mockTeamRoles = [
-  {
-    id: 1,
-    name: "Alice Johnson",
-    role: "Project Manager",
-    avatar: "AJ",
-    status: "online",
-    responsibilities: ["Project planning", "Team coordination", "Client communication"],
-    skills: ["Agile", "Scrum", "Leadership"],
-    availability: "Full-time",
-    joinedDate: "2024-10-01"
-  },
-  {
-    id: 2,
-    name: "Bob Smith",
-    role: "Backend Developer",
-    avatar: "BS",
-    status: "away",
-    responsibilities: ["Database design", "API development", "Server maintenance"],
-    skills: ["Node.js", "PostgreSQL", "Docker"],
-    availability: "Full-time",
-    joinedDate: "2024-10-05"
-  },
-  {
-    id: 3,
-    name: "Charlie Davis",
-    role: "Frontend Developer",
-    avatar: "CD",
-    status: "online",
-    responsibilities: ["UI/UX design", "Frontend development", "User testing"],
-    skills: ["React", "TypeScript", "Figma"],
-    availability: "Full-time",
-    joinedDate: "2024-10-10"
-  },
-  {
-    id: 4,
-    name: "Diana Wilson",
-    role: "QA Engineer",
-    avatar: "DW",
-    status: "offline",
-    responsibilities: ["Testing", "Bug reporting", "Quality assurance"],
-    skills: ["Jest", "Cypress", "Manual Testing"],
-    availability: "Part-time",
-    joinedDate: "2024-10-15"
-  },
-  {
-    id: 5,
-    name: "Eve Brown",
-    role: "DevOps Engineer",
-    avatar: "EB",
-    status: "online",
-    responsibilities: ["Deployment", "Infrastructure", "CI/CD"],
-    skills: ["AWS", "Kubernetes", "Jenkins"],
-    availability: "Full-time",
-    joinedDate: "2024-10-20"
-  }
-]
-
 export default function WorkModePage() {
   const [activeRoom, setActiveRoom] = useState("general")
   const [comment, setComment] = useState("")
@@ -210,6 +178,27 @@ export default function WorkModePage() {
   const [tasksLoading, setTasksLoading] = useState(false)
   const [projectNotes, setProjectNotes] = useState<any[]>([])
   const [notesLoading, setNotesLoading] = useState(false)
+  const [timeline, setTimeline] = useState<any[]>([])
+  const [timelineLoading, setTimelineLoading] = useState(true)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [newTimelineItem, setNewTimelineItem] = useState({
+    type: 'milestone',
+    title: '',
+    description: '',
+    due_date: '',
+    status: 'upcoming',
+    progress: 0,
+    assignee_name: '',
+  })
+  const [editingTimelineItem, setEditingTimelineItem] = useState<any>(null)
+  const [deleteTimelineItem, setDeleteTimelineItem] = useState<any>(null)
+  const [newAssignees, setNewAssignees] = useState<string[]>([]);
+  const [newCustomAssignee, setNewCustomAssignee] = useState('');
+  const [editAssignees, setEditAssignees] = useState<string[]>([]);
+  const [editCustomAssignee, setEditCustomAssignee] = useState('');
+  const [activities, setActivities] = useState<any[]>([]);
+  const [focusLocked, setFocusLocked] = useState(false);
 
   // Load/save current focus from localStorage
   useEffect(() => {
@@ -230,7 +219,7 @@ export default function WorkModePage() {
   }, [projects, currentFocusId])
 
   const currentProject = projects.find(p => p.id === currentFocusId) || projects[0]
-  const { teamMembers } = useTeamMembers(currentProject?.id || "")
+  const { teamMembers, refreshTeamMembers } = useTeamMembers(currentProject?.id || "")
 
   // Fetch the 'General' group on mount
   useEffect(() => {
@@ -277,17 +266,41 @@ export default function WorkModePage() {
     fetchMessages()
   }, [group])
 
-  // Fetch project files for the current project
+  // Fetch project files for the current project from both tables
   useEffect(() => {
     if (!currentProject?.id) return;
     setFilesLoading(true);
     const fetchFiles = async () => {
-      const { data, error } = await supabase
+      // Fetch from project_files
+      const { data: pfData, error: pfError } = await supabase
         .from('project_files')
         .select('*')
         .eq('project_id', currentProject.id)
         .order('created_at', { ascending: false });
-      setProjectFiles(data || []);
+      // Fetch from timeline_files
+      const { data: tfData, error: tfError } = await supabase
+        .from('timeline_files')
+        .select('*')
+        .eq('project_id', currentProject.id)
+        .order('uploaded_at', { ascending: false });
+      // Map both to a common format
+      const pfMapped = (pfData || []).map(f => ({
+        id: f.id,
+        name: f.name,
+        size: f.size || 0,
+        created_at: f.created_at,
+        url: f.url,
+      }));
+      const tfMapped = (tfData || []).map(f => ({
+        id: f.id,
+        name: f.file_name,
+        size: f.size || 0,
+        created_at: f.uploaded_at,
+        url: supabase.storage.from('partnerfiles').getPublicUrl(f.file_url).data.publicUrl,
+      }));
+      // Merge and sort by date descending
+      const allFiles = [...pfMapped, ...tfMapped].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setProjectFiles(allFiles);
       setFilesLoading(false);
     };
     fetchFiles();
@@ -325,6 +338,96 @@ export default function WorkModePage() {
     };
     fetchNotes();
   }, [currentProject?.id]);
+
+  useEffect(() => {
+    if (!currentProject?.id) return;
+    setTimelineLoading(true)
+    supabase
+      .from('project_timeline')
+      .select('*')
+      .eq('project_id', currentProject.id)
+      .order('order_index', { ascending: true })
+      .then(({ data, error }) => {
+        console.log('Fetched timeline:', data?.map(item => ({ id: item.id, title: item.title })));
+        setTimeline(data || [])
+        setTimelineLoading(false)
+      })
+  }, [currentProject?.id])
+
+  // Fetch activities for the current project
+  useEffect(() => {
+    if (!currentProject?.id) return;
+    const fetchActivities = async () => {
+      const { data, error } = await supabase
+        .from('activity_log')
+        .select('*, user:users(name, email)')
+        .eq('project_id', currentProject.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      setActivities(data || []);
+    };
+    fetchActivities();
+  }, [currentProject?.id]);
+
+  // Fetch focus lock on mount
+  useEffect(() => {
+    if (!user) return;
+    const fetchFocus = async () => {
+      const { data } = await supabase
+        .from('user_project_focus')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data && data.focus_locked) {
+        setCurrentFocusId(data.project_id);
+        setFocusLocked(true);
+        if (data.group_id) setActiveRoom(data.group_id); // string or uuid
+      } else {
+        setFocusLocked(false);
+      }
+    };
+    fetchFocus();
+  }, [user]);
+
+  // Keep group_id in sync if locked and chat changes
+  useEffect(() => {
+    if (focusLocked && user) {
+      supabase.from('user_project_focus')
+        .update({ group_id: activeRoom })
+        .eq('user_id', user.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Error updating group_id:', error);
+            toast.error(error.message || 'Failed to update locked chat');
+          }
+        });
+    }
+  }, [activeRoom, focusLocked, user]);
+
+  const handleLock = async () => {
+    try {
+      const { error } = await supabase.from('user_project_focus').upsert({
+        user_id: user.id,
+        project_id: currentFocusId,
+        group_id: activeRoom, // save current chat/group as string
+        focus_locked: true,
+      });
+      if (error) {
+        console.error('Error locking project focus:', error);
+        toast.error(error.message || 'Failed to lock project focus');
+        return;
+      }
+      setFocusLocked(true);
+    } catch (err) {
+      console.error('Exception in handleLock:', err);
+      toast.error('Exception in handleLock: ' + err.message);
+    }
+  };
+
+  const handleUnlock = async () => {
+    await supabase.from('user_project_focus').update({ focus_locked: false }).eq('user_id', user.id);
+    setFocusLocked(false);
+  };
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !group || !user) return
@@ -390,6 +493,188 @@ export default function WorkModePage() {
     }
   }
 
+  // CRUD Functions for Timeline Items
+  const handleCreateTimelineItem = async () => {
+    if (!currentProject?.id || !newTimelineItem.title.trim()) {
+      toast.error("Please fill in all required fields")
+      return
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('project_timeline')
+        .insert([{
+          project_id: currentProject.id,
+          type: newTimelineItem.type,
+          title: newTimelineItem.title.trim(),
+          description: newTimelineItem.description.trim(),
+          due_date: newTimelineItem.due_date || null,
+          status: newTimelineItem.status,
+          progress: newTimelineItem.progress,
+          assignee_name: newAssignees.join(', '),
+          order_index: timeline.length + 1
+        }])
+        .select()
+
+      if (error) throw error
+
+      // Log activity
+      if (data && data[0]) {
+        await supabase.from('activity_log').insert([{
+          user_id: user.id,
+          project_id: currentProject.id,
+          action_type: 'created_timeline_item',
+          entity_type: 'timeline',
+          entity_id: data[0].id,
+          description: `${user.name || user.email} created timeline item "${newTimelineItem.title}"`,
+        }]);
+      }
+
+      toast.success("Timeline item created successfully")
+      setIsCreateModalOpen(false)
+      setNewTimelineItem({
+        type: 'milestone',
+        title: '',
+        description: '',
+        due_date: '',
+        status: 'upcoming',
+        progress: 0,
+        assignee_name: '',
+      })
+      setNewAssignees([]);
+      setNewCustomAssignee('');
+      
+      // Refresh timeline
+      const { data: updatedTimeline } = await supabase
+        .from('project_timeline')
+        .select('*')
+        .eq('project_id', currentProject.id)
+        .order('order_index', { ascending: true })
+      setTimeline(updatedTimeline || [])
+      // Refresh activities
+      const { data: updatedActivities } = await supabase
+        .from('activity_log')
+        .select('*, user:users(name, email)')
+        .eq('project_id', currentProject.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      setActivities(updatedActivities || []);
+    } catch (error: any) {
+      console.error('Error creating timeline item:', error)
+      toast.error(error.message || "Failed to create timeline item")
+    }
+  }
+
+  const handleEditTimelineItem = async () => {
+    if (!editingTimelineItem || !editingTimelineItem.title.trim()) {
+      toast.error("Please fill in all required fields")
+      return
+    }
+
+    try {
+      // Debug log: show what is being sent
+      console.log('Updating timeline item:', editingTimelineItem);
+
+      const { error, data } = await supabase
+        .from('project_timeline')
+        .update({
+          type: editingTimelineItem.type,
+          title: editingTimelineItem.title.trim(),
+          description: editingTimelineItem.description.trim(),
+          due_date: editingTimelineItem.due_date || null,
+          status: editingTimelineItem.status,
+          progress: editingTimelineItem.progress,
+          assignee_name: editAssignees.join(', '),
+        })
+        .eq('id', editingTimelineItem.id)
+        .select();
+
+      // Debug log: show result
+      console.log('Supabase update result:', { error, data });
+
+      if (error) throw error
+
+      // If no rows were updated, show a warning and do not show success
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        toast.warning("No timeline item was updated. Check if the item ID is correct.")
+        console.warn('No rows updated. Tried to update id:', editingTimelineItem.id, 'Result:', data)
+        return
+      }
+
+      // Log activity
+      await supabase.from('activity_log').insert([{
+        user_id: user.id,
+        project_id: currentProject.id,
+        action_type: 'edited_timeline_item',
+        entity_type: 'timeline',
+        entity_id: editingTimelineItem.id,
+        description: `${user.name || user.email} edited timeline item "${editingTimelineItem.title}"`,
+      }]);
+
+      toast.success("Timeline item updated successfully")
+      setIsEditModalOpen(false)
+      setEditingTimelineItem(null)
+      
+      // Refresh timeline
+      const { data: updatedTimeline } = await supabase
+        .from('project_timeline')
+        .select('*')
+        .eq('project_id', currentProject?.id)
+        .order('order_index', { ascending: true })
+      setTimeline(updatedTimeline || [])
+      // Refresh activities
+      const { data: updatedActivities } = await supabase
+        .from('activity_log')
+        .select('*, user:users(name, email)')
+        .eq('project_id', currentProject.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      setActivities(updatedActivities || []);
+    } catch (error: any) {
+      console.error('Error updating timeline item:', error)
+      toast.error(error.message || "Failed to update timeline item")
+    }
+  }
+
+  const handleDeleteTimelineItem = async () => {
+    if (!deleteTimelineItem) return
+
+    try {
+      const { error } = await supabase
+        .from('project_timeline')
+        .delete()
+        .eq('id', deleteTimelineItem.id)
+
+      if (error) throw error
+
+      toast.success("Timeline item deleted successfully")
+      setDeleteTimelineItem(null)
+      
+      // Refresh timeline
+      const { data: updatedTimeline } = await supabase
+        .from('project_timeline')
+        .select('*')
+        .eq('project_id', currentProject?.id)
+        .order('order_index', { ascending: true })
+      setTimeline(updatedTimeline || [])
+    } catch (error: any) {
+      console.error('Error deleting timeline item:', error)
+      toast.error(error.message || "Failed to delete timeline item")
+    }
+  }
+
+  const openEditModal = (item: any) => {
+    console.log('Opening edit modal for item:', item, 'with id:', item.id);
+    setEditingTimelineItem({ ...item })
+    setIsEditModalOpen(true)
+    setEditAssignees(item.assignee_name ? item.assignee_name.split(',').map(name => name.trim()) : []);
+    setEditCustomAssignee('');
+  }
+
+  const openDeleteModal = (item: any) => {
+    setDeleteTimelineItem(item)
+  }
+
   const router = useRouter();
 
   return (
@@ -402,6 +687,17 @@ export default function WorkModePage() {
               Work Mode
             </h1>
             <Badge className="bg-green-800/30 text-green-300 border-green-700">Live Collaboration</Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`ml-6 p-3 min-w-[56px] min-h-[56px] rounded-full border-2 ${focusLocked ? 'border-yellow-400 bg-yellow-900/20 hover:bg-yellow-900/40' : 'border-blue-400 bg-blue-900/10 hover:bg-blue-900/30'} transition`}
+              onClick={focusLocked ? handleUnlock : handleLock}
+              title={focusLocked ? 'Unlock project focus' : 'Lock project focus'}
+            >
+              {focusLocked
+                ? <Lock className="w-10 h-10 text-yellow-400" />
+                : <Unlock className="w-10 h-10 text-blue-400" />}
+            </Button>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" className="border-gray-700 bg-gray-800/30 text-white hover:bg-green-900/20 hover:text-green-400">
@@ -422,13 +718,26 @@ export default function WorkModePage() {
               <CardTitle className="text-lg flex items-center text-blue-400">
                 <Target className="w-5 h-5 mr-2" /> Current Focus
               </CardTitle>
-              {projects.length > 1 && (
-                <span className="text-xs text-blue-300 cursor-pointer" onClick={e => {
-                  e.stopPropagation();
-                  const el = document.getElementById('focus-project-select');
-                  if (el) el.focus();
-                }}>Change</span>
-              )}
+              <div className="flex items-center gap-2">
+                {projects.length > 1 && (
+                  <span className="text-xs text-blue-300 cursor-pointer" onClick={e => {
+                    e.stopPropagation();
+                    const el = document.getElementById('focus-project-select');
+                    if (el) el.focus();
+                  }}>
+                    Change
+                  </span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="ml-2 p-2 min-w-[40px] min-h-[40px]"
+                  onClick={focusLocked ? handleUnlock : handleLock}
+                  title={focusLocked ? 'Unlock project focus' : 'Lock project focus'}
+                >
+                  {focusLocked ? <Lock className="w-7 h-7 text-yellow-400" /> : <Unlock className="w-7 h-7 text-blue-400" />}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {projectsLoading || userLoading ? (
@@ -473,7 +782,7 @@ export default function WorkModePage() {
                   {projects.length > 1 && (
                     <div className="mt-2">
                       <div className="text-xs text-gray-400 mb-1">Change Focus Project</div>
-                      <Select value={currentFocusId || ''} onValueChange={setCurrentFocusId}>
+                      <Select value={currentFocusId || ''} onValueChange={setCurrentFocusId} disabled={focusLocked}>
                         <SelectTrigger id="focus-project-select" className="bg-gray-800 border-gray-700 text-white">
                           <SelectValue placeholder="Select project..." />
                         </SelectTrigger>
@@ -490,33 +799,29 @@ export default function WorkModePage() {
             </CardContent>
           </Card>
 
+          {/* In the Live Users card, use real team members and their status */}
           <Card className="leonardo-card border-gray-800">
             <CardHeader className="pb-2"><CardTitle className="text-lg flex items-center"><Users className="w-5 h-5 mr-2" />Live Users</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              {mockUsers.map(u => (
-                <div key={u.id} className="flex items-center gap-2">
-                  <User className={`w-4 h-4 ${u.status === 'online' ? 'text-green-400' : u.status === 'away' ? 'text-yellow-400' : 'text-gray-400'}`} />
-                  <span className="font-medium text-white">{u.name}</span>
-                  <Badge className={`ml-2 ${u.status === 'online' ? 'bg-green-500/20 text-green-400' : u.status === 'away' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-500/20 text-gray-400'}`}>{u.status}</Badge>
-                  {u.clockedIn && <Badge className="ml-2 bg-blue-500/20 text-blue-400">Clocked In</Badge>}
-                </div>
-              ))}
+              {teamMembers.length === 0 ? (
+                <div className="text-gray-400">No team members found.</div>
+              ) : (
+                teamMembers.map(u => {
+                  const user = u.user as UserWithStatus
+                  return (
+                    <div key={u.id} className="flex items-center gap-2">
+                      <User className={`w-4 h-4 ${user.status === 'online' ? 'text-green-400' : user.status === 'away' ? 'text-yellow-400' : user.status === 'busy' ? 'text-orange-400' : 'text-gray-400'}`} />
+                      <span className="font-medium text-white">{user.name || user.email}</span>
+                      <Badge className={`ml-2 ${user.status === 'online' ? 'bg-green-500/20 text-green-400' : user.status === 'away' ? 'bg-yellow-500/20 text-yellow-400' : user.status === 'busy' ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-500/20 text-gray-400'}`}>{user.status || 'offline'}</Badge>
+                    </div>
+                  )
+                })
+              )}
             </CardContent>
           </Card>
-          <Card className="leonardo-card border-gray-800">
-            <CardHeader className="pb-2"><CardTitle className="text-lg flex items-center"><Clock className="w-5 h-5 mr-2" />Active Sessions</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {mockSessions.map(s => (
-                <div key={s.id} className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-400" />
-                  <span className="font-medium text-white">{s.user}</span>
-                  <Badge className="ml-2 bg-gray-700 text-gray-200">{s.type}</Badge>
-                  <span className="text-xs text-gray-400 ml-2">since {s.since}</span>
-                </div>
-              ))}
-              <Button size="sm" className="mt-2 w-full bg-gradient-to-r from-green-500 to-emerald-500">Clock In</Button>
-            </CardContent>
-          </Card>
+
+          {/* In the Active Sessions card, fetch and show users with active sessions for the current project */}
+          <ActiveSessionsCard projectId={currentProject?.id} teamMembers={teamMembers} refreshTeamMembers={refreshTeamMembers} />
 
           {/* Project Files */}
           <Card className="leonardo-card border-gray-800">
@@ -562,8 +867,10 @@ export default function WorkModePage() {
                   ))
                 )}
               </div>
-              <Button size="sm" variant="outline" className="w-full mt-2 border-gray-700 text-gray-300 hover:text-white">
-                View All Files
+              <Button size="sm" variant="outline" className="w-full mt-2 border-gray-700 text-gray-300 hover:text-white" asChild>
+                <Link href={currentProject ? `/projectfiles/${currentProject.id}` : "#"}>
+                  View All Files
+                </Link>
               </Button>
             </CardContent>
           </Card>
@@ -578,94 +885,35 @@ export default function WorkModePage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm text-gray-400">{mockTeamRoles.length} team members</span>
+                <span className="text-sm text-gray-400">{teamMembers.length} team members</span>
                 <Button size="sm" variant="outline" className="border-gray-700 text-xs">
                   <Plus className="w-3 h-3 mr-1" />
                   Add Member
                 </Button>
               </div>
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {mockTeamRoles.map(member => (
-                  <div key={member.id} className="p-3 bg-gray-800/50 rounded-lg hover:bg-gray-800/70 transition-colors">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                          member.status === 'online' ? 'bg-green-500/20 text-green-400 border border-green-500/50' :
-                          member.status === 'away' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50' :
-                          'bg-gray-500/20 text-gray-400 border border-gray-500/50'
-                        }`}>
-                          {member.avatar}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-white text-sm">{member.name}</div>
-                          <div className="flex items-center gap-2">
-                            {member.role === 'Project Manager' && <Crown className="w-3 h-3 text-yellow-400" />}
-                            {member.role === 'Backend Developer' && <Code className="w-3 h-3 text-blue-400" />}
-                            {member.role === 'Frontend Developer' && <Palette className="w-3 h-3 text-purple-400" />}
-                            {member.role === 'QA Engineer' && <Shield className="w-3 h-3 text-green-400" />}
-                            {member.role === 'DevOps Engineer' && <Server className="w-3 h-3 text-orange-400" />}
-                            <span className="text-xs text-gray-300">{member.role}</span>
-                            <Badge className={`text-xs ${
-                              member.status === 'online' ? 'bg-green-500/20 text-green-400' :
-                              member.status === 'away' ? 'bg-yellow-500/20 text-yellow-400' :
-                              'bg-gray-500/20 text-gray-400'
-                            }`}>
-                              {member.status}
-                            </Badge>
+                {teamMembers.length === 0 ? (
+                  <div className="text-gray-400">No team members found.</div>
+                ) : (
+                  teamMembers.map(member => (
+                    <div key={member.id} className="p-3 bg-gray-800/50 rounded-lg hover:bg-gray-800/70 transition-colors">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-gray-500/20 text-gray-400 border border-gray-500/50`}>
+                            {member.user?.name?.[0] || member.user?.email?.[0] || '?'}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-white text-sm">{member.user?.name || member.user?.email}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-300">{member.role}</span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <Badge className={`text-xs ${
-                        member.availability === 'Full-time' ? 'bg-blue-500/20 text-blue-400' :
-                        'bg-purple-500/20 text-purple-400'
-                      }`}>
-                        {member.availability}
-                      </Badge>
                     </div>
-                    
-                    <div className="space-y-2">
-                      <div>
-                        <div className="text-xs text-gray-400 mb-1">Responsibilities:</div>
-                        <div className="flex flex-wrap gap-1">
-                          {member.responsibilities.slice(0, 2).map((resp, index) => (
-                            <Badge key={index} className="bg-gray-700 text-gray-300 text-xs">
-                              {resp}
-                            </Badge>
-                          ))}
-                          {member.responsibilities.length > 2 && (
-                            <Badge className="bg-gray-700 text-gray-300 text-xs">
-                              +{member.responsibilities.length - 2} more
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <div className="text-xs text-gray-400 mb-1">Skills:</div>
-                        <div className="flex flex-wrap gap-1">
-                          {member.skills.slice(0, 2).map((skill, index) => (
-                            <Badge key={index} className="bg-blue-500/20 text-blue-400 text-xs">
-                              {skill}
-                            </Badge>
-                          ))}
-                          {member.skills.length > 2 && (
-                            <Badge className="bg-blue-500/20 text-blue-400 text-xs">
-                              +{member.skills.length - 2} more
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="text-xs text-gray-400 mt-2">
-                      Joined {new Date(member.joinedDate).toLocaleDateString()}
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
-              <Button size="sm" variant="outline" className="w-full mt-2 border-gray-700 text-gray-300 hover:text-white">
-                View Full Team
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -947,113 +1195,279 @@ export default function WorkModePage() {
           </Tabs>
           {/* Project Timeline */}
           <Card className="leonardo-card border-gray-800">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-lg flex items-center">
-                <Flag className="w-5 h-5 mr-2" />
-                Project Timeline
+                <Flag className="w-5 h-5 mr-2" /> Project Timeline
               </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {mockTimeline.map((item, index) => (
-                  <div key={item.id} className="relative">
-                    {/* Timeline line */}
-                    {index < mockTimeline.length - 1 && (
-                      <div className="absolute left-6 top-8 w-0.5 h-12 bg-gray-700"></div>
-                    )}
-                    
-                    <div className="flex items-start gap-4">
-                      {/* Timeline dot */}
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        item.status === 'completed' ? 'bg-green-500/20 border-2 border-green-500' :
-                        item.status === 'in_progress' ? 'bg-blue-500/20 border-2 border-blue-500' :
-                        'bg-gray-500/20 border-2 border-gray-500'
-                      }`}>
-                        {item.type === 'milestone' && <Flag className={`w-5 h-5 ${
-                          item.status === 'completed' ? 'text-green-400' :
-                          item.status === 'in_progress' ? 'text-blue-400' :
-                          'text-gray-400'
-                        }`} />}
-                        {item.type === 'objective' && <Target className={`w-5 h-5 ${
-                          item.status === 'completed' ? 'text-green-400' :
-                          item.status === 'in_progress' ? 'text-blue-400' :
-                          'text-gray-400'
-                        }`} />}
-                        {item.type === 'task' && <CheckCircle className={`w-5 h-5 ${
-                          item.status === 'completed' ? 'text-green-400' :
-                          item.status === 'in_progress' ? 'text-blue-400' :
-                          'text-gray-400'
-                        }`} />}
-                        {item.type === 'deadline' && <AlertCircle className={`w-5 h-5 ${
-                          item.status === 'completed' ? 'text-green-400' :
-                          item.status === 'in_progress' ? 'text-blue-400' :
-                          'text-gray-400'
-                        }`} />}
-                      </div>
-                      
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="font-semibold text-white">{item.title}</h4>
-                          <div className="flex items-center gap-2">
-                            <Badge className={`text-xs ${
-                              item.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                              item.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
-                              'bg-gray-500/20 text-gray-400'
-                            }`}>
-                              {item.status === 'completed' ? 'Completed' :
-                               item.status === 'in_progress' ? 'In Progress' :
-                               'Upcoming'}
-                            </Badge>
-                            {item.deadline && (
-                              <Badge className="bg-red-500/20 text-red-400 text-xs">
-                                Due {new Date(item.deadline).toLocaleDateString()}
-                              </Badge>
-                            )}
-                          </div>
+              <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Item
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-gray-900 border-gray-700">
+                  <DialogHeader>
+                    <DialogTitle>Add Timeline Item</DialogTitle>
+                    <DialogDescription>
+                      Create a new timeline item for this project.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="type">Type</Label>
+                      <Select value={newTimelineItem.type} onValueChange={(value) => setNewTimelineItem({...newTimelineItem, type: value})}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="milestone">Milestone</SelectItem>
+                          <SelectItem value="objective">Objective</SelectItem>
+                          <SelectItem value="task">Task</SelectItem>
+                          <SelectItem value="deadline">Deadline</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="title">Title *</Label>
+                      <Input
+                        id="title"
+                        value={newTimelineItem.title}
+                        onChange={(e) => setNewTimelineItem({...newTimelineItem, title: e.target.value})}
+                        placeholder="Enter title"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        id="description"
+                        value={newTimelineItem.description}
+                        onChange={(e) => setNewTimelineItem({...newTimelineItem, description: e.target.value})}
+                        placeholder="Enter description"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="due_date">Due Date</Label>
+                      <Input
+                        id="due_date"
+                        type="date"
+                        value={newTimelineItem.due_date}
+                        onChange={(e) => setNewTimelineItem({...newTimelineItem, due_date: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="status">Status</Label>
+                      <Select value={newTimelineItem.status} onValueChange={(value) => setNewTimelineItem({...newTimelineItem, status: value})}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="upcoming">Upcoming</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="delayed">Delayed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="progress">Progress (%)</Label>
+                      <Input
+                        id="progress"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={newTimelineItem.progress}
+                        onChange={(e) => setNewTimelineItem({...newTimelineItem, progress: parseInt(e.target.value) || 0})}
+                      />
+                    </div>
+                    <div>
+                      <Label>Assignees</Label>
+                      <div className="flex flex-col gap-2">
+                        {/* Team member checkboxes */}
+                        {teamMembers && teamMembers.length > 0 && Array.from(new Map(teamMembers.map(tm => [tm.user_id, tm])).values()).map((tm, idx) => (
+                          <label key={tm.user_id + '-' + idx} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={newAssignees.includes(tm.user?.name || tm.user?.email || '')}
+                              onChange={e => {
+                                const name = tm.user?.name || tm.user?.email || '';
+                                setNewAssignees(
+                                  e.target.checked
+                                    ? [...newAssignees, name]
+                                    : newAssignees.filter(n => n !== name)
+                                );
+                              }}
+                            />
+                            {tm.user?.name || tm.user?.email}
+                          </label>
+                        ))}
+                        {/* Custom name input */}
+                        <div className="flex gap-2">
+                          <Input
+                            value={newCustomAssignee}
+                            onChange={e => setNewCustomAssignee(e.target.value)}
+                            placeholder="Add custom assignee"
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              if (newCustomAssignee && !newAssignees.includes(newCustomAssignee)) {
+                                setNewAssignees([...newAssignees, newCustomAssignee]);
+                                setNewCustomAssignee('');
+                              }
+                            }}
+                          >
+                            Add
+                          </Button>
                         </div>
-                        
-                        <p className="text-gray-300 text-sm mb-2">{item.description}</p>
-                        
-                        <div className="flex items-center justify-between text-xs text-gray-400">
-                          <div className="flex items-center gap-4">
-                            <span>📅 {new Date(item.date).toLocaleDateString()}</span>
-                            <span>👤 {item.assignee}</span>
-                          </div>
-                          {item.progress > 0 && (
-                            <div className="flex items-center gap-2">
-                              <span>{item.progress}%</span>
-                              <div className="w-16 bg-gray-700 rounded-full h-1.5">
-                                <div 
-                                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                                    item.status === 'completed' ? 'bg-green-500' :
-                                    item.status === 'in_progress' ? 'bg-blue-500' :
-                                    'bg-gray-500'
-                                  }`}
-                                  style={{ width: `${item.progress}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                          )}
+                        {/* Show selected assignees */}
+                        <div>
+                          {newAssignees.map(name => (
+                            <Badge key={name} className="mr-1">{name}</Badge>
+                          ))}
                         </div>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-              
-              <div className="mt-4 pt-4 border-t border-gray-700">
-                <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
-                  <span>Timeline Overview</span>
-                  <span>{mockTimeline.filter(item => item.status === 'completed').length}/{mockTimeline.length} completed</span>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateTimelineItem}>
+                      Create Item
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              {timelineLoading ? (
+                <div className="text-gray-400">Loading timeline...</div>
+              ) : timeline.length === 0 ? (
+                <div className="text-gray-400">No timeline items found.</div>
+              ) : (
+                <div>
+                  {timeline.map((item, index) => (
+                    <div key={item.id} className="flex items-start gap-4 mb-6">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          item.status === 'completed' ? 'bg-green-500/20 border-2 border-green-500' :
+                          item.status === 'in_progress' ? 'bg-blue-500/20 border-2 border-blue-500' :
+                          'bg-gray-500/20 border-2 border-gray-500'
+                        }`}>
+                          {item.type === 'milestone' && <Flag className={`w-5 h-5 ${
+                            item.status === 'completed' ? 'text-green-400' :
+                            item.status === 'in_progress' ? 'text-blue-400' :
+                            'text-gray-400'
+                          }`} />}
+                          {item.type === 'objective' && <Target className={`w-5 h-5 ${
+                            item.status === 'completed' ? 'text-green-400' :
+                            item.status === 'in_progress' ? 'text-blue-400' :
+                            'text-gray-400'
+                          }`} />}
+                          {item.type === 'task' && <CheckCircle className={`w-5 h-5 ${
+                            item.status === 'completed' ? 'text-green-400' :
+                            item.status === 'in_progress' ? 'text-blue-400' :
+                            'text-gray-400'
+                          }`} />}
+                          {item.type === 'deadline' && <AlertCircle className={`w-5 h-5 ${
+                            item.status === 'completed' ? 'text-green-400' :
+                            item.status === 'in_progress' ? 'text-blue-400' :
+                            'text-gray-400'
+                          }`} />}
+                        </div>
+                        {index < timeline.length - 1 && (
+                          <div className="w-1 h-12 bg-gray-700 mx-auto"></div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <Link href={`/workmode/timeline/${item.id}`} className="font-bold text-white text-lg hover:underline">
+                            {item.title}
+                          </Link>
+                          <div className="flex items-center gap-2">
+                            {item.status === 'completed' && <Badge className="bg-green-700/80 text-white">Completed</Badge>}
+                            {item.status === 'in_progress' && <Badge className="bg-blue-700/80 text-white">In Progress</Badge>}
+                            {item.status === 'upcoming' && <Badge className="bg-gray-700/80 text-white">Upcoming</Badge>}
+                            {item.status === 'delayed' && <Badge className="bg-red-700/80 text-white">Delayed</Badge>}
+                            {item.status === 'in_progress' && item.due_date && (
+                              <Badge className="bg-red-700/80 text-white ml-2">Due {new Date(item.due_date).toLocaleDateString()}</Badge>
+                            )}
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 hover:bg-blue-500/20 hover:text-blue-400"
+                                onClick={() => openEditModal(item)}
+                              >
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0 hover:bg-red-500/20 hover:text-red-400"
+                                    onClick={() => openDeleteModal(item)}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="bg-gray-900 border-gray-700">
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Timeline Item</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete "{item.title}"? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={handleDeleteTimelineItem}
+                                      className="bg-red-600 hover:bg-red-700"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-gray-300 text-sm mb-1">{item.description}</div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-gray-400 text-xs"><Calendar className="inline w-4 h-4 mr-1" />{item.due_date ? new Date(item.due_date).toLocaleDateString() : '--'}</span>
+                          {item.assignee_name && <span className="text-gray-400 text-xs"><Users className="inline w-4 h-4 mr-1" />{item.assignee_name}</span>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {typeof item.progress === 'number' && (
+                            <>
+                              <span className="text-xs text-gray-400">{item.progress}%</span>
+                              <div className="w-24 bg-gray-700 rounded-full h-1.5">
+                                <div className={`h-1.5 rounded-full transition-all duration-300 ${
+                                  item.status === 'completed' ? 'bg-green-500' :
+                                  item.status === 'in_progress' ? 'bg-blue-500' :
+                                  'bg-gray-500'
+                                }`} style={{ width: `${item.progress}%` }}></div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Timeline Overview */}
+                  <div className="mt-4 pt-4 border-t border-gray-700">
+                    <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
+                      <span>Timeline Overview</span>
+                      <span>{timeline.filter(item => item.status === 'completed').length}/{timeline.length} completed</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full transition-all duration-300" style={{ width: `${(timeline.filter(item => item.status === 'completed').length / timeline.length) * 100}%` }}></div>
+                    </div>
+                  </div>
                 </div>
-                <div className="w-full bg-gray-700 rounded-full h-2">
-                  <div 
-                    className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full transition-all duration-300" 
-                    style={{ width: `${(mockTimeline.filter(item => item.status === 'completed').length / mockTimeline.length) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -1061,20 +1475,248 @@ export default function WorkModePage() {
           <Card className="leonardo-card border-gray-800">
             <CardHeader className="pb-2"><CardTitle className="text-lg flex items-center"><Activity className="w-5 h-5 mr-2" />Activity Feed</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              {mockActivities.map(a => (
-                <div key={a.id} className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-gray-400" />
-                  <span className="font-medium text-white">{a.user}</span>
-                  <span className="text-gray-300">{a.action}</span>
-                  <span className="text-xs text-gray-400 ml-2">{a.time}</span>
-                </div>
-              ))}
-              {/* TODO: Integrate real activity data */}
+              {activities.length === 0 ? (
+                <div className="text-gray-400">No recent activity.</div>
+              ) : (
+                activities.map(a => (
+                  <div key={a.id} className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-gray-400" />
+                    <span className="font-medium text-white">{a.user?.name || a.user?.email || a.user_id}</span>
+                    <span className="text-gray-300">{a.description}</span>
+                    <span className="text-xs text-gray-400 ml-2">{a.created_at ? new Date(a.created_at).toLocaleTimeString() : ''}</span>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </div>
       </main>
+
+      {/* Edit Timeline Item Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="bg-gray-900 border-gray-700">
+          <DialogHeader>
+            <DialogTitle>Edit Timeline Item</DialogTitle>
+            <DialogDescription>
+              Update the timeline item details.
+            </DialogDescription>
+          </DialogHeader>
+          {editingTimelineItem && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-type">Type</Label>
+                <Select value={editingTimelineItem.type} onValueChange={(value) => setEditingTimelineItem({...editingTimelineItem, type: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="milestone">Milestone</SelectItem>
+                    <SelectItem value="objective">Objective</SelectItem>
+                    <SelectItem value="task">Task</SelectItem>
+                    <SelectItem value="deadline">Deadline</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-title">Title *</Label>
+                <Input
+                  id="edit-title"
+                  value={editingTimelineItem.title}
+                  onChange={(e) => setEditingTimelineItem({...editingTimelineItem, title: e.target.value})}
+                  placeholder="Enter title"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  value={editingTimelineItem.description}
+                  onChange={(e) => setEditingTimelineItem({...editingTimelineItem, description: e.target.value})}
+                  placeholder="Enter description"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-due_date">Due Date</Label>
+                <Input
+                  id="edit-due_date"
+                  type="date"
+                  value={editingTimelineItem.due_date || ''}
+                  onChange={(e) => setEditingTimelineItem({...editingTimelineItem, due_date: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-status">Status</Label>
+                <Select value={editingTimelineItem.status} onValueChange={(value) => setEditingTimelineItem({...editingTimelineItem, status: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="upcoming">Upcoming</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="delayed">Delayed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-progress">Progress (%)</Label>
+                <Input
+                  id="edit-progress"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editingTimelineItem.progress}
+                  onChange={(e) => setEditingTimelineItem({...editingTimelineItem, progress: parseInt(e.target.value) || 0})}
+                />
+              </div>
+              <div>
+                <Label>Assignees</Label>
+                <div className="flex flex-col gap-2">
+                  {/* Team member checkboxes */}
+                  {teamMembers && teamMembers.length > 0 && Array.from(new Map(teamMembers.map(tm => [tm.user_id, tm])).values()).map((tm, idx) => (
+                    <label key={tm.user_id + '-' + idx} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={editAssignees.includes(tm.user?.name || tm.user?.email || '')}
+                        onChange={e => {
+                          const name = tm.user?.name || tm.user?.email || '';
+                          setEditAssignees(
+                            e.target.checked
+                              ? [...editAssignees, name]
+                              : editAssignees.filter(n => n !== name)
+                          );
+                        }}
+                      />
+                      {tm.user?.name || tm.user?.email}
+                    </label>
+                  ))}
+                  {/* Custom name input */}
+                  <div className="flex gap-2">
+                    <Input
+                      value={editCustomAssignee}
+                      onChange={e => setEditCustomAssignee(e.target.value)}
+                      placeholder="Add custom assignee"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        if (editCustomAssignee && !editAssignees.includes(editCustomAssignee)) {
+                          setEditAssignees([...editAssignees, editCustomAssignee]);
+                          setEditCustomAssignee('');
+                        }
+                      }}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                  {/* Show selected assignees */}
+                  <div>
+                    {editAssignees.map(name => (
+                      <Badge key={name} className="mr-1">{name}</Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditTimelineItem}>
+              Update Item
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* TODO: Integrate real data, subscriptions, and actions for presence, sessions, rooms, comments, and activity. */}
     </div>
+  )
+} 
+
+function ActiveSessionsCard({ projectId, teamMembers, refreshTeamMembers }: { projectId: string | undefined, teamMembers: any[], refreshTeamMembers: () => void }) {
+  const [sessions, setSessions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [clockingIn, setClockingIn] = useState(false)
+  const [clockingOut, setClockingOut] = useState(false)
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!projectId) return;
+    setLoading(true)
+    supabase
+      .from('work_sessions')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('status', 'active')
+      .then(({ data, error }) => {
+        setSessions(data || [])
+        setLoading(false)
+      })
+  }, [projectId, clockingIn, clockingOut])
+
+  const hasActiveSession = !!user && sessions.some(s => s.user_id === user.id)
+  const mySession = user ? sessions.find(s => s.user_id === user.id) : null
+
+  const handleClockIn = async () => {
+    if (!user || !projectId) return;
+    setClockingIn(true)
+    await supabase.from('work_sessions').insert({
+      user_id: user.id,
+      project_id: projectId,
+      session_type: 'focused',
+      status: 'active',
+      start_time: new Date().toISOString(),
+    })
+    await supabase.from('users').update({ status: 'online' }).eq('id', user.id)
+    setClockingIn(false)
+    refreshTeamMembers()
+  }
+
+  const handleClockOut = async () => {
+    if (!user || !mySession) return;
+    setClockingOut(true)
+    await supabase.from('work_sessions').update({
+      status: 'completed',
+      end_time: new Date().toISOString(),
+    }).eq('id', mySession.id)
+    await supabase.from('users').update({ status: 'offline' }).eq('id', user.id)
+    setClockingOut(false)
+    refreshTeamMembers()
+  }
+
+  return (
+    <Card className="leonardo-card border-gray-800">
+      <CardHeader className="pb-2"><CardTitle className="text-lg flex items-center"><Clock className="w-5 h-5 mr-2" />Active Sessions</CardTitle></CardHeader>
+      <CardContent className="space-y-2">
+        {loading ? (
+          <div className="text-gray-400">Loading...</div>
+        ) : sessions.length === 0 ? (
+          <div className="text-gray-400">No active sessions</div>
+        ) : (
+          sessions.map(s => {
+            const member = teamMembers.find(m => m.user_id === s.user_id)
+            return (
+              <div key={s.id} className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-400" />
+                <span className="font-medium text-white">{member?.user?.name || member?.user?.email || s.user_id}</span>
+                <Badge className="ml-2 bg-gray-700 text-gray-200">{s.session_type}</Badge>
+                <span className="text-xs text-gray-400 ml-2">since {s.start_time ? new Date(s.start_time).toLocaleTimeString() : ''}</span>
+              </div>
+            )
+          })
+        )}
+        {hasActiveSession ? (
+          <Button size="sm" className="mt-2 w-full bg-gradient-to-r from-red-500 to-pink-500" onClick={handleClockOut} disabled={clockingOut}>
+            {clockingOut ? 'Clocking Out...' : 'Clock Out'}
+          </Button>
+        ) : (
+          <Button size="sm" className="mt-2 w-full bg-gradient-to-r from-green-500 to-emerald-500" onClick={handleClockIn} disabled={clockingIn}>
+            {clockingIn ? 'Clocking In...' : 'Clock In'}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   )
 } 

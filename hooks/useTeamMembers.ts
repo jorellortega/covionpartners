@@ -54,7 +54,7 @@ export function useTeamMembers(projectId: string) {
         // 3. Fetch corresponding users
         const { data: fetchedUsers, error: usersError } = await supabase
           .from('users')
-          .select('id, name, email, avatar_url, role, created_at, updated_at')
+          .select('id, name, email, avatar_url, role, created_at, updated_at, status')
           .in('id', userIds);
 
         if (usersError) {
