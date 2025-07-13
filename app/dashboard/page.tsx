@@ -1006,6 +1006,11 @@ export default function PartnerDashboard() {
                       View Projects
                     </Button>
                   </Link>
+                  <Link href="/projectfiles">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
+                      <FolderKanban className="w-4 h-4 mr-2" /> Project Files
+                    </Button>
+                  </Link>
                   <Link href="/team">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
                       <Users className="w-4 h-4 mr-2" />
@@ -1084,6 +1089,22 @@ export default function PartnerDashboard() {
                   <Link href="/work-dashboard">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
                       <FolderKanban className="w-4 h-4 mr-2" /> Work Dashboard
+                    </Button>
+                  </Link>
+                  <Link href="/work-submission">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <PenSquare className="w-4 h-4 mr-2" /> Work for Hire Submission
+                    </Button>
+                  </Link>
+                  <Link href="/admin/work-submissions">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <Shield className="w-4 h-4 mr-2" /> Admin Work Submissions
+                    </Button>
+                  </Link>
+                  {/* Add Organization Staff Management */}
+                  <Link href="/organization-staff">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <Users className="w-4 h-4 mr-2" /> Organization Staff
                     </Button>
                   </Link>
                   {/* TODO: Replace 'my' with the actual organization slug dynamically */}

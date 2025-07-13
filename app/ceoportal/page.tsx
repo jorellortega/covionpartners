@@ -879,7 +879,7 @@ export default function CEOPortalPage() {
                               <td className="py-2 px-4 text-gray-400">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '-'}</td>
                               <td className="py-2 px-4 text-gray-400">{u.updated_at ? new Date(u.updated_at).toLocaleDateString() : '-'}</td>
                               <td className="py-2 px-4">
-                                {u.avatar_url ? (
+                                {u.avatar_url && u.avatar_url !== '/placeholder-avatar.jpg' ? (
                                   <Image
                                     src={u.avatar_url}
                                     alt="Avatar"
@@ -888,8 +888,8 @@ export default function CEOPortalPage() {
                                     className="rounded-full"
                                   />
                                 ) : (
-                                  <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center text-xs">
-                                    {u.name ? u.name.charAt(0).toUpperCase() : 'U'}
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-white text-xs font-bold">
+                                    {u.name ? u.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'U'}
                                   </div>
                                 )}
                               </td>

@@ -559,10 +559,12 @@ export default function CEOPage() {
                               <td className="py-2 px-4 text-gray-400">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '-'}</td>
                               <td className="py-2 px-4 text-gray-400">{u.updated_at ? new Date(u.updated_at).toLocaleDateString() : '-'}</td>
                               <td className="py-2 px-4">
-                                {u.avatar_url ? (
+                                {u.avatar_url && u.avatar_url !== '/placeholder-avatar.jpg' ? (
                                   <img src={u.avatar_url} alt="avatar" className="w-8 h-8 rounded-full object-cover" />
                                 ) : (
-                                  <span className="text-gray-500">-</span>
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-white text-xs font-bold">
+                                    {u.name ? u.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'U'}
+                                  </div>
                                 )}
                               </td>
                               <td className="py-2 px-4">

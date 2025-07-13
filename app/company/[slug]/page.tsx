@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
-import { ExternalLink, Linkedin, Globe, Users, Briefcase, MapPin, Settings, Pencil } from "lucide-react"
+import { ExternalLink, Linkedin, Globe, Users, Briefcase, MapPin, Settings, Pencil, CheckCircle, FolderKanban, Star, MessageSquare, Calendar, DollarSign, TrendingUp, Handshake } from "lucide-react"
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
@@ -72,14 +72,20 @@ export default function CompanyProfilePage() {
     if (!e.target.files || !e.target.files[0] || !company) return;
     setLogoUploading(true);
     const file = e.target.files[0];
-    const filePath = `user_logos/${company.id}_${Date.now()}_${file.name}`;
-    const { error } = await supabase.storage.from('partnerfiles').upload(filePath, file, { upsert: true });
-    if (!error) {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const filePath = `org-logos/${company.id}-${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('partnerfiles').upload(filePath, file, { upsert: true });
+      if (uploadError) throw uploadError;
       const { data } = supabase.storage.from('partnerfiles').getPublicUrl(filePath);
       await supabase.from('organizations').update({ logo: data.publicUrl }).eq('id', company.id);
       window.location.reload();
+    } catch (err) {
+      alert('Failed to upload logo');
+    } finally {
+      setLogoUploading(false);
     }
-    setLogoUploading(false);
   };
 
   // Handler for banner upload
@@ -175,7 +181,11 @@ export default function CompanyProfilePage() {
             </div>
             <div className="flex gap-3 items-center mt-2">
               {company.website && (
-                <a href={company.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-400 hover:underline">
+                <a href={
+                  company.website?.startsWith('http://') || company.website?.startsWith('https://')
+                    ? company.website
+                    : `https://${company.website}`
+                } target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-400 hover:underline">
                   <Globe className="w-4 h-4" /> Website <ExternalLink className="w-3 h-3" />
                 </a>
               )}
@@ -218,27 +228,88 @@ export default function CompanyProfilePage() {
             </>
           )}
         </div>
+        {/* Company Stats Card - Upgraded Look */}
+        <div className="mb-6">
+          <div className="flex flex-row flex-wrap gap-2 justify-center items-center">
+            <div className="flex items-center gap-1 bg-blue-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+              <Briefcase className="w-4 h-4 text-blue-400" />
+              <span className="font-bold text-blue-200 text-sm">{jobs.length}</span>
+              <span className="text-xs text-gray-400 ml-1">Jobs Posted</span>
+            </div>
+            <div className="flex items-center gap-1 bg-green-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+              <CheckCircle className="w-4 h-4 text-green-400" />
+              <span className="font-bold text-green-200 text-sm">{Math.floor(jobs.length * 0.7)}</span>
+              <span className="text-xs text-gray-400 ml-1">Hired</span>
+            </div>
+            <div className="flex items-center gap-1 bg-purple-900/30 rounded-full px-3 py-1 shadow-sm min-w-[110px]">
+              <FolderKanban className="w-4 h-4 text-purple-400" />
+              <span className="font-bold text-purple-200 text-sm">{projects.filter((p: any) => p.visibility === 'public').length}</span>
+              <span className="text-xs text-gray-400 ml-1">Public Projects</span>
+            </div>
+            <div className="flex items-center gap-1 bg-pink-900/30 rounded-full px-3 py-1 shadow-sm min-w-[110px]">
+              <Handshake className="w-4 h-4 text-pink-400" />
+              <span className="font-bold text-pink-200 text-sm">7</span>
+              <span className="text-xs text-gray-400 ml-1">Deals</span>
+            </div>
+            <div className="flex items-center gap-1 bg-yellow-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+              <Star className="w-4 h-4 text-yellow-400" />
+              <span className="font-bold text-yellow-200 text-sm">4.8</span>
+              <span className="text-xs text-gray-400 ml-1">Rating</span>
+            </div>
+            <div className="flex items-center gap-1 bg-orange-900/30 rounded-full px-3 py-1 shadow-sm min-w-[110px]">
+              <MessageSquare className="w-4 h-4 text-orange-400" />
+              <span className="font-bold text-orange-200 text-sm">12</span>
+              <span className="text-xs text-gray-400 ml-1">Reviews</span>
+            </div>
+            <div className="flex items-center gap-1 bg-lime-900/30 rounded-full px-3 py-1 shadow-sm min-w-[110px]">
+              <Calendar className="w-4 h-4 text-lime-400" />
+              <span className="font-bold text-lime-200 text-sm">{company.founded ? (new Date().getFullYear() - Number(company.founded)) : '—'}</span>
+              <span className="text-xs text-gray-400 ml-1">Years</span>
+            </div>
+            <div className="flex items-center gap-1 bg-emerald-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+              <DollarSign className="w-4 h-4 text-emerald-400" />
+              <span className="font-bold text-emerald-200 text-sm">5</span>
+              <span className="text-xs text-gray-400 ml-1">Projects Funded</span>
+            </div>
+            <div className="flex items-center gap-1 bg-indigo-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+              <TrendingUp className="w-4 h-4 text-indigo-400" />
+              <span className="font-bold text-indigo-200 text-sm">3</span>
+              <span className="text-xs text-gray-400 ml-1">Funded Projects</span>
+            </div>
+          </div>
+        </div>
         {/* About */}
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-2">About {company.name}</h2>
           <p className="text-gray-200 whitespace-pre-line">{company.description}</p>
         </div>
-        {/* Projects */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-2">Featured Projects</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {projects.length === 0 && <div className="text-gray-400">No projects found for this company.</div>}
-            {projects.map((project: any) => (
-              <Card key={project.id} className="bg-gradient-to-br from-blue-500/5 to-purple-500/5 border-gray-800">
+        {/* Open Jobs */}
+        <h2 className="text-xl font-semibold mb-4">Open Jobs at {company.name}</h2>
+        <div className="space-y-4 mb-8">
+          {jobs.length === 0 && <div className="text-gray-400">No jobs found for this company.</div>}
+          {jobs.map((job: any) => (
+            <Link key={job.id} href={`/jobs/${job.id}`} className="block group">
+              <Card className="bg-gradient-to-br from-blue-500/5 to-purple-500/5 border-gray-800 hover:border-blue-500/40 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-blue-500/10 cursor-pointer">
                 <CardHeader>
-                  <CardTitle className="text-lg">{project.name}</CardTitle>
+                  <CardTitle className="text-lg text-blue-400 group-hover:underline">
+                    {job.title}
+                  </CardTitle>
+                  <CardDescription className="text-gray-400">
+                    {job.location || 'Remote'}
+                    {job.remote && <Badge variant="secondary" className="ml-2">Remote</Badge>}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-gray-300">{project.description}</div>
+                  <div className="text-gray-300 line-clamp-2 mb-2">{job.description}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {(job.skills || []).map((skill: any) => (
+                      <Badge key={skill} variant="secondary">{skill}</Badge>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
+            </Link>
+          ))}
         </div>
         {/* Media Section */}
         {company.media && company.media.length > 0 && (
@@ -284,33 +355,24 @@ export default function CompanyProfilePage() {
             </div>
           </div>
         )}
-        {/* Open Jobs */}
-        <h2 className="text-xl font-semibold mb-4">Open Jobs at {company.name}</h2>
-        <div className="space-y-4">
-          {jobs.length === 0 && <div className="text-gray-400">No jobs found for this company.</div>}
-          {jobs.map((job: any) => (
-            <Link key={job.id} href={`/jobs/${job.id}`} className="block group">
-              <Card className="bg-gradient-to-br from-blue-500/5 to-purple-500/5 border-gray-800 hover:border-blue-500/40 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-blue-500/10 cursor-pointer">
-                <CardHeader>
-                  <CardTitle className="text-lg text-blue-400 group-hover:underline">
-                    {job.title}
-                  </CardTitle>
-                  <CardDescription className="text-gray-400">
-                    {job.location || 'Remote'}
-                    {job.remote && <Badge variant="secondary" className="ml-2">Remote</Badge>}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-gray-300 line-clamp-2 mb-2">{job.description}</div>
-                  <div className="flex flex-wrap gap-2">
-                    {(job.skills || []).map((skill: any) => (
-                      <Badge key={skill} variant="secondary">{skill}</Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+        {/* Projects */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-2">Featured Projects</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {projects.filter((project: any) => project.visibility === 'public').length === 0 && <div className="text-gray-400">No public projects found for this company.</div>}
+            {projects.filter((project: any) => project.visibility === 'public').map((project: any) => (
+              <Link key={project.id} href={`/publicprojects/${project.id}`} className="block group">
+                <Card className="bg-gradient-to-br from-blue-500/5 to-purple-500/5 border-gray-800 group-hover:border-blue-500/40 transition-all duration-300 cursor-pointer">
+                  <CardHeader>
+                    <CardTitle className="text-lg group-hover:text-blue-400">{project.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-gray-300">{project.description}</div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </div>

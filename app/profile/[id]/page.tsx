@@ -43,7 +43,12 @@ import {
   RefreshCw,
   Handshake,
   CreditCard,
-  Eye
+  Eye,
+  CheckCircle,
+  Star,
+  UserCheck,
+  DollarSign,
+  TrendingUp
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -59,6 +64,18 @@ import {
 import Link from 'next/link'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { QRCodeCanvas } from 'qrcode.react'
+
+// Utility function to generate user initials
+const generateInitials = (name: string): string => {
+  if (!name || name.trim() === '') return '?'
+  
+  const nameParts = name.trim().split(' ')
+  if (nameParts.length === 1) {
+    return nameParts[0].charAt(0).toUpperCase()
+  }
+  
+  return (nameParts[0].charAt(0) + nameParts[nameParts.length - 1].charAt(0)).toUpperCase()
+}
 
 interface MediaItem {
   id: number
@@ -112,6 +129,7 @@ interface ProfileData {
   nickname?: string
   title1?: string
   title2?: string
+  identity_verified?: boolean // <-- add this
 }
 
 const defaultProfileData: ProfileData = {
@@ -135,6 +153,7 @@ const defaultProfileData: ProfileData = {
   avatar_url: '/placeholder-avatar.jpg',
   title1: '',
   title2: '',
+  identity_verified: false,
 }
 
 export default function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -183,7 +202,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
         // Fetch user data (for avatar, email, and titles)
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('*')
+          .select('*, identity_verified') // <-- fetch identity_verified
           .eq('id', id)
           .single()
         if (userError) {
@@ -270,6 +289,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           nickname: profile?.nickname || userData?.nickname || undefined,
           title1: userData?.title1 || '',
           title2: userData?.title2 || '',
+          identity_verified: userData?.identity_verified || false,
         }
         setProfileData(transformedData)
       } catch (err) {
@@ -546,18 +566,6 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
     await updateProfileField('education', updatedEdu)
   }
 
-  useEffect(() => {
-    const fetchPublicProjects = async () => {
-      const { data, error } = await supabase
-        .from('publicprojects')
-        .select('id')
-      if (!error && data) {
-        setPublicProjectIds(data.map((p: { id: string }) => p.id))
-      }
-    }
-    fetchPublicProjects()
-  }, [])
-
   // Add the updateProfileRow handler
   const handleProfileUpdate = async () => {
     if (!user) return
@@ -628,12 +636,18 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               <CardContent className="pt-6">
                 <div className="flex flex-col items-center">
                   <div className="relative w-32 h-32 rounded-full overflow-hidden mb-4">
-                    <Image
-                      src={profileData.avatar_url || '/placeholder-avatar.jpg'}
-                      alt={profileData.name}
-                      fill
-                      className="object-cover"
-                    />
+                    {profileData.avatar_url && profileData.avatar_url !== '/placeholder-avatar.jpg' ? (
+                      <Image
+                        src={profileData.avatar_url}
+                        alt={profileData.name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-800 text-white text-3xl font-bold">
+                        {generateInitials(profileData.name)}
+                      </div>
+                    )}
                     {isOwner && !profileMissing && (
                       <div className="absolute bottom-2 right-2 flex gap-2">
                         <input
@@ -666,12 +680,19 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                       </div>
                     )}
                   </div>
-                  <h1 className="text-2xl font-bold text-white mb-1">
-                    {profileData.name}
+                  <div className="flex flex-col items-center gap-2">
+                    <h1 className="text-3xl font-bold text-center">
+                      {profileData.name}
+                      {profileData.identity_verified && (
+                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-blue-600 text-white text-xs font-semibold">
+                          <CheckCircle className="w-4 h-4 mr-1 text-white" /> Verified
+                        </span>
+                      )}
+                    </h1>
                     {profileData.nickname && profileData.nickname.trim() !== '' && (
                       <span className="ml-2 text-base text-blue-400 font-normal">({profileData.nickname})</span>
                     )}
-                  </h1>
+                  </div>
                   {/* Titles Inline Edit */}
                   <div className="flex flex-row items-center gap-2 mb-2 justify-center">
                     {/* Title 1 */}
@@ -967,42 +988,89 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                           <DialogTitle>Start a Deal with this User</DialogTitle>
                         </DialogHeader>
                         <div className="flex flex-col gap-4 mt-4">
-                          <Link href="#" passHref legacyBehavior>
-                            <Button className="w-full gradient-button flex items-center gap-2" onClick={e => {
-                              if (user?.id === profileData.user_id) {
-                                e.preventDefault();
-                                toast.error('You cannot make a deal with yourself.');
-                              } else {
-                                router.push(`/makedeal?partner=${profileData.user_id}`);
-                              }
-                            }}>
-                              <Briefcase className="w-4 h-4" />
-                              From Project
-                            </Button>
-                          </Link>
-                          <Link href="#" passHref legacyBehavior>
-                            <Button className="w-full gradient-button flex items-center gap-2" onClick={e => {
-                              if (user?.id === profileData.user_id) {
-                                e.preventDefault();
-                                toast.error('You cannot make a deal with yourself.');
-                              } else {
-                                router.push(`/customdeal?partner=${profileData.user_id}`);
-                              }
-                            }}>
-                              <Handshake className="w-4 h-4" />
-                              Custom Deal
-                            </Button>
-                          </Link>
+                          <Button className="w-full gradient-button flex items-center gap-2" onClick={e => {
+                            if (user?.id === profileData.user_id) {
+                              e.preventDefault();
+                              toast.error('You cannot make a deal with yourself.');
+                            } else {
+                              router.push(`/makedeal?partner=${profileData.user_id}`);
+                            }
+                          }}>
+                            <Briefcase className="w-4 h-4" />
+                            From Project
+                          </Button>
+                          <Button className="w-full gradient-button flex items-center gap-2" onClick={e => {
+                            if (user?.id === profileData.user_id) {
+                              e.preventDefault();
+                              toast.error('You cannot make a deal with yourself.');
+                            } else {
+                              router.push(`/custom-deal?partner=${profileData.user_id}`);
+                            }
+                          }}>
+                            <Handshake className="w-4 h-4" />
+                            Custom Deal
+                          </Button>
                           {/* View Open Deals Option */}
-                          <Link href={`/profile/${profileData.user_id}/deals`} passHref legacyBehavior>
-                            <Button className="w-full gradient-button flex items-center gap-2" variant="secondary">
-                              <Eye className="w-4 h-4" />
-                              View Open Deals
-                            </Button>
-                          </Link>
+                          <Button className="w-full gradient-button flex items-center gap-2" onClick={() => router.push(`/profile/${profileData.user_id}/deals`)}>
+                            <Eye className="w-4 h-4" />
+                            View Open Deals
+                          </Button>
                         </div>
                       </DialogContent>
                     </Dialog>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Mini Analytics Card */}
+            <Card className="leonardo-card border-gray-800 mb-3 p-2">
+              <CardContent className="p-2">
+                <div className="flex flex-row flex-wrap gap-2 justify-center items-center">
+                  <div className="flex items-center gap-1 bg-blue-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+                    <Briefcase className="w-4 h-4 text-blue-400" />
+                    <span className="font-bold text-blue-200 text-sm">4</span>
+                    <span className="text-xs text-gray-400 ml-1">Projects</span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-purple-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+                    <Handshake className="w-4 h-4 text-purple-400" />
+                    <span className="font-bold text-purple-200 text-sm">7</span>
+                    <span className="text-xs text-gray-400 ml-1">Deals</span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-green-900/30 rounded-full px-3 py-1 shadow-sm min-w-[110px]">
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                    <span className="font-bold text-green-200 text-sm">15</span>
+                    <span className="text-xs text-gray-400 ml-1">Tasks</span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-yellow-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+                    <Star className="w-4 h-4 text-yellow-400" />
+                    <span className="font-bold text-yellow-200 text-sm">6</span>
+                    <span className="text-xs text-gray-400 ml-1">Skills</span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-pink-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+                    <Award className="w-4 h-4 text-pink-400" />
+                    <span className="font-bold text-pink-200 text-sm">2</span>
+                    <span className="text-xs text-gray-400 ml-1">Years</span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-cyan-900/30 rounded-full px-3 py-1 shadow-sm min-w-[110px]">
+                    <UserCheck className="w-4 h-4 text-cyan-400" />
+                    <span className="font-bold text-cyan-200 text-sm">98%</span>
+                    <span className="text-xs text-gray-400 ml-1">Profile</span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-emerald-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    <span className="font-bold text-emerald-200 text-sm">95%</span>
+                    <span className="text-xs text-gray-400 ml-1">Professionalism</span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-orange-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+                    <DollarSign className="w-4 h-4 text-orange-400" />
+                    <span className="font-bold text-orange-200 text-sm">3</span>
+                    <span className="text-xs text-gray-400 ml-1">Projects Funded</span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-indigo-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+                    <TrendingUp className="w-4 h-4 text-indigo-400" />
+                    <span className="font-bold text-indigo-200 text-sm">2</span>
+                    <span className="text-xs text-gray-400 ml-1">I Funded</span>
                   </div>
                 </div>
               </CardContent>

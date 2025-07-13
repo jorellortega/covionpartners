@@ -62,34 +62,140 @@ export default function ProjectFilesPage() {
   const [selectedFileType, setSelectedFileType] = useState<string>("all")
 
   useEffect(() => {
-    fetchProjects()
-    fetchFiles()
-  }, [selectedProject])
+    if (!user?.id) return;
+    fetchProjects();
+    fetchFiles();
+  }, [user]);
 
   const fetchProjects = async () => {
-    const { data: projectsData, error: projectsError } = await supabase
-      .from('projects')
-      .select('id, name')
-      .order('name')
+    if (!user?.id) return;
+    try {
+      // Get projects the user owns
+      const { data: ownedProjects, error: ownedError } = await supabase
+        .from('projects')
+        .select('id, name')
+        .eq('owner_id', user?.id)
+        .order('name')
 
-    if (!projectsError && projectsData) {
-      setProjects(projectsData)
+      if (ownedError) throw ownedError
+
+      // Get projects where user is a team member
+      const { data: teamMemberships, error: teamError } = await supabase
+        .from('team_members')
+        .select('project_id')
+        .eq('user_id', user?.id)
+
+      if (teamError) throw teamError
+
+      const teamProjectIds = teamMemberships?.map(t => t.project_id) || []
+
+      let teamProjects: Project[] = []
+      if (teamProjectIds.length > 0) {
+        const { data: teamProjectsData, error: teamProjectsError } = await supabase
+          .from('projects')
+          .select('id, name')
+          .in('id', teamProjectIds)
+          .order('name')
+
+        if (teamProjectsError) throw teamProjectsError
+        teamProjects = teamProjectsData || []
+      }
+
+      // Get projects where user has a role
+      const { data: projectRoles, error: rolesError } = await supabase
+        .from('project_roles')
+        .select('project_id')
+        .eq('user_id', user?.id)
+
+      if (rolesError) throw rolesError
+
+      const roleProjectIds = projectRoles?.map(r => r.project_id) || []
+
+      let roleProjects: Project[] = []
+      if (roleProjectIds.length > 0) {
+        const { data: roleProjectsData, error: roleProjectsError } = await supabase
+          .from('projects')
+          .select('id, name')
+          .in('id', roleProjectIds)
+          .order('name')
+
+        if (roleProjectsError) throw roleProjectsError
+        roleProjects = roleProjectsData || []
+      }
+
+      // Combine and deduplicate projects from all sources
+      const allProjects = [...(ownedProjects || []), ...teamProjects, ...roleProjects]
+      const uniqueProjects = allProjects.filter((project, index, self) =>
+        index === self.findIndex(p => p.id === project.id)
+      )
+
+      setProjects(uniqueProjects)
+    } catch (error) {
+      console.error('Error fetching projects:', error)
+      toast.error('Failed to fetch projects')
     }
   }
 
   const fetchFiles = async () => {
+    if (!user?.id) return;
     setIsLoading(true)
     try {
+      // First, get all projects the user has access to
+      const { data: userProjects, error: projectsError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('owner_id', user?.id)
+
+      if (projectsError) throw projectsError
+
+      // Get projects where user is a team member
+      const { data: teamMemberships, error: teamError } = await supabase
+        .from('team_members')
+        .select('project_id')
+        .eq('user_id', user?.id)
+
+      if (teamError) throw teamError
+
+      // Get projects where user has a role
+      const { data: projectRoles, error: rolesError } = await supabase
+        .from('project_roles')
+        .select('project_id')
+        .eq('user_id', user?.id)
+
+      if (rolesError) throw rolesError
+
+      // Combine project IDs from all sources
+      const ownedProjectIds = userProjects?.map(p => p.id) || []
+      const teamProjectIds = teamMemberships?.map(t => t.project_id) || []
+      const roleProjectIds = projectRoles?.map(r => r.project_id) || []
+      const allAccessibleProjectIds = [...new Set([...ownedProjectIds, ...teamProjectIds, ...roleProjectIds])]
+
+      if (allAccessibleProjectIds.length === 0) {
+        setFiles([])
+        setIsLoading(false)
+        return
+      }
+
+      // Now fetch files only from accessible projects
       let query = supabase
         .from('project_files')
         .select(`
           *,
           project:projects(name)
         `)
+        .in('project_id', allAccessibleProjectIds)
         .order('created_at', { ascending: false })
 
       if (selectedProject !== "all") {
-        query = query.eq('project_id', selectedProject)
+        // Only filter by selected project if user has access to it
+        if (allAccessibleProjectIds.includes(selectedProject)) {
+          query = query.eq('project_id', selectedProject)
+        } else {
+          // If user doesn't have access to selected project, show no files
+          setFiles([])
+          setIsLoading(false)
+          return
+        }
       }
 
       const { data, error } = await query

@@ -34,7 +34,7 @@ export default function ApplyForRolePage() {
   const [formData, setFormData] = useState({
     coverLetter: "",
     experience: "",
-    linkedinUrl: "",
+    socialLinks: "",
     portfolioUrl: "",
   })
 
@@ -103,7 +103,7 @@ export default function ApplyForRolePage() {
           role_name: roleName,
           cover_letter: formData.coverLetter,
           experience: formData.experience,
-          linkedin_url: formData.linkedinUrl,
+          social_links: formData.socialLinks,
           portfolio_url: formData.portfolioUrl,
           status: 'pending'
         })
@@ -195,13 +195,13 @@ export default function ApplyForRolePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="linkedinUrl">LinkedIn Profile URL (Optional)</Label>
+                <Label htmlFor="socialLinks">Social Links (Optional)</Label>
                 <Input
-                  id="linkedinUrl"
-                  type="url"
-                  placeholder="https://linkedin.com/in/your-profile"
-                  value={formData.linkedinUrl}
-                  onChange={(e) => setFormData({ ...formData, linkedinUrl: e.target.value })}
+                  id="socialLinks"
+                  type="text"
+                  placeholder="https://twitter.com/yourprofile, https://linkedin.com/in/your-profile, etc."
+                  value={formData.socialLinks}
+                  onChange={(e) => setFormData({ ...formData, socialLinks: e.target.value })}
                 />
               </div>
 

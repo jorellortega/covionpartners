@@ -50,6 +50,7 @@ import {
   FileX,
   Eye,
   Archive,
+  StickyNote,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -652,6 +653,9 @@ export default function ProjectDetails() {
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [newLabel, setNewLabel] = useState('');
   const [newLabelStatus, setNewLabelStatus] = useState('draft');
+  const [notes, setNotes] = useState<any[]>([])
+  const [newNote, setNewNote] = useState("")
+  const [loadingNotes, setLoadingNotes] = useState(false)
 
   const fetchTeamFiles = async () => {
     if (!projectId) return;
@@ -952,6 +956,48 @@ export default function ProjectDetails() {
 
     fetchComments();
   }, [projectId]);
+
+  // Fetch notes for this project
+  useEffect(() => {
+    if (!projectId) return;
+    const fetchNotes = async () => {
+      setLoadingNotes(true)
+      const { data, error } = await supabase
+        .from('notes')
+        .select('*, created_by:created_by (id, full_name, email)')
+        .eq('entity_type', 'project')
+        .eq('entity_id', projectId)
+        .order('created_at', { ascending: false })
+      if (!error) setNotes(data || [])
+      setLoadingNotes(false)
+    }
+    fetchNotes()
+  }, [projectId])
+
+  const handleAddNote = async () => {
+    if (!newNote.trim() || !user) return
+    const { data, error } = await supabase
+      .from('notes')
+      .insert([{
+        entity_type: 'project',
+        entity_id: projectId,
+        content: newNote.trim(),
+        created_by: user.id,
+        created_at: new Date().toISOString(),
+        note_title: '',
+        entity_title: project?.name || '',
+      }])
+      .select()
+      .single()
+    if (!error && data) {
+      setNotes(prev => [data, ...prev])
+      setNewNote("")
+    }
+  }
+  const handleDeleteNote = async (noteId: string) => {
+    const { error } = await supabase.from('notes').delete().eq('id', noteId)
+    if (!error) setNotes(prev => prev.filter(n => n.id !== noteId))
+  }
 
   const handleEditMember = (member: TeamMemberWithUser) => {
     setSelectedMember(member)
@@ -2568,7 +2614,7 @@ export default function ProjectDetails() {
                         <div className="flex flex-col gap-2">
                           <Button
                             variant="outline"
-                            onClick={() => router.push('/projectfiles')}
+                            onClick={() => router.push(`/projectfiles/${projectId}`)}
                             className="w-full sm:w-auto"
                           >
                             <FileText className="w-4 h-4 mr-2" />
@@ -3588,6 +3634,62 @@ export default function ProjectDetails() {
                       <p className="text-gray-500 mt-1">Add expenses to track project costs</p>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Project Notes Card */}
+            {(isOwner || currentMember) && (
+              <Card className="leonardo-card border-gray-800 mt-6">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <StickyNote className="w-5 h-5 text-yellow-400" />
+                    <CardTitle>Project Notes</CardTitle>
+                  </div>
+                  <CardDescription className="text-gray-400">Private notes for this project (team only)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex gap-2 items-start">
+                      <Textarea
+                        value={newNote}
+                        onChange={e => setNewNote(e.target.value)}
+                        placeholder="Add a note..."
+                        className="flex-1 min-h-[60px] bg-gray-800/30"
+                        disabled={loadingNotes}
+                      />
+                      <Button
+                        onClick={handleAddNote}
+                        disabled={!newNote.trim() || loadingNotes}
+                        className="gradient-button self-end"
+                      >
+                        Add
+                      </Button>
+                    </div>
+                    {loadingNotes ? (
+                      <div className="text-gray-400">Loading notes...</div>
+                    ) : notes.length === 0 ? (
+                      <div className="text-gray-400">No notes yet.</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {notes.map(note => (
+                          <div key={note.id} className="p-3 bg-gray-800/50 rounded-lg flex justify-between items-start">
+                            <div>
+                              <div className="text-sm text-white whitespace-pre-line">{note.content}</div>
+                              <div className="text-xs text-gray-400 mt-1">
+                                By {note.created_by?.full_name || note.created_by?.email || 'Unknown'} on {note.created_at ? new Date(note.created_at).toLocaleDateString() : ''}
+                              </div>
+                            </div>
+                            {(user?.id === note.created_by?.id || isOwner) && (
+                              <Button size="icon" variant="ghost" className="text-red-400 hover:text-red-300" onClick={() => handleDeleteNote(note.id)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             )}

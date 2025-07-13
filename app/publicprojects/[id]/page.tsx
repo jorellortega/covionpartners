@@ -49,6 +49,7 @@ import { QRCodeCanvas } from 'qrcode.react'
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import Image from "next/image"
+import { Switch } from "@/components/ui/switch"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -110,6 +111,8 @@ export default function PublicProjectDetails() {
   const [donationAmount, setDonationAmount] = useState("")
   const qrRef = useRef<any>(null)
   const [selectedImage, setSelectedImage] = useState(0)
+  const [updatingResourceSetting, setUpdatingResourceSetting] = useState(false)
+  const [updatingOpenPositionsSetting, setUpdatingOpenPositionsSetting] = useState(false)
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -359,6 +362,48 @@ export default function PublicProjectDetails() {
     router.push(`/purchase2support?project=${project.id}`)
   }
 
+  // Handler to toggle public_resources_enabled
+  const handleTogglePublicResources = async () => {
+    if (!project) return;
+    setUpdatingResourceSetting(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .update({ public_resources_enabled: !project.public_resources_enabled })
+        .eq('id', String(project.id))
+        .select()
+        .single();
+      if (error) throw error;
+      setProject(data);
+      toast.success(`Project resources for public are now ${data.public_resources_enabled ? 'enabled' : 'disabled'}`);
+    } catch (err) {
+      toast.error('Failed to update resource visibility');
+    } finally {
+      setUpdatingResourceSetting(false);
+    }
+  };
+
+  // Handler to toggle public_open_positions_enabled
+  const handleTogglePublicOpenPositions = async () => {
+    if (!project) return;
+    setUpdatingOpenPositionsSetting(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .update({ public_open_positions_enabled: !project.public_open_positions_enabled })
+        .eq('id', String(project.id))
+        .select()
+        .single();
+      if (error) throw error;
+      setProject(data);
+      toast.success(`Open positions for public are now ${data.public_open_positions_enabled ? 'enabled' : 'disabled'}`);
+    } catch (err) {
+      toast.error('Failed to update open positions visibility');
+    } finally {
+      setUpdatingOpenPositionsSetting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -580,65 +625,82 @@ export default function PublicProjectDetails() {
               </CardContent>
             </Card>
 
-            {/* Project Resources */}
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FileText className="w-5 h-5 mr-2" />
-                  Project Resources
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Available documents and materials
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {resources.length === 0 ? (
-                    <div className="text-center py-8">
-                      <File className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-400">No resources available yet</p>
-                    </div>
-                  ) : (
-                    resources.map((resource) => (
-                      <div key={resource.id} className="p-4 bg-gray-800/30 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <FileType className="w-8 h-8 text-blue-400 mr-3" />
-                            <div>
-                              <h4 className="font-medium text-white">{resource.name}</h4>
-                              <p className="text-sm text-gray-400">
-                                {resource.file_type.toUpperCase()} • {formatFileSize(resource.size)}
-                              </p>
-                            </div>
-                          </div>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-gray-400 hover:text-white"
-                            onClick={() => handleDownload(resource)}
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
+            {/* Project Resources Toggle (Owner Only) */}
+            {user && project && user.id === (project.owner_id || project.owner?.id) && (
+              <div className="flex items-center mb-4 gap-3">
+                <Switch
+                  checked={!!project.public_resources_enabled}
+                  onCheckedChange={handleTogglePublicResources}
+                  disabled={updatingResourceSetting}
+                  id="toggle-public-resources"
+                />
+                <Label htmlFor="toggle-public-resources">
+                  {project.public_resources_enabled ? 'Public can view/upload resources' : 'Hide resources from public'}
+                </Label>
+              </div>
+            )}
 
-                  {/* Upload section - only visible to project owner */}
-                  {user && project.owner_id === user.id && (
-                    <div className="mt-6 border-t border-gray-800 pt-6">
-                      <Button 
-                        className="w-full gradient-button"
-                        onClick={() => setIsUploadOpen(true)}
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload New Resource
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            {/* Project Resources */}
+            {project?.public_resources_enabled && (
+              <Card className="leonardo-card border-gray-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <FileText className="w-5 h-5 mr-2" />
+                    Project Resources
+                  </CardTitle>
+                  <CardDescription className="text-gray-400">
+                    Available documents and materials
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {resources.length === 0 ? (
+                      <div className="text-center py-8">
+                        <File className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-400">No resources available yet</p>
+                      </div>
+                    ) : (
+                      resources.map((resource) => (
+                        <div key={resource.id} className="p-4 bg-gray-800/30 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <FileType className="w-8 h-8 text-blue-400 mr-3" />
+                              <div>
+                                <h4 className="font-medium text-white">{resource.name}</h4>
+                                <p className="text-sm text-gray-400">
+                                  {resource.file_type.toUpperCase()} • {formatFileSize(resource.size)}
+                                </p>
+                              </div>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-gray-400 hover:text-white"
+                              onClick={() => handleDownload(resource)}
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+
+                    {/* Upload section - only visible to project owner */}
+                    {user && project.owner_id === user.id && (
+                      <div className="mt-6 border-t border-gray-800 pt-6">
+                        <Button 
+                          className="w-full gradient-button"
+                          onClick={() => setIsUploadOpen(true)}
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          Upload New Resource
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Project Overview */}
             <Card className="leonardo-card border-gray-800">
@@ -874,87 +936,81 @@ export default function PublicProjectDetails() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Team Roles */}
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Briefcase className="w-5 h-5 mr-2" />
-                  Open Positions
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Roles we're looking to fill
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {openRoles.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-400">No open positions at the moment</p>
-                    </div>
-                  ) : (
-                    openRoles.map((role) => (
-                      <div key={role.id} className="p-4 bg-gray-800/30 rounded-lg">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h4 className="font-medium text-white">{role.role_name}</h4>
-                            <p className="text-sm text-gray-400">{role.description}</p>
-                          </div>
-                          <Badge variant="outline" className="bg-blue-500/20 text-blue-400 border-blue-500/50">
-                            {role.positions_needed} needed
-                          </Badge>
-                        </div>
-                        <Button 
-                          className="w-full mt-2 gradient-button"
-                          onClick={() => {
-                            if (!user) {
-                              router.push(`/login?redirect=/publicprojects/${project.id}`)
-                              return
-                            }
-                            router.push(`/publicprojects/${project.id}/apply?role=${role.id}&roleName=${encodeURIComponent(role.role_name)}`)
-                          }}
-                        >
-                          <UserPlus className="w-4 h-4 mr-2" />
-                          Apply for Role
-                        </Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            {/* Open Positions Toggle (Owner Only) */}
+            {user && project && user.id === (project.owner_id || project.owner?.id) && (
+              <div className="flex items-center mb-4 gap-3">
+                <Switch
+                  checked={!!project.public_open_positions_enabled}
+                  onCheckedChange={handleTogglePublicOpenPositions}
+                  disabled={updatingOpenPositionsSetting}
+                  id="toggle-public-open-positions"
+                />
+                <Label htmlFor="toggle-public-open-positions">
+                  {project.public_open_positions_enabled ? 'Public can view open positions' : 'Hide open positions from public'}
+                </Label>
+              </div>
+            )}
 
-            {/* Project Stats */}
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader>
-                <CardTitle>Project Stats</CardTitle>
-                <CardDescription className="text-gray-400">
-                  Key metrics and statistics
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 bg-gray-800/30 rounded-lg">
-                    <div className="flex items-center text-gray-400 mb-2">
-                      <Users className="w-4 h-4 mr-2" />
-                      <span>Owner</span>
-                    </div>
-                    <div className="text-white font-medium">
-                      {project.owner?.name || 'Unknown'}
-                    </div>
+            {/* Team Roles (Open Positions) */}
+            {project?.public_open_positions_enabled && (
+              <Card className="leonardo-card border-gray-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Briefcase className="w-5 h-5 mr-2" />
+                    Open Positions
+                  </CardTitle>
+                  <CardDescription className="text-gray-400">
+                    Roles we're looking to fill
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {openRoles.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-400">No open positions at the moment</p>
+                      </div>
+                    ) : (
+                      openRoles.map((role) => (
+                        <div key={role.id} className="p-4 bg-gray-800/30 rounded-lg">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-medium text-white">{role.role_name}</h4>
+                              <p className="text-sm text-gray-400">{role.description}</p>
+                            </div>
+                            <Badge variant="outline" className="bg-blue-500/20 text-blue-400 border-blue-500/50">
+                              {role.positions_needed} needed
+                            </Badge>
+                          </div>
+                          <Button 
+                            className="w-full mt-2 gradient-button"
+                            onClick={() => {
+                              if (!user) {
+                                router.push(`/login?redirect=/publicprojects/${project.id}`)
+                                return
+                              }
+                              router.push(`/publicprojects/${project.id}/apply?role=${role.id}&roleName=${encodeURIComponent(role.role_name)}`)
+                            }}
+                          >
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            Apply for Role
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                    {/* Owner-only manage roles button */}
+                    {user && project && user.id === (project.owner_id || project.owner?.id) && (
+                      <Button
+                        className="w-full mt-4 bg-purple-700 hover:bg-purple-800 text-white"
+                        onClick={() => router.push(`/projects/${project.id}/roles`)}
+                      >
+                        Manage Open Positions
+                      </Button>
+                    )}
                   </div>
-                  <div className="p-4 bg-gray-800/30 rounded-lg">
-                    <div className="flex items-center text-gray-400 mb-2">
-                      <Calendar className="w-4 h-4 mr-2" />
-                      <span>Last Updated</span>
-                    </div>
-                    <div className="text-white font-medium">
-                      {formatDate(project.updated_at)}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Action Buttons */}
             {user ? (

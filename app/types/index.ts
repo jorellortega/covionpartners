@@ -2,6 +2,8 @@ export interface Project {
   goals?: string;
   target_market?: string;
   open_positions?: any[];
+  public_resources_enabled?: boolean;
+  public_open_positions_enabled?: boolean;
 }
 
 export interface Job {
