@@ -709,7 +709,7 @@ export default function WorkModePage() {
           </div>
         </div>
       </header>
-      <main className="max-w-5xl mx-auto py-6 px-4 grid grid-cols-12 gap-6">
+      <main className="max-w-5xl mx-auto py-6 px-2 sm:px-4 grid grid-cols-12 gap-4 sm:gap-6">
         {/* Left sidebar: Project Focus, Presence & Sessions */}
         <div className="col-span-12 md:col-span-3 space-y-4">
           {/* Current Project Focus */}
@@ -918,28 +918,28 @@ export default function WorkModePage() {
           </Card>
         </div>
         {/* Main content: Rooms, Comments, Activity */}
-        <div className="col-span-12 md:col-span-9 space-y-6">
-          <Tabs value={activeRoom} onValueChange={setActiveRoom} className="w-full">
-            <TabsList className="flex gap-2 bg-gray-800/50">
+        <div className="col-span-12 md:col-span-9 space-y-6 min-w-0">
+          <Tabs value={activeRoom} onValueChange={setActiveRoom} className="w-full overflow-x-auto max-w-full">
+            <TabsList className="flex gap-2 bg-gray-800/50 overflow-x-auto max-w-full rounded-lg p-1">
               {mockRooms.map(r => (
-                <TabsTrigger key={r.id} value={r.id} className="flex items-center gap-1">{r.icon}{r.name}</TabsTrigger>
+                <TabsTrigger key={r.id} value={r.id} className="flex items-center gap-1 whitespace-nowrap px-2 py-1 text-sm sm:text-base">{r.icon}{r.name}</TabsTrigger>
               ))}
             </TabsList>
             {mockRooms.map(r => (
-              <TabsContent key={r.id} value={r.id} className="pt-4">
-                <Card className="leonardo-card border-gray-800 mb-4">
+              <TabsContent key={r.id} value={r.id} className="pt-2 sm:pt-4">
+                <Card className="leonardo-card border-gray-800 mb-4 w-full max-w-full">
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
                     <CardTitle className="text-lg flex items-center">{r.icon}{r.name} Room</CardTitle>
-                    <Button size="sm" variant="outline" className="border-gray-700">+ New {r.name === 'Files' ? 'File' : r.name === 'Notes' ? 'Note' : r.name === 'Tasks' ? 'Task' : 'Message'}</Button>
+                    <Button size="sm" variant="outline" className="border-gray-700 text-xs px-2 py-1">+ New {r.name === 'Files' ? 'File' : r.name === 'Notes' ? 'Note' : r.name === 'Tasks' ? 'Task' : 'Message'}</Button>
                   </CardHeader>
                   <CardContent>
                     {r.id === 'general' ? (
                       <div className="space-y-3">
                         {/* Group Chat Selector */}
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-300 mb-1">Select Group Chat</label>
+                        <div className="mb-2 sm:mb-4">
+                          <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1">Select Group Chat</label>
                           <select
-                            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white"
+                            className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-2 text-white text-xs sm:text-base"
                             value={group?.id || ''}
                             onChange={e => {
                               const selected = groupChats.find(g => g.id === e.target.value)
@@ -955,7 +955,7 @@ export default function WorkModePage() {
                             )}
                           </select>
                         </div>
-                        <div className="space-y-4 h-[400px] overflow-y-auto pr-4 bg-gray-900 rounded-lg p-4">
+                        <div className="space-y-4 h-[300px] sm:h-[400px] overflow-y-auto pr-2 sm:pr-4 bg-gray-900 rounded-lg p-2 sm:p-4">
                           {messagesLoading ? (
                             <div className="text-gray-400">Loading messages...</div>
                           ) : messages.length === 0 ? (
@@ -972,16 +972,16 @@ export default function WorkModePage() {
                               } catch {}
                               const isEditing = editingMessageId === msg.id;
                               return (
-                                <div key={msg.id} className={`flex items-start gap-3 ${msg.sender_id === user?.id ? 'justify-end' : ''}`}>
+                                <div key={msg.id} className={`flex items-start gap-2 sm:gap-3 ${msg.sender_id === user?.id ? 'justify-end' : ''}`}>
                                   {msg.sender_id !== user?.id && (
-                                    <Avatar className="w-8 h-8">
+                                    <Avatar className="w-7 h-7 sm:w-8 sm:h-8">
                                       <AvatarImage src={msg.sender?.avatar_url || undefined} />
                                       <AvatarFallback>{msg.sender?.name ? msg.sender.name[0] : '?'}</AvatarFallback>
                                     </Avatar>
                                   )}
-                                  <div>
-                                    <div className={`px-4 py-2 rounded-lg ${isTaskCard || isProjectCard ? 'bg-transparent' : (msg.sender_id === user?.id ? 'bg-cyan-700/80 text-white' : 'bg-gray-800/80 text-gray-100')}`}> 
-                                      <span className="font-medium">{msg.sender?.name || 'Unknown'}</span>
+                                  <div className="min-w-0 max-w-[80vw] sm:max-w-md">
+                                    <div className={`px-3 py-2 rounded-lg break-words ${isTaskCard || isProjectCard ? 'bg-transparent' : (msg.sender_id === user?.id ? 'bg-cyan-700/80 text-white' : 'bg-gray-800/80 text-gray-100')}`}> 
+                                      <span className="font-medium text-xs sm:text-sm">{msg.sender?.name || 'Unknown'}</span>
                                       <div className="flex items-center gap-2 mt-1">
                                         {isEditing ? (
                                           <>
@@ -1119,14 +1119,14 @@ export default function WorkModePage() {
                             })
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mt-4">
-                          <Input placeholder="Type a message..." value={newMessage} onChange={e => setNewMessage(e.target.value)} className="flex-1 bg-gray-800 border-gray-700 text-white" onKeyDown={e => e.key === 'Enter' && handleSendMessage()} />
-                          <Button className="bg-gradient-to-r from-cyan-500 to-emerald-500" onClick={handleSendMessage}><Send className="w-4 h-4" /></Button>
+                        <div className="flex items-center gap-2 mt-2 sm:mt-4">
+                          <Input placeholder="Type a message..." value={newMessage} onChange={e => setNewMessage(e.target.value)} className="flex-1 bg-gray-800 border-gray-700 text-white text-xs sm:text-base" onKeyDown={e => e.key === 'Enter' && handleSendMessage()} />
+                          <Button className="bg-gradient-to-r from-cyan-500 to-emerald-500 px-3 py-2 sm:px-4 sm:py-2" onClick={handleSendMessage}><Send className="w-4 h-4" /></Button>
                         </div>
                       </div>
                     ) : r.id === 'tasks' ? (
                       <div className="space-y-3">
-                        <div className="space-y-4 h-[400px] overflow-y-auto pr-4 bg-gray-900 rounded-lg p-4">
+                        <div className="space-y-4 h-[300px] sm:h-[400px] overflow-y-auto pr-2 sm:pr-4 bg-gray-900 rounded-lg p-2 sm:p-4">
                           {tasksLoading ? (
                             <div className="text-gray-400">Loading tasks...</div>
                           ) : projectTasks.length === 0 ? (
@@ -1135,12 +1135,12 @@ export default function WorkModePage() {
                             projectTasks.map(task => (
                               <div
                                 key={task.id}
-                                className="flex items-start gap-3 bg-gray-800/80 rounded-lg p-3 mb-2 cursor-pointer hover:bg-gray-700 transition"
+                                className="flex items-start gap-2 sm:gap-3 bg-gray-800/80 rounded-lg p-2 sm:p-3 mb-2 cursor-pointer hover:bg-gray-700 transition"
                                 onClick={() => router.push(`/task/${task.id}`)}
                               >
                                 <div className="flex-1">
-                                  <div className="font-semibold text-white text-base">{task.title}</div>
-                                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                                  <div className="font-semibold text-white text-xs sm:text-base">{task.title}</div>
+                                  <div className="flex items-center gap-2 sm:gap-3 mt-1 text-xs text-gray-400">
                                     <span>Status: <span className="font-medium">{task.status}</span></span>
                                     <span>Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : '--'}</span>
                                     <span>Priority: <span className="font-medium">{task.priority}</span></span>
@@ -1151,42 +1151,25 @@ export default function WorkModePage() {
                           )}
                         </div>
                       </div>
-                    ) : r.id === 'notes' ? (
+                    ) : (
                       <div className="space-y-3">
-                        <div className="space-y-4 h-[400px] overflow-y-auto pr-4 bg-gray-900 rounded-lg p-4">
-                          {notesLoading ? (
-                            <div className="text-gray-400">Loading notes...</div>
-                          ) : projectNotes.length === 0 ? (
-                            <div className="text-gray-400">No notes found for this project.</div>
-                          ) : (
-                            projectNotes.map(note => (
-                              <Link key={note.id} href={`/notes/${note.id}`} className="block bg-gray-800/80 rounded-lg p-3 mb-2 hover:bg-gray-700 transition">
-                                <div className="text-gray-200 whitespace-pre-line">{note.content}</div>
-                                <div className="text-xs text-gray-500 mt-2">{new Date(note.created_at).toLocaleString()}</div>
-                              </Link>
-                            ))
-                          )}
+                        {/* Comments/Threads for other tabs */}
+                        <div className="space-y-4 h-[200px] sm:h-[300px] overflow-y-auto pr-2 sm:pr-4 bg-gray-900 rounded-lg p-2 sm:p-4">
+                          {mockComments.map(c => (
+                            <div key={c.id} className="flex items-start gap-2 sm:gap-3">
+                              <User className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400 mt-1" />
+                              <div>
+                                <div className="font-semibold text-white text-xs sm:text-sm">{c.user} <span className="text-xs text-gray-400 ml-2">{c.time}</span></div>
+                                <div className="text-gray-300 text-xs sm:text-base">{c.content}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 mt-2 sm:mt-4">
+                          <Input placeholder="Type a comment..." value={comment} onChange={e => setComment(e.target.value)} className="flex-1 bg-gray-800 border-gray-700 text-white text-xs sm:text-base" />
+                          <Button className="bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-2 sm:px-4 sm:py-2">Send</Button>
                         </div>
                       </div>
-                    ) : (
-                      <>
-                        {/* Comments/Threads for other tabs */}
-                    <div className="space-y-3">
-                      {mockComments.map(c => (
-                        <div key={c.id} className="flex items-start gap-3">
-                          <User className="w-6 h-6 text-gray-400 mt-1" />
-                          <div>
-                            <div className="font-semibold text-white">{c.user} <span className="text-xs text-gray-400 ml-2">{c.time}</span></div>
-                            <div className="text-gray-300">{c.content}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2 mt-4">
-                      <Input placeholder="Type a comment..." value={comment} onChange={e => setComment(e.target.value)} className="flex-1 bg-gray-800 border-gray-700 text-white" />
-                      <Button className="bg-gradient-to-r from-green-500 to-emerald-500">Send</Button>
-                    </div>
-                      </>
                     )}
                   </CardContent>
                 </Card>
