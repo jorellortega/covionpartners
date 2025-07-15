@@ -38,7 +38,7 @@ interface ProjectRoleApplication {
   created_at: string
   users?: {
     id: string
-    full_name?: string
+    name?: string
     email?: string
     avatar_url?: string
   }
@@ -97,12 +97,50 @@ export default function ProjectRolesPage() {
   useEffect(() => {
     async function fetchApplications() {
       if (!isOwner) return
-      const { data, error } = await supabase
+      
+      // First get the applications
+      const { data: applicationsData, error: applicationsError } = await supabase
         .from("project_role_applications")
-        .select("*, users!user_id(id, full_name, email, avatar_url)")
+        .select("*")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false })
-      if (!error) setApplications(data || [])
+      
+      if (applicationsError) {
+        console.error("Error fetching applications:", applicationsError)
+        return
+      }
+      
+      if (!applicationsData || applicationsData.length === 0) {
+        setApplications([])
+        return
+      }
+      
+      // Get unique user IDs
+      const userIds = [...new Set(applicationsData.map(app => app.user_id))]
+      
+      // Fetch user data from the users table
+      const { data: usersData, error: usersError } = await supabase
+        .from("users")
+        .select("id, name, email, avatar_url")
+        .in("id", userIds)
+      
+      if (usersError) {
+        console.error("Error fetching users:", usersError)
+        // Still set applications without user data
+        setApplications(applicationsData)
+        return
+      }
+      
+      // Create a map of user data for easy lookup
+      const usersMap = new Map(usersData?.map(user => [user.id, user]) || [])
+      
+      // Combine applications with user data
+      const applicationsWithUsers = applicationsData.map(app => ({
+        ...app,
+        users: usersMap.get(app.user_id) || null
+      }))
+      
+      setApplications(applicationsWithUsers)
     }
     if (projectId && isOwner) {
       fetchApplications()
@@ -353,7 +391,7 @@ export default function ProjectRolesPage() {
                                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                                       <div>
                                         <div className="flex items-center gap-2">
-                                          <span className="font-medium text-white">{app.users?.full_name || app.user_id}</span>
+                                          <span className="font-medium text-white">{app.users?.name || app.user_id}</span>
                                           <span className="text-xs text-gray-400">{app.users?.email}</span>
                                         </div>
                                         <div className="text-xs text-gray-500 mt-1">Applied: {new Date(app.created_at).toLocaleString()}</div>
