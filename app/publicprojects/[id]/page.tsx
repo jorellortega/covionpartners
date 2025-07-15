@@ -977,6 +977,15 @@ export default function PublicProjectDetails() {
                             <div>
                               <h4 className="font-medium text-white">{role.role_name}</h4>
                               <p className="text-sm text-gray-400">{role.description}</p>
+                              {(role as any).price && (
+                                <div className="mt-2 flex items-center gap-2">
+                                  <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/50">
+                                    <DollarSign className="w-3 h-3 mr-1" />
+                                    Compensation: ${(role as any).price} {(role as any).price_type === 'hourly' ? '/hr' : (role as any).price_type === 'daily' ? '/day' : (role as any).price_type === 'weekly' ? '/week' : (role as any).price_type === 'monthly' ? '/month' : (role as any).price_type === 'yearly' ? '/year' : ''}
+                                    {(role as any).price_type === 'fixed' && <span className="text-gray-500 ml-2">(fixed)</span>}
+                                  </Badge>
+                                </div>
+                              )}
                             </div>
                             <Badge variant="outline" className="bg-blue-500/20 text-blue-400 border-blue-500/50">
                               {role.positions_needed} needed

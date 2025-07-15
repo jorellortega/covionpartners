@@ -4056,6 +4056,13 @@ export default function ProjectDetails() {
                     >
                       <Pencil className="w-4 h-4" /> Edit Project
                     </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-orange-500/20 text-orange-400 border-orange-500/50 hover:bg-orange-500/30"
+                      onClick={() => router.push(`/projects/${projectId}/roles`)}
+                    >
+                      <Briefcase className="w-4 h-4" /> Manage Open Positions
+                    </Button>
                     {!(String(currentMember?.access_level) === '4') && (
                     <Button
                       variant="outline"
@@ -4067,6 +4074,13 @@ export default function ProjectDetails() {
                     )}
                       </>
                     )}
+                    <Button
+                      variant="outline"
+                      className="flex-1 min-w-[200px] justify-center items-center gap-2 bg-gradient-to-r from-purple-500/20 to-blue-500/20 text-purple-400 border-purple-500/50 hover:bg-gradient-to-r hover:from-purple-500/30 hover:to-blue-500/30"
+                      onClick={() => router.push(`/publicprojects/${projectId}`)}
+                    >
+                      <Eye className="w-4 h-4" /> View Public Project
+                    </Button>
                     <Button
                       variant="outline"
                       className={`flex-1 min-w-[200px] justify-center items-center gap-2 ${

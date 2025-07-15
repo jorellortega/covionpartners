@@ -58,7 +58,9 @@ export default function ProjectRolesPage() {
     role_name: "",
     description: "",
     positions_needed: 1,
-    status: "open"
+    status: "open",
+    price: "",
+    price_type: "hourly"
   })
   const [tab, setTab] = useState("roles")
   const [applications, setApplications] = useState<ProjectRoleApplication[]>([])
@@ -127,6 +129,8 @@ export default function ProjectRolesPage() {
           description: form.description,
           positions_needed: form.positions_needed,
           status: form.status,
+          price: form.price,
+          price_type: form.price_type,
           updated_at: new Date().toISOString()
         })
         .eq("id", editingRole.id)
@@ -136,7 +140,7 @@ export default function ProjectRolesPage() {
         toast.success("Role updated")
         setEditingRole(null)
         setShowForm(false)
-        setForm({ role_name: "", description: "", positions_needed: 1, status: "open" })
+        setForm({ role_name: "", description: "", positions_needed: 1, status: "open", price: "", price_type: "hourly" })
         refreshRoles()
       }
     } else {
@@ -148,14 +152,16 @@ export default function ProjectRolesPage() {
           role_name: form.role_name,
           description: form.description,
           positions_needed: form.positions_needed,
-          status: form.status
+          status: form.status,
+          price: form.price,
+          price_type: form.price_type
         })
       if (error) {
         toast.error("Failed to create role")
       } else {
         toast.success("Role created")
         setShowForm(false)
-        setForm({ role_name: "", description: "", positions_needed: 1, status: "open" })
+        setForm({ role_name: "", description: "", positions_needed: 1, status: "open", price: "", price_type: "hourly" })
         refreshRoles()
       }
     }
@@ -178,7 +184,9 @@ export default function ProjectRolesPage() {
       role_name: role.role_name,
       description: role.description,
       positions_needed: role.positions_needed,
-      status: role.status
+      status: role.status,
+      price: (role as any).price || "",
+      price_type: (role as any).price_type || "hourly"
     })
     setShowForm(true)
   }
@@ -243,6 +251,12 @@ export default function ProjectRolesPage() {
                               </div>
                               <div className="text-gray-400 text-sm mt-1">{role.description}</div>
                               <div className="text-xs text-gray-500 mt-1">Positions needed: {role.positions_needed}</div>
+                                                             {(role as any).price && (
+                                 <div className="text-xs text-green-400 mt-1">
+                                   Compensation: ${(role as any).price} {(role as any).price_type === 'hourly' ? '/hr' : (role as any).price_type === 'daily' ? '/day' : (role as any).price_type === 'weekly' ? '/week' : (role as any).price_type === 'monthly' ? '/month' : (role as any).price_type === 'yearly' ? '/year' : ''}
+                                   {(role as any).price_type === 'fixed' && <span className="text-gray-500 ml-2">(fixed)</span>}
+                                 </div>
+                               )}
                             </div>
                             {isOwner && (
                               <div className="flex gap-2">
@@ -288,6 +302,23 @@ export default function ProjectRolesPage() {
                         <option value="closed">Closed</option>
                       </select>
                     </div>
+                                         <div className="grid grid-cols-2 gap-4">
+                       <div>
+                         <Label>Compensation Amount</Label>
+                         <Input name="price" type="number" min={0} step="0.01" value={form.price} onChange={handleInputChange} placeholder="0.00" />
+                       </div>
+                       <div>
+                         <Label>Payment Type</Label>
+                         <select name="price_type" value={form.price_type} onChange={handleInputChange} className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white">
+                           <option value="hourly">Per Hour</option>
+                           <option value="daily">Per Day</option>
+                           <option value="weekly">Per Week</option>
+                           <option value="monthly">Per Month</option>
+                           <option value="yearly">Per Year</option>
+                           <option value="fixed">Fixed Payment</option>
+                         </select>
+                       </div>
+                     </div>
                     <div className="flex gap-2 justify-end">
                       <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingRole(null); }}>Cancel</Button>
                       <Button type="submit">{editingRole ? "Update" : "Create"} Role</Button>
