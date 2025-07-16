@@ -63,6 +63,9 @@ export interface Project {
   show_project_info?: boolean
   show_project_overview?: boolean
   show_project_expenses?: boolean
+  public_resources_enabled?: boolean
+  actions_enabled?: boolean
+  public_open_positions_enabled?: boolean
 }
 
 export interface ProjectRole {

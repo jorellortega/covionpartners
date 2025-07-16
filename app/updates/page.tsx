@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useUpdates } from '@/hooks/useUpdates'
-import { Home, Search, RefreshCw, ArrowRight, Plus, Edit, Trash2, Loader2, UserPlus, Check, X } from 'lucide-react'
+import { Home, Search, RefreshCw, ArrowRight, Plus, Edit, Trash2, Loader2, UserPlus, Check, X, Briefcase, CheckCircle2, XCircle } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -80,6 +80,8 @@ export default function UpdatesPage() {
   const [updateToDeleteId, setUpdateToDeleteId] = useState<number | null>(null)
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([])
   const [loadingJoinRequests, setLoadingJoinRequests] = useState(true)
+  const [applicationNotifications, setApplicationNotifications] = useState<any[]>([])
+  const [loadingApplicationNotifications, setLoadingApplicationNotifications] = useState(true)
   const [projects, setProjects] = useState<Project[]>([])
   const [loadingProjects, setLoadingProjects] = useState(true)
   const [newUpdate, setNewUpdate] = useState({
@@ -175,6 +177,90 @@ export default function UpdatesPage() {
     
     fetchJoinRequests()
   }, [user])
+
+  // Fetch application notifications
+  useEffect(() => {
+    const fetchApplicationNotifications = async () => {
+      if (!user) return
+      
+      setLoadingApplicationNotifications(true)
+      try {
+        console.log('Fetching application notifications for user:', user.id)
+        
+        // Fetch both job application and project role application notifications
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .in('type', ['job_application', 'project_role_application'])
+          .order('created_at', { ascending: false })
+        
+        if (error) {
+          console.error('Error fetching application notifications:', error)
+          throw error
+        }
+        
+        if (!data) {
+          setApplicationNotifications([])
+          return
+        }
+        
+        // Parse the metadata JSON string for each notification
+        const parsedData = data.map(item => {
+          try {
+            return {
+              ...item,
+              metadata: typeof item.metadata === 'string' 
+                ? JSON.parse(item.metadata) 
+                : item.metadata
+            }
+          } catch (parseError) {
+            console.error('Error parsing metadata for item:', item, parseError)
+            return {
+              ...item,
+              metadata: {
+                error: 'Failed to parse metadata',
+                raw: item.metadata
+              }
+            }
+          }
+        })
+        
+        console.log('Processed application notifications:', parsedData)
+        setApplicationNotifications(parsedData)
+      } catch (err: any) {
+        console.error('Error fetching application notifications:', err)
+        toast.error(`Failed to load application notifications: ${err.message || 'Unknown error'}`)
+      } finally {
+        setLoadingApplicationNotifications(false)
+      }
+    }
+    
+    fetchApplicationNotifications()
+  }, [user])
+
+  // Function to mark notification as read
+  const markNotificationAsRead = async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', notificationId)
+      
+      if (error) throw error
+      
+      // Update local state
+      setApplicationNotifications(prev => 
+        prev.map(notification => 
+          notification.id === notificationId 
+            ? { ...notification, read: true }
+            : notification
+        )
+      )
+    } catch (error) {
+      console.error('Error marking notification as read:', error)
+    }
+  }
 
   // Add function to fetch projects
   useEffect(() => {
@@ -298,8 +384,20 @@ export default function UpdatesPage() {
       update.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       update.category.toLowerCase().includes(searchQuery.toLowerCase())
 
+    if (activeTab === 'all-updates') {
+      return matchesSearch // Show all updates
+    }
+    
     if (activeTab === 'project-updates') {
       return matchesSearch && update.category.toLowerCase() === 'project'
+    }
+    
+    if (activeTab === 'join-requests') {
+      return matchesSearch && update.category.toLowerCase() === 'join_request'
+    }
+    
+    if (activeTab === 'application-status') {
+      return matchesSearch && update.category.toLowerCase() === 'application_status'
     }
     
     return matchesSearch
@@ -517,6 +615,12 @@ export default function UpdatesPage() {
                 Join Requests
                 {joinRequests.length > 0 && (
                   <Badge className="ml-2 bg-purple-600" variant="secondary">{joinRequests.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="application-notifications" className="relative">
+                Application Status
+                {applicationNotifications.filter(n => !n.read).length > 0 && (
+                  <Badge className="ml-2 bg-blue-600" variant="secondary">{applicationNotifications.filter(n => !n.read).length}</Badge>
                 )}
               </TabsTrigger>
             </TabsList>
@@ -811,6 +915,96 @@ export default function UpdatesPage() {
                               Reject
                             </Button>
                           </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="application-notifications">
+              {loadingApplicationNotifications ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : applicationNotifications.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8">
+                    <p className="text-gray-500 text-center">No application notifications</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  {applicationNotifications.map((notification) => (
+                    <Card 
+                      key={notification.id} 
+                      className={`hover:shadow-lg transition-shadow cursor-pointer ${
+                        !notification.read ? 'ring-2 ring-blue-500/50 bg-blue-50/5' : ''
+                      }`}
+                      onClick={() => !notification.read && markNotificationAsRead(notification.id)}
+                    >
+                      <CardHeader>
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                          <CardTitle className="flex items-center gap-2">
+                            {notification.type === 'job_application' ? (
+                              <Briefcase className="h-5 w-5 text-blue-500" />
+                            ) : (
+                              <UserPlus className="h-5 h-5 text-purple-500" />
+                            )}
+                            {notification.type === 'job_application' ? 'Job Application' : 'Project Role Application'}
+                            {!notification.read && (
+                              <Badge className="ml-2 bg-blue-600" variant="secondary">New</Badge>
+                            )}
+                          </CardTitle>
+                          <Badge variant={notification.metadata.status === 'accepted' ? 'default' : 
+                                           notification.metadata.status === 'rejected' ? 'destructive' : 'secondary'}>
+                            {notification.metadata.status}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div>
+                            <h4 className="font-semibold text-lg">{notification.title}</h4>
+                            <p className="text-gray-600 mt-2">{notification.content}</p>
+                          </div>
+                          
+                          <div className="text-sm text-gray-500 space-y-1">
+                            {notification.type === 'job_application' ? (
+                              <>
+                                <p>Position: {notification.metadata.job_title}</p>
+                                <p>Company: {notification.metadata.company}</p>
+                              </>
+                            ) : (
+                              <>
+                                <p>Role: {notification.metadata.role_name}</p>
+                                <p>Project: {notification.metadata.project_name}</p>
+                              </>
+                            )}
+                            <p>Date: {new Date(notification.created_at).toLocaleString()}</p>
+                          </div>
+                          
+                          {notification.metadata.status === 'accepted' && (
+                            <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg">
+                              <CheckCircle2 className="h-4 w-4" />
+                              <span className="text-sm font-medium">Congratulations! Your application was accepted.</span>
+                            </div>
+                          )}
+                          
+                          {notification.metadata.status === 'rejected' && (
+                            <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg">
+                              <XCircle className="h-4 w-4" />
+                              <span className="text-sm font-medium">Your application was not selected this time.</span>
+                            </div>
+                          )}
+                          
+                          {notification.metadata.status === 'shortlisted' && (
+                            <div className="flex items-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-lg">
+                              <CheckCircle2 className="h-4 w-4" />
+                              <span className="text-sm font-medium">You've been shortlisted! Keep an eye out for next steps.</span>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

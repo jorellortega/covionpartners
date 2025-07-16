@@ -4,6 +4,7 @@ export interface Project {
   open_positions?: any[];
   public_resources_enabled?: boolean;
   public_open_positions_enabled?: boolean;
+  actions_enabled?: boolean;
 }
 
 export interface Job {

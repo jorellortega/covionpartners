@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, ArrowLeft } from "lucide-react"
+import { Plus, Edit, Trash2, ArrowLeft, ExternalLink } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
@@ -250,6 +250,14 @@ export default function ProjectRolesPage() {
           <Button variant="ghost" onClick={() => router.push(`/projects/${projectId}`)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Project
+          </Button>
+          <Button 
+            variant="outline" 
+            className="ml-4 border-blue-500 text-blue-400 hover:bg-blue-500/20"
+            onClick={() => router.push('/open-roles')}
+          >
+            <ExternalLink className="w-4 h-4 mr-2" />
+            View All Open Roles
           </Button>
           {isOwner && (
             <Button className="ml-auto" onClick={() => { setShowForm(true); setEditingRole(null); }}>

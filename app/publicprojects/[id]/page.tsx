@@ -35,6 +35,8 @@ import {
   Video,
   Link,
   ExternalLink,
+  Maximize,
+  Minimize,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -111,8 +113,10 @@ export default function PublicProjectDetails() {
   const [donationAmount, setDonationAmount] = useState("")
   const qrRef = useRef<any>(null)
   const [selectedImage, setSelectedImage] = useState(0)
+  const [imageViewMode, setImageViewMode] = useState<'cover' | 'contain'>('cover')
   const [updatingResourceSetting, setUpdatingResourceSetting] = useState(false)
   const [updatingOpenPositionsSetting, setUpdatingOpenPositionsSetting] = useState(false)
+  const [updatingActionsSetting, setUpdatingActionsSetting] = useState(false)
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -383,6 +387,27 @@ export default function PublicProjectDetails() {
     }
   };
 
+  // Handler to toggle actions_enabled
+  const handleToggleActions = async () => {
+    if (!project || !project.id) return;
+    setUpdatingActionsSetting(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .update({ actions_enabled: !project.actions_enabled })
+        .eq('id', project.id as string)
+        .select()
+        .single();
+      if (error) throw error;
+      setProject(data);
+      toast.success(`Project actions are now ${data.actions_enabled ? 'enabled' : 'disabled'}`);
+    } catch (err) {
+      toast.error('Failed to update actions visibility');
+    } finally {
+      setUpdatingActionsSetting(false);
+    }
+  };
+
   // Handler to toggle public_open_positions_enabled
   const handleTogglePublicOpenPositions = async () => {
     if (!project) return;
@@ -465,8 +490,43 @@ export default function PublicProjectDetails() {
             {/* Media Files Section */}
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
-                <CardTitle>Media Files</CardTitle>
-                <CardDescription>Project media and documentation</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Media Files</CardTitle>
+                    <CardDescription>Project media and documentation</CardDescription>
+                  </div>
+                  {/* Image View Mode Toggle */}
+                  {project?.media_files && project.media_files.length > 0 && 
+                   project.media_files[selectedImage].type.startsWith('image/') && (
+                    <div className="flex items-center space-x-3">
+                      <span className="text-xs text-gray-400">View:</span>
+                      <div className="flex items-center space-x-1 bg-gray-800/30 rounded-lg p-1">
+                        <button
+                          onClick={() => setImageViewMode('cover')}
+                          className={`p-1.5 rounded-md transition-colors ${
+                            imageViewMode === 'cover' 
+                              ? 'bg-blue-500/30 text-blue-400' 
+                              : 'text-gray-400 hover:text-blue-400 hover:bg-gray-700/50'
+                          }`}
+                          title="Crop to fit (may cut off parts)"
+                        >
+                          <Minimize className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setImageViewMode('contain')}
+                          className={`p-1.5 rounded-md transition-colors ${
+                            imageViewMode === 'contain' 
+                              ? 'bg-blue-500/30 text-blue-400' 
+                              : 'text-gray-400 hover:text-blue-400 hover:bg-gray-700/50'
+                          }`}
+                          title="Show full image (may have empty space)"
+                        >
+                          <Maximize className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {/* Main Display */}
@@ -474,12 +534,18 @@ export default function PublicProjectDetails() {
                   <div className="space-y-4">
                     <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-gray-800/30">
                       {project.media_files[selectedImage].type.startsWith('image/') ? (
-                        <Image
-                          src={project.media_files[selectedImage].url}
-                          alt={project.media_files[selectedImage].name}
-                          fill
-                          className="object-cover"
-                        />
+                        <>
+                          <Image
+                            src={project.media_files[selectedImage].url}
+                            alt={project.media_files[selectedImage].name}
+                            fill
+                            className={imageViewMode === 'cover' ? 'object-cover' : 'object-contain'}
+                          />
+                          {/* View mode indicator */}
+                          <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md backdrop-blur-sm">
+                            {imageViewMode === 'cover' ? 'Cropped' : 'Full View'}
+                          </div>
+                        </>
                       ) : project.media_files[selectedImage].type.startsWith('video/') ? (
                         <video
                           src={project.media_files[selectedImage].url}
@@ -627,7 +693,7 @@ export default function PublicProjectDetails() {
 
             {/* Project Resources Toggle (Owner Only) */}
             {user && project && user.id === (project.owner_id || project.owner?.id) && (
-              <div className="flex items-center mb-4 gap-3">
+              <div className="flex items-center gap-3 mb-4">
                 <Switch
                   checked={!!project.public_resources_enabled}
                   onCheckedChange={handleTogglePublicResources}
@@ -728,7 +794,7 @@ export default function PublicProjectDetails() {
                         <span>Deadline</span>
                       </div>
                       <div className="text-white font-medium">
-                        {formatDate(project.deadline)}
+                        {project.deadline ? formatDate(project.deadline) : 'Not set'}
                       </div>
                     </div>
                   </div>
@@ -916,22 +982,7 @@ export default function PublicProjectDetails() {
               </DialogContent>
             </Dialog>
 
-            {typeof window !== 'undefined' && localStorage.getItem('showQRCodes') !== 'false' && project && (
-              <Card className="leonardo-card border-gray-800">
-                <CardHeader>
-                  <CardTitle>Share this Project</CardTitle>
-                  <CardDescription>Scan to open this public project page</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center py-6">
-                  <div ref={qrRef}>
-                    <QRCodeCanvas value={`https://www.covionpartners.com/publicprojects/${project.id}`} size={256} />
-                  </div>
-                  <Button className="mt-4" onClick={handleDownloadQR}>
-                    Download QR Code
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+
           </div>
 
           {/* Sidebar */}
@@ -995,7 +1046,7 @@ export default function PublicProjectDetails() {
                             className="w-full mt-2 gradient-button"
                             onClick={() => {
                               if (!user) {
-                                router.push(`/login?redirect=/publicprojects/${project.id}`)
+                                router.push(`/signup?type=public`)
                                 return
                               }
                               router.push(`/publicprojects/${project.id}/apply?role=${role.id}&roleName=${encodeURIComponent(role.role_name)}`)
@@ -1021,83 +1072,102 @@ export default function PublicProjectDetails() {
               </Card>
             )}
 
+            {/* Actions Toggle (Owner Only) */}
+            {user && project && user.id === (project.owner_id || project.owner?.id) && (
+              <div className="flex items-center gap-3 mb-4">
+                <Switch
+                  checked={!!project.actions_enabled}
+                  onCheckedChange={handleToggleActions}
+                  disabled={updatingActionsSetting}
+                  id="toggle-actions"
+                />
+                <Label htmlFor="toggle-actions">
+                  {project.actions_enabled ? 'Show actions card (Invest, Collab, etc.)' : 'Hide actions card from public'}
+                </Label>
+              </div>
+            )}
+
             {/* Action Buttons */}
-            {user ? (
-              <Card className="leonardo-card border-gray-800">
-                <CardHeader>
-                  <CardTitle>Actions</CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Available actions for this project
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {project.show_make_deal && (
+            {project?.actions_enabled && (
+              <>
+                {user ? (
+                  <Card className="leonardo-card border-gray-800">
+                    <CardHeader>
+                      <CardTitle>Actions</CardTitle>
+                      <CardDescription className="text-gray-400">
+                        Available actions for this project
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {project.show_make_deal && (
+                          <Button 
+                            className="w-full gradient-button"
+                            onClick={() => router.push(String(`/makedeal?project=${project.id}`))}
+                          >
+                            <Briefcase className="w-4 h-4 mr-2" />
+                            Make Deal
+                          </Button>
+                        )}
+                        <Button 
+                          className="w-full gradient-button"
+                          onClick={() => router.push(`/invest?project=${project.id}`)}
+                        >
+                          <DollarSign className="w-4 h-4 mr-2" />
+                          Invest
+                        </Button>
+                        <Button 
+                          className="w-full gradient-button"
+                          onClick={() => router.push(`/collab?project=${project.id}`)}
+                        >
+                          <Users className="w-4 h-4 mr-2" />
+                          Collab
+                        </Button>
+                        <Button 
+                          className="w-full gradient-button"
+                          onClick={() => router.push(`/buy?project=${project.id}`)}
+                        >
+                          <ShoppingCart className="w-4 h-4 mr-2" />
+                          Buy
+                        </Button>
+                        <Button 
+                          className="w-full gradient-button"
+                          onClick={() => router.push('/forsale')}
+                        >
+                          <ShoppingCart className="w-4 h-4 mr-2" />
+                          For Sale
+                        </Button>
+                        {project.accepts_support && (
+                        <Button 
+                          className="w-full gradient-button"
+                          onClick={handleDonate}
+                        >
+                          <Heart className="w-4 h-4 mr-2" />
+                          Support
+                        </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card className="leonardo-card border-gray-800">
+                    <CardHeader>
+                      <CardTitle>Join Project</CardTitle>
+                      <CardDescription className="text-gray-400">
+                        Sign in to apply for roles or calculate investments
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
                       <Button 
                         className="w-full gradient-button"
-                        onClick={() => router.push(String(`/makedeal?project=${project.id}`))}
+                        onClick={() => router.push(`/login?redirect=/publicprojects/${project.id}`)}
                       >
-                        <Briefcase className="w-4 h-4 mr-2" />
-                        Make Deal
+                        Sign In to Join
                       </Button>
-                    )}
-                    <Button 
-                      className="w-full gradient-button"
-                      onClick={() => router.push(`/invest?project=${project.id}`)}
-                    >
-                      <DollarSign className="w-4 h-4 mr-2" />
-                      Invest
-                    </Button>
-                    <Button 
-                      className="w-full gradient-button"
-                      onClick={() => router.push(`/collab?project=${project.id}`)}
-                    >
-                      <Users className="w-4 h-4 mr-2" />
-                      Collab
-                    </Button>
-                    <Button 
-                      className="w-full gradient-button"
-                      onClick={() => router.push(`/buy?project=${project.id}`)}
-                    >
-                      <ShoppingCart className="w-4 h-4 mr-2" />
-                      Buy
-                    </Button>
-                    <Button 
-                      className="w-full gradient-button"
-                      onClick={() => router.push('/forsale')}
-                    >
-                      <ShoppingCart className="w-4 h-4 mr-2" />
-                      For Sale
-                    </Button>
-                    {project.accepts_support && (
-                    <Button 
-                      className="w-full gradient-button"
-                      onClick={handleDonate}
-                    >
-                      <Heart className="w-4 h-4 mr-2" />
-                      Support
-                    </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="leonardo-card border-gray-800">
-                <CardHeader>
-                  <CardTitle>Join Project</CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Sign in to apply for roles or calculate investments
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button 
-                    className="w-full gradient-button"
-                    onClick={() => router.push(`/login?redirect=/publicprojects/${project.id}`)}
-                  >
-                    Sign In to Join
-                  </Button>
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
             )}
 
             {/* Join Project Card */}
@@ -1133,6 +1203,26 @@ export default function PublicProjectDetails() {
             ) : null}
           </div>
         </div>
+
+        {/* QR Code Section - Bottom of Page */}
+        {typeof window !== 'undefined' && localStorage.getItem('showQRCodes') !== 'false' && project && (
+          <div className="max-w-md mx-auto mt-8 mb-8">
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle>Share this Project</CardTitle>
+                <CardDescription>Scan to open this public project page</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center py-6">
+                <div ref={qrRef}>
+                  <QRCodeCanvas value={`https://www.covionpartners.com/publicprojects/${project.id}`} size={256} />
+                </div>
+                <Button className="mt-4" onClick={handleDownloadQR}>
+                  Download QR Code
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </main>
     </div>
   )

@@ -1028,6 +1028,11 @@ export default function PartnerDashboard() {
                       <Workflow className="w-4 h-4 mr-2" /> Workmode
                     </Button>
                   </Link>
+                  <Link href="/open-roles">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
+                      <Briefcase className="w-4 h-4 mr-2" /> View All Open Roles
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
 
@@ -1103,7 +1108,12 @@ export default function PartnerDashboard() {
                   </Link>
                   <Link href="/admin/work-submissions">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
-                      <Shield className="w-4 h-4 mr-2" /> Admin Work Submissions
+                      <Shield className="w-4 h-4 mr-2" /> Work Submissions
+                    </Button>
+                  </Link>
+                  <Link href="/open-roles">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <Briefcase className="w-4 h-4 mr-2" /> Open Roles
                     </Button>
                   </Link>
                   {/* Add Organization Staff Management */}
@@ -1335,6 +1345,11 @@ export default function PartnerDashboard() {
                   <Link href="/profiles">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400">
                       <User className="w-4 h-4 mr-2" /> Profiles
+                    </Button>
+                  </Link>
+                  <Link href="/contacts">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-cyan-900/20 hover:text-cyan-400">
+                      <Users className="w-4 h-4 mr-2" /> Contacts
                     </Button>
                   </Link>
                 </CardContent>

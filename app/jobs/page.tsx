@@ -222,7 +222,15 @@ export default function JobsPage() {
           <p className="text-gray-400 text-lg mb-6">
             Discover amazing job opportunities from innovative companies
           </p>
-          <span>
+          <span className="flex gap-4 justify-center">
+            <Button
+              variant="outline"
+              className="border-blue-500 text-blue-400 hover:bg-blue-500/20"
+              onClick={() => router.push('/open-roles')}
+            >
+              <Briefcase className="w-4 h-4 mr-2" />
+              View Project Roles
+            </Button>
             <Button
               onClick={() => router.push('/jobs/post')}
               className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"

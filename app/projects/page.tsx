@@ -405,6 +405,14 @@ export default function ProjectsPage() {
             </Link>
             <h1 className="text-3xl font-bold text-white flex items-center gap-4">
               Projects
+              <Button
+                variant="outline"
+                className="border-blue-500 text-blue-400 hover:bg-blue-500/20 text-sm"
+                onClick={() => router.push('/open-roles')}
+              >
+                <Briefcase className="w-4 h-4 mr-2" />
+                View All Open Roles
+              </Button>
               {user && user.role !== 'investor' && (
                 <span className="ml-4">
                   <Button
