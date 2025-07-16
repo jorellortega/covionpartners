@@ -74,60 +74,59 @@ export default function BusinessExpensePage() {
     if (!user) return;
     const fetchOrgs = async () => {
       try {
-        // Get organization IDs from staff tables first
-        const [staffOrgs, teamOrgs] = await Promise.all([
-          supabase
-            .from("organization_staff")
-            .select("organization_id")
-            .eq("user_id", user.id),
-          supabase
-            .from("team_members")
-            .select("organization_id")
-            .eq("user_id", user.id)
-            .not("organization_id", "is", null)
-        ]);
+        // Get organization IDs from staff table only
+        const { data: staffOrgs, error: staffError } = await supabase
+          .from("organization_staff")
+          .select("organization_id")
+          .eq("user_id", user.id);
         
-        // Collect all organization IDs
-        const orgIds = new Set();
-        if (staffOrgs.data) {
-          staffOrgs.data.forEach(item => orgIds.add(item.organization_id));
-        }
-        if (teamOrgs.data) {
-          teamOrgs.data.forEach(item => orgIds.add(item.organization_id));
+        if (staffError) {
+          console.error('Error fetching staff organizations:', staffError);
         }
         
-        // Now get organizations where user is owner OR member
-        let query = supabase
+        // Collect all organization IDs user is staff of
+        const staffOrgIds = new Set();
+        if (staffOrgs) {
+          staffOrgs.forEach(item => staffOrgIds.add(item.organization_id));
+        }
+        
+        // Get organizations where user is owner
+        const { data: ownedOrgs, error: ownedError } = await supabase
           .from("organizations")
           .select("id, name")
           .eq("owner_id", user.id);
           
-        // If user is a staff/team member of other orgs, include those too
-        if (orgIds.size > 0) {
-          const allOrgIds = Array.from(orgIds);
+        if (ownedError) {
+          console.error('Error fetching owned organizations:', ownedError);
+        }
+        
+        // Get organizations where user is staff member
+        let staffMemberOrgs: any[] = [];
+        if (staffOrgIds.size > 0) {
           const { data: memberOrgs, error: memberError } = await supabase
             .from("organizations")
             .select("id, name")
-            .in("id", allOrgIds);
+            .in("id", Array.from(staffOrgIds));
           
-          // Get owned orgs
-          const { data: ownedOrgs, error: ownedError } = await query;
-          
-          // Combine results
-          const allOrgs = [...(ownedOrgs || []), ...(memberOrgs || [])];
-          // Remove duplicates
-          const uniqueOrgs = allOrgs.filter((org, index, self) => 
-            index === self.findIndex(o => o.id === org.id)
-          );
-          
-          setOrganizations(uniqueOrgs);
-          if (uniqueOrgs.length > 0) setSelectedOrg(uniqueOrgs[0].id);
-        } else {
-          // User is not a staff member anywhere, just show owned orgs
-          const { data, error } = await query;
-          if (error) toast.error("Failed to fetch organizations");
-          setOrganizations(data || []);
-          if (data && data.length > 0) setSelectedOrg(data[0].id);
+          if (memberError) {
+            console.error('Error fetching staff member organizations:', memberError);
+          } else {
+            staffMemberOrgs = memberOrgs || [];
+          }
+        }
+        
+        // Combine and deduplicate results
+        const allOrgs = [...(ownedOrgs || []), ...staffMemberOrgs];
+        const uniqueOrgs = allOrgs.filter((org, index, self) => 
+          index === self.findIndex(o => o.id === org.id)
+        );
+        
+        setOrganizations(uniqueOrgs);
+        if (uniqueOrgs.length > 0) setSelectedOrg(uniqueOrgs[0].id);
+        
+        // Show toast error only if both queries failed
+        if (ownedError && staffError) {
+          toast.error("Failed to fetch organizations");
         }
       } catch (error) {
         console.error('Error in fetchOrgs:', error);
@@ -263,6 +262,19 @@ export default function BusinessExpensePage() {
 
   if (!user) {
     return <div className="flex justify-center items-center min-h-screen text-gray-400">Loading...</div>;
+  }
+
+  // Check if user has access level 5 (admin role)
+  if (user.role !== 'admin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">Access Denied</h1>
+          <p className="text-gray-400 mb-4">Access Level 5 (Admin) required to view business expenses.</p>
+          <p className="text-sm text-gray-500">Your current access level: {user.role || 'Unknown'}</p>
+        </div>
+      </div>
+    );
   }
 
   const handleAddExpense = async () => {
@@ -636,6 +648,124 @@ export default function BusinessExpensePage() {
                           </tr>
                         </tbody>
                       </table>
+                    </div>
+                    
+                    {/* Mobile Card View */}
+                    <div className="block md:hidden space-y-3">
+                      {(categoryExpenses as any[]).map((expense: any) => {
+                        const needsRed = shouldBeRedAndUnverify(expense);
+                        if (needsRed && expense.verified) {
+                          // Auto-unverify in UI and DB
+                          setTimeout(async () => {
+                            setExpenses(prev => prev.map(exp => exp.id === expense.id ? { ...exp, verified: false } : exp));
+                            await supabase
+                              .from("expenses")
+                              .update({ verified: false, updated_at: new Date().toISOString() })
+                              .eq("id", expense.id);
+                          }, 0);
+                        }
+                        return (
+                          <div key={expense.id} className="leonardo-card p-4 border border-gray-700 bg-gray-900/50">
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-medium text-white truncate">{expense.description || "No description"}</h3>
+                                <p className="text-lg font-semibold text-cyan-400">${(expense.amount || 0).toFixed(2)}</p>
+                              </div>
+                              <div className="flex gap-1 ml-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  onClick={() => { setEditExpense(expense); setShowEdit(true); }}
+                                  className="p-1 h-8 w-8"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  onClick={() => handleDeleteExpense(expense.id)}
+                                  className="p-1 h-8 w-8 text-red-500"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2 text-sm text-gray-300">
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Status:</span>
+                                <div className="flex items-center gap-2">
+                                  {expense.is_recurring && (
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${needsRed ? 'bg-red-900 text-red-400' : 'bg-green-900 text-green-400'}`}>
+                                      <Repeat className="w-3 h-3 mr-1" /> Recurring
+                                    </span>
+                                  )}
+                                  <span className={expense.status === 'Paid' ? 'text-green-400' : ''}>{expense.status}</span>
+                                </div>
+                              </div>
+                              
+                              {expense.due_date && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Due Date:</span>
+                                  <span>{parseLocalDate(expense.due_date) ? parseLocalDate(expense.due_date)!.toLocaleDateString() : ''}</span>
+                                </div>
+                              )}
+                              
+                              {expense.notes && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Notes:</span>
+                                  <span className="text-right max-w-[200px] truncate">{expense.notes}</span>
+                                </div>
+                              )}
+                              
+                              <div className="flex justify-between items-center pt-2 border-t border-gray-700">
+                                <span className="text-gray-400">Verified:</span>
+                                <div>
+                                  {expense.verified ? (
+                                    <span
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-900 text-blue-400 cursor-pointer"
+                                      onClick={async () => {
+                                        const newVerified = false;
+                                        setExpenses(prev => prev.map(exp => exp.id === expense.id ? { ...exp, verified: newVerified } : exp));
+                                        await supabase
+                                          .from("expenses")
+                                          .update({ verified: newVerified, updated_at: new Date().toISOString() })
+                                          .eq("id", expense.id);
+                                      }}
+                                      title="Click to unverify"
+                                    >
+                                      <span className="mr-1">✓</span>Verified
+                                    </span>
+                                  ) : (
+                                    <input
+                                      type="checkbox"
+                                      checked={false}
+                                      onChange={async (e) => {
+                                        const newVerified = true;
+                                        setExpenses(prev => prev.map(exp => exp.id === expense.id ? { ...exp, verified: newVerified } : exp));
+                                        await supabase
+                                          .from("expenses")
+                                          .update({ verified: newVerified, updated_at: new Date().toISOString() })
+                                          .eq("id", expense.id);
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      
+                      {/* Mobile Category Total */}
+                      <div className="leonardo-card p-4 border border-gray-700 bg-gray-800/50">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-white">Total for {category}:</span>
+                          <span className="font-bold text-cyan-400 text-lg">
+                            ${(categoryExpenses as any[]).reduce((sum, e) => sum + (e.amount || 0), 0).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

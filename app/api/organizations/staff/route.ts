@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     const { data: orgAccess, error: accessError } = await supabase
       .from('organizations')
       .select('id')
-      .or(`owner_id.eq.${session.user.id},id.in.(select organization_id from team_members where user_id = ${session.user.id})`)
+      .or(`owner_id.eq.${session.user.id},id.in.(select organization_id from organization_staff where user_id = ${session.user.id})`)
       .eq('id', organizationId)
       .single()
 
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
 
     // Fetch organization staff (no join)
     const { data: members, error } = await supabase
-      .from('team_members')
+      .from('organization_staff')
       .select('*')
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false })
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
     const { data: orgAccess, error: accessError } = await supabase
       .from('organizations')
       .select('id')
-      .or(`owner_id.eq.${session.user.id},id.in.(select organization_id from team_members where user_id = ${session.user.id} and role in ('owner', 'admin'))`)
+      .or(`owner_id.eq.${session.user.id},id.in.(select organization_id from organization_staff where user_id = ${session.user.id} and role in ('owner', 'admin'))`)
       .eq('id', organizationId)
       .single()
 
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
 
     // Check if user is already a member
     const { data: existingMember, error: existingError } = await supabase
-      .from('team_members')
+      .from('organization_staff')
       .select('id')
       .eq('organization_id', organizationId)
       .eq('user_id', userData.id)
@@ -151,7 +151,7 @@ export async function POST(request: Request) {
 
     // Add user to organization
     const { data, error } = await supabase
-      .from('team_members')
+      .from('organization_staff')
       .insert([
         {
           organization_id: organizationId,
@@ -212,7 +212,7 @@ export async function PUT(request: Request) {
 
     // Get the member to verify organization access
     const { data: member, error: memberError } = await supabase
-      .from('team_members')
+      .from('organization_staff')
       .select('organization_id, user_id')
       .eq('id', memberId)
       .single()
@@ -228,7 +228,7 @@ export async function PUT(request: Request) {
     const { data: orgAccess, error: accessError } = await supabase
       .from('organizations')
       .select('id')
-      .or(`owner_id.eq.${session.user.id},id.in.(select organization_id from team_members where user_id = ${session.user.id} and role in ('owner', 'admin'))`)
+      .or(`owner_id.eq.${session.user.id},id.in.(select organization_id from organization_staff where user_id = ${session.user.id} and role in ('owner', 'admin'))`)
       .eq('id', member.organization_id)
       .single()
 
@@ -241,7 +241,7 @@ export async function PUT(request: Request) {
 
     // Update member
     const { data, error } = await supabase
-      .from('team_members')
+      .from('organization_staff')
       .update({
         role,
         status: status || 'active',
@@ -298,7 +298,7 @@ export async function DELETE(request: Request) {
 
     // Get the member to verify organization access
     const { data: member, error: memberError } = await supabase
-      .from('team_members')
+      .from('organization_staff')
       .select('organization_id, user_id')
       .eq('id', memberId)
       .single()
@@ -314,7 +314,7 @@ export async function DELETE(request: Request) {
     const { data: orgAccess, error: accessError } = await supabase
       .from('organizations')
       .select('id')
-      .or(`owner_id.eq.${session.user.id},id.in.(select organization_id from team_members where user_id = ${session.user.id} and role in ('owner', 'admin'))`)
+      .or(`owner_id.eq.${session.user.id},id.in.(select organization_id from organization_staff where user_id = ${session.user.id} and role in ('owner', 'admin'))`)
       .eq('id', member.organization_id)
       .single()
 
@@ -327,7 +327,7 @@ export async function DELETE(request: Request) {
 
     // Delete member
     const { error } = await supabase
-      .from('team_members')
+      .from('organization_staff')
       .delete()
       .eq('id', memberId)
 

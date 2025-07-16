@@ -89,7 +89,7 @@ export default function BusinessExpensePage() {
       console.log('DEBUG: Current user:', user);
       console.log('DEBUG: User ID:', user.id);
       
-      const query = `owner_id.eq.${user.id},id.in.(select organization_id from organization_staff where user_id = ${user.id}),id.in.(select organization_id from team_members where user_id = ${user.id})`;
+      const query = `owner_id.eq.${user.id},id.in.(select organization_id from organization_staff where user_id = ${user.id})`;
       console.log('DEBUG: Query:', query);
       
       const { data, error } = await supabase

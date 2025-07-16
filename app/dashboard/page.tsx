@@ -1091,11 +1091,21 @@ export default function PartnerDashboard() {
                       <Building2 className="w-4 h-4 mr-2" /> Create Organization
                     </Button>
                   </Link>
-                  <Link href="/business-expense">
-                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
-                      <Briefcase className="w-4 h-4 mr-2" /> Business Expenses
-                    </Button>
-                  </Link>
+                  {user?.role !== 'admin' ? (
+                    <div className="w-full py-2 px-3 border border-gray-700 rounded-md bg-gray-800/30 text-center">
+                      <div className="flex items-center justify-center text-gray-500 text-sm">
+                        <Briefcase className="w-4 h-4 mr-2" />
+                        Business Expenses
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">Admin Access Required</p>
+                    </div>
+                  ) : (
+                    <Link href="/business-expense">
+                      <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                        <Briefcase className="w-4 h-4 mr-2" /> Business Expenses
+                      </Button>
+                    </Link>
+                  )}
                   <Link href="/work-dashboard">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
                       <FolderKanban className="w-4 h-4 mr-2" /> Work Dashboard
