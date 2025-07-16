@@ -73,13 +73,66 @@ export default function BusinessExpensePage() {
   useEffect(() => {
     if (!user) return;
     const fetchOrgs = async () => {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id, name")
-        .eq("owner_id", user.id);
-      if (error) toast.error("Failed to fetch organizations");
-      setOrganizations(data || []);
-      if (data && data.length > 0) setSelectedOrg(data[0].id);
+      try {
+        // Get organization IDs from staff tables first
+        const [staffOrgs, teamOrgs] = await Promise.all([
+          supabase
+            .from("organization_staff")
+            .select("organization_id")
+            .eq("user_id", user.id),
+          supabase
+            .from("team_members")
+            .select("organization_id")
+            .eq("user_id", user.id)
+            .not("organization_id", "is", null)
+        ]);
+        
+        // Collect all organization IDs
+        const orgIds = new Set();
+        if (staffOrgs.data) {
+          staffOrgs.data.forEach(item => orgIds.add(item.organization_id));
+        }
+        if (teamOrgs.data) {
+          teamOrgs.data.forEach(item => orgIds.add(item.organization_id));
+        }
+        
+        // Now get organizations where user is owner OR member
+        let query = supabase
+          .from("organizations")
+          .select("id, name")
+          .eq("owner_id", user.id);
+          
+        // If user is a staff/team member of other orgs, include those too
+        if (orgIds.size > 0) {
+          const allOrgIds = Array.from(orgIds);
+          const { data: memberOrgs, error: memberError } = await supabase
+            .from("organizations")
+            .select("id, name")
+            .in("id", allOrgIds);
+          
+          // Get owned orgs
+          const { data: ownedOrgs, error: ownedError } = await query;
+          
+          // Combine results
+          const allOrgs = [...(ownedOrgs || []), ...(memberOrgs || [])];
+          // Remove duplicates
+          const uniqueOrgs = allOrgs.filter((org, index, self) => 
+            index === self.findIndex(o => o.id === org.id)
+          );
+          
+          setOrganizations(uniqueOrgs);
+          if (uniqueOrgs.length > 0) setSelectedOrg(uniqueOrgs[0].id);
+        } else {
+          // User is not a staff member anywhere, just show owned orgs
+          const { data, error } = await query;
+          if (error) toast.error("Failed to fetch organizations");
+          setOrganizations(data || []);
+          if (data && data.length > 0) setSelectedOrg(data[0].id);
+        }
+      } catch (error) {
+        console.error('Error in fetchOrgs:', error);
+        toast.error("Failed to fetch organizations");
+      }
     };
     fetchOrgs();
   }, [user]);
@@ -497,11 +550,12 @@ export default function BusinessExpensePage() {
                     </Button>
                   </div>
                   <div className="p-4">
-                    <div className="overflow-x-auto">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="min-w-full text-sm text-left text-gray-400">
                         <thead className="bg-gray-800 text-gray-300">
                           <tr>
-                            <th className="px-2 py-2"></th> {/* Checkbox column */}
+                            <th className="px-2 py-2"></th>
                             <th className="px-4 py-2">Description</th>
                             <th className="px-4 py-2">Amount</th>
                             <th className="px-4 py-2">Status</th>
@@ -575,7 +629,6 @@ export default function BusinessExpensePage() {
                               </tr>
                             );
                           })}
-                          {/* Total row */}
                           <tr className="border-t border-gray-800 font-bold">
                             <td className="px-4 py-2 text-right" colSpan={1}>Total</td>
                             <td className="px-4 py-2">${(categoryExpenses as any[]).reduce((sum, e) => sum + (e.amount || 0), 0).toFixed(2)}</td>

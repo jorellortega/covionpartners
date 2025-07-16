@@ -55,7 +55,9 @@ function debugTableTree(label: string, children: React.ReactNode) {
 }
 
 export default function BusinessExpensePage() {
+  console.log('🚨 BUSINESS EXPENSES PAGE LOADING 🚨');
   const { user } = useAuth();
+  console.log('DEBUG: Component render, user state:', user);
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<string>("");
   const [expenses, setExpenses] = useState<any[]>([]);
@@ -77,12 +79,27 @@ export default function BusinessExpensePage() {
   const [showEdit, setShowEdit] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    console.log('DEBUG: useEffect triggered, user:', user);
+    if (!user) {
+      console.log('DEBUG: No user found, returning early');
+      return;
+    }
+    console.log('DEBUG: User found, proceeding to fetch orgs');
     const fetchOrgs = async () => {
+      console.log('DEBUG: Current user:', user);
+      console.log('DEBUG: User ID:', user.id);
+      
+      const query = `owner_id.eq.${user.id},id.in.(select organization_id from organization_staff where user_id = ${user.id}),id.in.(select organization_id from team_members where user_id = ${user.id})`;
+      console.log('DEBUG: Query:', query);
+      
       const { data, error } = await supabase
         .from("organizations")
         .select("id, name")
-        .eq("owner_id", user.id);
+        .or(query);
+        
+      console.log('DEBUG: Organizations data:', data);
+      console.log('DEBUG: Organizations error:', error);
+      
       if (error) toast.error("Failed to fetch organizations");
       setOrganizations(data || []);
       if (data && data.length > 0) setSelectedOrg(data[0].id);
