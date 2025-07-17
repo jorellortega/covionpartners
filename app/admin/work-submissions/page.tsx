@@ -247,7 +247,7 @@ export default function AdminWorkSubmissionsPage() {
         switch (status) {
           case 'accepted':
             notificationTitle = `Your job application has been accepted!`;
-            notificationContent = `Congratulations! Your application for the ${application.job?.title} position at ${application.job?.company} has been accepted. You should expect to hear from them soon regarding next steps.`;
+            notificationContent = `Congratulations! Your application for the ${application.job?.title} position at ${application.job?.company} has been accepted. Visit your Approved Positions page to set up your work assignment and define the job requirements, timeline, and payment details.`;
             break;
           case 'rejected':
             notificationTitle = `Your job application has been rejected`;
@@ -311,7 +311,7 @@ export default function AdminWorkSubmissionsPage() {
           : `Your application for ${application.role_name} has been rejected`;
         
         const notificationContent = status === 'accepted'
-          ? `Congratulations! Your application for the ${application.role_name} position in the project "${application.project?.name}" has been accepted. You can now start working on this project.`
+          ? `Congratulations! Your application for the ${application.role_name} position in the project "${application.project?.name}" has been accepted. Visit your Approved Positions page to set up your work assignment and define the role requirements, timeline, and payment details.`
           : `Unfortunately, your application for the ${application.role_name} position in the project "${application.project?.name}" has been rejected. Don't worry, there are many other opportunities available.`;
 
         const { error: notificationError } = await supabase

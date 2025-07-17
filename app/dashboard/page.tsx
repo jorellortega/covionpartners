@@ -1091,24 +1091,19 @@ export default function PartnerDashboard() {
                       <Building2 className="w-4 h-4 mr-2" /> Create Organization
                     </Button>
                   </Link>
-                  {user?.role !== 'admin' ? (
-                    <div className="w-full py-2 px-3 border border-gray-700 rounded-md bg-gray-800/30 text-center">
-                      <div className="flex items-center justify-center text-gray-500 text-sm">
-                        <Briefcase className="w-4 h-4 mr-2" />
-                        Business Expenses
-                      </div>
-                      <p className="text-xs text-gray-600 mt-1">Admin Access Required</p>
-                    </div>
-                  ) : (
-                    <Link href="/business-expense">
-                      <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
-                        <Briefcase className="w-4 h-4 mr-2" /> Business Expenses
-                      </Button>
-                    </Link>
-                  )}
+                  <Link href="/business-expense">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <Briefcase className="w-4 h-4 mr-2" /> Business Expenses
+                    </Button>
+                  </Link>
                   <Link href="/work-dashboard">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
                       <FolderKanban className="w-4 h-4 mr-2" /> Work Dashboard
+                    </Button>
+                  </Link>
+                  <Link href="/approved-positions">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400">
+                      <CheckCircle className="w-4 h-4 mr-2" /> Approved Positions
                     </Button>
                   </Link>
                   <Link href="/work-submission">
@@ -1440,8 +1435,18 @@ export default function PartnerDashboard() {
                       <Users className="w-4 h-4 mr-2" /> My Organizations
                     </Button>
                   </Link>
+                  <Link href="/approved-positions">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-green-900/20 hover:text-green-400 mb-2">
+                      <CheckCircle className="w-4 h-4 mr-2" /> Approved Positions
+                    </Button>
+                  </Link>
+                  <Link href="/work-dashboard">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-purple-900/20 hover:text-purple-400 mb-2">
+                      <FolderKanban className="w-4 h-4 mr-2" /> Work Dashboard
+                    </Button>
+                  </Link>
                   <Link href="/jobportal">
-                    <Button variant="secondary" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400 mb-2">
+                    <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 mb-2">
                       <Briefcase className="w-4 h-4 mr-2" /> Job Portal Dashboard
                     </Button>
                   </Link>

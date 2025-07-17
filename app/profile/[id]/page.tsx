@@ -1024,57 +1024,66 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
             </Card>
 
             {/* Mini Analytics Card */}
-            <Card className="leonardo-card border-gray-800 mb-3 p-2">
-              <CardContent className="p-2">
-                <div className="flex flex-row flex-wrap gap-2 justify-center items-center">
-                  <div className="flex items-center gap-1 bg-blue-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
-                    <Briefcase className="w-4 h-4 text-blue-400" />
-                    <span className="font-bold text-blue-200 text-sm">4</span>
-                    <span className="text-xs text-gray-400 ml-1">Projects</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-purple-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
-                    <Handshake className="w-4 h-4 text-purple-400" />
-                    <span className="font-bold text-purple-200 text-sm">7</span>
-                    <span className="text-xs text-gray-400 ml-1">Deals</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-green-900/30 rounded-full px-3 py-1 shadow-sm min-w-[110px]">
-                    <CheckCircle className="w-4 h-4 text-green-400" />
-                    <span className="font-bold text-green-200 text-sm">15</span>
-                    <span className="text-xs text-gray-400 ml-1">Tasks</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-yellow-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
-                    <Star className="w-4 h-4 text-yellow-400" />
-                    <span className="font-bold text-yellow-200 text-sm">6</span>
-                    <span className="text-xs text-gray-400 ml-1">Skills</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-pink-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
-                    <Award className="w-4 h-4 text-pink-400" />
-                    <span className="font-bold text-pink-200 text-sm">2</span>
-                    <span className="text-xs text-gray-400 ml-1">Years</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-cyan-900/30 rounded-full px-3 py-1 shadow-sm min-w-[110px]">
-                    <UserCheck className="w-4 h-4 text-cyan-400" />
-                    <span className="font-bold text-cyan-200 text-sm">98%</span>
-                    <span className="text-xs text-gray-400 ml-1">Profile</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-emerald-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
-                    <span className="font-bold text-emerald-200 text-sm">95%</span>
-                    <span className="text-xs text-gray-400 ml-1">Professionalism</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-orange-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
-                    <DollarSign className="w-4 h-4 text-orange-400" />
-                    <span className="font-bold text-orange-200 text-sm">3</span>
-                    <span className="text-xs text-gray-400 ml-1">Projects Funded</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-indigo-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
-                    <TrendingUp className="w-4 h-4 text-indigo-400" />
-                    <span className="font-bold text-indigo-200 text-sm">2</span>
-                    <span className="text-xs text-gray-400 ml-1">I Funded</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card className="leonardo-card border-gray-800 mb-3 p-2 opacity-50 cursor-not-allowed">
+                    <CardContent className="p-2">
+                      <div className="flex flex-row flex-wrap gap-2 justify-center items-center">
+                        <div className="flex items-center gap-1 bg-blue-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+                          <Briefcase className="w-4 h-4 text-blue-400" />
+                          <span className="font-bold text-blue-200 text-sm">4</span>
+                          <span className="text-xs text-gray-400 ml-1">Projects</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-purple-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+                          <Handshake className="w-4 h-4 text-purple-400" />
+                          <span className="font-bold text-purple-200 text-sm">7</span>
+                          <span className="text-xs text-gray-400 ml-1">Deals</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-green-900/30 rounded-full px-3 py-1 shadow-sm min-w-[110px]">
+                          <CheckCircle className="w-4 h-4 text-green-400" />
+                          <span className="font-bold text-green-200 text-sm">15</span>
+                          <span className="text-xs text-gray-400 ml-1">Tasks</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-yellow-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+                          <Star className="w-4 h-4 text-yellow-400" />
+                          <span className="font-bold text-yellow-200 text-sm">6</span>
+                          <span className="text-xs text-gray-400 ml-1">Skills</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-pink-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+                          <Award className="w-4 h-4 text-pink-400" />
+                          <span className="font-bold text-pink-200 text-sm">2</span>
+                          <span className="text-xs text-gray-400 ml-1">Years</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-cyan-900/30 rounded-full px-3 py-1 shadow-sm min-w-[110px]">
+                          <UserCheck className="w-4 h-4 text-cyan-400" />
+                          <span className="font-bold text-cyan-200 text-sm">98%</span>
+                          <span className="text-xs text-gray-400 ml-1">Profile</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-emerald-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+                          <CheckCircle className="w-4 h-4 text-emerald-400" />
+                          <span className="font-bold text-emerald-200 text-sm">95%</span>
+                          <span className="text-xs text-gray-400 ml-1">Professionalism</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-orange-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+                          <DollarSign className="w-4 h-4 text-orange-400" />
+                          <span className="font-bold text-orange-200 text-sm">3</span>
+                          <span className="text-xs text-gray-400 ml-1">Projects Funded</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-indigo-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+                          <TrendingUp className="w-4 h-4 text-indigo-400" />
+                          <span className="font-bold text-indigo-200 text-sm">2</span>
+                          <span className="text-xs text-gray-400 ml-1">I Funded</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Coming Soon</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             {/* Skills Card */}
             <Card className="leonardo-card border-gray-800">

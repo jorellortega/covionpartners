@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,7 @@ const getBadgeStyle = (level: number, role: string) => {
 };
 
 export default function OrganizationStaffPage() {
+  const { user } = useAuth();
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<string>("");
   const [staff, setStaff] = useState<any[]>([]);
@@ -66,15 +68,20 @@ export default function OrganizationStaffPage() {
   const [selectedStaffForManager, setSelectedStaffForManager] = useState<any>(null);
   const [newStaff, setNewStaff] = useState({ name: "", email: "", role: "Member", position: "", status: "Invited", avatar_url: "", access_level: 2, user_id: "" });
   const [searchQuery, setSearchQuery] = useState("");
+  const [userAccessLevel, setUserAccessLevel] = useState<number | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
 
   const selectedOrganization = organizations.find(org => org.id === selectedOrg);
+
+  // Check if user has permission to edit access levels
+  const canEditAccessLevels = isOwner || userAccessLevel === 5;
 
   // Fetch organizations from the database
   useEffect(() => {
     const fetchOrgs = async () => {
       const { data, error } = await supabase
         .from("organizations")
-        .select("id, name")
+        .select("id, name, owner_id")
         .order("created_at", { ascending: false });
       if (!error && Array.isArray(data)) {
         setOrganizations(data);
@@ -83,6 +90,34 @@ export default function OrganizationStaffPage() {
     };
     fetchOrgs();
   }, []);
+
+  // Check user's access level and ownership for selected organization
+  useEffect(() => {
+    if (!selectedOrg || !user) return;
+    
+    const checkUserPermissions = async () => {
+      // Check if user is owner
+      const selectedOrgObj = organizations.find(org => org.id === selectedOrg);
+      const userIsOwner = selectedOrgObj && selectedOrgObj.owner_id === user.id;
+      setIsOwner(userIsOwner);
+      
+      // Check users access level in staff table
+      const { data: staffData, error } = await supabase
+        .from("organization_staff")
+        .select("access_level")
+        .eq("user_id", user.id)
+        .eq("organization_id", selectedOrg)
+        .single();
+      
+      if (!error && staffData) {
+        setUserAccessLevel(staffData.access_level);
+      } else {
+        setUserAccessLevel(null);
+      }
+    };
+    
+    checkUserPermissions();
+  }, [selectedOrg, user, organizations]);
 
   // Fetch staff from API when selectedOrg changes
   useEffect(() => {
@@ -375,18 +410,30 @@ export default function OrganizationStaffPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Select value={String(newStaff.access_level)} onValueChange={val => setNewStaff({ ...newStaff, access_level: Number(val) })}>
-                    <SelectTrigger className="w-full max-w-md bg-gray-900 border-gray-700 text-white">
-                      <SelectValue placeholder="Access Level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">Level 1 - Minimal Access</SelectItem>
-                      <SelectItem value="2">Level 2 - Basic Access</SelectItem>
-                      <SelectItem value="3">Level 3 - Standard Access</SelectItem>
-                      <SelectItem value="4">Level 4 - Advanced Access</SelectItem>
-                      <SelectItem value="5">Level 5 - Full Access</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-2">
+                    <Label>Access Level</Label>
+                    <Select 
+                      value={String(newStaff.access_level)} 
+                      onValueChange={val => setNewStaff({ ...newStaff, access_level: Number(val) })}
+                      disabled={!canEditAccessLevels}
+                    >
+                      <SelectTrigger className={`w-full max-w-md bg-gray-900 border-gray-700 text-white ${!canEditAccessLevels ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <SelectValue placeholder="Access Level" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Level 1 - Minimal Access</SelectItem>
+                        <SelectItem value="2">Level 2 - Basic Access</SelectItem>
+                        <SelectItem value="3">Level 3 - Standard Access</SelectItem>
+                        <SelectItem value="4">Level 4 - Advanced Access</SelectItem>
+                        <SelectItem value="5">Level 5 - Full Access</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {!canEditAccessLevels && (
+                      <p className="text-xs text-gray-500">
+                        Only organization owners and users with Access Level 5 can modify access levels.
+                      </p>
+                    )}
+                  </div>
                   <Select value={newStaff.status} onValueChange={val => setNewStaff({ ...newStaff, status: val })}>
                     <SelectTrigger className="w-full max-w-md bg-gray-900 border-gray-700 text-white">
                       <SelectValue placeholder="Status" />
@@ -535,18 +582,30 @@ export default function OrganizationStaffPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={String(editStaff.access_level)} onValueChange={val => setEditStaff({ ...editStaff, access_level: Number(val) })}>
-                <SelectTrigger className="w-full max-w-md bg-gray-900 border-gray-700 text-white">
-                  <SelectValue placeholder="Access Level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Level 1 - Minimal Access</SelectItem>
-                  <SelectItem value="2">Level 2 - Basic Access</SelectItem>
-                  <SelectItem value="3">Level 3 - Standard Access</SelectItem>
-                  <SelectItem value="4">Level 4 - Advanced Access</SelectItem>
-                  <SelectItem value="5">Level 5 - Full Access</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label>Access Level</Label>
+                <Select 
+                  value={String(editStaff.access_level)} 
+                  onValueChange={val => setEditStaff({ ...editStaff, access_level: Number(val) })}
+                  disabled={!canEditAccessLevels}
+                >
+                  <SelectTrigger className={`w-full max-w-md bg-gray-900 border-gray-700 text-white ${!canEditAccessLevels ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                    <SelectValue placeholder="Access Level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Level 1 - Minimal Access</SelectItem>
+                    <SelectItem value="2">Level 2 - Basic Access</SelectItem>
+                    <SelectItem value="3">Level 3 - Standard Access</SelectItem>
+                    <SelectItem value="4">Level 4 - Advanced Access</SelectItem>
+                    <SelectItem value="5">Level 5 - Full Access</SelectItem>
+                  </SelectContent>
+                </Select>
+                {!canEditAccessLevels && (
+                  <p className="text-xs text-gray-500">
+                    Only organization owners and users with Access Level 5 can modify access levels.
+                  </p>
+                )}
+              </div>
               <Select value={editStaff.status} onValueChange={val => setEditStaff({ ...editStaff, status: val })}>
                 <SelectTrigger className="w-full max-w-md bg-gray-900 border-gray-700 text-white">
                   <SelectValue placeholder="Status" />

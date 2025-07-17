@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -21,7 +21,8 @@ const jobTypes = [
   { value: "part-time", label: "Part Time" },
   { value: "contract", label: "Contract" },
   { value: "internship", label: "Internship" },
-  { value: "freelance", label: "Freelance" }
+  { value: "freelance", label: "Freelance" },
+  { value: "work-for-hire", label: "Work for Hire" }
 ]
 
 const experienceLevels = [
@@ -58,7 +59,10 @@ export default function PostJobPage() {
     education_level: "",
     application_deadline: "",
     skills: [] as string[],
-    customSkill: ""
+    customSkill: "",
+    timeline_days: "",
+    deliverables: "",
+    project_requirements: ""
   })
   const router = useRouter()
   const { toast } = useToast()
@@ -171,6 +175,12 @@ export default function PostJobPage() {
         jobData.organization_id = selectedOrgId
       } else {
         jobData.organization_id = null
+      }
+
+      if (formData.job_type === "work-for-hire") {
+        jobData.timeline_days = formData.timeline_days ? parseInt(formData.timeline_days, 10) : null;
+        jobData.deliverables = formData.deliverables || null;
+        jobData.project_requirements = formData.project_requirements || null;
       }
 
       const { data, error } = await supabase
@@ -343,6 +353,48 @@ export default function PostJobPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Job Type Specific Fields */}
+              {formData.job_type === "work-for-hire" && (
+                <Card className="bg-gray-900/50 border-gray-800">
+                  <CardHeader>
+                    <CardTitle className="text-lg text-blue-400">Work for Hire Details</CardTitle>
+                    <CardDescription>Additional information for project-based work</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="timeline_days">Project Timeline (days)</Label>
+                      <Input
+                        id="timeline_days"
+                        type="number"
+                        placeholder="30"
+                        value={formData.timeline_days || ""}
+                        onChange={(e) => handleInputChange('timeline_days', e.target.value)}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="deliverables">Deliverables</Label>
+                      <Textarea
+                        id="deliverables"
+                        placeholder="Describe what needs to be delivered..."
+                        value={formData.deliverables || ""}
+                        onChange={(e) => handleInputChange('deliverables', e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="project_requirements">Project Requirements</Label>
+                      <Textarea
+                        id="project_requirements"
+                        placeholder="Specific requirements for this project..."
+                        value={formData.project_requirements || ""}
+                        onChange={(e) => handleInputChange('project_requirements', e.target.value)}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Skills */}
               <Card className="bg-gray-900/50 border-gray-800">
