@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
@@ -159,7 +159,7 @@ const mockTimeline = [
   }
 ]
 
-export default function WorkModePage() {
+function WorkModeContent() {
   const [activeRoom, setActiveRoom] = useState("general")
   const [comment, setComment] = useState("")
   const { user, loading: userLoading } = useAuth()
@@ -1825,6 +1825,21 @@ export default function WorkModePage() {
     </div>
   )
 } 
+
+export default function WorkModePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-t-blue-500 border-b-blue-500 border-l-transparent border-r-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading work mode...</p>
+        </div>
+      </div>
+    }>
+      <WorkModeContent />
+    </Suspense>
+  )
+}
 
 function ActiveSessionsCard({ projectId, teamMembers, refreshTeamMembers }: { projectId: string | undefined, teamMembers: any[], refreshTeamMembers: () => void }) {
   const [sessions, setSessions] = useState<any[]>([])
