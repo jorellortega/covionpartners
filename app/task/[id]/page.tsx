@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { formatDistanceToNow } from "date-fns"
+import { getLinkedEntities, createEntityLink, deleteEntityLink } from "@/lib/entity-links"
 
 interface Task {
   id: string
@@ -196,16 +197,20 @@ export default function TaskDetailPage() {
           console.error('Error fetching timeline items:', timelineError);
         }
 
-        // Fetch timeline items that are linked to this task
-        const { data: linkedItems, error: linkedError } = await supabase
-          .from('project_timeline')
-          .select('*')
-          .eq('project_id', task.project_id)
-          .contains('related_task_ids', [taskId]);
+        // Fetch linked entities using the new entity_links table
+        const { data: linkedEntities, error: linkedError } = await getLinkedEntities('task', taskId);
         
-        if (!linkedError) {
-          setLinkedTimelineItems(linkedItems || []);
-        }
+        console.log('Task page - linked entities query:', { 
+          taskId, 
+          projectId: task.project_id, 
+          linkedEntities, 
+          error: linkedError 
+        });
+        
+        // Filter for timeline items only
+        const linkedTimelineItems = linkedEntities.filter(entity => entity.type !== 'task');
+        setLinkedTimelineItems(linkedTimelineItems);
+        console.log('Updated linkedTimelineItems state:', linkedTimelineItems);
       } catch (error) {
         console.error('Error fetching timeline data:', error);
       } finally {
@@ -214,7 +219,7 @@ export default function TaskDetailPage() {
     };
 
     fetchTimelineData();
-  }, [task?.project_id, taskId]);
+  }, [task?.project_id, taskId, task?.id]);
 
   const handleFileUpload = async (file: File) => {
     if (!task || !user) return;
@@ -427,10 +432,9 @@ export default function TaskDetailPage() {
   const linkTaskToTimeline = async (timelineId: string) => {
     if (!task) return;
     try {
-      const { error } = await supabase.rpc('add_task_to_timeline', {
-        timeline_id: timelineId,
-        task_id: task.id
-      });
+      console.log('Linking task to timeline:', { taskId: task.id, timelineId });
+      
+      const { error } = await createEntityLink('task', task.id, 'timeline', timelineId, 'association', task.project_id);
 
       if (error) {
         console.error('Error linking task to timeline:', error);
@@ -438,18 +442,17 @@ export default function TaskDetailPage() {
         return;
       }
 
+      console.log('Successfully linked task to timeline');
       toast({ title: 'Success', description: 'Task linked to timeline successfully' });
       setLinkTimelineModalOpen(false);
       
       // Refresh linked timeline items
-      const { data: linkedItems, error: linkedError } = await supabase
-        .from('project_timeline')
-        .select('*')
-        .eq('project_id', task.project_id)
-        .contains('related_task_ids', [task.id]);
+      const { data: linkedEntities, error: linkedError } = await getLinkedEntities('task', task.id);
       
+      console.log('Refreshed linked entities:', linkedEntities);
       if (!linkedError) {
-        setLinkedTimelineItems(linkedItems || []);
+        const linkedTimelineItems = linkedEntities.filter(entity => entity.type !== 'task');
+        setLinkedTimelineItems(linkedTimelineItems);
       }
     } catch (error) {
       console.error('Error linking task:', error);
@@ -461,10 +464,7 @@ export default function TaskDetailPage() {
   const unlinkTaskFromTimeline = async (timelineId: string) => {
     if (!task) return;
     try {
-      const { error } = await supabase.rpc('remove_task_from_timeline', {
-        timeline_id: timelineId,
-        task_id: task.id
-      });
+      const { error } = await deleteEntityLink('task', task.id, 'timeline', timelineId);
 
       if (error) {
         console.error('Error unlinking task from timeline:', error);
@@ -475,14 +475,11 @@ export default function TaskDetailPage() {
       toast({ title: 'Success', description: 'Task unlinked from timeline successfully' });
       
       // Refresh linked timeline items
-      const { data: linkedItems, error: linkedError } = await supabase
-        .from('project_timeline')
-        .select('*')
-        .eq('project_id', task.project_id)
-        .contains('related_task_ids', [task.id]);
+      const { data: linkedEntities, error: linkedError } = await getLinkedEntities('task', task.id);
       
       if (!linkedError) {
-        setLinkedTimelineItems(linkedItems || []);
+        const linkedTimelineItems = linkedEntities.filter(entity => entity.type !== 'task');
+        setLinkedTimelineItems(linkedTimelineItems);
       }
     } catch (error) {
       console.error('Error unlinking task:', error);
@@ -575,6 +572,9 @@ export default function TaskDetailPage() {
                 </>
               )}
             </CardTitle>
+            <div className="text-xs text-gray-500 mt-1 opacity-60">
+              task
+            </div>
             {task.project && (
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-gray-400">Project:</span>
@@ -810,7 +810,7 @@ export default function TaskDetailPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xl font-semibold flex items-center gap-2">
                   <Target className="w-5 h-5 text-green-400" />
-                  Timeline Associations ({linkedTimelineItems.length})
+                  Timeline Associations ({linkedTimelineItems?.length || 0})
                 </CardTitle>
                 <Button
                   variant="outline"

@@ -1,45 +1,132 @@
+'use client';
+
+import { useState, useEffect, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Users, CheckCircle, Target, Flag, AlertCircle, FileText, Plus, X, Clipboard, Eye, Package, Search, MoreHorizontal } from 'lucide-react';
+import { Calendar, Users, CheckCircle, Target, Flag, AlertCircle, FileText, X, Clipboard, Eye, Package, Search, MoreHorizontal, ChevronRight, Home, FolderOpen } from 'lucide-react';
 import TimelineFilesClient from './TimelineFilesClient';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import StatusUpdate from './StatusUpdate';
 import Link from 'next/link';
+import { getLinkedEntities } from '@/lib/entity-links';
+import LinkedEntitiesCard from './LinkedEntitiesCard';
 
-export default async function TimelineItemPage({ params }: { params: { id: string } }) {
-  const { id } = params;
-  
+export default function TimelineItemPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const [item, setItem] = useState<any>(null);
+  const [linkedEntities, setLinkedEntities] = useState<any[]>([]);
+  const [referencingTimelineItems, setReferencingTimelineItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [project, setProject] = useState<any>(null);
+
+  useEffect(() => {
+    fetchTimelineData();
+  }, [id]);
+
+  const fetchTimelineData = async () => {
+    setLoading(true);
+    try {
   // Fetch the timeline item
-  const { data: item } = await supabase
+      const { data: timelineItem } = await supabase
     .from('project_timeline')
     .select('*')
     .eq('id', id)
     .maybeSingle();
 
-  if (!item) return notFound();
+      if (!timelineItem) {
+        // Handle not found
+        return;
+      }
 
-  // Fetch associated tasks if this timeline item has related_task_ids
-  let associatedTasks: any[] = [];
-  if (item.related_task_ids && item.related_task_ids.length > 0) {
-    const { data: tasks } = await supabase
-      .from('tasks')
+      setItem(timelineItem);
+
+      // Fetch project details for navigation
+      if (timelineItem.project_id) {
+        const { data: projectData } = await supabase
+          .from('projects')
+          .select('id, name')
+          .eq('id', timelineItem.project_id)
+          .single();
+        setProject(projectData);
+      }
+
+      // Debug logging
+      console.log('Timeline item:', {
+        id: timelineItem.id,
+        title: timelineItem.title,
+        related_task_ids: timelineItem.related_task_ids,
+        has_related_tasks: timelineItem.related_task_ids && timelineItem.related_task_ids.length > 0,
+        project_id: timelineItem.project_id
+      });
+
+      // Fetch linked entities using the new entity_links table
+      const { data: linkedEntitiesData, error: linkedError } = await getLinkedEntities('timeline', timelineItem.id);
+      
+      console.log('Linked entities for timeline item:', { linkedEntitiesData, error: linkedError });
+      
+      setLinkedEntities(linkedEntitiesData || []);
+
+      // Fetch timeline items that reference this timeline item as a task
+      const { data: referencingItems } = await supabase
+        .from('project_timeline')
       .select('*')
-      .in('id', item.related_task_ids)
-      .order('created_at', { ascending: false });
-    
-    associatedTasks = tasks || [];
+        .eq('project_id', timelineItem.project_id)
+        .contains('related_task_ids', [id]);
+      
+      setReferencingTimelineItems(referencingItems?.filter((t) => t.id !== id) || []);
+    } catch (error) {
+      console.error('Error fetching timeline data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+
+  if (loading) {
+    return <div className="max-w-4xl mx-auto py-8 px-4">Loading...</div>;
   }
 
-  // Fetch all available tasks for this project (for adding new associations)
-  const { data: allProjectTasks } = await supabase
-    .from('tasks')
-    .select('id, title, description, status, priority')
-    .eq('project_id', item.project_id)
-    .order('created_at', { ascending: false });
+  if (!item) {
+    return notFound();
+  }
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
+      {/* Navigation Bar */}
+      <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Link 
+              href="/dashboard" 
+              className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-800 transition-colors text-gray-300 hover:text-white"
+            >
+              <Home className="w-4 h-4" />
+              <span className="font-medium">Dashboard</span>
+            </Link>
+            <Link 
+              href="/workmode" 
+              className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-800 transition-colors text-gray-300 hover:text-white"
+            >
+              <FolderOpen className="w-4 h-4" />
+              <span className="font-medium">Work Mode</span>
+            </Link>
+            {project && (
+              <Link 
+                href={`/projects/${project.id}`}
+                className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-800 transition-colors text-gray-300 hover:text-white"
+              >
+                <span className="font-medium">{project.name}</span>
+              </Link>
+            )}
+          </div>
+          <div className="text-sm text-gray-500">
+            Timeline Item
+          </div>
+        </div>
+      </div>
+
       <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-900/30 to-gray-900/60 shadow-xl">
         <CardHeader className="pb-2">
           <div className="flex items-center gap-3 mb-2">
@@ -54,10 +141,18 @@ export default async function TimelineItemPage({ params }: { params: { id: strin
             {item.type === 'research' && <Search className="w-7 h-7 text-indigo-400" />}
             {item.type === 'other' && <MoreHorizontal className="w-7 h-7 text-gray-400" />}
             <CardTitle className="text-2xl font-bold">{item.title}</CardTitle>
+            <div className="text-xs text-gray-500 mt-1 opacity-60">
+              {item.type}
+            </div>
             <div className="flex items-center gap-2">
-              <Badge className="ml-2 bg-blue-700/80 text-white text-base">{item.status?.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</Badge>
               {/* Status update dropdown */}
-              <StatusUpdate id={item.id} status={item.status} />
+              <StatusUpdate 
+                id={item.id} 
+                status={item.status} 
+                onStatusChange={(newStatus) => {
+                  setItem({ ...item, status: newStatus });
+                }}
+              />
             </div>
           </div>
         </CardHeader>
@@ -75,74 +170,21 @@ export default async function TimelineItemPage({ params }: { params: { id: strin
             </div>
           </div>
 
-          {/* Associated Tasks Section */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Associated Tasks ({associatedTasks.length})
-              </h3>
-              <Link 
-                href={`/workmode?project=${item.project_id}&tab=tasks`}
-                className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1"
-              >
-                <Plus className="w-4 h-4" />
-                Manage Tasks
-              </Link>
-            </div>
-            
-            {associatedTasks.length === 0 ? (
-              <div className="text-gray-400 text-center py-8 border border-gray-700 rounded-lg">
-                <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>No tasks associated with this {item.type}</p>
-                <p className="text-sm mt-1">Tasks can be linked from the Tasks tab</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {associatedTasks.map((task) => (
-                  <div key={task.id} className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-white mb-1">{task.title}</h4>
-                        {task.description && (
-                          <p className="text-gray-300 text-sm mb-2">{task.description}</p>
-                        )}
-                        <div className="flex items-center gap-3 text-xs text-gray-400">
-                          <span className={`px-2 py-1 rounded ${
-                            task.status === 'completed' ? 'bg-green-900/50 text-green-300' :
-                            task.status === 'in_progress' ? 'bg-blue-900/50 text-blue-300' :
-                            'bg-gray-700/50 text-gray-300'
-                          }`}>
-                            {task.status?.replace('_', ' ')}
-                          </span>
-                          {task.priority && (
-                            <span className={`px-2 py-1 rounded ${
-                              task.priority === 'high' ? 'bg-red-900/50 text-red-300' :
-                              task.priority === 'medium' ? 'bg-yellow-900/50 text-yellow-300' :
-                              'bg-green-900/50 text-green-300'
-                            }`}>
-                              {task.priority}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <Link 
-                        href={`/workmode?project=${item.project_id}&tab=tasks`}
-                        className="text-blue-400 hover:text-blue-300 text-sm"
-                      >
-                        View
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* File upload/download section (client component) */}
           <TimelineFilesClient timelineId={item.id} />
         </CardContent>
       </Card>
+
+      {/* Linked Entities Card */}
+      <div className="mt-6">
+        <LinkedEntitiesCard
+          timelineId={item.id}
+          projectId={item.project_id}
+          linkedEntities={linkedEntities}
+          referencingTimelineItems={referencingTimelineItems}
+          onRefresh={fetchTimelineData}
+        />
+      </div>
     </div>
   );
 } 

@@ -767,6 +767,18 @@ export default function PartnerDashboard() {
               {getTierName(user?.role || '')}
             </Badge>
           </div>
+          
+          {/* Welcome Banner moved to header */}
+          <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => router.push(`/profile/${user?.id}`)}>
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center transition-transform group-hover:scale-105">
+              <User className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold group-hover:text-purple-400 transition-colors">Welcome, {user?.name || user?.email}!</h2>
+              <p className="text-sm text-gray-400">Here's what's happening in your workspace</p>
+            </div>
+          </div>
+          
           <div className="flex flex-wrap gap-2 sm:gap-4 w-full sm:w-auto">
             <Button 
               variant="outline" 
@@ -837,124 +849,104 @@ export default function PartnerDashboard() {
           </div>
         )}
 
-        {/* Welcome Banner */}
+
+        {/* Quick Access Icons */}
         <div className="leonardo-card p-4 sm:p-6 mb-6 bg-gradient-to-r from-gray-800/50 to-gray-900/50">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => router.push(`/profile/${user?.id}`)}>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center transition-transform group-hover:scale-105">
-                <User className="w-5 h-5 text-white" />
+                      <div className="flex justify-center items-center">
+              <div className="flex items-center gap-6 sm:gap-8">
+              <div className="flex flex-col items-center gap-2 group">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="relative w-20 h-20 bg-yellow-500/20 hover:bg-yellow-500/30 hover:text-yellow-400 p-4 rounded-lg border border-yellow-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  onClick={() => router.push('/updates')}
+                >
+                                        <Bell className="w-20 h-20" />
+                  {unreadMessages > 0 && (
+                    <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full text-xs flex items-center justify-center text-white font-bold">
+                      {unreadMessages}
+                    </span>
+                  )}
+                </Button>
+                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Updates</span>
               </div>
-              <div>
-                <h2 className="text-xl font-bold group-hover:text-purple-400 transition-colors">Welcome, {user?.name || user?.email}!</h2>
-                <p className="text-sm text-gray-400">Here's what's happening in your workspace</p>
+
+              <div className="flex flex-col items-center gap-2 group">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="relative w-20 h-20 bg-purple-500/20 hover:bg-purple-500/30 hover:text-purple-400 p-4 rounded-lg border border-purple-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  onClick={() => router.push('/messages')}
+                >
+                                        <MessageSquare className="w-20 h-20" />
+                  {unreadMessages > 0 && (
+                    <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full text-xs flex items-center justify-center text-white font-bold">
+                      {unreadMessages}
+                    </span>
+                  )}
+                </Button>
+                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Messages</span>
               </div>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="relative hover:bg-yellow-500/20 hover:text-yellow-400"
-                      onClick={() => router.push('/updates')}
-                    >
-                      <Bell className="w-5 h-5" />
-                      {unreadMessages > 0 && (
-                        <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center text-white">
-                          {unreadMessages}
-                        </span>
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Updates</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="relative hover:bg-purple-500/20 hover:text-purple-400"
-                      onClick={() => router.push('/messages')}
-                    >
-                      <MessageSquare className="w-5 h-5" />
-                      {unreadMessages > 0 && (
-                        <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center text-white">
-                          {unreadMessages}
-                        </span>
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Messages</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <div className="flex flex-col items-center gap-2 group">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="w-20 h-20 bg-blue-500/20 hover:bg-blue-500/30 hover:text-blue-400 p-4 rounded-lg border border-blue-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  onClick={() => router.push('/projects')}
+                >
+                                        <Briefcase className="w-20 h-20" />
+                </Button>
+                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Projects</span>
+              </div>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="hover:bg-blue-500/20 hover:text-blue-400"
-                      onClick={() => router.push('/projects')}
-                    >
-                      <Briefcase className="w-5 h-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Projects</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <div className="flex flex-col items-center gap-2 group">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="w-20 h-20 bg-green-500/20 hover:bg-green-500/30 hover:text-green-400 p-4 rounded-lg border border-green-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  onClick={() => router.push('/withdraw')}
+                >
+                                        <DollarSign className="w-20 h-20" />
+                </Button>
+                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Withdraw</span>
+              </div>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="hover:bg-green-500/20 hover:text-green-400"
-                      onClick={() => router.push('/withdraw')}
-                    >
-                      <DollarSign className="w-5 h-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Withdraw</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <div className="flex flex-col items-center gap-2 group">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="w-20 h-20 bg-purple-500/20 hover:bg-purple-500/30 hover:text-purple-400 p-4 rounded-lg border border-purple-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  onClick={() => router.push('/workflow')}
+                >
+                                        <Workflow className="w-20 h-20" />
+                </Button>
+                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Tasks</span>
+              </div>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="hover:bg-purple-500/20 hover:text-purple-400"
-                      onClick={() => router.push('/workflow')}
-                    >
-                      <Workflow className="w-5 h-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Workflow</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <div className="flex flex-col items-center gap-2 group">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="w-20 h-20 bg-orange-500/20 hover:bg-orange-500/30 hover:text-orange-400 p-4 rounded-lg border border-orange-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  onClick={() => router.push('/feed')}
+                >
+                                        <Users className="w-20 h-20" />
+                </Button>
+                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Activity Feed</span>
+              </div>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="hover:bg-orange-500/20 hover:text-orange-400"
-                      onClick={() => router.push('/feed')}
-                    >
-                      <Users className="w-5 h-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Activity Feed</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <div className="flex flex-col items-center gap-2 group">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="w-20 h-20 bg-indigo-500/20 hover:bg-indigo-500/30 hover:text-indigo-400 p-4 rounded-lg border border-indigo-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  onClick={() => router.push('/workmode')}
+                >
+                                        <FolderKanban className="w-20 h-20" />
+                </Button>
+                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Workspace</span>
+              </div>
             </div>
           </div>
         </div>

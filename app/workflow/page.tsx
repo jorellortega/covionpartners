@@ -776,7 +776,7 @@ export default function WorkflowPage() {
                 <Home className="w-6 h-6 mr-2" />
                 Dashboard
               </Link>
-              <h1 className="text-3xl font-bold text-white">My Workflow</h1>
+                              <h1 className="text-3xl font-bold text-white">All Tasks</h1>
             </div>
             <div className="flex items-center justify-end w-full sm:w-auto">
               <div className="flex items-center gap-2">
