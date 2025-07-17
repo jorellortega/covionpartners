@@ -796,7 +796,7 @@ function WorkModeContent() {
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold flex items-center">
               <Activity className="w-6 h-6 text-green-400 mr-2" />
-              Work Mode
+              Workspace
             </h1>
             <Badge className="bg-green-800/30 text-green-300 border-green-700">Live Collaboration</Badge>
             <Button
@@ -1832,7 +1832,7 @@ export default function WorkModePage() {
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-t-blue-500 border-b-blue-500 border-l-transparent border-r-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading work mode...</p>
+          <p className="text-gray-400">Loading workspace...</p>
         </div>
       </div>
     }>

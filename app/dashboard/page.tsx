@@ -1105,7 +1105,7 @@ export default function PartnerDashboard() {
                   </Link>
                   <Link href="/workmode">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-blue-900/20 hover:text-blue-400">
-                      <Workflow className="w-4 h-4 mr-2" /> Workmode
+                      <Workflow className="w-4 h-4 mr-2" /> Workspace
                     </Button>
                   </Link>
                   <Link href="/open-roles">
@@ -1215,7 +1215,7 @@ export default function PartnerDashboard() {
                   </Link>
                   <Link href="/workmode">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
-                      <Workflow className="w-4 h-4 mr-2" /> Workmode
+                      <Workflow className="w-4 h-4 mr-2" /> Workspace
                     </Button>
                   </Link>
                 </CardContent>
