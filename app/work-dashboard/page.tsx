@@ -342,7 +342,7 @@ export default function WorkDashboardPage() {
                 className="border-blue-600 text-blue-400 hover:bg-blue-600/20"
               >
                 <FolderKanban className="w-4 h-4 mr-2" />
-                Go to Workmode
+                Go to Workspace
               </Button>
               <Button 
                 onClick={() => {
@@ -496,7 +496,7 @@ export default function WorkDashboardPage() {
                                   className="border-blue-600 text-blue-400 hover:bg-blue-600/20"
                                 >
                                   <FolderKanban className="w-4 h-4 mr-2" />
-                                  Go to Workmode
+                                  Go to Workspace
                                 </Button>
                               )}
                             </>
