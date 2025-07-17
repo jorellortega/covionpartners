@@ -42,7 +42,8 @@ import {
   XCircle,
   User,
   Mail,
-  Plus
+  Plus,
+  Zap
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/ui/use-toast'
@@ -113,6 +114,18 @@ export default function OpenRolesPage() {
     total_budget: ''
   })
   const [rolesWithApprovedApps, setRolesWithApprovedApps] = useState<Set<string>>(new Set())
+  const [applicationsWithWorkAssignments, setApplicationsWithWorkAssignments] = useState<Set<string>>(new Set())
+
+  // Task selection and creation state
+  const [existingTasks, setExistingTasks] = useState<any[]>([])
+  const [selectedTaskId, setSelectedTaskId] = useState<string>('')
+  const [showCreateTask, setShowCreateTask] = useState(false)
+  const [newTaskForm, setNewTaskForm] = useState({
+    title: '',
+    description: '',
+    due_date: '',
+    priority: 'medium'
+  })
 
   // 1. Add state for owned projects, modal, and form
   const [ownedProjects, setOwnedProjects] = useState<any[]>([]);
@@ -199,23 +212,196 @@ export default function OpenRolesPage() {
   const openWorkSetup = (application: RoleApplication) => {
     setSelectedApplication(application)
     setWorkSetupForm({
-      project_title: `${selectedRole?.role_name} - ${application.user.name || application.user.email}`,
-      work_description: selectedRole?.description || '',
+      project_title: application.role_name || '',
+      work_description: '',
       deliverables: '',
       timeline_days: '',
       payment_terms: '',
       milestones: '',
       communication_preferences: '',
-      start_date: new Date().toISOString().split('T')[0],
-      hourly_rate: selectedRole?.price?.toString() || '',
+      start_date: '',
+      hourly_rate: '',
       total_budget: ''
     })
     setShowWorkSetupModal(true)
+    
+    // Fetch existing tasks for the project
+    fetchProjectTasks(selectedRole?.project_id || '')
+  }
+
+  // Fetch existing tasks for the project
+  const fetchProjectTasks = async (projectId: string) => {
+    if (!projectId) return
+    
+    try {
+      const { data: tasks, error } = await supabase
+        .from('tasks')
+        .select('id, title, description, due_date, priority, status')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching tasks:', error)
+        return
+      }
+
+      setExistingTasks(tasks || [])
+    } catch (error) {
+      console.error('Error fetching project tasks:', error)
+    }
+  }
+
+  // Create a new task for the project
+  const createNewTask = async () => {
+    if (!selectedRole?.project_id || !user) return
+    
+    try {
+      const { data: newTask, error } = await supabase
+        .from('tasks')
+        .insert({
+          project_id: selectedRole.project_id,
+          title: newTaskForm.title,
+          description: newTaskForm.description,
+          due_date: newTaskForm.due_date,
+          priority: newTaskForm.priority,
+          status: 'pending',
+          created_by: user.id,
+          assigned_to: selectedApplication?.user_id || null
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Add the new task to the list and select it
+      setExistingTasks(prev => [newTask, ...prev])
+      setSelectedTaskId(newTask.id)
+      setShowCreateTask(false)
+      setNewTaskForm({ title: '', description: '', due_date: '', priority: 'medium' })
+
+      toast({
+        title: "Task Created",
+        description: "New task created and selected for work assignment",
+      })
+    } catch (error) {
+      console.error('Error creating task:', error)
+      toast({
+        title: "Error",
+        description: "Failed to create task",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Check if an application has a work assignment
+  const hasWorkAssignment = async (application: RoleApplication) => {
+    const { data, error } = await supabase
+      .from('project_role_work_assignments')
+      .select('id')
+      .eq('role_id', application.role_id)
+      .eq('user_id', application.user_id)
+      .limit(1)
+    
+    return !error && data && data.length > 0
+  }
+
+  // Handle reversing work assignment
+  const handleReverseWorkAssignment = async (application: RoleApplication) => {
+    if (!confirm('Are you sure you want to reverse this work assignment? This will unassign the work and revert the application status.')) {
+      return
+    }
+
+    try {
+      // 1. Delete the work assignment
+      const { error: workAssignmentError } = await supabase
+        .from('project_role_work_assignments')
+        .delete()
+        .eq('role_id', application.role_id)
+        .eq('user_id', application.user_id)
+
+      if (workAssignmentError) {
+        console.error('Error deleting work assignment:', workAssignmentError)
+        throw workAssignmentError
+      }
+
+      // 2. Revert the application status back to 'approved'
+      const { error: applicationError } = await supabase
+        .from('project_role_applications')
+        .update({ status: 'approved' })
+        .eq('id', application.id)
+
+      if (applicationError) {
+        console.error('Error reverting application status:', applicationError)
+        throw applicationError
+      }
+
+      // 3. Remove user from project team (if they were added)
+      const { error: teamError } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('project_id', selectedRole?.project_id)
+        .eq('user_id', application.user_id)
+
+      if (teamError && teamError.code !== 'PGRST116') {
+        console.error('Error removing from team:', teamError)
+        // Don't throw this error as it might not be critical
+      }
+
+      // 4. Delete the notification (if it exists)
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', application.user_id)
+        .eq('type', 'work_assignment')
+        .eq('related_id', application.role_id)
+
+      if (notificationError && notificationError.code !== 'PGRST116') {
+        console.error('Error deleting notification:', notificationError)
+        // Don't throw this error as it might not be critical
+      }
+
+      // 5. Create a notification for the worker about the reversal
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: application.user_id,
+          title: 'Work Assignment Reversed',
+          message: `Your work assignment for "${application.role_name}" has been reversed. The application is back to approved status.`,
+          type: 'work_assignment_reversed',
+          related_id: application.role_id,
+          created_at: new Date().toISOString()
+        })
+
+      toast({
+        title: "Work Assignment Reversed",
+        description: "The work assignment has been successfully reversed and the application status reverted.",
+      })
+
+      // Refresh the applications list
+      await fetchApplicationsForRole(selectedRole?.id || '')
+    } catch (error) {
+      console.error('Error reversing work assignment:', error)
+      toast({
+        title: "Error",
+        description: "Failed to reverse work assignment",
+        variant: "destructive"
+      })
+    }
   }
 
   const handleWorkSetupSubmit = async (e: any) => {
     e.preventDefault()
     if (!selectedApplication) return
+
+    // Validate that a task is selected
+    if (!selectedTaskId) {
+      toast({
+        title: "Task Required",
+        description: "Please select an existing task or create a new one before proceeding.",
+        variant: "destructive"
+      })
+      return
+    }
 
     try {
       // Create a work assignment record
@@ -247,6 +433,31 @@ export default function OpenRolesPage() {
         .update({ status: 'assigned' })
         .eq('id', selectedApplication.id)
 
+      // If a task was selected, update it to assign the user
+      if (selectedTaskId) {
+        await supabase
+          .from('tasks')
+          .update({ 
+            assigned_to: selectedApplication.user_id,
+            status: 'in_progress'
+          })
+          .eq('id', selectedTaskId)
+      }
+
+      // Create a timeline item for the work assignment
+      if (selectedRole?.project_id) {
+        await supabase
+          .from('timeline')
+          .insert({
+            project_id: selectedRole.project_id,
+            user_id: selectedApplication.user_id,
+            action: 'work_assigned',
+            description: `Work assigned: ${workSetupForm.project_title}`,
+            related_task_id: selectedTaskId || null,
+            created_at: new Date().toISOString()
+          })
+      }
+
       // Create a notification for the worker
       await supabase
         .from('notifications')
@@ -266,6 +477,8 @@ export default function OpenRolesPage() {
 
       setShowWorkSetupModal(false)
       setSelectedApplication(null)
+      setSelectedTaskId('')
+      setShowCreateTask(false)
       await fetchApplicationsForRole(selectedRole?.id || '')
     } catch (error) {
       console.error('Error creating work assignment:', error)
@@ -315,22 +528,45 @@ export default function OpenRolesPage() {
   const fetchOpenRoles = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      
+      if (!user) {
+        console.log('No user found, cannot fetch roles')
+        setRoles([])
+        return
+      }
+      
+      // First, fetch the basic roles data - ONLY for projects owned by the current user
+      const { data: rolesData, error: rolesError } = await supabase
         .from('project_open_roles')
         .select(`
           *,
-          project:projects(name, description, owner_id),
-          applications_count:project_role_applications(count)
+          project:projects(name, description, owner_id)
         `)
+        .not('project', 'is', null)  // Ensure project exists
+        .eq('project.owner_id', user.id)  // Only fetch roles for projects owned by current user
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (rolesError) throw rolesError
 
-      // Transform the data to include applications count
-      const rolesWithCount = data?.map(role => ({
-        ...role,
-        applications_count: role.applications_count?.length || 0
-      })) || []
+      console.log('Fetched roles for user:', user.id, 'Roles count:', rolesData?.length)
+
+      // Filter out any roles with null projects (extra safety)
+      const validRoles = (rolesData || []).filter(role => role.project !== null)
+
+      // Then fetch applications count separately
+      const rolesWithCount = await Promise.all(
+        validRoles.map(async (role) => {
+          const { count, error: countError } = await supabase
+            .from('project_role_applications')
+            .select('*', { count: 'exact', head: true })
+            .eq('role_id', role.id)
+
+          return {
+            ...role,
+            applications_count: countError ? 0 : (count || 0)
+          }
+        })
+      )
 
       setRoles(rolesWithCount)
 
@@ -341,7 +577,7 @@ export default function OpenRolesPage() {
           .from('project_role_applications')
           .select('role_id')
           .in('status', ['approved', 'accepted'])
-          .in('role_id', rolesWithCount.filter(r => r.project.owner_id === user.id).map(r => r.id))
+          .in('role_id', rolesWithCount.map(r => r.id))
 
         if (!error && approvedApps) {
           const approvedRoleIds = new Set(approvedApps.map(app => app.role_id))
@@ -485,6 +721,23 @@ export default function OpenRolesPage() {
 
       console.log('Final applications with users:', applicationsWithUsers)
       setSelectedRoleApplications(applicationsWithUsers)
+
+      // Check which applications have work assignments
+      const workAssignmentChecks = await Promise.all(
+        applicationsWithUsers.map(async (app) => {
+          const hasAssignment = await hasWorkAssignment(app)
+          return { applicationId: app.id, hasAssignment }
+        })
+      )
+
+      const appsWithAssignments = new Set(
+        workAssignmentChecks
+          .filter(check => check.hasAssignment)
+          .map(check => check.applicationId)
+      )
+
+      setApplicationsWithWorkAssignments(appsWithAssignments)
+      console.log('Applications with work assignments:', appsWithAssignments)
     } catch (error) {
       console.error('Error fetching applications:', error)
       toast({
@@ -609,7 +862,7 @@ export default function OpenRolesPage() {
   const filteredRoles = roles.filter(role => {
     const matchesSearch = role.role_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          role.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         role.project.name.toLowerCase().includes(searchQuery.toLowerCase())
+                         (role.project?.name || '').toLowerCase().includes(searchQuery.toLowerCase())
 
     const matchesStatus = statusFilter === 'all' || role.status === statusFilter
 
@@ -677,8 +930,8 @@ export default function OpenRolesPage() {
                   <Briefcase className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold">Open Roles</h1>
-                  <p className="text-gray-400">Browse all available project roles</p>
+                  <h1 className="text-3xl font-bold">My Project Roles</h1>
+                  <p className="text-gray-400">Manage roles for your own projects</p>
                 </div>
               </div>
             </div>
@@ -800,8 +1053,17 @@ export default function OpenRolesPage() {
             <p className="text-gray-400 mb-4">
               {searchQuery || statusFilter !== 'all' || priceFilter !== 'all'
                 ? 'Try adjusting your search or filters'
-                : 'No open roles available at the moment'}
+                : 'You haven\'t created any roles for your projects yet'}
             </p>
+            {!searchQuery && statusFilter === 'all' && priceFilter === 'all' && ownedProjects.length > 0 && (
+              <Button
+                onClick={() => setShowRoleModal(true)}
+                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Your First Role
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -813,7 +1075,7 @@ export default function OpenRolesPage() {
                       <CardTitle className="text-lg mb-2">{role.role_name}</CardTitle>
                       <div className="flex items-center space-x-2 mb-2">
                         <Building className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-400">{role.project.name}</span>
+                        <span className="text-sm text-gray-400">{role.project?.name || 'Unknown Project'}</span>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -890,7 +1152,7 @@ export default function OpenRolesPage() {
                       >
                         <ExternalLink className="w-4 h-4" />
                       </Button>
-                      {user && role.project.owner_id === user.id && (
+                      {user && role.project?.owner_id === user.id && (
                         <div className="flex gap-2 pt-2">
                           {rolesWithApprovedApps.has(role.id) && (
                             <Button 
@@ -918,7 +1180,7 @@ export default function OpenRolesPage() {
                           </Button>
                           <Button size="sm" variant="destructive" onClick={() => handleDeleteRole(role)}>
                             Delete
-                          </Button>
+                      </Button>
                         </div>
                       )}
                     </div>
@@ -936,7 +1198,7 @@ export default function OpenRolesPage() {
           <DialogHeader>
             <DialogTitle>{selectedRole?.role_name}</DialogTitle>
             <DialogDescription>
-              {selectedRole?.project.name}
+              {selectedRole?.project?.name || 'Unknown Project'}
             </DialogDescription>
           </DialogHeader>
           {selectedRole && (
@@ -989,7 +1251,7 @@ export default function OpenRolesPage() {
           <DialogHeader>
             <DialogTitle>{selectedRole?.role_name} Applications</DialogTitle>
             <DialogDescription>
-              {selectedRole?.project.name}
+              {selectedRole?.project?.name || 'Unknown Project'}
             </DialogDescription>
           </DialogHeader>
           
@@ -1177,6 +1439,38 @@ export default function OpenRolesPage() {
                            <CheckCircle className="w-4 h-4 mr-2" />
                            Work Assigned
                          </Button>
+                         <Button
+                           size="default"
+                           variant="outline"
+                           className="border-red-500/50 text-red-400 hover:bg-red-500/20 hover:border-red-400"
+                           onClick={() => handleReverseWorkAssignment(app)}
+                         >
+                           <XCircle className="w-4 h-4 mr-2" />
+                           Reverse Work
+                         </Button>
+                       </div>
+                     )}
+                     
+                     {(app.status === 'approved' || app.status === 'accepted') && applicationsWithWorkAssignments.has(app.id) && (
+                       <div className="flex items-center space-x-3">
+                         <Button
+                           size="default"
+                           variant="outline"
+                           className="border-orange-500/50 text-orange-400"
+                           disabled
+                         >
+                           <Briefcase className="w-4 h-4 mr-2" />
+                           Work Already Assigned
+                         </Button>
+                         <Button
+                           size="default"
+                           variant="outline"
+                           className="border-red-500/50 text-red-400 hover:bg-red-500/20 hover:border-red-400"
+                           onClick={() => handleReverseWorkAssignment(app)}
+                         >
+                           <XCircle className="w-4 h-4 mr-2" />
+                           Reverse Work
+                         </Button>
                        </div>
                      )}
                    </div>
@@ -1305,6 +1599,116 @@ export default function OpenRolesPage() {
           </DialogHeader>
           
           <form onSubmit={handleWorkSetupSubmit} className="space-y-6">
+            {/* Task Selection Section */}
+            <div className="border border-gray-700 rounded-lg p-4 bg-gray-900/50">
+              <h3 className="text-lg font-medium mb-4 text-white">Task Assignment</h3>
+              
+              {!showCreateTask ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-300">Select Existing Task</label>
+                    <select
+                      value={selectedTaskId}
+                      onChange={(e) => setSelectedTaskId(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white"
+                    >
+                      <option value="">Choose a task...</option>
+                      {existingTasks.map((task) => (
+                        <option key={task.id} value={task.id}>
+                          {task.title} - {task.status} - Due: {task.due_date}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                    <span className="text-gray-400">or</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowCreateTask(true)}
+                      className="border-blue-500 text-blue-400 hover:bg-blue-500/20"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create New Task
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-md font-medium text-white">Create New Task</h4>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setShowCreateTask(false)}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-300">Task Title</label>
+                      <input
+                        type="text"
+                        value={newTaskForm.title}
+                        onChange={(e) => setNewTaskForm(prev => ({ ...prev, title: e.target.value }))}
+                        className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white"
+                        placeholder="Enter task title..."
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-300">Due Date</label>
+                      <input
+                        type="date"
+                        value={newTaskForm.due_date}
+                        onChange={(e) => setNewTaskForm(prev => ({ ...prev, due_date: e.target.value }))}
+                        className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white"
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-300">Description</label>
+                    <textarea
+                      value={newTaskForm.description}
+                      onChange={(e) => setNewTaskForm(prev => ({ ...prev, description: e.target.value }))}
+                      className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white h-20"
+                      placeholder="Enter task description..."
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-300">Priority</label>
+                    <select
+                      value={newTaskForm.priority}
+                      onChange={(e) => setNewTaskForm(prev => ({ ...prev, priority: e.target.value }))}
+                      className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white"
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                  </div>
+                  
+                  <Button
+                    type="button"
+                    onClick={createNewTask}
+                    className="bg-green-600 text-white hover:bg-green-700"
+                    disabled={!newTaskForm.title || !newTaskForm.description || !newTaskForm.due_date}
+                  >
+                    Create Task
+                  </Button>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Project Title</label>

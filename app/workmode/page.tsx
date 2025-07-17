@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { User, Users, Clock, MessageCircle, FileText, StickyNote, FolderKanban, CheckCircle, Activity, Plus, RefreshCw, Target, Calendar, TrendingUp, Download, Eye, MoreHorizontal, Flag, Zap, AlertCircle, Crown, Code, Palette, Shield, Server, Edit, Trash2, Send, Save, X, Lock, Unlock } from "lucide-react"
+import { User, Users, Clock, MessageCircle, FileText, StickyNote, FolderKanban, CheckCircle, Activity, Plus, RefreshCw, Target, Calendar, TrendingUp, Download, Eye, MoreHorizontal, Flag, Zap, AlertCircle, Crown, Code, Palette, Shield, Server, Edit, Trash2, Send, Save, X, Lock, Unlock, Link as LinkIcon, Clipboard, Search, Package, MoreHorizontal as MoreIcon } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select"
 import { supabase } from '@/lib/supabase'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { User as BaseUser } from '@/types'
 import {
   Dialog,
@@ -165,6 +165,7 @@ export default function WorkModePage() {
   const { user, loading: userLoading } = useAuth()
   const { projects, loading: projectsLoading } = useProjects(user?.id)
   const [currentFocusId, setCurrentFocusId] = useState<string | null>(null)
+  const searchParams = useSearchParams()
   const [group, setGroup] = useState<any | null>(null)
   const [messages, setMessages] = useState<any[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
@@ -199,6 +200,11 @@ export default function WorkModePage() {
   const [editCustomAssignee, setEditCustomAssignee] = useState('');
   const [activities, setActivities] = useState<any[]>([]);
   const [focusLocked, setFocusLocked] = useState(false);
+  const [userAssignedTask, setUserAssignedTask] = useState<any>(null);
+  const [linkTaskModalOpen, setLinkTaskModalOpen] = useState(false);
+  const [selectedTaskForLinking, setSelectedTaskForLinking] = useState<any>(null);
+  const [itemToDelete, setItemToDelete] = useState<any>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Load/save current focus from localStorage
   useEffect(() => {
@@ -210,6 +216,18 @@ export default function WorkModePage() {
   useEffect(() => {
     if (currentFocusId) localStorage.setItem("currentFocusProjectId", currentFocusId)
   }, [currentFocusId])
+
+  // Handle URL parameter for project selection
+  useEffect(() => {
+    const projectParam = searchParams.get('project')
+    if (projectParam && projects && projects.length > 0) {
+      const project = projects.find(p => p.id === projectParam)
+      if (project) {
+        setCurrentFocusId(project.id)
+        return
+      }
+    }
+  }, [searchParams, projects])
 
   // Pick first project as default if none selected
   useEffect(() => {
@@ -388,6 +406,63 @@ export default function WorkModePage() {
     };
     fetchFocus();
   }, [user]);
+
+  // Fetch user's assigned task for the current project
+  useEffect(() => {
+    if (!user || !currentProject?.id) return;
+    
+    const fetchUserAssignedTask = async () => {
+      try {
+        // First try to find task from work assignments
+        const { data: workAssignment, error: workError } = await supabase
+          .from('project_role_work_assignments')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('project_id', currentProject.id)
+          .maybeSingle();
+
+        if (workAssignment) {
+          // If there's a work assignment, try to find the associated task
+          const { data: timelineItem, error: timelineError } = await supabase
+            .from('timeline')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('project_id', currentProject.id)
+            .eq('action', 'work_assigned')
+            .maybeSingle();
+
+          if (timelineItem?.related_task_id) {
+            const { data: task, error: taskError } = await supabase
+              .from('tasks')
+              .select('*')
+              .eq('id', timelineItem.related_task_id)
+              .single();
+
+            if (task) {
+              setUserAssignedTask(task);
+              return;
+            }
+          }
+        }
+
+        // Fallback: look for tasks directly assigned to the user
+        const { data: directTask, error: directError } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('project_id', currentProject.id)
+          .eq('assigned_to', user.id)
+          .maybeSingle();
+
+        if (directTask) {
+          setUserAssignedTask(directTask);
+        }
+      } catch (error) {
+        console.error('Error fetching user assigned task:', error);
+      }
+    };
+
+    fetchUserAssignedTask();
+  }, [user, currentProject?.id]);
 
   // Keep group_id in sync if locked and chat changes
   useEffect(() => {
@@ -672,8 +747,45 @@ export default function WorkModePage() {
   }
 
   const openDeleteModal = (item: any) => {
-    setDeleteTimelineItem(item)
-  }
+    setItemToDelete(item);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Function to link a task to a timeline item
+  const linkTaskToTimeline = async (taskId: string, timelineId: string) => {
+    try {
+      const { error } = await supabase.rpc('add_task_to_timeline', {
+        timeline_id: timelineId,
+        task_id: taskId
+      });
+
+      if (error) {
+        console.error('Error linking task to timeline:', error);
+        toast.error('Failed to link task to timeline');
+        return;
+      }
+
+      toast.success('Task linked to timeline successfully');
+      setLinkTaskModalOpen(false);
+      setSelectedTaskForLinking(null);
+      
+      // Refresh timeline data
+      const { data: updatedTimeline } = await supabase
+        .from('project_timeline')
+        .select('*')
+        .eq('project_id', currentProject?.id)
+        .order('order_index', { ascending: true });
+      setTimeline(updatedTimeline || []);
+    } catch (error) {
+      console.error('Error linking task:', error);
+      toast.error('Failed to link task to timeline');
+    }
+  };
+
+  const openLinkTaskModal = (task: any) => {
+    setSelectedTaskForLinking(task);
+    setLinkTaskModalOpen(true);
+  };
 
   const router = useRouter();
 
@@ -1135,17 +1247,40 @@ export default function WorkModePage() {
                             projectTasks.map(task => (
                               <div
                                 key={task.id}
-                                className="flex items-start gap-2 sm:gap-3 bg-gray-800/80 rounded-lg p-2 sm:p-3 mb-2 cursor-pointer hover:bg-gray-700 transition"
+                                className={`flex items-start gap-2 sm:gap-3 bg-gray-800/80 rounded-lg p-2 sm:p-3 mb-2 cursor-pointer hover:bg-gray-700 transition ${
+                                  userAssignedTask?.id === task.id 
+                                    ? 'border-2 border-blue-500 bg-blue-900/20' 
+                                    : 'border border-gray-700'
+                                }`}
                                 onClick={() => router.push(`/task/${task.id}`)}
                               >
                                 <div className="flex-1">
-                                  <div className="font-semibold text-white text-xs sm:text-base">{task.title}</div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="font-semibold text-white text-xs sm:text-base">{task.title}</div>
+                                    {userAssignedTask?.id === task.id && (
+                                      <Badge className="bg-blue-600 text-white text-xs px-2 py-1">
+                                        Your Task
+                                      </Badge>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-2 sm:gap-3 mt-1 text-xs text-gray-400">
                                     <span>Status: <span className="font-medium">{task.status}</span></span>
                                     <span>Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : '--'}</span>
                                     <span>Priority: <span className="font-medium">{task.priority}</span></span>
                                   </div>
                                 </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openLinkTaskModal(task);
+                                  }}
+                                >
+                                  <LinkIcon className="w-3 h-3 mr-1" />
+                                  Link
+                                </Button>
                               </div>
                             ))
                           )}
@@ -1208,6 +1343,12 @@ export default function WorkModePage() {
                           <SelectItem value="objective">Objective</SelectItem>
                           <SelectItem value="task">Task</SelectItem>
                           <SelectItem value="deadline">Deadline</SelectItem>
+                          <SelectItem value="plan">Plan</SelectItem>
+                          <SelectItem value="review">Review</SelectItem>
+                          <SelectItem value="meeting">Meeting</SelectItem>
+                          <SelectItem value="deliverable">Deliverable</SelectItem>
+                          <SelectItem value="research">Research</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1497,6 +1638,12 @@ export default function WorkModePage() {
                     <SelectItem value="objective">Objective</SelectItem>
                     <SelectItem value="task">Task</SelectItem>
                     <SelectItem value="deadline">Deadline</SelectItem>
+                    <SelectItem value="plan">Plan</SelectItem>
+                    <SelectItem value="review">Review</SelectItem>
+                    <SelectItem value="meeting">Meeting</SelectItem>
+                    <SelectItem value="deliverable">Deliverable</SelectItem>
+                    <SelectItem value="research">Research</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1538,6 +1685,12 @@ export default function WorkModePage() {
                     <SelectItem value="in_progress">In Progress</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="delayed">Delayed</SelectItem>
+                    <SelectItem value="plan">Plan</SelectItem>
+                    <SelectItem value="review">Review</SelectItem>
+                    <SelectItem value="meeting">Meeting</SelectItem>
+                    <SelectItem value="deliverable">Deliverable</SelectItem>
+                    <SelectItem value="research">Research</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1608,6 +1761,61 @@ export default function WorkModePage() {
             </Button>
             <Button onClick={handleEditTimelineItem}>
               Update Item
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link Task to Timeline Modal */}
+      <Dialog open={linkTaskModalOpen} onOpenChange={setLinkTaskModalOpen}>
+        <DialogContent className="bg-gray-900 border-gray-700">
+          <DialogHeader>
+            <DialogTitle>Link Task to Timeline</DialogTitle>
+            <DialogDescription>
+              Select a timeline item to link the task "{selectedTaskForLinking?.title}" to.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {timeline.length === 0 ? (
+              <div className="text-gray-400 text-center py-4">
+                No timeline items available. Create a timeline item first.
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {timeline.map((timelineItem) => (
+                  <div
+                    key={timelineItem.id}
+                    className="flex items-center justify-between p-3 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-gray-700/50 transition-colors cursor-pointer"
+                    onClick={() => linkTaskToTimeline(selectedTaskForLinking?.id, timelineItem.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      {timelineItem.type === 'milestone' && <Flag className="w-4 h-4 text-blue-400" />}
+                      {timelineItem.type === 'objective' && <Target className="w-4 h-4 text-green-400" />}
+                      {timelineItem.type === 'task' && <CheckCircle className="w-4 h-4 text-purple-400" />}
+                      {timelineItem.type === 'deadline' && <AlertCircle className="w-4 h-4 text-red-400" />}
+                      {timelineItem.type === 'plan' && <Clipboard className="w-4 h-4 text-yellow-400" />}
+                      {timelineItem.type === 'review' && <Eye className="w-4 h-4 text-orange-400" />}
+                      {timelineItem.type === 'meeting' && <Users className="w-4 h-4 text-cyan-400" />}
+                      {timelineItem.type === 'deliverable' && <Package className="w-4 h-4 text-pink-400" />}
+                      {timelineItem.type === 'research' && <Search className="w-4 h-4 text-indigo-400" />}
+                      {timelineItem.type === 'other' && <MoreIcon className="w-4 h-4 text-gray-400" />}
+                      <div>
+                        <div className="font-medium text-white">{timelineItem.title}</div>
+                        <div className="text-sm text-gray-400">{timelineItem.type}</div>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" className="text-xs">
+                      <LinkIcon className="w-3 h-3 mr-1" />
+                      Link
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkTaskModalOpen(false)}>
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

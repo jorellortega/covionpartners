@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Timer, FileText, Link as LinkIcon, StickyNote, Upload, Download, Plus, X, Edit2, Save, Paperclip } from "lucide-react"
+import { Calendar, Timer, FileText, Link as LinkIcon, StickyNote, Upload, Download, Plus, X, Edit2, Save, Paperclip, Target, Flag, CheckCircle, AlertCircle, Clipboard, Eye, Users, Package, MoreHorizontal, Search } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
 import { Textarea } from "@/components/ui/textarea"
@@ -70,6 +70,10 @@ export default function TaskDetailPage() {
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleInput, setTitleInput] = useState("")
   const [newNoteTitle, setNewNoteTitle] = useState("")
+  const [timelineItems, setTimelineItems] = useState<any[]>([])
+  const [linkedTimelineItems, setLinkedTimelineItems] = useState<any[]>([])
+  const [linkTimelineModalOpen, setLinkTimelineModalOpen] = useState(false)
+  const [loadingTimeline, setLoadingTimeline] = useState(false)
 
   useEffect(() => {
     const fetchTask = async () => {
@@ -170,6 +174,47 @@ export default function TaskDetailPage() {
     };
     fetchAttachments();
   }, [taskId]);
+
+  // Fetch timeline items and linked timeline items
+  useEffect(() => {
+    const fetchTimelineData = async () => {
+      if (!task?.project_id) return;
+      
+      setLoadingTimeline(true);
+      try {
+        // Fetch all timeline items for the project
+        const { data: allTimelineItems, error: timelineError } = await supabase
+          .from('project_timeline')
+          .select('*')
+          .eq('project_id', task.project_id)
+          .order('order_index', { ascending: true });
+        
+        if (!timelineError) {
+          setTimelineItems(allTimelineItems || []);
+          console.log('Available timeline items:', allTimelineItems?.map(item => ({ id: item.id, title: item.title, type: item.type })));
+        } else {
+          console.error('Error fetching timeline items:', timelineError);
+        }
+
+        // Fetch timeline items that are linked to this task
+        const { data: linkedItems, error: linkedError } = await supabase
+          .from('project_timeline')
+          .select('*')
+          .eq('project_id', task.project_id)
+          .contains('related_task_ids', [taskId]);
+        
+        if (!linkedError) {
+          setLinkedTimelineItems(linkedItems || []);
+        }
+      } catch (error) {
+        console.error('Error fetching timeline data:', error);
+      } finally {
+        setLoadingTimeline(false);
+      }
+    };
+
+    fetchTimelineData();
+  }, [task?.project_id, taskId]);
 
   const handleFileUpload = async (file: File) => {
     if (!task || !user) return;
@@ -361,20 +406,89 @@ export default function TaskDetailPage() {
   }
 
   const handleTitleSave = async () => {
-    if (!task || !titleInput.trim()) return
+    if (!task || !titleInput.trim()) return;
     try {
       const { error } = await supabase
         .from('tasks')
         .update({ title: titleInput.trim() })
-        .eq('id', task.id)
-      if (error) throw error
-      setTask(prev => prev ? { ...prev, title: titleInput.trim() } : prev)
-      setEditingTitle(false)
-      toast({ title: 'Title updated' })
+        .eq('id', task.id);
+      if (error) throw error;
+      setTask({ ...task, title: titleInput.trim() });
+      setEditingTitle(false);
+      setTitleInput("");
+      toast({ title: 'Success', description: 'Task title updated successfully' });
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to update title', variant: 'destructive' })
+      console.error('Error updating task title:', error);
+      toast({ title: 'Error', description: 'Failed to update task title', variant: 'destructive' });
     }
-  }
+  };
+
+  // Function to link task to timeline item
+  const linkTaskToTimeline = async (timelineId: string) => {
+    if (!task) return;
+    try {
+      const { error } = await supabase.rpc('add_task_to_timeline', {
+        timeline_id: timelineId,
+        task_id: task.id
+      });
+
+      if (error) {
+        console.error('Error linking task to timeline:', error);
+        toast({ title: 'Error', description: 'Failed to link task to timeline', variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: 'Success', description: 'Task linked to timeline successfully' });
+      setLinkTimelineModalOpen(false);
+      
+      // Refresh linked timeline items
+      const { data: linkedItems, error: linkedError } = await supabase
+        .from('project_timeline')
+        .select('*')
+        .eq('project_id', task.project_id)
+        .contains('related_task_ids', [task.id]);
+      
+      if (!linkedError) {
+        setLinkedTimelineItems(linkedItems || []);
+      }
+    } catch (error) {
+      console.error('Error linking task:', error);
+      toast({ title: 'Error', description: 'Failed to link task to timeline', variant: 'destructive' });
+    }
+  };
+
+  // Function to unlink task from timeline item
+  const unlinkTaskFromTimeline = async (timelineId: string) => {
+    if (!task) return;
+    try {
+      const { error } = await supabase.rpc('remove_task_from_timeline', {
+        timeline_id: timelineId,
+        task_id: task.id
+      });
+
+      if (error) {
+        console.error('Error unlinking task from timeline:', error);
+        toast({ title: 'Error', description: 'Failed to unlink task from timeline', variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: 'Success', description: 'Task unlinked from timeline successfully' });
+      
+      // Refresh linked timeline items
+      const { data: linkedItems, error: linkedError } = await supabase
+        .from('project_timeline')
+        .select('*')
+        .eq('project_id', task.project_id)
+        .contains('related_task_ids', [task.id]);
+      
+      if (!linkedError) {
+        setLinkedTimelineItems(linkedItems || []);
+      }
+    } catch (error) {
+      console.error('Error unlinking task:', error);
+      toast({ title: 'Error', description: 'Failed to unlink task from timeline', variant: 'destructive' });
+    }
+  };
 
   if (loading) {
     return (
@@ -689,6 +803,77 @@ export default function TaskDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Timeline Section */}
+          <Card className="bg-black border-gray-800">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                  <Target className="w-5 h-5 text-green-400" />
+                  Timeline Associations ({linkedTimelineItems.length})
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setLinkTimelineModalOpen(true)}
+                  className="border-green-500/20 text-green-400 hover:bg-green-500/10"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Link to Timeline
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingTimeline ? (
+                <div className="text-gray-400">Loading timeline data...</div>
+              ) : linkedTimelineItems.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>No timeline items linked to this task</p>
+                  <p className="text-sm mt-1">Link this task to objectives, milestones, or other timeline items</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {linkedTimelineItems.map((timelineItem) => (
+                    <div key={timelineItem.id} className="flex items-center justify-between bg-gray-900/50 border border-gray-800 rounded-lg p-4">
+                      <div className="flex items-center gap-3">
+                        {timelineItem.type === 'milestone' && <Flag className="w-4 h-4 text-blue-400" />}
+                        {timelineItem.type === 'objective' && <Target className="w-4 h-4 text-green-400" />}
+                        {timelineItem.type === 'task' && <CheckCircle className="w-4 h-4 text-purple-400" />}
+                        {timelineItem.type === 'deadline' && <AlertCircle className="w-4 h-4 text-red-400" />}
+                        {timelineItem.type === 'plan' && <Clipboard className="w-4 h-4 text-yellow-400" />}
+                        {timelineItem.type === 'review' && <Eye className="w-4 h-4 text-orange-400" />}
+                        {timelineItem.type === 'meeting' && <Users className="w-4 h-4 text-cyan-400" />}
+                        {timelineItem.type === 'deliverable' && <Package className="w-4 h-4 text-pink-400" />}
+                        {timelineItem.type === 'research' && <Search className="w-4 h-4 text-indigo-400" />}
+                        {timelineItem.type === 'other' && <MoreHorizontal className="w-4 h-4 text-gray-400" />}
+                        <div>
+                          <div className="font-medium text-white">{timelineItem.title}</div>
+                          <div className="text-sm text-gray-400">{timelineItem.type}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/workmode/timeline/${timelineItem.id}`}
+                          className="text-blue-400 hover:text-blue-300 text-sm"
+                        >
+                          View
+                        </Link>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => unlinkTaskFromTimeline(timelineItem.id)}
+                          className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Add Link Dialog */}
@@ -741,6 +926,82 @@ export default function TaskDetailPage() {
                 disabled={!linkUrl}
               >
                 Add Link
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Link to Timeline Modal */}
+        <Dialog open={linkTimelineModalOpen} onOpenChange={setLinkTimelineModalOpen}>
+          <DialogContent className="sm:max-w-[600px] bg-black border-gray-800">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold">Link Task to Timeline</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {timelineItems.length === 0 ? (
+                <div className="text-gray-400 text-center py-4">
+                  <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="font-medium mb-2">No timeline items available for this project</p>
+                  <p className="text-sm mb-3">Create timeline items in the workmode page first. You can create:</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 max-w-md mx-auto">
+                    <div>• Milestones</div>
+                    <div>• Objectives</div>
+                    <div>• Plans</div>
+                    <div>• Reviews</div>
+                    <div>• Meetings</div>
+                    <div>• Deliverables</div>
+                    <div>• Research</div>
+                    <div>• Other</div>
+                  </div>
+                  <Link 
+                    href={`/workmode?project=${task?.project_id}&tab=timeline`}
+                    className="inline-block mt-3 text-blue-400 hover:text-blue-300 text-sm"
+                  >
+                    Go to Workmode →
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {timelineItems
+                    .filter(item => !linkedTimelineItems.some(linked => linked.id === item.id))
+                    .map((timelineItem) => (
+                      <div
+                        key={timelineItem.id}
+                        className="flex items-center justify-between p-3 border border-gray-700 rounded-lg hover:bg-gray-800/50 cursor-pointer"
+                        onClick={() => linkTaskToTimeline(timelineItem.id)}
+                      >
+                        <div className="flex items-center gap-3">
+                          {timelineItem.type === 'milestone' && <Flag className="w-4 h-4 text-blue-400" />}
+                          {timelineItem.type === 'objective' && <Target className="w-4 h-4 text-green-400" />}
+                          {timelineItem.type === 'task' && <CheckCircle className="w-4 h-4 text-purple-400" />}
+                          {timelineItem.type === 'deadline' && <AlertCircle className="w-4 h-4 text-red-400" />}
+                          {timelineItem.type === 'plan' && <Clipboard className="w-4 h-4 text-yellow-400" />}
+                          {timelineItem.type === 'review' && <Eye className="w-4 h-4 text-orange-400" />}
+                          {timelineItem.type === 'meeting' && <Users className="w-4 h-4 text-cyan-400" />}
+                          {timelineItem.type === 'deliverable' && <Package className="w-4 h-4 text-pink-400" />}
+                          {timelineItem.type === 'research' && <Search className="w-4 h-4 text-indigo-400" />}
+                          {timelineItem.type === 'other' && <MoreHorizontal className="w-4 h-4 text-gray-400" />}
+                          <div>
+                            <div className="font-medium text-white">{timelineItem.title}</div>
+                            <div className="text-sm text-gray-400">{timelineItem.type}</div>
+                          </div>
+                        </div>
+                        <Button size="sm" variant="outline" className="text-xs">
+                          <Plus className="w-3 h-3 mr-1" />
+                          Link
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                onClick={() => setLinkTimelineModalOpen(false)}
+                className="hover:bg-gray-800"
+              >
+                Cancel
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -259,6 +259,7 @@ export default function PartnerDashboard() {
   const [paymentMethod, setPaymentMethod] = useState("bank")
 
   const [unreadMessages, setUnreadMessages] = useState(0)
+  const [approvedPositionsCount, setApprovedPositionsCount] = useState(0)
   const [recentMessages, setRecentMessages] = useState<any[]>([])
   const [loadingMessages, setLoadingMessages] = useState(true)
 
@@ -277,6 +278,8 @@ export default function PartnerDashboard() {
         return
       } else {
         console.log('Dashboard: Auth check complete, user found:', user.email)
+        // Check for approved positions when user is loaded
+        checkApprovedPositions()
       }
     } else {
       console.log('Dashboard: Auth check in progress...')
@@ -697,6 +700,58 @@ export default function PartnerDashboard() {
     }
   }
 
+  const checkApprovedPositions = async () => {
+    if (!user) return;
+    
+    try {
+      // Count approved job applications
+      let jobCount = 0;
+      try {
+        const { count, error: jobError } = await supabase
+          .from("job_applications")
+          .select("*", { count: 'exact', head: true })
+          .eq("user_id", user.id)
+          .eq("status", "accepted");
+
+        if (!jobError) {
+          jobCount = count || 0;
+        }
+      } catch (error) {
+        // Continue with jobCount = 0
+      }
+
+      // Count approved project role applications  
+      const { count: roleCount, error: roleError } = await supabase
+        .from("project_role_applications")
+        .select("*", { count: 'exact', head: true })
+        .eq("user_id", user.id)
+        .eq("status", "approved");
+
+      // Count work assignments that need attention (new system)
+      let workAssignmentCount = 0;
+      try {
+        const { count: workCount, error: workError } = await supabase
+          .from("project_role_work_assignments")
+          .select("*", { count: 'exact', head: true })
+          .eq("user_id", user.id)
+          .in("status", ["assigned", "active"]);
+
+        if (!workError) {
+          workAssignmentCount = workCount || 0;
+        }
+      } catch (error) {
+        // Continue with workAssignmentCount = 0
+      }
+
+      if (!roleError) {
+        const totalApproved = (jobCount || 0) + (roleCount || 0) + (workAssignmentCount || 0);
+        setApprovedPositionsCount(totalApproved);
+      }
+    } catch (error) {
+      console.error("Error checking approved positions:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header">
@@ -757,6 +812,31 @@ export default function PartnerDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
+        {/* Approved Positions Alert */}
+        {approvedPositionsCount > 0 && (
+          <div className="leonardo-card p-4 sm:p-6 mb-6 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                  <CheckCircle className="w-5 h-5 text-yellow-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-yellow-200">
+                    {approvedPositionsCount} Work Assignment{approvedPositionsCount > 1 ? 's' : ''} Ready
+                  </h2>
+                  <p className="text-sm text-yellow-300/80">You have approved positions and work assignments to review</p>
+                </div>
+              </div>
+              <Button
+                onClick={() => router.push('/work-dashboard')}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white"
+              >
+                View Work
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Welcome Banner */}
         <div className="leonardo-card p-4 sm:p-6 mb-6 bg-gradient-to-r from-gray-800/50 to-gray-900/50">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

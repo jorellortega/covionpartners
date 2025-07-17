@@ -9,13 +9,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Briefcase, Users, ClipboardList, Calendar, CheckCircle, Clock, AlertCircle, FileText, DollarSign } from "lucide-react";
+import { Briefcase, Users, ClipboardList, Calendar, CheckCircle, Clock, AlertCircle, FileText, DollarSign, FolderKanban } from "lucide-react";
 
 export default function WorkDashboardPage() {
   const { user } = useAuth();
   const [assignments, setAssignments] = useState<any[]>([]);
-  const [submissions, setSubmissions] = useState<any[]>([]);
-  const [approvedPositionsCount, setApprovedPositionsCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,19 +25,9 @@ export default function WorkDashboardPage() {
     if (!user) return;
     
     try {
-      // Fetch work assignments for the current user (work submissions)
-      const { data: assignmentData, error: assignmentError } = await supabase
-        .from("work_assignments")
-        .select(`
-          *,
-          work_submissions:submission_id(*)
-        `)
-        .eq("assigned_to", user.id)
-        .order("created_at", { ascending: false });
-
-      if (assignmentError) throw assignmentError;
-
-      // Fetch project role work assignments for the current user
+      console.log("Fetching work data for user:", user.id);
+      
+      // Fetch project role work assignments for the current user (the new system)
       const { data: projectRoleAssignments, error: projectRoleError } = await supabase
         .from("project_role_work_assignments")
         .select(`
@@ -51,115 +39,135 @@ export default function WorkDashboardPage() {
         .order("created_at", { ascending: false });
 
       if (projectRoleError) throw projectRoleError;
+      console.log("Project role assignments data:", projectRoleAssignments);
 
-      // Fetch user's own submissions
-      const { data: submissionData, error: submissionError } = await supabase
-        .from("work_submissions")
+      // Fetch timeline items for these assignments
+      const projectIds = (projectRoleAssignments || []).map(a => a.project_id);
+      const { data: timelineItems, error: timelineError } = await supabase
+        .from("timeline")
         .select("*")
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        .in("project_id", projectIds)
+        .eq("action", "work_assigned");
 
-      if (submissionError) throw submissionError;
+      if (timelineError) {
+        console.error("Error fetching timeline items:", timelineError);
+      }
 
-      // Check for approved positions that need setup
-      await checkApprovedPositions();
+      console.log("Timeline items found:", timelineItems);
 
-      // Combine both types of assignments
-      const allAssignments = [
-        ...(assignmentData || []).map(assignment => ({
-          ...assignment,
-          type: 'work_submission',
-          title: assignment.work_submissions?.title || "Untitled Project",
-          description: assignment.work_submissions?.description || "No description available",
-          category: assignment.work_submissions?.category || "General"
-        })),
-        ...(projectRoleAssignments || []).map(assignment => ({
+      // Fetch task information for timeline items that have related_task_id
+      const taskIds = (timelineItems || [])
+        .filter(item => item.related_task_id)
+        .map(item => item.related_task_id);
+
+      console.log("Task IDs from timeline:", taskIds);
+
+      let tasks: any[] = [];
+      if (taskIds.length > 0) {
+        const { data: taskData, error: taskError } = await supabase
+          .from("tasks")
+          .select("*")
+          .in("id", taskIds);
+
+        if (taskError) {
+          console.error("Error fetching tasks:", taskError);
+        } else {
+          tasks = taskData || [];
+        }
+      }
+
+      console.log("Tasks found:", tasks);
+
+      // Also try to fetch tasks directly assigned to the user for these projects
+      const { data: directTasks, error: directTaskError } = await supabase
+        .from("tasks")
+        .select("*")
+        .in("project_id", projectIds)
+        .eq("assigned_to", user.id);
+
+      if (directTaskError) {
+        console.error("Error fetching direct tasks:", directTaskError);
+      } else {
+        console.log("Direct tasks found:", directTasks);
+        // Merge direct tasks with timeline tasks
+        tasks = [...tasks, ...(directTasks || [])];
+      }
+
+      // Map the assignments to the expected format with task information
+      const allAssignments = (projectRoleAssignments || []).map(assignment => {
+        const timelineItem = (timelineItems || []).find(item => 
+          item.project_id === assignment.project_id && 
+          item.user_id === assignment.user_id &&
+          item.action === 'work_assigned'
+        );
+        
+        console.log(`Looking for task for assignment ${assignment.id}:`, {
+          project_id: assignment.project_id,
+          user_id: assignment.user_id,
+          timelineItem: timelineItem,
+          timelineTaskId: timelineItem?.related_task_id
+        });
+
+        // Try to find task from timeline first
+        let task = timelineItem?.related_task_id ? 
+          tasks.find(t => t.id === timelineItem.related_task_id) : null;
+
+        // If no task found from timeline, try to find a task assigned to this user in this project
+        if (!task) {
+          task = tasks.find(t => 
+            t.project_id === assignment.project_id && 
+            t.assigned_to === assignment.user_id
+          );
+        }
+
+        console.log(`Task found for assignment ${assignment.id}:`, task);
+
+        return {
           ...assignment,
           type: 'project_role',
           title: assignment.project_title,
           description: assignment.work_description || assignment.role?.description || "No description available",
-          category: assignment.role?.role_name || "Project Role"
-        }))
-      ];
+          category: assignment.role?.role_name || "Project Role",
+          assignedTask: task
+        };
+      });
 
+      console.log("Mapped assignments:", allAssignments);
       setAssignments(allAssignments);
-      setSubmissions(submissionData || []);
     } catch (error: any) {
+      console.error("Error fetching work data:", error);
       toast.error("Failed to fetch work data");
     } finally {
       setLoading(false);
     }
   };
 
-  const checkApprovedPositions = async () => {
-    if (!user) return;
-    
-    try {
-      // Count approved job applications
-      const { count: jobCount, error: jobError } = await supabase
-        .from("job_applications")
-        .select("*", { count: 'exact', head: true })
-        .eq("applicant_id", user.id)
-        .eq("status", "accepted");
-
-      // Count approved project role applications  
-      const { count: roleCount, error: roleError } = await supabase
-        .from("project_role_applications")
-        .select("*", { count: 'exact', head: true })
-        .eq("user_id", user.id)
-        .eq("status", "approved");
-
-      if (jobError || roleError) {
-        console.error("Error checking approved positions:", jobError || roleError);
-        return;
-      }
-
-      // Get existing work assignments to filter out already converted positions
-      const { data: assignments } = await supabase
-        .from("work_assignments")
-        .select("metadata")
-        .eq("assigned_to", user.id);
-
-      const convertedApplications = assignments?.filter(a => 
-        a.metadata?.application_id && 
-        (a.metadata?.type === 'job_application' || a.metadata?.type === 'project_role_application')
-      ).length || 0;
-
-      const totalApproved = (jobCount || 0) + (roleCount || 0);
-      setApprovedPositionsCount(Math.max(0, totalApproved - convertedApplications));
-    } catch (error) {
-      console.error("Error checking approved positions:", error);
-    }
-  };
-
   const updateAssignmentStatus = async (assignmentId: string, status: string) => {
     try {
-      // Find the assignment to determine its type
+      // Find the assignment
       const assignment = assignments.find(a => a.id === assignmentId);
       if (!assignment) return;
 
-      // Update based on assignment type
-      if (assignment.type === 'project_role') {
-        const { error } = await supabase
-          .from("project_role_work_assignments")
-          .update({ 
-            status,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", assignmentId);
+      console.log("Assignment data:", assignment);
+      console.log("Assignment project_id:", assignment.project_id);
+      console.log("Assignment project:", assignment.project);
 
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("work_assignments")
-          .update({ 
-            status,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", assignmentId);
-
-        if (error) throw error;
+      // If starting work, add user to project team
+      if (status === 'in_progress') {
+        await addUserToProjectTeam(assignment);
       }
+
+      // Update the project role work assignment
+      const { error } = await supabase
+        .from("project_role_work_assignments")
+        .update({ 
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", assignmentId);
+
+      if (error) throw error;
 
       setAssignments(prev => prev.map(assignment => 
         assignment.id === assignmentId ? { ...assignment, status } : assignment
@@ -168,6 +176,123 @@ export default function WorkDashboardPage() {
       toast.success(`Status updated to ${status}`);
     } catch (error: any) {
       toast.error("Failed to update status");
+    }
+  };
+
+  const addUserToProjectTeam = async (assignment: any) => {
+    if (!user || !assignment.project_id) return;
+
+    try {
+      console.log("Starting addUserToProjectTeam with:", { user: user.id, project_id: assignment.project_id });
+      
+      // First, validate that the project exists
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .select('id, name')
+        .eq('id', assignment.project_id)
+        .single();
+
+      if (projectError || !projectData) {
+        console.error("Project not found:", assignment.project_id);
+        toast.error("Project not found. Cannot add to team.");
+        return;
+      }
+
+      console.log("Project found:", projectData);
+      
+      // Check if user is already a team member
+      const { data: existingMember, error: checkError } = await supabase
+        .from("team_members")
+        .select("id")
+        .eq("project_id", assignment.project_id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error("Error checking existing member:", checkError);
+        throw checkError;
+      }
+
+      if (existingMember) {
+        console.log("User already a team member");
+        return;
+      }
+
+      // Add user to project team with all correct columns
+      const teamMemberData = {
+        project_id: assignment.project_id,
+        user_id: user.id,
+        role: 'member', // Use a valid team_members role value
+        project_role: assignment.role?.role_name || 'member', // Keep the original role name in project_role
+        status: 'approved',
+        joined_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      console.log("Adding team member with data:", teamMemberData);
+
+      const { data: insertData, error: teamError } = await supabase
+        .from("team_members")
+        .insert(teamMemberData)
+        .select();
+
+      if (teamError) {
+        console.error("Error adding user to team:", teamError);
+        console.error("Error details:", {
+          message: teamError.message,
+          details: teamError.details,
+          hint: teamError.hint,
+          code: teamError.code
+        });
+        
+        // Provide specific error messages
+        if (teamError.code === '23503') {
+          toast.error("Foreign key constraint failed. Project or user not found.");
+        } else {
+          toast.error("Failed to add user to team: " + (teamError.message || 'Unknown error'));
+        }
+        return;
+      }
+
+      console.log("Successfully added team member:", insertData);
+
+      // Create timeline item for the work assignment
+      await createWorkTimelineItem(assignment);
+
+      toast.success("Added to project team and created timeline item");
+    } catch (error) {
+      console.error("Error adding user to project team:", error);
+      toast.error("Failed to add user to project team");
+    }
+  };
+
+  const createWorkTimelineItem = async (assignment: any) => {
+    if (!user || !assignment.project_id) return;
+
+    try {
+      const timelineData = {
+        project_id: assignment.project_id,
+        type: 'task',
+        title: assignment.project_title || assignment.title,
+        description: assignment.work_description || assignment.description,
+        due_date: assignment.due_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
+        status: 'in_progress',
+        progress: 0,
+        assignee_name: user.email,
+        created_by: user.id,
+        created_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from("timeline")
+        .insert(timelineData);
+
+      if (error) {
+        console.error("Error creating timeline item:", error);
+      }
+    } catch (error) {
+      console.error("Error creating timeline item:", error);
     }
   };
 
@@ -209,32 +334,29 @@ export default function WorkDashboardPage() {
           </div>
         ) : (
           <>
-            {/* Approved Positions Alert */}
-            {approvedPositionsCount > 0 && (
-              <Card className="leonardo-card border-yellow-600 bg-yellow-900/20">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle className="w-6 h-6 text-yellow-400" />
-                      <div>
-                        <h3 className="text-lg font-semibold text-yellow-200">
-                          {approvedPositionsCount} Approved Position{approvedPositionsCount > 1 ? 's' : ''} Need Setup
-                        </h3>
-                        <p className="text-yellow-300/80 text-sm">
-                          You have approved job/project applications that need to be converted to work assignments.
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => window.location.href = '/approved-positions'}
-                      className="bg-yellow-600 hover:bg-yellow-700 text-white"
-                    >
-                      Set Up Work
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* Quick Actions */}
+            <div className="flex gap-4 mb-6">
+              <Button 
+                onClick={() => window.location.href = '/workmode'}
+                variant="outline"
+                className="border-blue-600 text-blue-400 hover:bg-blue-600/20"
+              >
+                <FolderKanban className="w-4 h-4 mr-2" />
+                Go to Workmode
+              </Button>
+              <Button 
+                onClick={() => {
+                  setLoading(true);
+                  fetchWorkData();
+                }}
+                variant="outline"
+                className="border-green-600 text-green-400 hover:bg-green-600/20"
+                disabled={loading}
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                {loading ? 'Refreshing...' : 'Refresh'}
+              </Button>
+            </div>
 
             {/* Assigned Work */}
             <Card className="leonardo-card border-gray-800">
@@ -286,6 +408,27 @@ export default function WorkDashboardPage() {
                             {/* Show additional details for project role assignments */}
                             {assignment.type === 'project_role' && (
                               <div className="mt-3 space-y-2">
+                                {/* Assigned Task Information */}
+                                {assignment.assignedTask && (
+                                  <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <FileText className="w-4 h-4 text-blue-400" />
+                                      <span className="text-sm font-medium text-blue-400">Assigned Task</span>
+                                    </div>
+                                    <h4 className="text-sm font-semibold text-white mb-1">
+                                      {assignment.assignedTask.title}
+                                    </h4>
+                                    <p className="text-xs text-gray-300 mb-2">
+                                      {assignment.assignedTask.description}
+                                    </p>
+                                    <div className="flex items-center gap-4 text-xs text-gray-400">
+                                      <span>Due: {assignment.assignedTask.due_date ? new Date(assignment.assignedTask.due_date).toLocaleDateString() : "Not set"}</span>
+                                      <span>Priority: {assignment.assignedTask.priority}</span>
+                                      <span>Status: {assignment.assignedTask.status}</span>
+                                    </div>
+                                  </div>
+                                )}
+                                
                                 {assignment.deliverables && (
                                   <div className="bg-gray-900 p-2 rounded">
                                     <p className="text-xs text-gray-400 mb-1">Deliverables:</p>
@@ -336,14 +479,27 @@ export default function WorkDashboardPage() {
                             </Button>
                           )}
                           {assignment.status === 'in_progress' && (
-                            <Button
-                              onClick={() => updateAssignmentStatus(assignment.id, 'completed')}
-                              size="sm"
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Mark Complete
-                            </Button>
+                            <>
+                              <Button
+                                onClick={() => updateAssignmentStatus(assignment.id, 'completed')}
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Mark Complete
+                              </Button>
+                              {assignment.project_id && (
+                                <Button
+                                  onClick={() => window.location.href = `/workmode?project=${assignment.project_id}`}
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-blue-600 text-blue-400 hover:bg-blue-600/20"
+                                >
+                                  <FolderKanban className="w-4 h-4 mr-2" />
+                                  Go to Workmode
+                                </Button>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -353,76 +509,7 @@ export default function WorkDashboardPage() {
               </CardContent>
             </Card>
 
-            {/* My Submissions */}
-            <Card className="leonardo-card border-gray-800">
-              <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-purple-400" />
-                  <CardTitle className="text-lg text-white">My Submissions</CardTitle>
-                </div>
-                <Badge variant="secondary" className="text-xs">
-                  {submissions.length} submissions
-                </Badge>
-              </CardHeader>
-              <CardContent>
-                {submissions.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-400 mb-4">No submissions yet.</p>
-                    <Button 
-                      onClick={() => window.location.href = '/work-submission'}
-                      className="bg-cyan-700 text-white hover:bg-cyan-600"
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      Submit Work Request
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {submissions.map((submission) => (
-                      <div key={submission.id} className="border border-gray-800 rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-white mb-1">
-                              {submission.title}
-                            </h3>
-                            <p className="text-gray-400 text-sm mb-2">
-                              {submission.description}
-                            </p>
-                            <div className="flex items-center gap-4 text-sm text-gray-400">
-                              <span className="flex items-center gap-1">
-                                <Briefcase className="w-4 h-4" />
-                                {submission.category}
-                              </span>
-                              {submission.budget_min && submission.budget_max && (
-                                <span className="flex items-center gap-1">
-                                  <DollarSign className="w-4 h-4" />
-                                  ${submission.budget_min} - ${submission.budget_max}
-                                </span>
-                              )}
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-4 h-4" />
-                                {new Date(submission.created_at).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                          <Badge className={getStatusBadge(submission.status)}>
-                            {submission.status.replace('_', ' ')}
-                          </Badge>
-                        </div>
-                        
-                        {submission.admin_notes && (
-                          <div className="bg-yellow-900/20 border border-yellow-600/50 p-3 rounded">
-                            <p className="text-yellow-200 text-sm">
-                              <strong>Admin Notes:</strong> {submission.admin_notes}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+
           </>
         )}
       </main>
