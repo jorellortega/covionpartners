@@ -38,6 +38,10 @@ function MakeDealPageContent() {
     confidentiality_level: "private",
     project_id: searchParams.get('project') || ""
   })
+  const [userSearchQuery, setUserSearchQuery] = useState("")
+  const [searchingUser, setSearchingUser] = useState(false)
+  const [foundUser, setFoundUser] = useState<any>(null)
+  const [selectedUsers, setSelectedUsers] = useState<any[]>([])
 
   // Fetch project if ID is provided in URL
   useEffect(() => {
@@ -122,15 +126,88 @@ function MakeDealPageContent() {
     }
   }
 
+  const handleUserSearch = async () => {
+    if (!userSearchQuery.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter an email address",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setSearchingUser(true)
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email, avatar_url')
+        .eq('email', userSearchQuery.trim())
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        setFoundUser(data)
+        toast({
+          title: "Success",
+          description: `Found user: ${data.name}`,
+        })
+      }
+    } catch (error: any) {
+      console.error('Error searching user:', error)
+      setFoundUser(null)
+      toast({
+        title: "Error",
+        description: "User not found with this email address",
+        variant: "destructive"
+      })
+    } finally {
+      setSearchingUser(false)
+    }
+  }
+
+  const handleAddUser = () => {
+    if (!foundUser) {
+      toast({
+        title: "Error",
+        description: "Please search for a user first",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Check if user is already selected
+    if (selectedUsers.some(user => user.id === foundUser.id)) {
+      toast({
+        title: "Error",
+        description: "User is already added",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setSelectedUsers(prev => [...prev, foundUser])
+    setFoundUser(null)
+    setUserSearchQuery("")
+    toast({
+      title: "Success",
+      description: `Added ${foundUser.name} to the deal`,
+    })
+  }
+
+  const handleRemoveUser = (userId: string) => {
+    setSelectedUsers(prev => prev.filter(user => user.id !== userId))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     // Validate required fields
-    if (!dealData.title || !dealData.deal_type || !dealData.project_id) {
+    if (!dealData.title || !dealData.deal_type) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields (title, deal type, project).",
+        description: "Please fill in all required fields (title, deal type).",
         variant: "destructive"
       })
       setLoading(false)
@@ -156,6 +233,7 @@ function MakeDealPageContent() {
       setLoading(false)
       return
     }
+    
     // If custom, require custom_type
     if (dealData.deal_type === "custom" && !dealData.custom_type) {
       toast({
@@ -166,9 +244,10 @@ function MakeDealPageContent() {
       setLoading(false)
       return
     }
-    // Validate project_id as UUID
+
+    // Validate project_id as UUID if provided
     const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
-    if (!uuidRegex.test(dealData.project_id)) {
+    if (dealData.project_id && !uuidRegex.test(dealData.project_id)) {
       toast({
         title: "Error",
         description: "Project ID is not a valid UUID.",
@@ -177,16 +256,24 @@ function MakeDealPageContent() {
       setLoading(false)
       return
     }
-    // Build payload with optional custom_type
+    // Build payload with all fields
     const payload: any = {
-      ...dealData,
-      requirements: {},
+      title: dealData.title,
+      description: dealData.description,
+      deal_type: dealData.deal_type,
       confidentiality_level: dealData.confidentiality_level,
+      requirements: {},
       initiator_id: user.id
     }
-    // Remove custom_type if not needed
-    if (payload.deal_type !== "custom" || !payload.custom_type) {
-      delete payload.custom_type;
+    
+    // Add custom_type if deal type is custom
+    if (dealData.deal_type === "custom" && dealData.custom_type) {
+      payload.custom_type = dealData.custom_type;
+    }
+    
+    // Only add project_id if it's provided
+    if (dealData.project_id) {
+      payload.project_id = dealData.project_id;
     }
     const logObject = Object.fromEntries(
       Object.entries(payload).map(([k, v]) => [k, { value: v, type: typeof v }])
@@ -194,13 +281,32 @@ function MakeDealPageContent() {
     console.log("Deal insert payload (values and types):", logObject)
 
     try {
-      const { data, error } = await supabase
+      const { data: dealData, error: dealError } = await supabase
         .from('deals')
         .insert([payload])
         .select()
         .single()
 
-      if (error) throw error
+      if (dealError) throw dealError
+
+      // Add all selected users as participants
+      if (selectedUsers.length > 0 && dealData) {
+        const participants = selectedUsers.map(user => ({
+          deal_id: dealData.id,
+          user_id: user.id,
+          status: 'pending',
+          role: 'participant'
+        }))
+
+        const { error: participantError } = await supabase
+          .from('deal_participants')
+          .insert(participants)
+
+        if (participantError) {
+          console.error('Error adding participants:', participantError)
+          // Don't fail the whole operation, just log the error
+        }
+      }
 
       toast({
         title: "Success",
@@ -246,7 +352,10 @@ function MakeDealPageContent() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Project Selection Section */}
                 <div className="space-y-4 mb-8">
-                  <Label>Select Project</Label>
+                  <div>
+                    <Label>Select Project (Optional)</Label>
+                    <p className="text-sm text-gray-400 mt-1">Choose a project to associate with this deal, or leave blank for a standalone deal</p>
+                  </div>
                   {selectedProject ? (
                     <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
                       <div className="flex items-center justify-between">
@@ -281,11 +390,23 @@ function MakeDealPageContent() {
                       </div>
                     </div>
                   ) : (
-                    <Tabs defaultValue="public" className="w-full">
-                      <TabsList className="grid w-full grid-cols-2">
+                    <Tabs defaultValue="custom" className="w-full">
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="custom">Custom</TabsTrigger>
                         <TabsTrigger value="public">Public Projects</TabsTrigger>
                         <TabsTrigger value="private">Private Project</TabsTrigger>
                       </TabsList>
+                      <TabsContent value="custom" className="space-y-4">
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="text-center">
+                            <Handshake className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                            <h3 className="text-lg font-medium mb-2">Custom Deal</h3>
+                            <p className="text-sm text-gray-400">
+                              Make a custom deal.
+                            </p>
+                          </div>
+                        </div>
+                      </TabsContent>
                       <TabsContent value="public" className="space-y-4">
                         <div className="flex gap-2">
                           <Input
@@ -389,6 +510,103 @@ function MakeDealPageContent() {
                   </div>
 
                   <div>
+                    <Label>Add Users (Optional)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="email"
+                        placeholder="Enter user email to search"
+                        value={userSearchQuery}
+                        onChange={(e) => setUserSearchQuery(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleUserSearch}
+                        disabled={searchingUser || !userSearchQuery.trim()}
+                      >
+                        {searchingUser ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        ) : (
+                          <Search className="w-4 h-4 mr-2" />
+                        )}
+                        {searchingUser ? 'Searching...' : 'Find User'}
+                      </Button>
+                    </div>
+                    
+                    {foundUser && (
+                      <div className="mt-3 p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center">
+                            {foundUser.avatar_url ? (
+                              <img src={foundUser.avatar_url} alt={foundUser.name} className="w-10 h-10 rounded-full" />
+                            ) : (
+                              <span className="text-sm font-medium">{foundUser.name?.charAt(0)?.toUpperCase()}</span>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-medium">{foundUser.name}</h3>
+                            <p className="text-sm text-gray-400">{foundUser.email}</p>
+                          </div>
+                          <div className="flex gap-2 ml-auto">
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleAddUser}
+                            >
+                              Add User
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setFoundUser(null)
+                                setUserSearchQuery("")
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedUsers.length > 0 && (
+                      <div className="mt-4">
+                        <Label className="text-sm text-gray-400 mb-2">Selected Users ({selectedUsers.length})</Label>
+                        <div className="space-y-2">
+                          {selectedUsers.map((user) => (
+                            <div key={user.id} className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
+                                  {user.avatar_url ? (
+                                    <img src={user.avatar_url} alt={user.name} className="w-8 h-8 rounded-full" />
+                                  ) : (
+                                    <span className="text-xs font-medium">{user.name?.charAt(0)?.toUpperCase()}</span>
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <h3 className="font-medium text-sm">{user.name}</h3>
+                                  <p className="text-xs text-gray-400">{user.email}</p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleRemoveUser(user.id)}
+                                  className="text-red-400 hover:text-red-300"
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
                     <Label>Deal Type</Label>
                     <Select
                       value={dealData.deal_type}
@@ -439,7 +657,7 @@ function MakeDealPageContent() {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full gradient-button" disabled={loading || !selectedProject}>
+                <Button type="submit" className="w-full gradient-button" disabled={loading}>
                   {loading ? "Creating Deal..." : "Create Deal"}
                 </Button>
               </form>

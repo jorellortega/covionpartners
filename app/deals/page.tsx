@@ -50,6 +50,7 @@ interface Deal {
   id: string
   title: string
   description: string
+  initiator_id: string
   status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'negotiation'
   deal_type: 'investment' | 'partnership' | 'collaboration' | 'acquisition' | 'custom'
   custom_type?: string
@@ -156,6 +157,10 @@ export default function DealsPage() {
       style: 'currency',
       currency: 'USD',
     }).format(amount)
+  }
+
+  const isInitiator = (deal: Deal) => {
+    return deal.initiator_id === user?.id
   }
 
   if (loading) {
@@ -305,6 +310,7 @@ export default function DealsPage() {
                     <TableRow className="border-gray-800">
                       <TableHead className="text-gray-300">Deal</TableHead>
                       <TableHead className="text-gray-300">Type</TableHead>
+                      <TableHead className="text-gray-300">Participants</TableHead>
                       <TableHead className="text-gray-300">Status</TableHead>
                       <TableHead className="text-gray-300">Budget</TableHead>
                       <TableHead className="text-gray-300">Confidentiality</TableHead>
@@ -327,6 +333,45 @@ export default function DealsPage() {
                           <Badge variant="outline" className="capitalize">
                             {deal.custom_type || deal.deal_type}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            {deal.participants && deal.participants.length > 0 ? (
+                              <>
+                                <Users className="w-4 h-4 text-gray-400" />
+                                <span className="text-sm text-gray-300">
+                                  {deal.participants.length}
+                                </span>
+                                                                  <div className="flex -space-x-2 ml-2">
+                                    {deal.participants.slice(0, 3).map((participant: any, index: number) => (
+                                      <div
+                                        key={participant.id}
+                                        className="w-6 h-6 rounded-full bg-gray-600 border-2 border-gray-800 flex items-center justify-center text-xs font-medium cursor-pointer hover:bg-gray-500 transition-colors"
+                                        title={`${participant.user?.name || 'Unknown'} (${participant.status})`}
+                                        onClick={() => router.push(`/profile/${participant.user?.id}`)}
+                                      >
+                                        {participant.user?.avatar_url ? (
+                                          <img 
+                                            src={participant.user.avatar_url} 
+                                            alt={participant.user.name} 
+                                            className="w-6 h-6 rounded-full"
+                                          />
+                                        ) : (
+                                          participant.user?.name?.charAt(0)?.toUpperCase() || '?'
+                                        )}
+                                      </div>
+                                    ))}
+                                  {deal.participants.length > 3 && (
+                                    <div className="w-6 h-6 rounded-full bg-gray-700 border-2 border-gray-800 flex items-center justify-center text-xs font-medium">
+                                      +{deal.participants.length - 3}
+                                    </div>
+                                  )}
+                                </div>
+                              </>
+                            ) : (
+                              <span className="text-sm text-gray-500">No participants</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {getStatusBadge(deal.status)}
@@ -367,23 +412,27 @@ export default function DealsPage() {
                             >
                               <Handshake className="w-4 h-4" />
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => router.push(`/deals/${deal.id}/edit`)}
-                              className="text-yellow-400 hover:text-yellow-300"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDelete(deal.id)}
-                              disabled={updatingId === deal.id}
-                              className="text-red-400 hover:text-red-300"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            {isInitiator(deal) && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => router.push(`/deals/${deal.id}/edit`)}
+                                  className="text-yellow-400 hover:text-yellow-300"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDelete(deal.id)}
+                                  disabled={updatingId === deal.id}
+                                  className="text-red-400 hover:text-red-300"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -248,6 +248,32 @@ export default function PartnerDashboard() {
     project_id: '',
     project_name: ''
   })
+  const [showLabels, setShowLabels] = useState(false)
+  const labelTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Handle auto-hide labels after 20 seconds
+  useEffect(() => {
+    if (showLabels) {
+      // Clear any existing timeout
+      if (labelTimeoutRef.current) {
+        clearTimeout(labelTimeoutRef.current)
+      }
+      
+      // Set new timeout to hide labels after 20 seconds
+      const timeout = setTimeout(() => {
+        setShowLabels(false)
+      }, 20000)
+      
+      labelTimeoutRef.current = timeout
+    }
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (labelTimeoutRef.current) {
+        clearTimeout(labelTimeoutRef.current)
+      }
+    }
+  }, [showLabels])
 
   // Mock data for demonstration
   const [totalRevenue] = useState(0)
@@ -851,101 +877,105 @@ export default function PartnerDashboard() {
 
 
         {/* Quick Access Icons */}
-        <div className="leonardo-card p-4 sm:p-6 mb-6 bg-gradient-to-r from-gray-800/50 to-gray-900/50">
-                      <div className="flex justify-center items-center">
-              <div className="flex items-center gap-6 sm:gap-8">
-              <div className="flex flex-col items-center gap-2 group">
+        <div 
+          className="leonardo-card p-4 sm:p-6 mb-6 bg-gradient-to-r from-gray-800/50 to-gray-900/50"
+          onMouseEnter={() => setShowLabels(true)}
+          onMouseLeave={() => setShowLabels(false)}
+        >
+          <div className="flex justify-center items-center">
+            <div className="flex items-center gap-6 sm:gap-8">
+              <div className="flex flex-col items-center gap-2">
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="relative w-20 h-20 bg-yellow-500/20 hover:bg-yellow-500/30 hover:text-yellow-400 p-4 rounded-lg border border-yellow-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  className="relative w-20 h-20 bg-yellow-500/20 hover:bg-yellow-500/30 hover:text-yellow-400 p-4 rounded-lg border border-yellow-500/30 transition-transform duration-200 hover:-translate-y-1"
                   onClick={() => router.push('/updates')}
                 >
-                                        <Bell className="w-20 h-20" />
+                  <Bell className="w-20 h-20" />
                   {unreadMessages > 0 && (
                     <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full text-xs flex items-center justify-center text-white font-bold">
                       {unreadMessages}
                     </span>
                   )}
                 </Button>
-                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Updates</span>
+                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>Updates</span>
               </div>
 
-              <div className="flex flex-col items-center gap-2 group">
+              <div className="flex flex-col items-center gap-2">
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="relative w-20 h-20 bg-purple-500/20 hover:bg-purple-500/30 hover:text-purple-400 p-4 rounded-lg border border-purple-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  className="relative w-20 h-20 bg-purple-500/20 hover:bg-purple-500/30 hover:text-purple-400 p-4 rounded-lg border border-purple-500/30 transition-transform duration-200 hover:-translate-y-1"
                   onClick={() => router.push('/messages')}
                 >
-                                        <MessageSquare className="w-20 h-20" />
+                  <MessageSquare className="w-20 h-20" />
                   {unreadMessages > 0 && (
                     <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full text-xs flex items-center justify-center text-white font-bold">
                       {unreadMessages}
                     </span>
                   )}
                 </Button>
-                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Messages</span>
+                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>Messages</span>
               </div>
 
-              <div className="flex flex-col items-center gap-2 group">
+              <div className="flex flex-col items-center gap-2">
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="w-20 h-20 bg-blue-500/20 hover:bg-blue-500/30 hover:text-blue-400 p-4 rounded-lg border border-blue-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  className="w-20 h-20 bg-blue-500/20 hover:bg-blue-500/30 hover:text-blue-400 p-4 rounded-lg border border-blue-500/30 transition-transform duration-200 hover:-translate-y-1"
                   onClick={() => router.push('/projects')}
                 >
-                                        <Briefcase className="w-20 h-20" />
+                  <Briefcase className="w-20 h-20" />
                 </Button>
-                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Projects</span>
+                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>Projects</span>
               </div>
 
-              <div className="flex flex-col items-center gap-2 group">
+              <div className="flex flex-col items-center gap-2">
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="w-20 h-20 bg-green-500/20 hover:bg-green-500/30 hover:text-green-400 p-4 rounded-lg border border-green-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  className="w-20 h-20 bg-green-500/20 hover:bg-green-500/30 hover:text-green-400 p-4 rounded-lg border border-green-500/30 transition-transform duration-200 hover:-translate-y-1"
                   onClick={() => router.push('/withdraw')}
                 >
-                                        <DollarSign className="w-20 h-20" />
+                  <DollarSign className="w-20 h-20" />
                 </Button>
-                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Withdraw</span>
+                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>Withdraw</span>
               </div>
 
-              <div className="flex flex-col items-center gap-2 group">
+              <div className="flex flex-col items-center gap-2">
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="w-20 h-20 bg-purple-500/20 hover:bg-purple-500/30 hover:text-purple-400 p-4 rounded-lg border border-purple-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  className="w-20 h-20 bg-purple-500/20 hover:bg-purple-500/30 hover:text-purple-400 p-4 rounded-lg border border-purple-500/30 transition-transform duration-200 hover:-translate-y-1"
                   onClick={() => router.push('/workflow')}
                 >
-                                        <Workflow className="w-20 h-20" />
+                  <Workflow className="w-20 h-20" />
                 </Button>
-                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Tasks</span>
+                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>Tasks</span>
               </div>
 
-              <div className="flex flex-col items-center gap-2 group">
+              <div className="flex flex-col items-center gap-2">
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="w-20 h-20 bg-orange-500/20 hover:bg-orange-500/30 hover:text-orange-400 p-4 rounded-lg border border-orange-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  className="w-20 h-20 bg-orange-500/20 hover:bg-orange-500/30 hover:text-orange-400 p-4 rounded-lg border border-orange-500/30 transition-transform duration-200 hover:-translate-y-1"
                   onClick={() => router.push('/feed')}
                 >
-                                        <Users className="w-20 h-20" />
+                  <Users className="w-20 h-20" />
                 </Button>
-                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Activity Feed</span>
+                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>Activity Feed</span>
               </div>
 
-              <div className="flex flex-col items-center gap-2 group">
+              <div className="flex flex-col items-center gap-2">
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="w-20 h-20 bg-indigo-500/20 hover:bg-indigo-500/30 hover:text-indigo-400 p-4 rounded-lg border border-indigo-500/30 transition-transform duration-200 group-hover:-translate-y-1"
+                  className="w-20 h-20 bg-indigo-500/20 hover:bg-indigo-500/30 hover:text-indigo-400 p-4 rounded-lg border border-indigo-500/30 transition-transform duration-200 hover:-translate-y-1"
                   onClick={() => router.push('/workmode')}
                 >
-                                        <FolderKanban className="w-20 h-20" />
+                  <FolderKanban className="w-20 h-20" />
                 </Button>
-                <span className="text-xs text-gray-400 font-bold uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">Workspace</span>
+                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>Workspace</span>
               </div>
             </div>
           </div>
