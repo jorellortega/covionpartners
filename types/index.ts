@@ -66,6 +66,7 @@ export interface Project {
   public_resources_enabled?: boolean
   actions_enabled?: boolean
   public_open_positions_enabled?: boolean
+  is_favorite?: boolean
 }
 
 export interface ProjectRole {

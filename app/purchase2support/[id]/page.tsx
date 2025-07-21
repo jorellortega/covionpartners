@@ -567,7 +567,7 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                 </div>
               </>
             )}
-            {currentStep === 3 && (
+            {currentStep === 3 && !clientSecret && (
               <>
                 <div className="mb-6 text-lg font-semibold text-purple-400">Step 3: Review & Continue to Payment</div>
                 <div className="w-full max-w-2xl mx-auto mt-4 bg-[#18132a] rounded-xl shadow-lg p-6 flex flex-col md:flex-row items-center md:items-start gap-8">
@@ -672,6 +672,28 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                       </Button>
                     </div>
                   </div>
+                </div>
+              </>
+            )}
+            {currentStep === 3 && clientSecret && (
+              <>
+                <div className="mb-6 text-lg font-semibold text-purple-400">Step 3: Complete Payment</div>
+                <div className="w-full max-w-2xl mx-auto">
+                  <Card className="leonardo-card border-gray-800">
+                    <CardHeader>
+                      <CardTitle>Payment Details</CardTitle>
+                      <CardDescription>Enter your payment information to complete the purchase</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Elements stripe={stripePromise} options={{ clientSecret }}>
+                        <PaymentForm 
+                          clientSecret={clientSecret} 
+                          onSuccess={() => setDonationSuccess(true)}
+                          projectId={project.id}
+                        />
+                      </Elements>
+                    </CardContent>
+                  </Card>
                 </div>
               </>
             )}

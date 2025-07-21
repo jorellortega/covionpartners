@@ -115,7 +115,11 @@ export default function Home() {
                   style={{ display: 'block' }}
                 />
               </div>
-              <h2 className="text-5xl font-extrabold gradient-text m-0 -mt-6">COVION PARTNERS</h2>
+              <h2 className="text-5xl font-extrabold gradient-text m-0 -mt-6">PARTNERS</h2>
+              <p className="text-xl text-gray-300 mt-4 mb-6 max-w-3xl mx-auto">
+                Business Community and Management Platform for project collaboration, deal making, and business growth. 
+                Connect with partners, manage projects, and build successful ventures together.
+              </p>
             </div>
             <svg width="0" height="0">
               <defs>

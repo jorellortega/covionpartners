@@ -21,6 +21,8 @@ import {
   PauseCircle,
   Search,
   Building2,
+  Lock,
+  Unlock,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -53,7 +55,7 @@ import Image from "next/image"
 export default function ProjectsPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const { projects, loading, error, deleteProject } = useProjects(user?.id || '')
+  const { projects, loading, error, deleteProject, toggleFavorite } = useProjects(user?.id || '')
   const [projectKey, setProjectKey] = useState("")
   const [isJoining, setIsJoining] = useState(false)
   const [joinError, setJoinError] = useState("")
@@ -81,6 +83,18 @@ export default function ProjectsPage() {
     } catch (error: any) {
       console.error('Error deleting project:', error);
       toast.error(error.message || 'Failed to delete project. Please try again.')
+    }
+  }
+
+  const handleToggleFavorite = async (projectId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    try {
+      const { error } = await toggleFavorite(projectId)
+      if (error) throw error;
+      // The toast will be handled by the optimistic update in the hook
+    } catch (error: any) {
+      console.error('Error toggling favorite:', error);
+      toast.error(error.message || 'Failed to update favorite status. Please try again.')
     }
   }
   
@@ -660,7 +674,11 @@ export default function ProjectsPage() {
               .map((project) => (
               <Card 
                 key={project.id} 
-                className="leonardo-card border-gray-800 cursor-pointer hover:border-blue-500/50 transition-colors relative"
+                className={`leonardo-card cursor-pointer transition-colors relative ${
+                  project.is_favorite 
+                    ? 'border-yellow-500/50 hover:border-yellow-400/70' 
+                    : 'border-gray-800 hover:border-blue-500/50'
+                }`}
                 onClick={() => router.push(`/projects/${project.id}`)}
               >
                 <CardHeader className="pb-2">
@@ -682,51 +700,88 @@ export default function ProjectsPage() {
                       </div>
                     <CardTitle className="text-lg">{project.name}</CardTitle>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-purple-900/20 hover:text-purple-400">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-56 bg-gray-900 border-gray-700">
-                        <DropdownMenuLabel>Project Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator className="bg-gray-700" />
-                        <DropdownMenuItem 
-                          className="text-white hover:bg-purple-900/20 hover:text-purple-400 focus:bg-purple-900/20 focus:text-purple-400"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            router.push(`/publicprojects/${project.id}`);
-                          }}
-                        >
-                          Public View
-                        </DropdownMenuItem>
-                        {user?.role !== 'viewer' && (
-                          <>
-                            <DropdownMenuItem 
-                              className="text-white hover:bg-purple-900/20 hover:text-purple-400 focus:bg-purple-900/20 focus:text-purple-400"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                router.push(`/projects/${project.id}`);
-                              }}
-                            >
-                              Edit Project
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="text-red-400 hover:bg-purple-900/20 hover:text-purple-400 cursor-pointer focus:bg-purple-900/20 focus:text-purple-400"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                handleDeleteProject(project.id);
-                              }}
-                            >
-                              Delete Project
-                            </DropdownMenuItem>
-                          </>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 hover:bg-purple-900/20 text-black hover:text-yellow-400"
+                        onClick={(e) => handleToggleFavorite(project.id, e)}
+                        title={project.is_favorite ? 'Unpin project' : 'Pin project to top'}
+                      >
+                        {project.is_favorite ? (
+                          <Lock className="h-4 w-4" />
+                        ) : (
+                          <Unlock className="h-4 w-4" />
                         )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-purple-900/20 hover:text-purple-400">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56 bg-gray-900 border-gray-700">
+                          <DropdownMenuLabel>Project Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator className="bg-gray-700" />
+                          <DropdownMenuItem 
+                            className="text-white hover:bg-purple-900/20 hover:text-purple-400 focus:bg-purple-900/20 focus:text-purple-400"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              handleToggleFavorite(project.id, e);
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              {project.is_favorite ? (
+                                <>
+                                  <Lock className="w-4 h-4" />
+                                  Unpin Project
+                                </>
+                              ) : (
+                                <>
+                                  <Unlock className="w-4 h-4" />
+                                  Pin Project
+                                </>
+                              )}
+                            </div>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-white hover:bg-purple-900/20 hover:text-purple-400 focus:bg-purple-900/20 focus:text-purple-400"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              router.push(`/publicprojects/${project.id}`);
+                            }}
+                          >
+                            Public View
+                          </DropdownMenuItem>
+                          {user?.role !== 'viewer' && (
+                            <>
+                              <DropdownMenuItem 
+                                className="text-white hover:bg-purple-900/20 hover:text-purple-400 focus:bg-purple-900/20 focus:text-purple-400"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  router.push(`/projects/${project.id}`);
+                                }}
+                              >
+                                Edit Project
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-red-400 hover:bg-purple-900/20 hover:text-purple-400 cursor-pointer focus:bg-purple-900/20 focus:text-purple-400"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleDeleteProject(project.id);
+                                }}
+                              >
+                                Delete Project
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                   <CardDescription className="text-gray-400 line-clamp-2">
                     {project.description || 'No description available'}

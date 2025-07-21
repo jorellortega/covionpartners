@@ -64,7 +64,17 @@ export function useProjects(userId?: string) {
         index === self.findIndex(p => p.id === project.id)
       )
       
-      setProjects(uniqueProjects)
+      // Sort projects: favorites first, then by creation date (newest first)
+      const sortedProjects = uniqueProjects.sort((a, b) => {
+        // First sort by favorite status (favorites first)
+        if (a.is_favorite && !b.is_favorite) return -1;
+        if (!a.is_favorite && b.is_favorite) return 1;
+        
+        // Then sort by creation date (newest first)
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      
+      setProjects(sortedProjects)
     } catch (error: any) {
       console.error('Error fetching user projects:', error)
       setError('Failed to fetch user projects: ' + error.message)
@@ -164,6 +174,46 @@ export function useProjects(userId?: string) {
     }
   }
 
+  const toggleFavorite = async (projectId: string) => {
+    try {
+      // Get current project to find its current favorite status
+      const currentProject = projects.find(p => p.id === projectId);
+      if (!currentProject) {
+        throw new Error('Project not found');
+      }
+
+      const newFavoriteStatus = !currentProject.is_favorite;
+
+      const { data, error } = await supabase
+        .from('projects')
+        .update({ is_favorite: newFavoriteStatus })
+        .eq('id', projectId)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Optimistically update the list and re-sort
+      setProjects((prev) => {
+        const updated = prev.map((project) => 
+          project.id === projectId ? { ...project, is_favorite: newFavoriteStatus } : project
+        );
+        
+        // Re-sort: favorites first, then by creation date
+        return updated.sort((a, b) => {
+          if (a.is_favorite && !b.is_favorite) return -1;
+          if (!a.is_favorite && b.is_favorite) return 1;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+      });
+
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error toggling favorite:', error)
+      return { data: null, error }
+    }
+  }
+
   // Determine which refresh function to expose based on context
   const refreshProjects = userId ? fetchUserProjects : fetchAllPublicProjects;
 
@@ -174,6 +224,7 @@ export function useProjects(userId?: string) {
     createProject,
     updateProject,
     deleteProject,
+    toggleFavorite,
     refreshProjects, // Use the context-aware refresh function
   }
 } 
