@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
@@ -30,13 +30,15 @@ import {
   Settings,
   Heart,
   Eye,
-  Globe
+  Globe,
+  User
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useProjects } from "@/hooks/useProjects"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useAuth } from "@/hooks/useAuth"
 import { QRCodeCanvas } from 'qrcode.react'
+import { supabase } from "@/lib/supabase"
 
 interface Project {
   id: string
@@ -49,6 +51,7 @@ interface Project {
   current_funding: number
   deadline: string
   accepts_support: boolean
+  owner_id?: string
   media_files?: Array<{
     name: string
     type: string
@@ -93,6 +96,51 @@ export default function PublicProjectsPage() {
   const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const { projects, loading, error } = useProjects()
+  const [userProfiles, setUserProfiles] = useState<{[key: string]: any}>({})
+
+  // Fetch user profiles for project owners
+  useEffect(() => {
+    const fetchUserProfiles = async () => {
+      if (!projects.length) return
+      
+      console.log('Projects data:', projects)
+      console.log('First project:', projects[0])
+      
+      const ownerIds = [...new Set(projects.map(p => p.owner_id).filter(Boolean))]
+      
+      console.log('Owner IDs found:', ownerIds)
+      
+      if (ownerIds.length === 0) return
+      
+      try {
+        // Fetch user data from users table like the profile page does
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, name, avatar_url, title1, title2')
+          .in('id', ownerIds)
+        
+        if (error) throw error
+        
+        console.log('Users fetched:', data)
+        
+        const profilesMap = (data || []).reduce((acc: any, user: any) => {
+          acc[user.id] = {
+            id: user.id,
+            name: user.name,
+            avatar_url: user.avatar_url || '/placeholder-avatar.jpg'
+          }
+          return acc
+        }, {})
+        
+        console.log('Profiles map:', profilesMap)
+        setUserProfiles(profilesMap)
+      } catch (error) {
+        console.error('Error fetching user profiles:', error)
+      }
+    }
+    
+    fetchUserProfiles()
+  }, [projects])
 
   // Function to ensure URL is properly formatted
   const formatUrl = (url: string) => {
@@ -227,7 +275,38 @@ export default function PublicProjectsPage() {
                     
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{project.name}</CardTitle>
+                        <div className="flex items-center gap-3">
+                          <CardTitle className="text-lg">{project.name}</CardTitle>
+                          {/* User Avatar - Show for all projects temporarily */}
+                          <div className="relative group/avatar">
+                            <div 
+                              className="w-8 h-8 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center cursor-pointer hover:bg-gray-600 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (project.owner_id) {
+                                  router.push(`/profile/${project.owner_id}`);
+                                }
+                              }}
+                            >
+                              {project.owner_id && userProfiles[project.owner_id]?.avatar_url ? (
+                                <Image
+                                  src={userProfiles[project.owner_id].avatar_url}
+                                  alt={userProfiles[project.owner_id].name || 'User'}
+                                  width={32}
+                                  height={32}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <User className="w-4 h-4 text-gray-400" />
+                              )}
+                            </div>
+                            {/* Hover tooltip */}
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-200 whitespace-nowrap z-20">
+                              {project.owner_id && userProfiles[project.owner_id]?.name ? userProfiles[project.owner_id].name : 'Project Owner'}
+                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                            </div>
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2">
                           {/* Settings Button - Only show if user owns the project */}
                           {user && project.owner_id === user.id && (
@@ -295,7 +374,7 @@ export default function PublicProjectsPage() {
                           </div>
                         </div>
 
-                        {project.accepts_support && (
+                        {project.accepts_support && user && project.owner_id === user.id && (
                           <div className="p-3 bg-purple-500/10 rounded-lg">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center text-purple-400">
@@ -374,7 +453,7 @@ export default function PublicProjectsPage() {
                               icon: <Heart className="w-4 h-4 mr-2" />,
                               onClick: (e: any) => {
                               e.stopPropagation();
-                              router.push(`/purchase2support?project=${project.id}`);
+                              router.push(`/purchase2support/${project.id}`);
                               },
                               color: 'hover:bg-pink-900/20 hover:text-pink-400',
                             }] : []),

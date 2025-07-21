@@ -290,9 +290,13 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
           .from('public_supports')
           .select('id, project_id, certificate_number, token_serial, amount, created_at, metadata, project:projects(name), supporter_name')
           .eq('project_id', project.id)
+          .not('certificate_number', 'is', null) // Only fetch entries that have certificate data
           .order('created_at', { ascending: false })
         
         if (error) throw error
+        
+        console.log('Fetched tokens:', data)
+        
         setTokens(data || [])
       } catch (error) {
         console.error('Error fetching tokens:', error)
@@ -458,7 +462,6 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                 <div className="mb-6 text-lg font-semibold text-purple-400">Step 1: Select a Token</div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
                   {tokens.map((token) => {
-                    const isCert = token.certificate_number || token.supporter_name || token.issued_at;
                     const isSelected = selectedTokenId === token.id;
                     const fullSerial = token.token_serial || token.metadata?.token_number || 'Not set';
                     const shortSerial = fullSerial.length > 3 ? `${'*'.repeat(fullSerial.length - 3)}${fullSerial.slice(-3)}` : fullSerial;
@@ -474,30 +477,6 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                         role="button"
                         aria-pressed={isSelected}
                       >
-                        {isCert && (
-                          <div
-                            className="rounded-2xl shadow-lg border-2 border-purple-500 bg-[#141414] flex flex-col items-center justify-center relative mb-4"
-                            style={{ width: 220, height: 120, padding: 10 }}
-                          >
-                            <div className="absolute inset-0 rounded-2xl border-2 border-purple-500 pointer-events-none" style={{ zIndex: 1 }} />
-                            <div className="absolute left-3 top-3" style={{ zIndex: 2 }}>
-                              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <circle cx="16" cy="16" r="16" fill="#141414" />
-                                <path d="M7.5 13.5L10 16C10.5 16.5 11.5 16.5 12 16L16.5 11.5C17 11 17 10 16.5 9.5L15 8C14.5 7.5 13.5 7.5 13 8L8.5 12.5C8 13 8 13.5 7.5 13.5Z" stroke="#a78bfa" strokeWidth="1.5" fill="none"/>
-                              </svg>
-                            </div>
-                            <div className="flex flex-col items-center justify-center w-full h-full" style={{ zIndex: 2 }}>
-                              <div className="text-xs font-bold text-purple-400 text-center mb-1">Certificate of Support</div>
-                              <div className="text-[10px] italic text-white text-center">This certifies that</div>
-                              <div className="text-xs font-bold text-white text-center mt-0.5">{token.supporter_name || 'Supporter'}</div>
-                              <div className="text-[10px] italic text-white text-center mt-0.5">has supported Covion Partners</div>
-                              <div className="text-xs font-bold text-purple-400 text-center mt-0.5">{token.certificate_number || (token.token_serial ? `CP-${token.token_serial}` : '')}</div>
-                              <div className="text-[9px] text-white text-center mt-0.5">{token.issued_at ? new Date(token.issued_at).toLocaleDateString() : token.created_at ? new Date(token.created_at).toLocaleDateString() : ''}</div>
-                              <div className="text-[9px] font-bold text-white text-center mt-0.5">Covion Partners</div>
-                              <div className="text-[8px] italic text-pink-400 text-center mt-0.5">Thank you for your support!</div>
-                            </div>
-                          </div>
-                        )}
                         <div className="flex flex-col items-center justify-center" style={{ width: 120, height: 160 }}>
                           <svg width="1600" height="2240" viewBox="0 0 1600 2240" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 120, height: 160, display: 'block', borderRadius: 24, boxShadow: '0 4px 24px #0008' }}>
                             <defs>
@@ -597,7 +576,8 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                     const fullSerial = token.token_serial || token.metadata?.token_number || 'Not set';
                     const shortSerial = fullSerial.length > 3 ? `${'*'.repeat(fullSerial.length - 3)}${fullSerial.slice(-3)}` : fullSerial;
                     // Use /mytokens logic for certificate number
-                    const certNumber = token.certificate_number || (token.token_serial ? `CP-${token.token_serial}` : '');
+                    const fullCertNumber = token.certificate_number || (token.token_serial ? `CP-${token.token_serial}` : '');
+                    const shortCertNumber = fullCertNumber.length > 3 ? `${'*'.repeat(fullCertNumber.length - 3)}${fullCertNumber.slice(-3)}` : fullCertNumber;
                     const supporter = token.supporter_name || 'Supporter';
                     const issued = token.issued_at ? new Date(token.issued_at).toLocaleDateString() : token.created_at ? new Date(token.created_at).toLocaleDateString() : 'N/A';
                     return (
@@ -643,7 +623,7 @@ export default function DonationPage({ params }: { params: Promise<{ id: string 
                             <div className="text-[7px] italic text-white text-center">This certifies that</div>
                             <div className="text-[8px] font-bold text-white text-center mt-0.5">{supporter}</div>
                             <div className="text-[7px] italic text-white text-center mt-0.5">has supported Covion Partners</div>
-                            <div className="text-[8px] font-bold text-purple-400 text-center mt-0.5">{certNumber}</div>
+                            <div className="text-[8px] font-bold text-purple-400 text-center mt-0.5">{shortCertNumber}</div>
                             <div className="text-[7px] text-white text-center mt-0.5">{issued}</div>
                           </div>
                         </div>
