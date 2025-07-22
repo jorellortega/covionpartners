@@ -67,11 +67,12 @@ import {
   History,
   StickyNote,
   UploadCloud,
-  Grid3X3,
+
   List,
   Layout,
   Bot,
-  Send
+  Send,
+  X
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -256,19 +257,38 @@ export default function PartnerDashboard() {
   const [showLabels, setShowLabels] = useState(false)
   const labelTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [dashboardView, setDashboardView] = useState<'default' | 'compact' | 'grid' | 'ai'>('default')
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
-  // Handle auto-hide labels after 20 seconds
+  // Show labels for 10 seconds on page load
   useEffect(() => {
-    if (showLabels) {
-      // Clear any existing timeout
+    // Show labels immediately when component mounts
+    setShowLabels(true)
+    
+    // Hide labels after 10 seconds
+    const timeout = setTimeout(() => {
+      setShowLabels(false)
+    }, 10000)
+    
+    labelTimeoutRef.current = timeout
+    
+    // Cleanup timeout on unmount
+    return () => {
       if (labelTimeoutRef.current) {
         clearTimeout(labelTimeoutRef.current)
       }
+    }
+  }, [])
+
+  // Handle auto-hide labels after 10 seconds when hovered
+  useEffect(() => {
+    if (showLabels && labelTimeoutRef.current) {
+      // Clear any existing timeout
+      clearTimeout(labelTimeoutRef.current)
       
-      // Set new timeout to hide labels after 20 seconds
+      // Set new timeout to hide labels after 10 seconds
       const timeout = setTimeout(() => {
         setShowLabels(false)
-      }, 20000)
+      }, 10000)
       
       labelTimeoutRef.current = timeout
     }
@@ -795,289 +815,805 @@ export default function PartnerDashboard() {
     
     try {
       // Simulate AI response - replace with actual AI API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Mock AI response based on prompt
-      const mockResponse = `I understand you're asking about: "${aiPrompt}". Here's a helpful response based on your query. This is a simulated AI response - in a real implementation, this would connect to an actual AI service like OpenAI, Claude, or another AI provider.`;
+      // Development message with user's name
+      const developmentResponse = `Hello ${user?.name || user?.email || 'there'}! I'm under development. Come back soon!`;
       
-      setAiResponse(mockResponse);
+      setAiResponse(developmentResponse);
     } catch (error) {
       console.error('Error getting AI response:', error);
       setAiResponse("Sorry, I encountered an error while processing your request. Please try again.");
     } finally {
       setIsAiLoading(false);
+      setAiPrompt('');
     }
   };
 
   // Dashboard View Components
   const renderCompactView = () => (
     <div className="space-y-4">
-      {/* Stats Row */}
-      <div className="grid grid-cols-4 gap-3">
-        <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-400">Projects</p>
-                <h3 className="text-lg font-bold">{myProjects.length}</h3>
-              </div>
-              <Briefcase className="w-5 h-5 text-blue-400" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-400">Balance</p>
-                <h3 className="text-lg font-bold">
-                  {balance === null ? '—' : `$${Number(balance).toLocaleString()}`}
-                </h3>
-              </div>
-              <DollarSign className="w-5 h-5 text-green-400" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-400">Messages</p>
-                <h3 className="text-lg font-bold">{unreadMessages}</h3>
-              </div>
-              <MessageSquare className="w-5 h-5 text-purple-400" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-400">Updates</p>
-                <h3 className="text-lg font-bold">{updates.length}</h3>
-              </div>
-              <Bell className="w-5 h-5 text-yellow-400" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Button 
-          className="h-16 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-          onClick={() => router.push('/projects/new')}
+      {/* Expandable Category Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {/* Project Hub */}
+        <Card 
+          className={`leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
+            selectedCategory === 'projects' ? 'ring-2 ring-blue-500/50' : ''
+          }`}
+          onClick={() => setSelectedCategory('projects')}
         >
-          <Plus className="w-5 h-5 mr-2" />
-          New Project
-        </Button>
-        <Button 
-          className="h-16 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-          onClick={() => router.push('/messages')}
-        >
-          <MessageSquare className="w-5 h-5 mr-2" />
-          Messages
-        </Button>
-        <Button 
-          className="h-16 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
-          onClick={() => router.push('/withdraw')}
-        >
-          <DollarSign className="w-5 h-5 mr-2" />
-          Withdraw
-        </Button>
-        <Button 
-          className="h-16 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-          onClick={() => router.push('/workflow')}
-        >
-          <Workflow className="w-5 h-5 mr-2" />
-          Tasks
-        </Button>
-      </div>
-
-      {/* Recent Activity */}
-      <Card className="leonardo-card border-gray-800">
-        <CardHeader>
-          <CardTitle className="text-lg">Recent Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {recentMessages.slice(0, 5).map((message, index) => (
-              <div 
-                key={index} 
-                className="flex items-center space-x-3 p-2 rounded hover:bg-gray-800/50 cursor-pointer"
-                onClick={() => router.push(`/messages/${message.id}`)}
-              >
-                <MessageSquare className="w-4 h-4 text-purple-400" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{message.subject}</p>
-                  <p className="text-xs text-gray-400">{new Date(message.created_at).toLocaleDateString()}</p>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mr-3">
+                  <Briefcase className="w-4 h-4 text-blue-400" />
                 </div>
-                <ArrowRight className="w-4 h-4 text-gray-400" />
+                <h3 className="font-semibold text-white">Projects</h3>
               </div>
-            ))}
+              <ArrowRight className="w-4 h-4 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+
+                {/* Deal Hub */}
+        <Card 
+          className={`leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
+            selectedCategory === 'deals' ? 'ring-2 ring-green-500/50' : ''
+          }`}
+          onClick={() => setSelectedCategory('deals')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center mr-3">
+                  <Handshake className="w-4 h-4 text-green-400" />
+                </div>
+                <h3 className="font-semibold text-white">Deals</h3>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+
+                {/* Financial Hub */}
+        <Card 
+          className={`leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
+            selectedCategory === 'finance' ? 'ring-2 ring-yellow-500/50' : ''
+          }`}
+          onClick={() => setSelectedCategory('finance')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center mr-3">
+                  <DollarSign className="w-4 h-4 text-yellow-400" />
+                </div>
+                <h3 className="font-semibold text-white">Finance</h3>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+
+                {/* Communication Hub */}
+        <Card 
+          className={`leonardo-card border-gray-800 bg-gradient-to-br from-cyan-500/10 to-teal-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
+            selectedCategory === 'communication' ? 'ring-2 ring-cyan-500/50' : ''
+          }`}
+          onClick={() => setSelectedCategory('communication')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center mr-3">
+                  <MessageSquare className="w-4 h-4 text-cyan-400" />
+                </div>
+                <h3 className="font-semibold text-white">Messages</h3>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Organization Hub */}
+        <Card 
+          className={`leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
+            selectedCategory === 'organization' ? 'ring-2 ring-indigo-500/50' : ''
+          }`}
+          onClick={() => setSelectedCategory('organization')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center mr-3">
+                  <Building2 className="w-4 h-4 text-indigo-400" />
+                </div>
+                <h3 className="font-semibold text-white">Organization</h3>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Workflow Hub */}
+        <Card 
+          className={`leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
+            selectedCategory === 'workflow' ? 'ring-2 ring-purple-500/50' : ''
+          }`}
+          onClick={() => setSelectedCategory('workflow')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center mr-3">
+                  <Workflow className="w-4 h-4 text-purple-400" />
+                </div>
+                <h3 className="font-semibold text-white">Workflow</h3>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Join Project Hub */}
+        <Card 
+          className={`leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
+            selectedCategory === 'join-project' ? 'ring-2 ring-purple-500/50' : ''
+          }`}
+          onClick={() => setSelectedCategory('join-project')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center mr-3">
+                  <UserPlus className="w-4 h-4 text-purple-400" />
+                </div>
+                <h3 className="font-semibold text-white">Join Project</h3>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Business & Client Pages Hub */}
+        <Card 
+          className={`leonardo-card border-gray-800 bg-gradient-to-br from-pink-500/10 to-purple-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
+            selectedCategory === 'business-client' ? 'ring-2 ring-pink-500/50' : ''
+          }`}
+          onClick={() => setSelectedCategory('business-client')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-pink-500/20 flex items-center justify-center mr-3">
+                  <Briefcase className="w-4 h-4 text-pink-400" />
+                </div>
+                <h3 className="font-semibold text-white">Business & Client</h3>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Job Board Hub */}
+        <Card 
+          className={`leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
+            selectedCategory === 'job-board' ? 'ring-2 ring-blue-500/50' : ''
+          }`}
+          onClick={() => setSelectedCategory('job-board')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mr-3">
+                  <Briefcase className="w-4 h-4 text-blue-400" />
+                </div>
+                <h3 className="font-semibold text-white">Job Board</h3>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Dynamic Content Section */}
+      {selectedCategory && (
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-white">
+              {selectedCategory === 'projects' && 'Project Management'}
+              {selectedCategory === 'deals' && 'Deal Management'}
+              {selectedCategory === 'finance' && 'Financial Management'}
+              {selectedCategory === 'communication' && 'Communication Tools'}
+              {selectedCategory === 'organization' && 'Organization Management'}
+              {selectedCategory === 'workflow' && 'Workflow & Tasks'}
+              {selectedCategory === 'join-project' && 'Join a Project'}
+              {selectedCategory === 'business-client' && 'Business & Client Management'}
+              {selectedCategory === 'job-board' && 'Job Board Management'}
+            </h2>
+            <Button 
+              variant="outline" 
+              className="border-gray-700 hover:bg-gray-800"
+              onClick={() => setSelectedCategory(null)}
+            >
+              <X className="w-4 h-4 mr-2" />
+              Close
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
 
-  const renderGridView = () => (
-    <div className="space-y-6">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
-          <CardContent className="p-4 text-center">
-            <Briefcase className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-            <h3 className="text-2xl font-bold">{myProjects.length}</h3>
-            <p className="text-sm text-gray-400">Projects</p>
-          </CardContent>
-        </Card>
-        <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10">
-          <CardContent className="p-4 text-center">
-            <DollarSign className="w-8 h-8 text-green-400 mx-auto mb-2" />
-            <h3 className="text-2xl font-bold">
-              {balance === null ? '—' : `$${Number(balance).toLocaleString()}`}
-            </h3>
-            <p className="text-sm text-gray-400">Balance</p>
-          </CardContent>
-        </Card>
-        <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10">
-          <CardContent className="p-4 text-center">
-            <MessageSquare className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-            <h3 className="text-2xl font-bold">{unreadMessages}</h3>
-            <p className="text-sm text-gray-400">Messages</p>
-          </CardContent>
-        </Card>
-        <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10">
-          <CardContent className="p-4 text-center">
-            <Bell className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
-            <h3 className="text-2xl font-bold">{updates.length}</h3>
-            <p className="text-sm text-gray-400">Updates</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Icon Grid */}
-      <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-4">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="w-16 h-16 bg-blue-500/20 hover:bg-blue-500/30 hover:text-blue-400 border border-blue-500/30"
-          onClick={() => router.push('/projects')}
-        >
-          <Briefcase className="w-6 h-6" />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="w-16 h-16 bg-green-500/20 hover:bg-green-500/30 hover:text-green-400 border border-green-500/30"
-          onClick={() => router.push('/messages')}
-        >
-          <MessageSquare className="w-6 h-6" />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="w-16 h-16 bg-yellow-500/20 hover:bg-yellow-500/30 hover:text-yellow-400 border border-yellow-500/30"
-          onClick={() => router.push('/withdraw')}
-        >
-          <DollarSign className="w-6 h-6" />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="w-16 h-16 bg-purple-500/20 hover:bg-purple-500/30 hover:text-purple-400 border border-purple-500/30"
-          onClick={() => router.push('/workflow')}
-        >
-          <Workflow className="w-6 h-6" />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="w-16 h-16 bg-indigo-500/20 hover:bg-indigo-500/30 hover:text-indigo-400 border border-indigo-500/30"
-          onClick={() => router.push('/deals')}
-        >
-          <Handshake className="w-6 h-6" />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="w-16 h-16 bg-pink-500/20 hover:bg-pink-500/30 hover:text-pink-400 border border-pink-500/30"
-          onClick={() => router.push('/jobs')}
-        >
-          <Users className="w-6 h-6" />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="w-16 h-16 bg-orange-500/20 hover:bg-orange-500/30 hover:text-orange-400 border border-orange-500/30"
-          onClick={() => router.push('/feed')}
-        >
-          <Globe className="w-6 h-6" />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="w-16 h-16 bg-cyan-500/20 hover:bg-cyan-500/30 hover:text-cyan-400 border border-cyan-500/30"
-          onClick={() => router.push('/settings')}
-        >
-          <Settings className="w-6 h-6" />
-        </Button>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="leonardo-card border-gray-800">
-          <CardHeader>
-            <CardTitle className="text-lg">Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button variant="outline" className="w-full justify-start" onClick={() => router.push('/projects/new')}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Project
-            </Button>
-            <Button variant="outline" className="w-full justify-start" onClick={() => router.push('/makedeal')}>
-              <Handshake className="w-4 h-4 mr-2" />
-              Make Deal
-            </Button>
-            <Button variant="outline" className="w-full justify-start" onClick={() => router.push('/managepayments')}>
-              <Calculator className="w-4 h-4 mr-2" />
-              Manage Payments
-            </Button>
-          </CardContent>
-        </Card>
-        <Card className="leonardo-card border-gray-800">
-          <CardHeader>
-            <CardTitle className="text-lg">Recent Messages</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {recentMessages.slice(0, 3).map((message, index) => (
-                <div 
-                  key={index} 
-                  className="flex items-center space-x-3 p-2 rounded hover:bg-gray-800/50 cursor-pointer"
-                  onClick={() => router.push(`/messages/${message.id}`)}
-                >
-                  <MessageSquare className="w-4 h-4 text-purple-400" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm truncate">{message.subject}</p>
-                    <p className="text-xs text-gray-400">{new Date(message.created_at).toLocaleDateString()}</p>
-                  </div>
-                </div>
-              ))}
+          {/* Projects Content */}
+          {selectedCategory === 'projects' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {user?.role === 'viewer' ? (
+                <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+                  <CardContent className="p-6 text-center">
+                    <Briefcase className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Upgrade Required</h3>
+                    <p className="text-gray-400 mb-4">Upgrade your account to access project management features</p>
+                    <Button 
+                      className="w-full bg-gradient-to-r from-blue-500 to-purple-500"
+                      onClick={() => router.push('/account-types')}
+                    >
+                      Upgrade Account
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/projects/new')}>
+                      <Plus className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">New Project</h3>
+                      <p className="text-gray-400">Create a new project</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/projects')}>
+                      <FolderKanban className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">View Projects</h3>
+                      <p className="text-gray-400">Manage your projects</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/projectfiles')}>
+                      <FileText className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Project Files</h3>
+                      <p className="text-gray-400">Access project documents</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/team')}>
+                      <Users className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Team Management</h3>
+                      <p className="text-gray-400">Manage project team</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/publicprojects')}>
+                      <Globe className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Public Projects</h3>
+                      <p className="text-gray-400">Browse public projects</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/workmode')}>
+                      <Workflow className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Workspace</h3>
+                      <p className="text-gray-400">Access your workspace</p>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+
+          {/* Deals Content */}
+          {selectedCategory === 'deals' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {user?.role === 'viewer' ? (
+                <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10">
+                  <CardContent className="p-6 text-center">
+                    <Handshake className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Upgrade Required</h3>
+                    <p className="text-gray-400 mb-4">Upgrade your account to access deal features</p>
+                    <Button 
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-500"
+                      onClick={() => router.push('/account-types')}
+                    >
+                      Upgrade Account
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/makedeal')}>
+                      <Handshake className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Make Deal</h3>
+                      <p className="text-gray-400">Create a new deal</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/deals')}>
+                      <Globe className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">View Deals</h3>
+                      <p className="text-gray-400">Browse all deals</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/dealsrequest')}>
+                      <Handshake className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Deal Requests</h3>
+                      <p className="text-gray-400">Manage deal requests</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/negotiate')}>
+                      <MessageSquare className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Negotiate</h3>
+                      <p className="text-gray-400">Negotiate deals</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/publicprojects')}>
+                      <Globe className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Public Projects</h3>
+                      <p className="text-gray-400">Browse public projects</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/invest')}>
+                      <DollarSign className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Invest</h3>
+                      <p className="text-gray-400">Investment opportunities</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/portfolio')}>
+                      <BarChart2 className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Portfolio</h3>
+                      <p className="text-gray-400">View your portfolio</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/forsale')}>
+                      <Store className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">For Sale</h3>
+                      <p className="text-gray-400">Items for sale</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/buy')}>
+                      <Store className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Buy</h3>
+                      <p className="text-gray-400">Purchase items</p>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Finance Content */}
+          {selectedCategory === 'finance' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {user?.role === 'viewer' ? (
+                <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10">
+                  <CardContent className="p-6 text-center">
+                    <DollarSign className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Upgrade Required</h3>
+                    <p className="text-gray-400 mb-4">Upgrade your account to access financial features</p>
+                    <Button 
+                      className="w-full bg-gradient-to-r from-yellow-500 to-orange-500"
+                      onClick={() => router.push('/account-types')}
+                    >
+                      Upgrade Account
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/managepayments')}>
+                      <Calculator className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Manage Payments</h3>
+                      <p className="text-gray-400">Handle payments</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/withdraw')}>
+                      <DollarSign className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Withdraw</h3>
+                      <p className="text-gray-400">Withdraw funds</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/pay')}>
+                      <DollarSign className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Pay</h3>
+                      <p className="text-gray-400">Make payments</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/project/invest')}>
+                      <Settings className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Investment Settings</h3>
+                      <p className="text-gray-400">Configure investment settings</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/payments')}>
+                      <Wallet className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Payments</h3>
+                      <p className="text-gray-400">Payment history</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/savepayments')}>
+                      <CheckSquare className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Saved Payments</h3>
+                      <p className="text-gray-400">Manage saved payments</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/funding-settings')}>
+                      <Settings className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Funding Settings</h3>
+                      <p className="text-gray-400">Configure funding settings</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/calculator')}>
+                      <Calculator className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Calculator</h3>
+                      <p className="text-gray-400">Investment calculator</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/portfolio')}>
+                      <BarChart2 className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Portfolio</h3>
+                      <p className="text-gray-400">Financial portfolio</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/invest')}>
+                      <TrendingUp className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Invest</h3>
+                      <p className="text-gray-400">Investment opportunities</p>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Join Project Content */}
+          {selectedCategory === 'join-project' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10">
+                <CardContent className="p-6">
+                  <UserPlus className="w-12 h-12 text-purple-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-4 text-center">Join a Project</h3>
+                  <p className="text-gray-400 mb-4 text-center">
+                    Have a project key? Enter it below to request access and join the team.
+                  </p>
+                  <div className="space-y-3">
+                    <Input
+                      placeholder="Enter project key (e.g., COV-ABC12)"
+                      value={projectKey}
+                      onChange={(e) => setProjectKey(e.target.value)}
+                      className="bg-gray-800/30 border-gray-700"
+                    />
+                    {joinError && (
+                      <div className="text-sm text-red-500">{joinError}</div>
+                    )}
+                    <Button 
+                      className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
+                      onClick={handleJoinProject}
+                      disabled={isJoining || !projectKey.trim()}
+                    >
+                      {isJoining ? 'Requesting Access...' : 'Request to Join'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Job Board Content */}
+          {selectedCategory === 'job-board' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/jobs')}>
+                  <Briefcase className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">View Job Board</h3>
+                  <p className="text-gray-400">Browse all job postings</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/jobs/post')}>
+                  <Plus className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Post a Job</h3>
+                  <p className="text-gray-400">Create a new job posting</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/buildbusiness')}>
+                  <Briefcase className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Create Organization</h3>
+                  <p className="text-gray-400">Set up a new organization</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/myorganizations')}>
+                  <Users className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">My Organizations</h3>
+                  <p className="text-gray-400">Manage your organizations</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/approved-positions')}>
+                  <CheckCircle className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Approved Positions</h3>
+                  <p className="text-gray-400">View approved work positions</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/work-dashboard')}>
+                  <FolderKanban className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Work Dashboard</h3>
+                  <p className="text-gray-400">Access work management</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/jobportal')}>
+                  <Briefcase className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Job Portal Dashboard</h3>
+                  <p className="text-gray-400">Job portal management</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Business & Client Content */}
+          {selectedCategory === 'business-client' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {user?.role === 'viewer' ? (
+                <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-pink-500/10 to-purple-500/10">
+                  <CardContent className="p-6 text-center">
+                    <Briefcase className="w-12 h-12 text-pink-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Upgrade Required</h3>
+                    <p className="text-gray-400 mb-4">Upgrade your account to access business features</p>
+                    <Button 
+                      className="w-full bg-gradient-to-r from-pink-500 to-purple-500"
+                      onClick={() => router.push('/account-types')}
+                    >
+                      Upgrade Account
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-pink-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/businessprofile')}>
+                      <Briefcase className="w-12 h-12 text-pink-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Create/Edit Business Profile</h3>
+                      <p className="text-gray-400">Manage your business profile</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-pink-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/business/123')}>
+                      <Briefcase className="w-12 h-12 text-pink-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">View Business Profile</h3>
+                      <p className="text-gray-400">View your business profile</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-pink-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/client/123')}>
+                      <Users className="w-12 h-12 text-pink-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Client Booking Page</h3>
+                      <p className="text-gray-400">Manage client bookings</p>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Communication Content */}
+          {selectedCategory === 'communication' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-cyan-500/10 to-teal-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/messages')}>
+                  <MessageSquare className="w-12 h-12 text-cyan-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Messages</h3>
+                  <p className="text-gray-400">View your messages</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-cyan-500/10 to-teal-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/updates')}>
+                  <Bell className="w-12 h-12 text-cyan-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Updates Center</h3>
+                  <p className="text-gray-400">Check for updates</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-cyan-500/10 to-teal-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/groupchat')}>
+                  <Users className="w-12 h-12 text-cyan-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Group Chat</h3>
+                  <p className="text-gray-400">Join group conversations</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-cyan-500/10 to-teal-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/feed')}>
+                  <Users className="w-12 h-12 text-cyan-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Activity Feed</h3>
+                  <p className="text-gray-400">View activity feed</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-cyan-500/10 to-teal-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/notes')}>
+                  <StickyNote className="w-12 h-12 text-cyan-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Notes</h3>
+                  <p className="text-gray-400">Manage your notes</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-cyan-500/10 to-teal-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/profiles')}>
+                  <User className="w-12 h-12 text-cyan-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Profiles</h3>
+                  <p className="text-gray-400">View user profiles</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-cyan-500/10 to-teal-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/contacts')}>
+                  <Users className="w-12 h-12 text-cyan-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Contacts</h3>
+                  <p className="text-gray-400">Manage contacts</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Organization Content */}
+          {selectedCategory === 'organization' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/myorganizations')}>
+                  <Users className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">My Organizations</h3>
+                  <p className="text-gray-400">View your organizations</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/createorganization')}>
+                  <Building2 className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Create Organization</h3>
+                  <p className="text-gray-400">Create a new organization</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/business-expense')}>
+                  <Briefcase className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Business Expenses</h3>
+                  <p className="text-gray-400">Manage business expenses</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/work-dashboard')}>
+                  <FolderKanban className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Work Dashboard</h3>
+                  <p className="text-gray-400">Access work management</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/approved-positions')}>
+                  <CheckCircle className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Approved Positions</h3>
+                  <p className="text-gray-400">View approved positions</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/work-submission')}>
+                  <PenSquare className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Work for Hire Submission</h3>
+                  <p className="text-gray-400">Submit work for hire</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/admin/work-submissions')}>
+                  <Shield className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Work Submissions</h3>
+                  <p className="text-gray-400">Manage work submissions</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/open-roles')}>
+                  <Briefcase className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Open Roles</h3>
+                  <p className="text-gray-400">View open roles</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/organization-staff')}>
+                  <Users className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Organization Staff</h3>
+                  <p className="text-gray-400">Manage organization staff</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/company/my/documents')}>
+                  <UploadCloud className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Organization Documents</h3>
+                  <p className="text-gray-400">Manage documents</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/workmode')}>
+                  <Workflow className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Workspace</h3>
+                  <p className="text-gray-400">Access workspace</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Workflow Content */}
+          {selectedCategory === 'workflow' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/workflow')}>
+                  <Workflow className="w-12 h-12 text-purple-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Tasks</h3>
+                  <p className="text-gray-400">Manage your tasks</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/workmode')}>
+                  <FolderKanban className="w-12 h-12 text-purple-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Workspace</h3>
+                  <p className="text-gray-400">Access your workspace</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/approved-positions')}>
+                  <CheckCircle className="w-12 h-12 text-purple-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Approved Positions</h3>
+                  <p className="text-gray-400">View approved positions</p>
+                </CardContent>
+              </Card>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10 cursor-pointer hover:scale-105 transition-transform">
+                <CardContent className="p-6 text-center" onClick={() => router.push('/work-submission')}>
+                  <PenSquare className="w-12 h-12 text-purple-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Work Submission</h3>
+                  <p className="text-gray-400">Submit work</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Add more category content sections as needed */}
+        </div>
+      )}
+
     </div>
   )
+
+
 
   const renderAIView = () => (
     <div className="max-w-2xl mx-auto pt-20">
       {/* Simple Header */}
       <div className="text-center mb-8">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mx-auto mb-4">
-          <Bot className="w-8 h-8 text-white" />
+        {/* Coming Soon Badge */}
+        <div className="inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 mb-4">
+          <span className="text-xs font-medium text-purple-300">Coming Soon</span>
+        </div>
+        
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mx-auto mb-4 group cursor-pointer">
+          <Bot className="w-8 h-8 text-white group-hover:hidden" />
+          <span className="text-white font-bold text-lg hidden group-hover:block">JOR</span>
         </div>
         <h1 className="text-2xl font-bold text-white mb-2">AI Assistant</h1>
         <p className="text-gray-400">Ask me anything about your projects or business</p>
@@ -1085,15 +1621,23 @@ export default function PartnerDashboard() {
 
       {/* Prompt Input */}
       <div className="space-y-4">
-        <div className="flex-1">
-          <textarea
-            placeholder="Ask me anything..."
-            value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleAI()}
-            className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-gray-800/50 border-gray-700 text-white placeholder-gray-400 focus:border-purple-500 resize-none"
-            disabled={isAiLoading}
-          />
+                <div className="flex-1">
+          <div className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-800/50 to-gray-900/50 p-4 relative">
+            {/* Binary Code Border */}
+            <div className="absolute inset-0 pointer-events-none">
+              {/* Binary text along borders */}
+              <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 text-[8px] text-purple-400 font-mono select-none opacity-60">01001010 01001111 01010010</div>
+              <div className="absolute bottom-1 right-1 text-xs text-purple-400 font-mono select-none opacity-60">JOR</div>
+            </div>
+            <textarea
+              placeholder="Ask me anything..."
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleAI()}
+              className="flex min-h-[120px] w-full rounded-lg border border-gray-700 bg-gray-900/50 px-4 py-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 resize-none transition-all duration-200 relative z-10"
+              disabled={isAiLoading}
+            />
+          </div>
         </div>
         <div className="flex justify-end">
           <Button
@@ -1112,8 +1656,21 @@ export default function PartnerDashboard() {
       
       {/* Response */}
       {aiResponse && (
-        <div className="mt-6 bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-          <p className="text-gray-300 leading-relaxed">{aiResponse}</p>
+        <div className="mt-6 leonardo-card border-gray-800 bg-gradient-to-br from-gray-800/50 to-gray-900/50 p-6">
+          <div className="flex items-start space-x-3 mb-4">
+            <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+              <Bot className="w-4 h-4 text-purple-400" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center space-x-2 mb-2">
+                <h3 className="text-lg font-semibold text-white">AI Response</h3>
+                <span className="text-sm text-purple-400 font-medium">by JOR</span>
+              </div>
+              <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+                <p className="text-gray-300 leading-relaxed whitespace-pre-wrap">{aiResponse}</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -1121,30 +1678,56 @@ export default function PartnerDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      <header className="leonardo-header">
+            <header className={`leonardo-header transition-all duration-500 ${dashboardView === 'ai' ? 'opacity-0 hover:opacity-100' : 'opacity-100'}`}>
         <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center">
-            <h1 className="text-2xl sm:text-3xl font-bold flex items-center">
-              <span className="bg-gradient-to-r from-purple-500 to-purple-900 rounded-full p-1.5 mr-3">
-                <Handshake className="w-6 h-6 text-white" />
-              </span>
-              Dashboard
-            </h1>
-            <Badge className="ml-3 bg-gray-800/30 text-gray-300 border-gray-700 flex items-center justify-center h-7 px-3">
-              {getTierName(user?.role || '')}
-            </Badge>
-          </div>
-          
-          {/* Welcome Banner moved to header */}
-          <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => router.push(`/profile/${user?.id}`)}>
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center transition-transform group-hover:scale-105">
-              <User className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold group-hover:text-purple-400 transition-colors">Welcome, {user?.name || user?.email}!</h2>
-              <p className="text-sm text-gray-400">Here's what's happening in your workspace</p>
-            </div>
-          </div>
+          {dashboardView !== 'compact' ? (
+            <>
+              <div className="flex items-center">
+                <h1 className="text-2xl sm:text-3xl font-bold flex items-center">
+                  <span 
+                    className="bg-gradient-to-r from-purple-500 to-purple-900 rounded-full p-1.5 mr-3 cursor-pointer hover:scale-105 transition-transform"
+                    onClick={() => router.push('/')}
+                  >
+                    <Handshake className="w-6 h-6 text-white" />
+                  </span>
+                  Dashboard
+                </h1>
+                <Badge className="ml-3 bg-gray-800/30 text-gray-300 border-gray-700 flex items-center justify-center h-7 px-3">
+                  {getTierName(user?.role || '')}
+                </Badge>
+              </div>
+              
+              {/* Welcome Banner moved to header */}
+              <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => router.push(`/profile/${user?.id}`)}>
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center transition-transform group-hover:scale-105">
+                  <User className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold group-hover:text-purple-400 transition-colors">Welcome, {user?.name || user?.email}!</h2>
+                  <p className="text-sm text-gray-400">Here's what's happening in your workspace</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Compact view: Just logo and account icon */}
+              <div className="flex items-center">
+                <span 
+                  className="bg-gradient-to-r from-purple-500 to-purple-900 rounded-full p-1.5 mr-3 cursor-pointer hover:scale-105 transition-transform"
+                  onClick={() => router.push('/')}
+                >
+                  <Handshake className="w-6 h-6 text-white" />
+                </span>
+              </div>
+              
+              {/* Account icon for compact view */}
+              <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => router.push(`/profile/${user?.id}`)}>
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center transition-transform group-hover:scale-105">
+                  <User className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </>
+          )}
           
           <div className="flex flex-wrap gap-2 sm:gap-4 w-full sm:w-auto">
             {/* Dashboard View Selector */}
@@ -1167,15 +1750,7 @@ export default function PartnerDashboard() {
                 <List className="w-4 h-4 mr-1" />
                 Compact
               </Button>
-              <Button
-                variant={dashboardView === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                className={`h-8 px-3 ${dashboardView === 'grid' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-700/50'}`}
-                onClick={() => setDashboardView('grid')}
-              >
-                <Grid3X3 className="w-4 h-4 mr-1" />
-                Grid
-              </Button>
+              
               <Button
                 variant={dashboardView === 'ai' ? 'default' : 'ghost'}
                 size="sm"
@@ -1258,15 +1833,26 @@ export default function PartnerDashboard() {
 
         {/* Render different dashboard views */}
         {dashboardView === 'compact' && renderCompactView()}
-        {dashboardView === 'grid' && renderGridView()}
         {dashboardView === 'ai' && renderAIView()}
         {dashboardView === 'default' && (
           <>
             {/* Quick Access Icons */}
         <div 
           className="leonardo-card p-4 sm:p-6 mb-6 bg-gradient-to-r from-gray-800/50 to-gray-900/50"
-          onMouseEnter={() => setShowLabels(true)}
-          onMouseLeave={() => setShowLabels(false)}
+          onMouseEnter={() => {
+            setShowLabels(true)
+            // Reset the 10-second timer when hovering
+            if (labelTimeoutRef.current) {
+              clearTimeout(labelTimeoutRef.current)
+            }
+            const timeout = setTimeout(() => {
+              setShowLabels(false)
+            }, 10000)
+            labelTimeoutRef.current = timeout
+          }}
+          onMouseLeave={() => {
+            // Don't hide labels immediately on mouse leave, let the timer handle it
+          }}
         >
           <div className="flex justify-center items-center">
             <div className="grid grid-cols-4 sm:grid-cols-7 gap-3 sm:gap-6 lg:gap-8 w-full max-w-4xl">
