@@ -6,11 +6,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { User, Users, Clock, MessageCircle, FileText, StickyNote, FolderKanban, CheckCircle, Activity, Plus, RefreshCw, Target, Calendar, TrendingUp, Download, Eye, MoreHorizontal, Flag, Zap, AlertCircle, Crown, Code, Palette, Shield, Server, Edit, Trash2, Send, Save, X, Lock, Unlock, Link as LinkIcon, Clipboard, Search, Package, MoreHorizontal as MoreIcon } from "lucide-react"
+import { User, Users, Clock, MessageCircle, FileText, StickyNote, FolderKanban, CheckCircle, Activity, Plus, RefreshCw, Target, Calendar, TrendingUp, Download, Eye, MoreHorizontal, Flag, Zap, AlertCircle, Crown, Code, Palette, Shield, Server, Edit, Trash2, Send, Save, X, Lock, Unlock, Link as LinkIcon, Clipboard, Search, Package, MoreHorizontal as MoreIcon, Upload } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
 import { useTeamMembers } from "@/hooks/useTeamMembers"
+import { createEntityLink } from "@/lib/entity-links"
 import {
   Select,
   SelectTrigger,
@@ -205,6 +206,61 @@ function WorkModeContent() {
   const [selectedTaskForLinking, setSelectedTaskForLinking] = useState<any>(null);
   const [itemToDelete, setItemToDelete] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    due_date: '',
+    priority: 'medium' as 'low' | 'medium' | 'high',
+    status: 'pending' as 'pending' | 'in_progress' | 'completed',
+    assigned_to: 'unassigned' as string,
+    assigned_users: [] as string[]
+  });
+  const [newProjectNote, setNewProjectNote] = useState("")
+  const [newProjectNoteTitle, setNewProjectNoteTitle] = useState("")
+  const [creatingNote, setCreatingNote] = useState(false)
+  const [showNoteForm, setShowNoteForm] = useState(false)
+  const [zoomMeetings, setZoomMeetings] = useState<any[]>([])
+  const [zoomLoading, setZoomLoading] = useState(false)
+  const [zoomAuthenticated, setZoomAuthenticated] = useState(false)
+  const [zoomUser, setZoomUser] = useState<any>(null)
+  const [newMeeting, setNewMeeting] = useState({
+    topic: '',
+    start_time: '',
+    duration: 60,
+    type: 2, // Scheduled meeting
+    settings: {
+      host_video: true,
+      participant_video: true,
+      join_before_host: true,
+      mute_upon_entry: false,
+      watermark: false,
+      use_pmi: false,
+      approval_type: 0,
+      audio: 'both',
+      auto_recording: 'none'
+    }
+  })
+  const [creatingMeeting, setCreatingMeeting] = useState(false)
+  const [submittingFile, setSubmittingFile] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [fileSubmission, setFileSubmission] = useState({
+    title: '',
+    description: '',
+    task_id: '' as string | null
+  })
+  const [projectSubmissions, setProjectSubmissions] = useState<any[]>([])
+  const [submissionsLoading, setSubmissionsLoading] = useState(false)
+  const [showSubmissions, setShowSubmissions] = useState(false)
+  
+  // Member search functionality
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searching, setSearching] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<any>(null)
+  const [selectedRole, setSelectedRole] = useState<'lead' | 'member' | 'advisor' | 'consultant'>('member')
+  const [addingMember, setAddingMember] = useState(false)
 
   // Load/save current focus from localStorage
   useEffect(() => {
@@ -351,7 +407,27 @@ function WorkModeContent() {
         .eq('entity_type', 'project')
         .eq('entity_id', currentProject.id)
         .order('created_at', { ascending: false });
-      setProjectNotes(data || []);
+      
+      if (data) {
+        // Fetch user details for each note
+        const notesWithUser = await Promise.all(
+          data.map(async (note) => {
+            if (!note.created_by) return { ...note, user: { name: 'Unknown' } };
+            const { data: userData } = await supabase
+              .from('users')
+              .select('name, email')
+              .eq('id', note.created_by)
+              .single();
+            return {
+              ...note,
+              user: userData || { name: note.created_by }
+            };
+          })
+        );
+        setProjectNotes(notesWithUser);
+      } else {
+        setProjectNotes([]);
+      }
       setNotesLoading(false);
     };
     fetchNotes();
@@ -406,6 +482,37 @@ function WorkModeContent() {
     };
     fetchFocus();
   }, [user]);
+
+  // Check Zoom authentication on mount and handle callback
+  useEffect(() => {
+    if (user) {
+      checkZoomAuth();
+    }
+  }, [user]);
+
+  // Handle Zoom auth callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const zoomAuth = urlParams.get('zoom_auth');
+    
+    if (zoomAuth === 'success') {
+      toast.success('Zoom account connected successfully!');
+      checkZoomAuth();
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (zoomAuth === 'error') {
+      toast.error('Failed to connect Zoom account');
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  // Fetch project submissions
+  useEffect(() => {
+    if (currentProject?.id) {
+      fetchProjectSubmissions();
+    }
+  }, [currentProject?.id]);
 
   // Fetch user's assigned task for the current project
   useEffect(() => {
@@ -480,6 +587,7 @@ function WorkModeContent() {
   }, [activeRoom, focusLocked, user]);
 
   const handleLock = async () => {
+    if (!user) return;
     try {
       const { error } = await supabase.from('user_project_focus').upsert({
         user_id: user.id,
@@ -493,13 +601,14 @@ function WorkModeContent() {
         return;
       }
       setFocusLocked(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Exception in handleLock:', err);
-      toast.error('Exception in handleLock: ' + err.message);
+      toast.error('Exception in handleLock: ' + (err.message || 'Unknown error'));
     }
   };
 
   const handleUnlock = async () => {
+    if (!user) return;
     await supabase.from('user_project_focus').update({ focus_locked: false }).eq('user_id', user.id);
     setFocusLocked(false);
   };
@@ -594,7 +703,7 @@ function WorkModeContent() {
       if (error) throw error
 
       // Log activity
-      if (data && data[0]) {
+      if (data && data[0] && user) {
         await supabase.from('activity_log').insert([{
           user_id: user.id,
           project_id: currentProject.id,
@@ -677,14 +786,16 @@ function WorkModeContent() {
       }
 
       // Log activity
-      await supabase.from('activity_log').insert([{
-        user_id: user.id,
-        project_id: currentProject.id,
-        action_type: 'edited_timeline_item',
-        entity_type: 'timeline',
-        entity_id: editingTimelineItem.id,
-        description: `${user.name || user.email} edited timeline item "${editingTimelineItem.title}"`,
-      }]);
+      if (user) {
+        await supabase.from('activity_log').insert([{
+          user_id: user.id,
+          project_id: currentProject.id,
+          action_type: 'edited_timeline_item',
+          entity_type: 'timeline',
+          entity_id: editingTimelineItem.id,
+          description: `${user.name || user.email} edited timeline item "${editingTimelineItem.title}"`,
+        }]);
+      }
 
       toast.success("Timeline item updated successfully")
       setIsEditModalOpen(false)
@@ -742,7 +853,7 @@ function WorkModeContent() {
     console.log('Opening edit modal for item:', item, 'with id:', item.id);
     setEditingTimelineItem({ ...item })
     setIsEditModalOpen(true)
-    setEditAssignees(item.assignee_name ? item.assignee_name.split(',').map(name => name.trim()) : []);
+    setEditAssignees(item.assignee_name ? item.assignee_name.split(',').map((name: string) => name.trim()) : []);
     setEditCustomAssignee('');
   }
 
@@ -754,10 +865,15 @@ function WorkModeContent() {
   // Function to link a task to a timeline item
   const linkTaskToTimeline = async (taskId: string, timelineId: string) => {
     try {
-      const { error } = await supabase.rpc('add_task_to_timeline', {
-        timeline_id: timelineId,
-        task_id: taskId
-      });
+      // Use the new entity linking system
+      const { error } = await createEntityLink(
+        'timeline',
+        timelineId,
+        'task',
+        taskId,
+        'association',
+        currentProject?.id
+      );
 
       if (error) {
         console.error('Error linking task to timeline:', error);
@@ -785,6 +901,502 @@ function WorkModeContent() {
   const openLinkTaskModal = (task: any) => {
     setSelectedTaskForLinking(task);
     setLinkTaskModalOpen(true);
+  };
+
+  const handleCreateTask = async () => {
+    if (!newTask.title.trim() || !currentProject?.id || !user) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert([{
+          project_id: currentProject.id,
+          title: newTask.title.trim(),
+          description: newTask.description.trim(),
+          due_date: newTask.due_date || null,
+          priority: newTask.priority,
+          status: newTask.status,
+          created_by: user.id,
+          assigned_to: newTask.assigned_to === 'unassigned' ? null : newTask.assigned_to,
+          assigned_users: newTask.assigned_users.length > 0 ? newTask.assigned_users : []
+        }])
+        .select();
+
+      if (error) throw error;
+
+      // Log activity
+      if (data && data[0] && user) {
+        await supabase.from('activity_log').insert([{
+          user_id: user.id,
+          project_id: currentProject.id,
+          action_type: 'created_task',
+          entity_type: 'task',
+          entity_id: data[0].id,
+          description: `${user.name || user.email} created task "${newTask.title}"`,
+        }]);
+      }
+
+      toast.success("Task created successfully");
+      setIsNewTaskModalOpen(false);
+      setNewTask({
+        title: '',
+        description: '',
+        due_date: '',
+        priority: 'medium',
+        status: 'pending',
+        assigned_to: 'unassigned',
+        assigned_users: []
+      });
+      
+      // Refresh tasks
+      const { data: updatedTasks } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('project_id', currentProject.id)
+        .order('created_at', { ascending: false });
+      setProjectTasks(updatedTasks || []);
+      
+      // Refresh activities
+      const { data: updatedActivities } = await supabase
+        .from('activity_log')
+        .select('*, user:users(name, email)')
+        .eq('project_id', currentProject.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      setActivities(updatedActivities || []);
+    } catch (error: any) {
+      console.error('Error creating task:', error);
+      toast.error(error.message || "Failed to create task");
+    }
+  };
+
+  const handleCreateProjectNote = async () => {
+    if (!newProjectNote.trim() || !currentProject?.id || !user) {
+      toast.error("Please enter a note");
+      return;
+    }
+
+    try {
+      setCreatingNote(true);
+      const { data, error } = await supabase
+        .from('notes')
+        .insert([{
+          entity_type: 'project',
+          entity_id: currentProject.id,
+          content: newProjectNote.trim(),
+          created_by: user.id,
+          entity_title: currentProject.name,
+          note_title: newProjectNoteTitle.trim() || null
+        }])
+        .select();
+
+      if (error) throw error;
+
+      // Log activity
+      if (data && data[0] && user) {
+        await supabase.from('activity_log').insert([{
+          user_id: user.id,
+          project_id: currentProject.id,
+          action_type: 'created_note',
+          entity_type: 'note',
+          entity_id: data[0].id,
+          description: `${user.name || user.email} created a note`,
+        }]);
+      }
+
+      toast.success("Note created successfully");
+      setNewProjectNote("");
+      setNewProjectNoteTitle("");
+      setShowNoteForm(false);
+      
+      // Refresh notes
+      const { data: updatedNotes } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('entity_type', 'project')
+        .eq('entity_id', currentProject.id)
+        .order('created_at', { ascending: false });
+      setProjectNotes(updatedNotes || []);
+    } catch (error: any) {
+      console.error('Error creating note:', error);
+      toast.error(error.message || "Failed to create note");
+    } finally {
+      setCreatingNote(false);
+    }
+  };
+
+  // Zoom API Integration
+  const ZOOM_CLIENT_ID = process.env.NEXT_PUBLIC_ZOOM_CLIENT_ID;
+  const ZOOM_REDIRECT_URI = typeof window !== 'undefined' ? `${window.location.origin}/api/zoom/callback` : '';
+
+  const initiateZoomAuth = () => {
+    if (!user?.id) {
+      toast.error("Please sign in first");
+      return;
+    }
+    const zoomAuthUrl = `https://zoom.us/oauth/authorize?response_type=code&client_id=${ZOOM_CLIENT_ID}&redirect_uri=${encodeURIComponent(ZOOM_REDIRECT_URI)}&state=${user.id}`;
+    window.open(zoomAuthUrl, '_blank', 'width=500,height=600');
+  };
+
+  const checkZoomAuth = async () => {
+    try {
+      const { data: zoomAuth } = await supabase
+        .from('user_zoom_auth')
+        .select('*')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+      
+      if (zoomAuth && zoomAuth.access_token) {
+        setZoomAuthenticated(true);
+        setZoomUser(zoomAuth);
+        fetchZoomMeetings();
+      }
+    } catch (error) {
+      console.error('Error checking Zoom auth:', error);
+    }
+  };
+
+  const fetchZoomMeetings = async () => {
+    if (!zoomUser?.access_token) return;
+    
+    setZoomLoading(true);
+    try {
+      const response = await fetch('/api/zoom/meetings', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${zoomUser.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setZoomMeetings(data.meetings || []);
+      }
+    } catch (error) {
+      console.error('Error fetching Zoom meetings:', error);
+      toast.error('Failed to fetch meetings');
+    } finally {
+      setZoomLoading(false);
+    }
+  };
+
+  const createZoomMeeting = async () => {
+    if (!newMeeting.topic.trim() || !newMeeting.start_time || !zoomUser?.access_token) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    setCreatingMeeting(true);
+    try {
+      const response = await fetch('/api/zoom/meetings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${zoomUser.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newMeeting)
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        toast.success("Meeting created successfully");
+        setNewMeeting({
+          topic: '',
+          start_time: '',
+          duration: 60,
+          type: 2,
+          settings: {
+            host_video: true,
+            participant_video: true,
+            join_before_host: true,
+            mute_upon_entry: false,
+            watermark: false,
+            use_pmi: false,
+            approval_type: 0,
+            audio: 'both',
+            auto_recording: 'none'
+          }
+        });
+        fetchZoomMeetings();
+      } else {
+        throw new Error('Failed to create meeting');
+      }
+    } catch (error) {
+      console.error('Error creating meeting:', error);
+      toast.error('Failed to create meeting');
+    } finally {
+      setCreatingMeeting(false);
+    }
+  };
+
+  const joinZoomMeeting = (meetingId: string, password?: string) => {
+    const joinUrl = `https://zoom.us/j/${meetingId}${password ? `?pwd=${password}` : ''}`;
+    window.open(joinUrl, '_blank');
+  };
+
+  const deleteZoomMeeting = async (meetingId: string) => {
+    if (!zoomUser?.access_token) return;
+    
+    try {
+      const response = await fetch(`/api/zoom/meetings/${meetingId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${zoomUser.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        toast.success("Meeting deleted successfully");
+        fetchZoomMeetings();
+      } else {
+        throw new Error('Failed to delete meeting');
+      }
+    } catch (error) {
+      console.error('Error deleting meeting:', error);
+      toast.error('Failed to delete meeting');
+    }
+  };
+
+  // File Submission Functions
+  const fetchProjectSubmissions = async () => {
+    if (!currentProject?.id) return;
+    
+    setSubmissionsLoading(true);
+    try {
+      // First fetch the files
+      const { data: files, error: filesError } = await supabase
+        .from('project_files')
+        .select('*')
+        .eq('project_id', currentProject.id)
+        .order('created_at', { ascending: false });
+      
+      if (filesError) throw filesError;
+      
+      // Then fetch user and task data for each file
+      const submissionsWithData = await Promise.all(
+        (files || []).map(async (file) => {
+          let userData = null;
+          let taskData = null;
+          
+          if (file.user_id) {
+            const { data: user } = await supabase
+              .from('users')
+              .select('name, email')
+              .eq('id', file.user_id)
+              .single();
+            userData = user;
+          }
+          
+          if (file.task_id) {
+            const { data: task } = await supabase
+              .from('tasks')
+              .select('title')
+              .eq('id', file.task_id)
+              .single();
+            taskData = task;
+          }
+          
+          return { ...file, user: userData, task: taskData };
+        })
+      );
+      
+      setProjectSubmissions(submissionsWithData);
+    } catch (error) {
+      console.error('Error fetching submissions:', error);
+      toast.error('Failed to fetch submissions');
+    } finally {
+      setSubmissionsLoading(false);
+    }
+  };
+
+  const handleFileSubmission = async () => {
+    if (!selectedFile || !fileSubmission.title.trim() || !currentProject?.id || !user) {
+      toast.error("Please select a file and provide a title");
+      return;
+    }
+
+    setSubmittingFile(true);
+    try {
+      // Upload file to Supabase Storage
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `project-submissions/${currentProject.id}/${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('partnerfiles')
+        .upload(fileName, selectedFile);
+
+      if (uploadError) throw uploadError;
+
+      // Get the public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('partnerfiles')
+        .getPublicUrl(fileName);
+
+      // Save submission to database
+      const { data: submission, error: dbError } = await supabase
+        .from('project_files')
+        .insert([{
+          project_id: currentProject.id,
+          user_id: user.id,
+          name: fileSubmission.title.trim(),
+          storage_name: fileName,
+          url: publicUrl,
+          type: selectedFile.type,
+          size: selectedFile.size,
+          team_only: false,
+          access_level: 1,
+          custom_label: fileSubmission.description.trim() || null,
+          task_id: fileSubmission.task_id || null
+        }])
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      // Log activity
+      await supabase.from('activity_log').insert([{
+        user_id: user.id,
+        project_id: currentProject.id,
+        action_type: 'submitted_file',
+        entity_type: 'submission',
+        entity_id: submission.id,
+        description: `${user.name || user.email} submitted "${fileSubmission.title}"`,
+      }]);
+
+      toast.success("File submitted successfully");
+      
+      // Reset form
+      setSelectedFile(null);
+      setFileSubmission({
+        title: '',
+        description: '',
+        task_id: ''
+      });
+      
+      // Refresh submissions
+      fetchProjectSubmissions();
+    } catch (error: any) {
+      console.error('Error submitting file:', error);
+      toast.error(error.message || "Failed to submit file");
+    } finally {
+      setSubmittingFile(false);
+    }
+  };
+
+  const downloadSubmission = async (submission: any) => {
+    try {
+      const response = await fetch(submission.url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = submission.name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast.error("Failed to download file");
+    }
+  };
+
+  const deleteSubmission = async (submissionId: string, storageName: string) => {
+    try {
+      // Delete file from storage
+      await supabase.storage.from('partnerfiles').remove([`project-files/${currentProject?.id}/${storageName}`]);
+      
+      // Delete from database
+      const { error } = await supabase
+        .from('project_files')
+        .delete()
+        .eq('id', submissionId);
+
+      if (error) throw error;
+
+      toast.success("Submission deleted successfully");
+      fetchProjectSubmissions();
+    } catch (error) {
+      console.error('Error deleting submission:', error);
+      toast.error("Failed to delete submission");
+    }
+  };
+
+  // Member search functionality
+  const searchUsers = async (query: string) => {
+    if (!query || query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const response = await fetch(`/api/users/search?email=${encodeURIComponent(query)}&limit=10`);
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.users || []);
+      } else {
+        console.error('Failed to search users');
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Error searching users:', error);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleAddMember = async () => {
+    if (!selectedUser || !currentProject?.id) {
+      toast.error("Please select a user and ensure project is loaded");
+      return;
+    }
+
+    setAddingMember(true);
+    try {
+      // Add team member directly using supabase
+      const { error } = await supabase
+        .from('team_members')
+        .insert([{
+          project_id: currentProject.id,
+          user_id: selectedUser.id,
+          role: selectedRole,
+          status: 'active',
+          joined_at: new Date().toISOString()
+        }]);
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success(`Added ${selectedUser.name || selectedUser.email} as ${selectedRole}`);
+      setIsAddMemberModalOpen(false);
+      setSelectedUser(null);
+      setSearchQuery("");
+      setSearchResults([]);
+      
+      // Refresh team members
+      await refreshTeamMembers();
+    } catch (error: any) {
+      console.error('Error adding team member:', error);
+      toast.error(error.message || "Failed to add team member");
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
+  const openAddMemberModal = () => {
+    setIsAddMemberModalOpen(true);
+    setSearchQuery("");
+    setSearchResults([]);
+    setSelectedUser(null);
+    setSelectedRole('member');
   };
 
   const router = useRouter();
@@ -998,7 +1610,12 @@ function WorkModeContent() {
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm text-gray-400">{teamMembers.length} team members</span>
-                <Button size="sm" variant="outline" className="border-gray-700 text-xs">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="border-gray-700 text-xs"
+                  onClick={openAddMemberModal}
+                >
                   <Plus className="w-3 h-3 mr-1" />
                   Add Member
                 </Button>
@@ -1042,7 +1659,39 @@ function WorkModeContent() {
                 <Card className="leonardo-card border-gray-800 mb-4 w-full max-w-full">
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
                     <CardTitle className="text-lg flex items-center">{r.icon}{r.name} Room</CardTitle>
-                    <Button size="sm" variant="outline" className="border-gray-700 text-xs px-2 py-1">+ New {r.name === 'Files' ? 'File' : r.name === 'Notes' ? 'Note' : r.name === 'Tasks' ? 'Task' : 'Message'}</Button>
+                    <div className="flex gap-2">
+                      {r.name === 'Tasks' && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="border-gray-700 text-xs px-2 py-1"
+                          onClick={() => router.push('/workflow')}
+                        >
+                          All Tasks
+                        </Button>
+                      )}
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="border-gray-700 text-xs px-2 py-1"
+                        onClick={() => {
+                          if (r.name === 'Tasks') {
+                            setIsNewTaskModalOpen(true);
+                          } else if (r.name === 'Notes') {
+                            // Toggle note form visibility and focus on input
+                            setShowNoteForm(true);
+                            setTimeout(() => {
+                              const noteInput = document.querySelector('input[placeholder="Type a note..."]') as HTMLInputElement;
+                              if (noteInput) {
+                                noteInput.focus();
+                              }
+                            }, 100);
+                          }
+                        }}
+                      >
+                        + New {r.name === 'Files' ? 'File' : r.name === 'Notes' ? 'Note' : r.name === 'Tasks' ? 'Task' : 'Message'}
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     {r.id === 'general' ? (
@@ -1268,6 +1917,34 @@ function WorkModeContent() {
                                     <span>Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : '--'}</span>
                                     <span>Priority: <span className="font-medium">{task.priority}</span></span>
                                   </div>
+                                                              {/* Show assigned users */}
+                            {(task.assigned_to || (task.assigned_users && task.assigned_users.length > 0)) && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <span className="text-xs text-gray-400">Assigned:</span>
+                                {/* Show single assigned user (backward compatibility) */}
+                                {task.assigned_to && !task.assigned_users?.length && (
+                                  (() => {
+                                    const member = teamMembers.find(m => m.user_id === task.assigned_to);
+                                    return (
+                                      <Badge key={`${task.assigned_to}-single`} className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30">
+                                        {member?.user?.name || member?.user?.email || task.assigned_to}
+                                      </Badge>
+                                    );
+                                  })()
+                                )}
+                                {/* Show multiple assigned users */}
+                                {task.assigned_users && task.assigned_users.length > 0 && (
+                                  task.assigned_users.map((userId: string, index: number) => {
+                                    const member = teamMembers.find(m => m.user_id === userId);
+                                    return (
+                                      <Badge key={`${userId}-${index}`} className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30">
+                                        {member?.user?.name || member?.user?.email || userId}
+                                      </Badge>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            )}
                                 </div>
                                 <Button
                                   size="sm"
@@ -1283,6 +1960,426 @@ function WorkModeContent() {
                                 </Button>
                               </div>
                             ))
+                          )}
+                        </div>
+                      </div>
+                    ) : r.id === 'notes' ? (
+                      <div className="space-y-3">
+                        {/* Project Notes */}
+                        <div className="space-y-4 h-[200px] sm:h-[300px] overflow-y-auto pr-2 sm:pr-4 bg-gray-900 rounded-lg p-2 sm:p-4">
+                          {notesLoading ? (
+                            <div className="text-gray-400 text-center py-8">Loading notes...</div>
+                          ) : projectNotes.length === 0 ? (
+                            <div className="text-gray-400 text-center py-8">No notes yet. Create the first note!</div>
+                          ) : (
+                            projectNotes.map(note => (
+                              <div key={note.id} className="flex items-start gap-2 sm:gap-3">
+                                <User className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400 mt-1" />
+                                <div className="flex-1">
+                                  <div className="font-semibold text-white text-xs sm:text-sm">
+                                    {note.user?.name || note.user?.email || 'Unknown'} 
+                                    <span className="text-xs text-gray-400 ml-2">
+                                      {new Date(note.created_at).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {note.note_title && (
+                                    <div className="text-sm font-medium text-blue-400 mb-1">
+                                      {note.note_title}
+                                    </div>
+                                  )}
+                                  <div className="text-gray-300 text-xs sm:text-base whitespace-pre-wrap">{note.content}</div>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        {(showNoteForm || newProjectNote.trim() || newProjectNoteTitle.trim()) && (
+                          <div className="space-y-2 mt-2 sm:mt-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                            <Input 
+                              placeholder="Note title (optional)" 
+                              value={newProjectNoteTitle} 
+                              onChange={e => setNewProjectNoteTitle(e.target.value)} 
+                              className="bg-gray-900 border-gray-600 text-white text-xs sm:text-base" 
+                            />
+                            <div className="flex items-center gap-2">
+                              <Input 
+                                placeholder="Type a note..." 
+                                value={newProjectNote} 
+                                onChange={e => setNewProjectNote(e.target.value)} 
+                                className="flex-1 bg-gray-900 border-gray-600 text-white text-xs sm:text-base" 
+                              />
+                              <Button 
+                                onClick={handleCreateProjectNote}
+                                disabled={!newProjectNote.trim() || creatingNote}
+                                className="bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-2 sm:px-4 sm:py-2"
+                              >
+                                {creatingNote ? 'Creating...' : 'Send'}
+                              </Button>
+                              <Button 
+                                variant="outline"
+                                onClick={() => {
+                                  setShowNoteForm(false);
+                                  setNewProjectNote("");
+                                  setNewProjectNoteTitle("");
+                                }}
+                                className="border-gray-600 text-gray-400 hover:text-white"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        {!showNoteForm && !newProjectNote.trim() && !newProjectNoteTitle.trim() && (
+                          <div className="text-center py-4">
+                            <Button 
+                              variant="outline"
+                              onClick={() => setShowNoteForm(true)}
+                              className="border-gray-600 text-gray-400 hover:text-white"
+                            >
+                              + Add Note
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ) : r.id === 'meetings' ? (
+                      <div className="space-y-4">
+                        {/* Zoom Authentication */}
+                        {!zoomAuthenticated ? (
+                          <div className="text-center py-8">
+                            <div className="mb-4">
+                              <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Users className="w-8 h-8 text-white" />
+                              </div>
+                              <h3 className="text-lg font-medium text-white mb-2">Connect Your Zoom Account</h3>
+                              <p className="text-gray-400 mb-4">Sign in with your Zoom account to manage meetings</p>
+                            </div>
+                            <Button 
+                              onClick={initiateZoomAuth}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3"
+                            >
+                              <Users className="w-4 h-4 mr-2" />
+                              Connect Zoom Account
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Zoom User Info */}
+                            <div className="flex items-center justify-between p-4 bg-blue-600/20 rounded-lg border border-blue-500/30">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                                  <Users className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                  <div className="text-white font-medium">
+                                    {zoomUser?.zoom_email || 'Zoom Account Connected'}
+                                  </div>
+                                  <div className="text-blue-300 text-sm">
+                                    {zoomMeetings.length} meetings available
+                                  </div>
+                                </div>
+                              </div>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setZoomAuthenticated(false);
+                                  setZoomUser(null);
+                                  setZoomMeetings([]);
+                                }}
+                                className="border-blue-500/30 text-blue-300 hover:bg-blue-600/20"
+                              >
+                                Disconnect
+                              </Button>
+                            </div>
+
+                            {/* Create New Meeting */}
+                            <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                              <h4 className="text-white font-medium mb-3">Create New Meeting</h4>
+                              <div className="space-y-3">
+                                <Input
+                                  placeholder="Meeting topic"
+                                  value={newMeeting.topic}
+                                  onChange={(e) => setNewMeeting({...newMeeting, topic: e.target.value})}
+                                  className="bg-gray-900 border-gray-600 text-white"
+                                />
+                                <div className="grid grid-cols-2 gap-3">
+                                  <Input
+                                    type="datetime-local"
+                                    value={newMeeting.start_time}
+                                    onChange={(e) => setNewMeeting({...newMeeting, start_time: e.target.value})}
+                                    className="bg-gray-900 border-gray-600 text-white"
+                                  />
+                                  <Input
+                                    type="number"
+                                    placeholder="Duration (minutes)"
+                                    value={newMeeting.duration}
+                                    onChange={(e) => setNewMeeting({...newMeeting, duration: parseInt(e.target.value) || 60})}
+                                    className="bg-gray-900 border-gray-600 text-white"
+                                  />
+                                </div>
+                                <Button 
+                                  onClick={createZoomMeeting}
+                                  disabled={!newMeeting.topic.trim() || !newMeeting.start_time || creatingMeeting}
+                                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                >
+                                  {creatingMeeting ? 'Creating...' : 'Create Meeting'}
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Meetings List */}
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-white font-medium">Your Meetings</h4>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={fetchZoomMeetings}
+                                  disabled={zoomLoading}
+                                  className="border-gray-600 text-gray-400 hover:text-white"
+                                >
+                                  {zoomLoading ? 'Loading...' : 'Refresh'}
+                                </Button>
+                              </div>
+                              
+                              {zoomLoading ? (
+                                <div className="text-center py-8">
+                                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                                  <p className="text-gray-400 mt-2">Loading meetings...</p>
+                                </div>
+                              ) : zoomMeetings.length === 0 ? (
+                                <div className="text-center py-8">
+                                  <Users className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                                  <p className="text-gray-400">No meetings found</p>
+                                </div>
+                              ) : (
+                                <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                                  {zoomMeetings.map((meeting) => (
+                                    <div key={meeting.id} className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <h5 className="text-white font-medium mb-1">{meeting.topic}</h5>
+                                          <div className="text-sm text-gray-400 space-y-1">
+                                            <div>ID: {meeting.id}</div>
+                                            <div>Start: {new Date(meeting.start_time).toLocaleString()}</div>
+                                            <div>Duration: {meeting.duration} minutes</div>
+                                            {meeting.password && <div>Password: {meeting.password}</div>}
+                                          </div>
+                                        </div>
+                                        <div className="flex flex-col gap-2 ml-4">
+                                          <Button 
+                                            size="sm"
+                                            onClick={() => joinZoomMeeting(meeting.id, meeting.password)}
+                                            className="bg-green-600 hover:bg-green-700 text-white"
+                                          >
+                                            Join
+                                          </Button>
+                                          <Button 
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => deleteZoomMeeting(meeting.id)}
+                                            className="border-red-500/30 text-red-400 hover:bg-red-500/20"
+                                          >
+                                            Delete
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : r.id === 'files' ? (
+                      <div className="space-y-4">
+                        {/* File Submission Form */}
+                        <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                          <h4 className="text-white font-medium mb-3">Submit File for Project</h4>
+                          <div className="space-y-3">
+                            <Input
+                              placeholder="File title"
+                              value={fileSubmission.title}
+                              onChange={(e) => setFileSubmission({...fileSubmission, title: e.target.value})}
+                              className="bg-gray-900 border-gray-600 text-white"
+                            />
+                            <Textarea
+                              placeholder="Description (optional)"
+                              value={fileSubmission.description}
+                              onChange={(e) => setFileSubmission({...fileSubmission, description: e.target.value})}
+                              className="bg-gray-900 border-gray-600 text-white"
+                              rows={2}
+                            />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <Label className="text-gray-300 text-sm">File Description (Optional)</Label>
+                                <Textarea
+                                  placeholder="Add a description or note about this file"
+                                  value={fileSubmission.description}
+                                  onChange={(e) => setFileSubmission({...fileSubmission, description: e.target.value})}
+                                  className="bg-gray-900 border-gray-600 text-white"
+                                  rows={2}
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-gray-300 text-sm">Link to Task (Optional)</Label>
+                                <Select 
+                                  value={fileSubmission.task_id || 'none'} 
+                                  onValueChange={(value) => setFileSubmission({...fileSubmission, task_id: value === 'none' ? null : value})}
+                                >
+                                  <SelectTrigger className="bg-gray-900 border-gray-600 text-white">
+                                    <SelectValue placeholder="Select a task" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">No task</SelectItem>
+                                    {projectTasks.map(task => (
+                                      <SelectItem key={task.id} value={task.id}>
+                                        {task.title}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div className="border-2 border-dashed border-gray-600 rounded-lg p-4">
+                              <Input
+                                type="file"
+                                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                className="hidden"
+                                id="file-upload"
+                              />
+                              <label
+                                htmlFor="file-upload"
+                                className="cursor-pointer flex flex-col items-center justify-center"
+                              >
+                                {selectedFile ? (
+                                  <div className="flex items-center">
+                                    <FileText className="w-6 h-6 text-blue-400 mr-2" />
+                                    <span className="text-white">{selectedFile.name}</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="ml-2"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        setSelectedFile(null);
+                                      }}
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                                    <p className="text-sm text-gray-400">
+                                      Click to select a file or drag and drop
+                                    </p>
+                                  </>
+                                )}
+                              </label>
+                            </div>
+                            <Button 
+                              onClick={handleFileSubmission}
+                              disabled={!selectedFile || !fileSubmission.title.trim() || submittingFile}
+                              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              {submittingFile ? 'Submitting...' : 'Submit File'}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Submissions List */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-white font-medium">Project Submissions</h4>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowSubmissions(!showSubmissions)}
+                                className="text-gray-400 hover:text-white"
+                              >
+                                {showSubmissions ? 'Hide' : 'Show'} ({projectSubmissions.length})
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={fetchProjectSubmissions}
+                                disabled={submissionsLoading}
+                                className="border-gray-600 text-gray-400 hover:text-white"
+                              >
+                                {submissionsLoading ? 'Loading...' : 'Refresh'}
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {showSubmissions && (
+                            <>
+                              {submissionsLoading ? (
+                            <div className="text-center py-8">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                              <p className="text-gray-400 mt-2">Loading submissions...</p>
+                            </div>
+                          ) : projectSubmissions.length === 0 ? (
+                            <div className="text-center py-8">
+                              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                              <p className="text-gray-400">No submissions yet</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                              {projectSubmissions.map((submission) => (
+                                <div key={submission.id} className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <h5 className="text-white font-medium">{submission.name}</h5>
+                                        <Badge className="text-xs">
+                                          {submission.type?.split('/')[1]?.toUpperCase() || 'FILE'}
+                                        </Badge>
+                                        {submission.custom_label && (
+                                          <Badge variant="outline" className="text-xs bg-blue-600/20 text-blue-300">
+                                            {submission.custom_label}
+                                          </Badge>
+                                        )}
+                                        {submission.task && (
+                                          <Badge variant="outline" className="text-xs bg-green-600/20 text-green-300">
+                                            Task: {submission.task.title}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <div className="text-sm text-gray-400 space-y-1">
+                                        <div>File: {submission.storage_name}</div>
+                                        <div>Size: {(submission.size / 1024 / 1024).toFixed(2)} MB</div>
+                                        <div>Submitted by: {submission.user?.name || submission.user?.email || 'Unknown'}</div>
+                                        <div>Date: {new Date(submission.created_at).toLocaleString()}</div>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col gap-2 ml-4">
+                                      <Button 
+                                        size="sm"
+                                        onClick={() => downloadSubmission(submission)}
+                                        className="bg-green-600 hover:bg-green-700 text-white"
+                                      >
+                                        Download
+                                      </Button>
+                                      {(user?.id === submission.user_id || user?.id === currentProject?.owner_id) && (
+                                        <Button 
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => deleteSubmission(submission.id, submission.storage_name)}
+                                          className="border-red-500/30 text-red-400 hover:bg-red-500/20"
+                                        >
+                                          Delete
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -1446,9 +2543,9 @@ function WorkModeContent() {
                         </div>
                         {/* Show selected assignees */}
                         <div>
-                          {newAssignees.map(name => (
-                            <Badge key={name} className="mr-1">{name}</Badge>
-                          ))}
+                                                  {newAssignees.map((name: string) => (
+                          <Badge key={name} className="mr-1">{name}</Badge>
+                        ))}
                         </div>
                       </div>
                     </div>
@@ -1816,6 +2913,286 @@ function WorkModeContent() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setLinkTaskModalOpen(false)}>
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Task Modal */}
+      <Dialog open={isNewTaskModalOpen} onOpenChange={setIsNewTaskModalOpen}>
+        <DialogContent className="bg-gray-900 border-gray-700">
+          <DialogHeader>
+            <DialogTitle>Create New Task</DialogTitle>
+            <DialogDescription>
+              Create a new task for the current project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="task-title">Title *</Label>
+              <Input
+                id="task-title"
+                value={newTask.title}
+                onChange={(e) => setNewTask({...newTask, title: e.target.value})}
+                placeholder="Enter task title"
+              />
+            </div>
+            <div>
+              <Label htmlFor="task-description">Description</Label>
+              <Textarea
+                id="task-description"
+                value={newTask.description}
+                onChange={(e) => setNewTask({...newTask, description: e.target.value})}
+                placeholder="Enter task description"
+              />
+            </div>
+            <div>
+              <Label htmlFor="task-due-date">Due Date</Label>
+              <Input
+                id="task-due-date"
+                type="date"
+                value={newTask.due_date}
+                onChange={(e) => setNewTask({...newTask, due_date: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label htmlFor="task-priority">Priority</Label>
+              <Select value={newTask.priority} onValueChange={(value: 'low' | 'medium' | 'high') => setNewTask({...newTask, priority: value})}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="task-status">Status</Label>
+              <Select value={newTask.status} onValueChange={(value: 'pending' | 'in_progress' | 'completed') => setNewTask({...newTask, status: value})}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+                          <div>
+                <Label>Assign to Team Members (Optional)</Label>
+                <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-700 rounded-md p-2">
+                  {teamMembers.length === 0 ? (
+                    <div className="text-gray-400 text-sm">No team members found</div>
+                  ) : (
+                    teamMembers.map((member, index) => (
+                      <label key={`${member.user_id}-${index}`} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newTask.assigned_users.includes(member.user_id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewTask({
+                                ...newTask,
+                                assigned_users: [...newTask.assigned_users, member.user_id]
+                              });
+                            } else {
+                              setNewTask({
+                                ...newTask,
+                                assigned_users: newTask.assigned_users.filter(id => id !== member.user_id)
+                              });
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm text-white">
+                          {member.user?.name || member.user?.email || member.user_id}
+                        </span>
+                      </label>
+                    ))
+                  )}
+                </div>
+                {newTask.assigned_users.length > 0 && (
+                  <div className="mt-2">
+                    <span className="text-xs text-gray-400">Assigned to: </span>
+                    {newTask.assigned_users.map((userId, index) => {
+                      const member = teamMembers.find(m => m.user_id === userId);
+                      return (
+                        <Badge key={`${userId}-${index}`} className="mr-1 text-xs">
+                          {member?.user?.name || member?.user?.email || userId}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsNewTaskModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTask} disabled={!newTask.title.trim()}>
+              Create Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Member Modal */}
+      <Dialog open={isAddMemberModalOpen} onOpenChange={setIsAddMemberModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Team Member</DialogTitle>
+            <DialogDescription>
+              Search for users by email to add them to the team
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Search Input */}
+            <div className="space-y-2">
+              <Label htmlFor="search-email">Search by Email</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="search-email"
+                  placeholder="Enter email address..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (e.target.value.length >= 2) {
+                      searchUsers(e.target.value);
+                    } else {
+                      setSearchResults([]);
+                    }
+                  }}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Search Results */}
+            {searching && (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
+                <p className="text-gray-400 mt-2">Searching...</p>
+              </div>
+            )}
+
+            {!searching && searchResults.length > 0 && (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                <Label className="text-sm font-medium">Search Results</Label>
+                {searchResults.map((user) => {
+                  const isAlreadyMember = teamMembers.some(member => member.user_id === user.id);
+                  return (
+                    <div
+                      key={user.id}
+                      className={`p-3 rounded-lg border transition-colors ${
+                        isAlreadyMember
+                          ? 'border-gray-600 bg-gray-700/30 cursor-not-allowed opacity-60'
+                          : selectedUser?.id === user.id
+                          ? 'border-blue-500 bg-blue-500/10 cursor-pointer'
+                          : 'border-gray-700 bg-gray-800/50 hover:bg-gray-700/50 cursor-pointer'
+                      }`}
+                      onClick={() => !isAlreadyMember && setSelectedUser(user)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-sm font-medium">
+                          {user.name?.[0] || user.email[0]?.toUpperCase() || '?'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-white truncate">
+                            {user.name || 'No name'}
+                          </div>
+                          <div className="text-sm text-gray-400 truncate">
+                            {user.email}
+                          </div>
+                          {isAlreadyMember && (
+                            <div className="text-xs text-yellow-400 mt-1">
+                              Already a team member
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isAlreadyMember && (
+                            <Badge variant="outline" className="text-xs bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
+                              Member
+                            </Badge>
+                          )}
+                          {selectedUser?.id === user.id && !isAlreadyMember && (
+                            <CheckCircle className="w-5 h-5 text-blue-500" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {!searching && searchQuery.length >= 2 && searchResults.length === 0 && (
+              <div className="text-center py-4">
+                <p className="text-gray-400">No users found</p>
+              </div>
+            )}
+
+            {/* Role Selection */}
+            {selectedUser && (
+              <div className="space-y-2">
+                <Label htmlFor="role-select">Role</Label>
+                <Select value={selectedRole} onValueChange={(value: 'lead' | 'member' | 'advisor' | 'consultant') => setSelectedRole(value)}>
+                  <SelectTrigger id="role-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lead">Lead</SelectItem>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="advisor">Advisor</SelectItem>
+                    <SelectItem value="consultant">Consultant</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Selected User Display */}
+            {selectedUser && (
+              <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-sm font-medium">
+                    {selectedUser.name?.[0] || selectedUser.email[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <div className="font-medium text-white">
+                      {selectedUser.name || 'No name'}
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {selectedUser.email}
+                    </div>
+                    <div className="text-xs text-blue-400">
+                      Role: {selectedRole}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsAddMemberModalOpen(false)}
+              disabled={addingMember}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddMember}
+              disabled={!selectedUser || addingMember}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {addingMember ? 'Adding...' : 'Add Member'}
             </Button>
           </DialogFooter>
         </DialogContent>
