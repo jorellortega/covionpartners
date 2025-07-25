@@ -30,6 +30,7 @@ interface Task {
   due_date: string
   project_id: string
   assigned_to: string | null
+  assigned_users?: string[]
   priority: 'low' | 'medium' | 'high'
   created_at: string
   updated_at: string
@@ -42,6 +43,11 @@ interface Task {
     name: string
     email: string
   }
+  assigned_users_details?: {
+    id: string
+    name: string
+    email: string
+  }[]
   attachments?: {
     type: 'file' | 'link'
     url: string
@@ -75,6 +81,8 @@ export default function TaskDetailPage() {
   const [linkedTimelineItems, setLinkedTimelineItems] = useState<any[]>([])
   const [linkTimelineModalOpen, setLinkTimelineModalOpen] = useState(false)
   const [loadingTimeline, setLoadingTimeline] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const fetchTask = async () => {
@@ -108,6 +116,33 @@ export default function TaskDetailPage() {
           `)
           .eq('id', taskId)
           .single()
+
+        if (data) {
+          // Fetch assigned user details if there's a single assignee
+          if (data.assigned_to) {
+            const { data: assignedUser } = await supabase
+              .from('users')
+              .select('id, name, email')
+              .eq('id', data.assigned_to)
+              .single()
+            
+            if (assignedUser) {
+              data.assigned_user = assignedUser
+            }
+          }
+
+          // Fetch assigned users details if there are multiple assignees
+          if (data.assigned_users && data.assigned_users.length > 0) {
+            const { data: assignedUsers } = await supabase
+              .from('users')
+              .select('id, name, email')
+              .in('id', data.assigned_users)
+            
+            if (assignedUsers) {
+              data.assigned_users_details = assignedUsers
+            }
+          }
+        }
 
         console.log("Query response:", { data, error })
 
@@ -487,6 +522,62 @@ export default function TaskDetailPage() {
     }
   };
 
+  // Function to delete task
+  const handleDeleteTask = async () => {
+    if (!task || !user) return;
+    
+    setDeleting(true);
+    try {
+      // Delete all attachments first
+      if (attachments.length > 0) {
+        for (const attachment of attachments) {
+          if (attachment.type === 'file' && attachment.file_path) {
+            await supabase.storage.from('partnerfiles').remove([attachment.file_path]);
+          }
+        }
+      }
+
+      // Delete all notes associated with this task
+      await supabase
+        .from('notes')
+        .delete()
+        .eq('entity_type', 'task')
+        .eq('entity_id', task.id);
+
+      // Delete all attachments associated with this task
+      await supabase
+        .from('attachments')
+        .delete()
+        .eq('entity_type', 'task')
+        .eq('entity_id', task.id);
+
+      // Delete all entity links associated with this task
+      await supabase
+        .from('entity_links')
+        .delete()
+        .or(`source_entity_id.eq.${task.id},target_entity_id.eq.${task.id}`);
+
+      // Finally, delete the task itself
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', task.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Success', description: 'Task deleted successfully' });
+      
+      // Navigate back to workflow
+      router.push('/workflow');
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast({ title: 'Error', description: 'Failed to delete task', variant: 'destructive' });
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ background: '#141414', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -546,6 +637,15 @@ export default function TaskDetailPage() {
             }`}>
               {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)} Priority
             </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteDialogOpen(true)}
+              className="border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+            >
+              <X className="w-4 h-4 mr-2" />
+              Delete Task
+            </Button>
           </div>
         </div>
 
@@ -583,12 +683,26 @@ export default function TaskDetailPage() {
                 </Badge>
               </div>
             )}
-            {task.assigned_user && (
+            {/* Show assigned users */}
+            {(task.assigned_user || (task.assigned_users_details && task.assigned_users_details.length > 0)) && (
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-gray-400">Assigned to:</span>
-                <Badge className="bg-blue-500/20 text-blue-400">
-                  {task.assigned_user.name}
-                </Badge>
+                {/* Show single assigned user (backward compatibility) */}
+                {task.assigned_user && (!task.assigned_users_details || task.assigned_users_details.length === 0) && (
+                  <Badge className="bg-blue-500/20 text-blue-400">
+                    {task.assigned_user.name}
+                  </Badge>
+                )}
+                {/* Show multiple assigned users */}
+                {task.assigned_users_details && task.assigned_users_details.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {task.assigned_users_details.map((user, index) => (
+                      <Badge key={`${user.id}-${index}`} className="bg-blue-500/20 text-blue-400">
+                        {user.name || user.email}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </CardHeader>
@@ -1002,6 +1116,53 @@ export default function TaskDetailPage() {
                 className="hover:bg-gray-800"
               >
                 Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Task Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent className="sm:max-w-[425px] bg-black border-gray-800">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-red-400">Delete Task</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-gray-300 mb-4">
+                Are you sure you want to delete this task? This action cannot be undone and will also delete:
+              </p>
+              <ul className="text-sm text-gray-400 space-y-1 mb-4">
+                <li>• All notes associated with this task</li>
+                <li>• All attachments and files</li>
+                <li>• All timeline associations</li>
+                <li>• The task itself</li>
+              </ul>
+              <p className="text-red-400 font-medium">
+                Task: "{task?.title}"
+              </p>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                onClick={() => setDeleteDialogOpen(false)}
+                className="hover:bg-gray-800"
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeleteTask}
+                className="bg-red-600 hover:bg-red-700"
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete Task'
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

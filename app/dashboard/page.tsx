@@ -72,7 +72,8 @@ import {
   Layout,
   Bot,
   Send,
-  X
+  X,
+  Key
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -1345,11 +1346,27 @@ export default function PartnerDashboard() {
                   <p className="text-gray-400">Set up a new organization</p>
                 </CardContent>
               </Card>
-              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
-                <CardContent className="p-6 text-center" onClick={() => router.push('/myorganizations')}>
+              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+                <CardContent className="p-6 text-center">
                   <Users className="w-12 h-12 text-blue-400 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">My Organizations</h3>
-                  <p className="text-gray-400">Manage your organizations</p>
+                  <p className="text-gray-400 mb-4">Manage your organizations</p>
+                  <div className="flex flex-col gap-2">
+                    <Button 
+                      variant="outline"
+                      className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-gray-700/50"
+                      onClick={() => router.push('/myorganizations')}
+                    >
+                      View Organizations
+                    </Button>
+                    <Button 
+                      className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                      onClick={() => router.push('/guest-management')}
+                    >
+                      <Key className="w-4 h-4 mr-2" />
+                      Guest Management
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
               <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
@@ -1603,7 +1620,7 @@ export default function PartnerDashboard() {
 
 
   const renderAIView = () => (
-    <div className="max-w-2xl mx-auto pt-20">
+    <div className="max-w-2xl mx-auto pt-8">
       {/* Simple Header */}
       <div className="text-center mb-8">
         {/* Coming Soon Badge */}
@@ -1678,9 +1695,34 @@ export default function PartnerDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-            <header className={`leonardo-header transition-all duration-500 ${dashboardView === 'ai' ? 'opacity-0 hover:opacity-100' : 'opacity-100'}`}>
+            <header className={`leonardo-header transition-all duration-500 ${dashboardView === 'ai' ? 'opacity-100' : 'opacity-100'}`}>
         <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          {dashboardView !== 'compact' ? (
+          {dashboardView === 'ai' ? (
+            <>
+              {/* AI view: Logo, title, and controls */}
+              <div className="flex items-center">
+                <h1 className="text-2xl sm:text-3xl font-bold flex items-center">
+                  <span 
+                    className="bg-gradient-to-r from-purple-500 to-purple-900 rounded-full p-1.5 mr-3 cursor-pointer hover:scale-105 transition-transform"
+                    onClick={() => router.push('/')}
+                  >
+                    <Handshake className="w-6 h-6 text-white" />
+                  </span>
+                  <span className="hidden sm:inline">Dashboard</span>
+                </h1>
+                <Badge className="ml-3 bg-gray-800/30 text-gray-300 border-gray-700 flex items-center justify-center h-7 px-3">
+                  {getTierName(user?.role || '')}
+                </Badge>
+              </div>
+              
+              {/* User profile for AI view */}
+              <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => router.push(`/profile/${user?.id}`)}>
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center transition-transform group-hover:scale-105">
+                  <User className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </>
+          ) : dashboardView !== 'compact' ? (
             <>
               <div className="flex items-center">
                 <h1 className="text-2xl sm:text-3xl font-bold flex items-center">
@@ -1690,7 +1732,7 @@ export default function PartnerDashboard() {
                   >
                     <Handshake className="w-6 h-6 text-white" />
                   </span>
-                  Dashboard
+                  <span className="hidden sm:inline">Dashboard</span>
                 </h1>
                 <Badge className="ml-3 bg-gray-800/30 text-gray-300 border-gray-700 flex items-center justify-center h-7 px-3">
                   {getTierName(user?.role || '')}
@@ -2204,6 +2246,11 @@ export default function PartnerDashboard() {
                   <Link href="/organization-staff">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
                       <Users className="w-4 h-4 mr-2" /> Organization Staff
+                    </Button>
+                  </Link>
+                  <Link href="/guest-management">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <Key className="w-4 h-4 mr-2" /> Guest Management
                     </Button>
                   </Link>
                   {/* TODO: Replace 'my' with the actual organization slug dynamically */}
