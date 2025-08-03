@@ -1346,29 +1346,51 @@ export default function PartnerDashboard() {
                   <p className="text-gray-400">Set up a new organization</p>
                 </CardContent>
               </Card>
-              <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
-                <CardContent className="p-6 text-center">
-                  <Users className="w-12 h-12 text-blue-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">My Organizations</h3>
-                  <p className="text-gray-400 mb-4">Manage your organizations</p>
-                  <div className="flex flex-col gap-2">
-                    <Button 
-                      variant="outline"
-                      className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-gray-700/50"
-                      onClick={() => router.push('/myorganizations')}
-                    >
-                      View Organizations
-                    </Button>
-                    <Button 
-                      className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
-                      onClick={() => router.push('/guest-management')}
-                    >
-                      <Key className="w-4 h-4 mr-2" />
-                      Guest Management
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                                <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+                    <CardContent className="p-6 text-center">
+                      <Users className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">My Organizations</h3>
+                      <p className="text-gray-400 mb-4">Manage your organizations</p>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          variant="outline"
+                          className="w-full border-gray-700 bg-gray-800/30 text-white hover:bg-gray-700/50"
+                          onClick={() => router.push('/myorganizations')}
+                        >
+                          View Organizations
+                        </Button>
+                        <Button
+                          className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                          onClick={() => router.push('/guest-management')}
+                        >
+                          <Key className="w-4 h-4 mr-2" />
+                          Guest Management
+                        </Button>
+                        <Link href="/contract-library">
+                          <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                            <FileText className="w-4 h-4 mr-2" /> Contract Library
+                          </Button>
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10">
+                    <CardContent className="p-6 text-center">
+                      <FileText className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Contract Library</h3>
+                      <p className="text-gray-400 mb-4">Manage contracts and templates</p>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                          onClick={() => router.push('/contract-library')}
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          Contract Library
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
               <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
                 <CardContent className="p-6 text-center" onClick={() => router.push('/approved-positions')}>
                   <CheckCircle className="w-12 h-12 text-blue-400 mx-auto mb-4" />
@@ -2251,6 +2273,11 @@ export default function PartnerDashboard() {
                   <Link href="/guest-management">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
                       <Key className="w-4 h-4 mr-2" /> Guest Management
+                    </Button>
+                  </Link>
+                  <Link href="/contract-library">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <FileText className="w-4 h-4 mr-2" /> Contract Library
                     </Button>
                   </Link>
                   {/* TODO: Replace 'my' with the actual organization slug dynamically */}
