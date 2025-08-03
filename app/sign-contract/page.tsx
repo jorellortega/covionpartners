@@ -721,14 +721,26 @@ function SignContractContent() {
       doc.setFontSize(12)
       doc.setFont('helvetica', 'normal')
       
-      let yPosition = 50
+      let yPosition = 45
       
       doc.setFontSize(14)
       doc.setFont('helvetica', 'bold')
       doc.text('SIGNATURES:', margin, yPosition)
-      yPosition += 20
+      yPosition += 15
       
       signatures.forEach((signature, index) => {
+        // Check if we need a new page (leave 50px margin at bottom)
+        if (yPosition > pageHeight - 100) {
+          doc.addPage()
+          yPosition = 30 // Reset to top of new page
+          
+          // Add header to new page
+          doc.setFontSize(14)
+          doc.setFont('helvetica', 'bold')
+          doc.text('SIGNATURES (continued):', margin, yPosition)
+          yPosition += 15
+        }
+        
         console.log(`Processing signature ${index + 1}:`, {
           name: signature.signer_name,
           email: signature.signer_email,
@@ -740,19 +752,20 @@ function SignContractContent() {
         doc.setFontSize(12)
         doc.setFont('helvetica', 'bold')
         doc.text(`${index + 1}. ${signature.signer_name}`, margin, yPosition)
-        yPosition += 10
+        yPosition += 8
         
         doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
         if (signature.signer_email) {
           doc.text(`   Email: ${signature.signer_email}`, margin, yPosition)
-          yPosition += 10
+          yPosition += 6
         }
         
         doc.text(`   Signed: ${new Date(signature.signed_at).toLocaleString()}`, margin, yPosition)
-        yPosition += 10
+        yPosition += 6
         
         doc.text(`   Status: ${signature.status.toUpperCase()}`, margin, yPosition)
-        yPosition += 15
+        yPosition += 8
         
         // Debug signature data in detail
         console.log(`=== DETAILED SIGNATURE DEBUG FOR ${signature.signer_name} ===`)
@@ -773,28 +786,22 @@ function SignContractContent() {
             console.log('Extracted base64 length:', base64Data.length)
             console.log('Base64 start:', base64Data.substring(0, 50))
             
-            // Try to add the image with much larger size
+            // Add the image with appropriate size for PDF
             doc.addImage(
               base64Data,
               'PNG',
               margin,
               yPosition,
-              300, // much wider for better visibility
-              150  // much taller for better visibility
+              120, // reasonable width for signature
+              60   // reasonable height for signature
             )
-            yPosition += 160 // Space for image
+            yPosition += 70 // Space for image
             console.log('✅ ACTUAL SIGNATURE IMAGE ADDED SUCCESSFULLY!')
             
-            // Add success indicator and instructions
-            doc.setFontSize(12)
-            doc.setFont('helvetica', 'bold')
-            doc.text(`   ✅ SIGNATURE IMAGE ADDED (300x150px)`, margin, yPosition)
-            yPosition += 15
-            
             // Add a border around the signature area
-            doc.setLineWidth(1)
-            doc.rect(margin - 5, yPosition - 165, 310, 160)
-            doc.text(`   Signature Area (with border)`, margin, yPosition)
+            doc.setLineWidth(0.5)
+            doc.rect(margin - 2, yPosition - 62, 124, 62)
+            doc.text(`   Signature`, margin, yPosition)
             yPosition += 10
             
           } catch (imageError) {
@@ -849,7 +856,7 @@ function SignContractContent() {
         
         console.log('✅ Signature processing completed')
         
-        yPosition += 10 // Extra space between signatures
+        yPosition += 5 // Reduced space between signatures
       })
       
       // Add contract footer info
