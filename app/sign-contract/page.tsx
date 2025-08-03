@@ -614,16 +614,6 @@ function SignContractContent() {
       return lines.length * lineHeight
     }
 
-    // Add contract title page
-    doc.setFontSize(18)
-    doc.setFont('helvetica', 'bold')
-    doc.text(contract.title, pageWidth / 2, 40, { align: 'center' })
-    
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`Category: ${contract.category}`, pageWidth / 2, 60, { align: 'center' })
-    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 70, { align: 'center' })
-
     // Use the same pagination logic as the UI
     const contractText = processedText || contract.contract_text || ''
     const contentPages = Math.ceil(contractText.length / itemsPerPage)
