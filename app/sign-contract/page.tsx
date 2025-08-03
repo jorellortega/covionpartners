@@ -89,14 +89,7 @@ function SignContractContent() {
     }
   }, [contractId, code])
 
-  // Debug canvas rendering
-  useEffect(() => {
-    console.log('Canvas ref current:', canvasRef.current)
-    if (canvasRef.current) {
-      console.log('Canvas element found:', canvasRef.current)
-      console.log('Canvas dimensions:', canvasRef.current.width, 'x', canvasRef.current.height)
-    }
-  }, [])
+
 
   // Process contract text to find placeholders
   useEffect(() => {
@@ -108,7 +101,6 @@ function SignContractContent() {
   // Initialize canvas when dialog opens
   useEffect(() => {
     if (showSignatureDialog && canvasRef.current) {
-      console.log('Dialog opened, initializing canvas')
       const canvas = canvasRef.current
       const ctx = canvas.getContext('2d')
       if (ctx) {
@@ -124,13 +116,7 @@ function SignContractContent() {
         ctx.lineWidth = 2
         ctx.lineCap = 'round'
         ctx.lineJoin = 'round'
-        
-        console.log('Canvas initialized with size:', canvas.width, 'x', canvas.height)
-      } else {
-        console.log('Failed to get canvas context')
       }
-    } else {
-      console.log('Dialog not open or canvas ref not available')
     }
   }, [showSignatureDialog])
 
@@ -170,8 +156,6 @@ function SignContractContent() {
 
     // Sort by position in text
     foundPlaceholders.sort((a, b) => a.start - b.start)
-
-    console.log('Found placeholders:', foundPlaceholders) // Debug log
 
     setPlaceholders(foundPlaceholders)
     setProcessedText(processedText)
@@ -288,7 +272,6 @@ function SignContractContent() {
   }
 
   const stopDrawing = () => {
-    console.log('Stopping drawing')
     setIsDrawing(false)
     saveSignature()
   }
@@ -296,7 +279,6 @@ function SignContractContent() {
   const saveSignature = () => {
     const canvas = canvasRef.current
     if (!canvas) {
-      console.log('Canvas not found for saving')
       return
     }
 
@@ -316,12 +298,10 @@ function SignContractContent() {
     }
 
     const imageData = tempCanvas.toDataURL('image/png')
-    console.log('Saving signature, image data length:', imageData.length)
     
     setSignatureImage(imageData)
     setSignatureForm(prev => {
       const updated = { ...prev, signature_data: imageData }
-      console.log('Updated signature form:', updated)
       return updated
     })
     
@@ -351,29 +331,17 @@ function SignContractContent() {
       const response = await fetch(`/api/contracts?id=${contractId}`)
       const data = await response.json()
       
-      console.log('Fetch contract response:', data)
-      
       if (response.ok && data.contract) {
         setContract(data.contract)
         setSignatures(data.contract.signatures || [])
-        console.log('Contract loaded with signatures:', data.contract.signatures?.length || 0)
-        console.log('Signature details:', data.contract.signatures?.map((s: any) => ({
-          id: s.id,
-          name: s.signer_name,
-          hasData: !!s.signature_data,
-          dataLength: s.signature_data?.length
-        })))
       } else {
         // If regular API fails, try the contract-access API as fallback
         const fallbackResponse = await fetch(`/api/contract-access?contract_id=${contractId}`)
         const fallbackData = await fallbackResponse.json()
         
-        console.log('Fallback response:', fallbackData)
-        
         if (fallbackResponse.ok && fallbackData.contract) {
           setContract(fallbackData.contract)
           setSignatures(fallbackData.contract.signatures || [])
-          console.log('Contract loaded via fallback with signatures:', fallbackData.contract.signatures?.length || 0)
         } else {
           setError(fallbackData.error || data.error || 'Failed to load contract')
         }
@@ -439,12 +407,7 @@ function SignContractContent() {
       return
     }
 
-    console.log('Submitting signature with data:', {
-      signer_name: signatureForm.signer_name,
-      signer_email: signatureForm.signer_email,
-      signature_data_length: signatureForm.signature_data.length,
-      contract_id: contract?.id
-    })
+
 
     try {
       const finalContractText = getFinalContractText()
@@ -462,7 +425,6 @@ function SignContractContent() {
       })
 
       const data = await response.json()
-      console.log('Signature submission response:', data)
       
       if (response.ok) {
         toast({
@@ -634,21 +596,11 @@ function SignContractContent() {
 
   // Download contract with signatures
   const downloadContract = () => {
-    console.log('=== PDF GENERATION DEBUG START ===')
     if (!contract) {
-      console.log('ERROR: No contract available')
       return
     }
 
-    console.log('Contract details:', {
-      title: contract.title,
-      hasText: !!contract.contract_text,
-      textLength: contract.contract_text?.length,
-      signaturesCount: signatures.length
-    })
-
     const doc = new jsPDF()
-    console.log('jsPDF instance created successfully')
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
     const margin = 20
@@ -677,14 +629,6 @@ function SignContractContent() {
     const contentPages = Math.ceil(contractText.length / itemsPerPage)
     const totalPages = contentPages + (signatures.length > 0 ? 1 : 0)
 
-    console.log('PDF pagination details:', {
-      contractTextLength: contractText.length,
-      itemsPerPage,
-      contentPages,
-      totalPages,
-      hasSignatures: signatures.length > 0
-    })
-
     // Add each content page using the same logic as getPaginatedText
     for (let pageNum = 1; pageNum <= contentPages; pageNum++) {
       if (pageNum > 1) {
@@ -710,7 +654,6 @@ function SignContractContent() {
 
     // Add signature page as the last page (if signatures exist)
     if (signatures.length > 0) {
-      console.log('Adding signature page to PDF...')
       doc.addPage()
       
       // Signature page header
@@ -740,14 +683,6 @@ function SignContractContent() {
           doc.text('SIGNATURES (continued):', margin, yPosition)
           yPosition += 15
         }
-        
-        console.log(`Processing signature ${index + 1}:`, {
-          name: signature.signer_name,
-          email: signature.signer_email,
-          hasSignatureData: !!signature.signature_data,
-          dataLength: signature.signature_data?.length,
-          dataStart: signature.signature_data?.substring(0, 50)
-        })
 
         doc.setFontSize(12)
         doc.setFont('helvetica', 'bold')
@@ -767,52 +702,31 @@ function SignContractContent() {
         doc.text(`   Status: ${signature.status.toUpperCase()}`, margin, yPosition)
         yPosition += 8
         
-        // Debug signature data in detail
-        console.log(`=== DETAILED SIGNATURE DEBUG FOR ${signature.signer_name} ===`)
-        console.log('Raw signature data:', signature.signature_data)
-        console.log('Data type:', typeof signature.signature_data)
-        console.log('Data length:', signature.signature_data?.length)
-        console.log('Starts with data:image:', signature.signature_data?.startsWith('data:image'))
-        console.log('First 100 chars:', signature.signature_data?.substring(0, 100))
-        console.log('Last 100 chars:', signature.signature_data?.substring(signature.signature_data.length - 100))
-        
         // Try to add actual signature image if available
         if (signature.signature_data && signature.signature_data.startsWith('data:image')) {
-          console.log('🔄 Attempting to add actual signature image...')
-          
           try {
             // Extract base64 data
             const base64Data = signature.signature_data.split(',')[1]
-            console.log('Extracted base64 length:', base64Data.length)
-            console.log('Base64 start:', base64Data.substring(0, 50))
             
-            // Add the image with appropriate size for PDF
+            // Add the image with smaller size for better fit
             doc.addImage(
               base64Data,
               'PNG',
               margin,
               yPosition,
-              120, // reasonable width for signature
-              60   // reasonable height for signature
+              80,  // smaller width for signature
+              40   // smaller height for signature
             )
-            yPosition += 70 // Space for image
-            console.log('✅ ACTUAL SIGNATURE IMAGE ADDED SUCCESSFULLY!')
+            yPosition += 50 // Reduced space for image
             
             // Add a border around the signature area
             doc.setLineWidth(0.5)
-            doc.rect(margin - 2, yPosition - 62, 124, 62)
+            doc.rect(margin - 2, yPosition - 42, 84, 42)
             doc.text(`   Signature`, margin, yPosition)
-            yPosition += 10
+            yPosition += 8
             
           } catch (imageError) {
-            console.log('❌ Failed to add signature image:', imageError)
-            console.log('Image error details:', {
-              name: (imageError as Error).name,
-              message: (imageError as Error).message
-            })
-            
             // Fallback to text representation
-            console.log('🔄 Using text fallback...')
             doc.setFontSize(12)
             doc.setFont('helvetica', 'bold')
             doc.text(`   [SIGNATURE]`, margin, yPosition)
@@ -822,16 +736,8 @@ function SignContractContent() {
             doc.setLineWidth(2)
             doc.line(margin, yPosition, margin + 100, yPosition)
             yPosition += 15
-            
-            // Add error indicator
-            doc.setFontSize(10)
-            doc.setFont('helvetica', 'normal')
-            doc.text(`   ❌ Image failed: ${(imageError as Error).message}`, margin, yPosition)
-            yPosition += 10
           }
         } else {
-          console.log('❌ No valid signature image data available')
-          
           // Text representation
           doc.setFontSize(12)
           doc.setFont('helvetica', 'bold')
@@ -842,19 +748,7 @@ function SignContractContent() {
           doc.setLineWidth(2)
           doc.line(margin, yPosition, margin + 100, yPosition)
           yPosition += 15
-          
-          // Add signature details
-          doc.setFont('helvetica', 'normal')
-          doc.setFontSize(10)
-          doc.text(`   Signature Data: ${signature.signature_data ? 'Available' : 'Not Available'}`, margin, yPosition)
-          yPosition += 8
-          if (signature.signature_data) {
-            doc.text(`   Data Length: ${signature.signature_data.length} characters`, margin, yPosition)
-            yPosition += 8
-          }
         }
-        
-        console.log('✅ Signature processing completed')
         
         yPosition += 5 // Reduced space between signatures
       })
@@ -870,11 +764,6 @@ function SignContractContent() {
     } else {
       doc.text('No signatures yet.', margin, 50)
     }
-
-    console.log('=== PDF GENERATION COMPLETE ===')
-    console.log('About to save PDF with signatures...')
-
-    // Save the PDF
 
     // Save the PDF
     doc.save(`${contract.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_signed_${new Date().toISOString().split('T')[0]}.pdf`)
@@ -1027,120 +916,8 @@ function SignContractContent() {
                 <span className="hidden sm:inline">Download Contract</span>
                 <span className="sm:hidden">Download</span>
               </Button>
-              <Button 
-                onClick={() => {
-                  console.log('Testing PDF generation...')
-                  console.log('Signatures for PDF:', signatures.map(s => ({
-                    name: s.signer_name,
-                    hasData: !!s.signature_data,
-                    dataLength: s.signature_data?.length,
-                    startsWithDataImage: s.signature_data?.startsWith('data:image'),
-                    first50Chars: s.signature_data?.substring(0, 50)
-                  })))
-                  downloadContract()
-                }}
-                variant="outline" 
-                size="sm" 
-                className="border-blue-700 bg-blue-900/20 text-blue-300 hover:bg-blue-900/30"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Test PDF Generation</span>
-                <span className="sm:hidden">Test PDF</span>
-              </Button>
-              <Button 
-                onClick={() => {
-                  console.log('Testing signature data...')
-                  signatures.forEach((sig, index) => {
-                    console.log(`Signature ${index + 1} data test:`, {
-                      name: sig.signer_name,
-                      hasData: !!sig.signature_data,
-                      dataLength: sig.signature_data?.length,
-                      startsWithDataImage: sig.signature_data?.startsWith('data:image'),
-                      first100Chars: sig.signature_data?.substring(0, 100),
-                      last100Chars: sig.signature_data?.substring(sig.signature_data.length - 100),
-                      isBlackSignature: sig.signature_data?.includes('iVBORw0KGgo')
-                    })
-                  })
-                }}
-                variant="outline" 
-                size="sm" 
-                className="border-green-700 bg-green-900/20 text-green-300 hover:bg-green-900/30"
-              >
-                <span className="hidden sm:inline">Test Signature Data</span>
-                <span className="sm:hidden">Test Data</span>
-              </Button>
-              <Button 
-                onClick={() => {
-                  console.log('Regenerating signatures with black color...')
-                  // This would require re-signing the contract with black signatures
-                  alert('To get black signatures in PDF, please re-sign the contract using the "Test Save Black" button in the signature dialog.')
-                }}
-                variant="outline" 
-                size="sm" 
-                className="border-yellow-700 bg-yellow-900/20 text-yellow-300 hover:bg-yellow-900/30"
-              >
-                <span className="hidden sm:inline">Fix Black Signatures</span>
-                <span className="sm:hidden">Fix Signatures</span>
-              </Button>
-              <Button 
-                onClick={() => {
-                  console.log('Creating PDF with drawn signatures...')
-                  
-                  // Create a PDF with drawn signatures (guaranteed to work)
-                  const doc = new jsPDF()
-                  doc.setFontSize(16)
-                  doc.text('PDF with Drawn Signatures (Guaranteed to Work)', 20, 30)
-                  
-                  signatures.forEach((sig, index) => {
-                    const yPos = 50 + (index * 120)
-                    
-                    // Signature box
-                    doc.setLineWidth(2)
-                    doc.rect(20, yPos, 300, 100)
-                    
-                    // Signature label
-                    doc.setFontSize(12)
-                    doc.setFont('helvetica', 'bold')
-                    doc.text(`Signature ${index + 1}: ${sig.signer_name}`, 25, yPos + 10)
-                    
-                    // Signature line
-                    doc.setLineWidth(3)
-                    doc.line(25, yPos + 25, 315, yPos + 25)
-                    
-                    // Draw signature curve
-                    doc.setLineWidth(2)
-                    doc.setDrawColor(0, 0, 0)
-                    
-                    const startX = 30
-                    const startY = yPos + 35
-                    doc.line(startX, startY, startX + 30, startY - 10)
-                    doc.line(startX + 30, startY - 10, startX + 60, startY)
-                    doc.line(startX + 60, startY, startX + 90, startY - 15)
-                    doc.line(startX + 90, startY - 15, startX + 120, startY - 5)
-                    doc.line(startX + 120, startY - 5, startX + 150, startY - 20)
-                    doc.line(startX + 150, startY - 20, startX + 180, startY - 10)
-                    doc.line(startX + 180, startY - 10, startX + 210, startY - 25)
-                    doc.line(startX + 210, startY - 25, startX + 240, startY - 15)
-                    doc.line(startX + 240, startY - 15, startX + 270, startY - 30)
-                    
-                    // Signature details
-                    doc.setFontSize(10)
-                    doc.setFont('helvetica', 'normal')
-                    doc.text(`Signed: ${new Date(sig.signed_at).toLocaleString()}`, 25, yPos + 70)
-                    doc.text(`Email: ${sig.signer_email}`, 25, yPos + 80)
-                    doc.text(`Data: ${sig.signature_data ? sig.signature_data.length + ' chars' : 'None'}`, 25, yPos + 90)
-                  })
-                  
-                  doc.save('drawn_signatures.pdf')
-                  console.log('PDF with drawn signatures created')
-                }}
-                variant="outline" 
-                size="sm" 
-                className="border-purple-700 bg-purple-900/20 text-purple-300 hover:bg-purple-900/30"
-              >
-                <span className="hidden sm:inline">Create Drawn Signatures PDF</span>
-                <span className="sm:hidden">Drawn PDF</span>
-              </Button>
+
+
               {contract.file_url && (
                 <Button variant="outline" size="sm" className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400">
                   <Download className="w-4 h-4 mr-2" />
@@ -1221,42 +998,7 @@ function SignContractContent() {
                         Debug: Found {signatures.length} signatures. 
                         {signatures.filter(s => s.signature_data).length} have signature data.
                       </p>
-                      <Button 
-                        onClick={() => {
-                          console.log('All signatures in detail:', signatures)
-                          signatures.forEach((sig, i) => {
-                            console.log(`Signature ${i + 1}:`, {
-                              id: sig.id,
-                              name: sig.signer_name,
-                              hasData: !!sig.signature_data,
-                              dataLength: sig.signature_data?.length,
-                              dataStart: sig.signature_data?.substring(0, 50),
-                              isImageData: sig.signature_data?.startsWith('data:image')
-                            })
-                          })
-                        }}
-                        variant="outline"
-                        size="sm"
-                        className="mt-2 border-blue-700 bg-blue-900/20 text-blue-300 hover:bg-blue-900/30"
-                      >
-                        Debug Signatures
-                      </Button>
-                      <Button 
-                        onClick={async () => {
-                          console.log('Refreshing signatures...')
-                          if (code) {
-                            await fetchContractByCode(code)
-                          } else if (contractId) {
-                            await fetchContract()
-                          }
-                          console.log('Signatures after refresh:', signatures)
-                        }}
-                        variant="outline"
-                        size="sm"
-                        className="mt-2 border-green-700 bg-green-900/20 text-green-300 hover:bg-green-900/30"
-                      >
-                        Refresh Signatures
-                      </Button>
+
                     </div>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1298,15 +1040,11 @@ function SignContractContent() {
                                   maxWidth: '128px'
                                 }}
                                 onError={(e) => {
-                                  console.log('Signature image failed to load in preview:', signature.signature_data?.substring(0, 100))
-                                  console.log('Full signature data:', signature.signature_data)
                                   e.currentTarget.style.display = 'none'
                                   const fallback = e.currentTarget.nextElementSibling as HTMLElement
                                   if (fallback) fallback.style.display = 'block'
                                 }}
                                 onLoad={(e) => {
-                                  console.log('Signature image loaded successfully in preview')
-                                  console.log('Image dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight)
                                   e.currentTarget.style.display = 'block'
                                   e.currentTarget.style.opacity = '1'
                                 }}
@@ -1500,17 +1238,15 @@ Total Pages: ${getPaginatedText().totalPages}`}
                               width: 'auto',
                               maxWidth: '128px'
                             }}
-                            onError={(e) => {
-                              console.log('Signature image failed to load in preview:', signature.signature_data?.substring(0, 100))
-                              e.currentTarget.style.display = 'none'
-                              const fallback = e.currentTarget.nextElementSibling as HTMLElement
-                              if (fallback) fallback.style.display = 'block'
-                            }}
-                            onLoad={(e) => {
-                              console.log('Signature image loaded successfully in preview')
-                              e.currentTarget.style.display = 'block'
-                              e.currentTarget.style.opacity = '1'
-                            }}
+                                                            onError={(e) => {
+                                  e.currentTarget.style.display = 'none'
+                                  const fallback = e.currentTarget.nextElementSibling as HTMLElement
+                                  if (fallback) fallback.style.display = 'block'
+                                }}
+                                onLoad={(e) => {
+                                  e.currentTarget.style.display = 'block'
+                                  e.currentTarget.style.opacity = '1'
+                                }}
                           />
                           {/* Fallback for failed images */}
                           <div 
@@ -1552,38 +1288,7 @@ Total Pages: ${getPaginatedText().totalPages}`}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <h3 className="text-lg font-semibold text-white">Signatures</h3>
             <div className="flex flex-wrap gap-2">
-              <Button 
-                onClick={() => {
-                  console.log('Opening signature dialog')
-                  setShowSignatureDialog(true)
-                }}
-                variant="outline"
-                size="sm"
-                className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-              >
-                <span className="hidden sm:inline">Test Dialog</span>
-                <span className="sm:hidden">Test</span>
-              </Button>
-              <Button 
-                onClick={() => {
-                  console.log('All signatures:', signatures)
-                  signatures.forEach((sig, index) => {
-                    console.log(`Signature ${index + 1}:`, {
-                      id: sig.id,
-                      name: sig.signer_name,
-                      dataLength: sig.signature_data?.length,
-                      dataStart: sig.signature_data?.substring(0, 50),
-                      isImageData: sig.signature_data?.startsWith('data:image')
-                    })
-                  })
-                }}
-                variant="outline"
-                size="sm"
-                className="border-gray-700 bg-gray-800/30 text-white hover:bg-blue-900/20 hover:text-blue-400"
-              >
-                <span className="hidden sm:inline">Debug Signatures</span>
-                <span className="sm:hidden">Debug</span>
-              </Button>
+
               <Button onClick={() => setShowSignatureDialog(true)} className="gradient-button hover:bg-purple-700">
                 <PenTool className="w-4 h-4 mr-2" />
                 <span className="hidden sm:inline">Sign Contract</span>
@@ -1631,16 +1336,12 @@ Total Pages: ${getPaginatedText().totalPages}`}
                               maxWidth: '80px'
                             }}
                             onError={(e) => {
-                              console.log('Signature image failed to load:', signature.signature_data?.substring(0, 100))
-                              console.log('Full signature data length:', signature.signature_data?.length)
                               // Show fallback instead of hiding
                               e.currentTarget.style.display = 'none'
                               const fallback = e.currentTarget.nextElementSibling as HTMLElement
                               if (fallback) fallback.style.display = 'block'
                             }}
                             onLoad={(e) => {
-                              console.log('Signature image loaded successfully')
-                              console.log('Image dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight)
                               // Ensure the image is visible
                               e.currentTarget.style.display = 'block'
                               e.currentTarget.style.opacity = '1'
@@ -1751,71 +1452,7 @@ Total Pages: ${getPaginatedText().totalPages}`}
                         <Save className="w-4 h-4 mr-2" />
                         Save Signature
                       </Button>
-                      <Button
-                        onClick={() => {
-                          console.log('Testing signature saving process...')
-                          const canvas = canvasRef.current
-                          if (canvas) {
-                            // Create a test signature with black color
-                            const ctx = canvas.getContext('2d')
-                            if (ctx) {
-                              // Clear canvas
-                              ctx.clearRect(0, 0, canvas.width, canvas.height)
-                              
-                              // Draw a test signature in black
-                              ctx.strokeStyle = '#000000'
-                              ctx.lineWidth = 3
-                              ctx.lineCap = 'round'
-                              ctx.lineJoin = 'round'
-                              ctx.beginPath()
-                              ctx.moveTo(50, 50)
-                              ctx.lineTo(150, 50)
-                              ctx.lineTo(100, 100)
-                              ctx.stroke()
-                              
-                              console.log('Test signature drawn, now saving...')
-                              saveSignature()
-                            }
-                          }
-                        }}
-                        variant="outline"
-                        size="sm"
-                        className="border-gray-700 bg-gray-800/30 text-white hover:bg-green-900/20 hover:text-green-400"
-                      >
-                        <span className="hidden sm:inline">Test Save Black</span>
-                        <span className="sm:hidden">Test Black</span>
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          const canvas = canvasRef.current
-                          if (canvas) {
-                            const ctx = canvas.getContext('2d')
-                            if (ctx) {
-                              const rect = canvas.getBoundingClientRect()
-                              const scaleX = canvas.width / rect.width
-                              const scaleY = canvas.height / rect.height
-                              
-                              // Draw a black test signature
-                              ctx.strokeStyle = '#000000' // Black color
-                              ctx.lineWidth = 3
-                              ctx.lineCap = 'round'
-                              ctx.lineJoin = 'round'
-                              ctx.beginPath()
-                              ctx.moveTo(50 * scaleX, 50 * scaleY)
-                              ctx.lineTo(150 * scaleX, 50 * scaleY)
-                              ctx.lineTo(100 * scaleX, 100 * scaleY)
-                              ctx.stroke()
-                              console.log('Black test signature drawn with scaling:', scaleX, scaleY)
-                            }
-                          }
-                        }}
-                        variant="outline"
-                        size="sm"
-                        className="border-gray-700 bg-gray-800/30 text-white hover:bg-blue-900/20 hover:text-blue-400"
-                      >
-                        <span className="hidden sm:inline">Test Black Signature</span>
-                        <span className="sm:hidden">Test Black</span>
-                      </Button>
+
                     </div>
                     {signatureImage && (
                       <div className="text-xs text-green-400 flex items-center gap-1">
@@ -1899,16 +1536,7 @@ Total Pages: ${getPaginatedText().totalPages}`}
                     >
                       Auto-Fill All
                     </Button>
-                    <Button 
-                      onClick={() => {
-                        console.log('Final contract text:', getFinalContractText())
-                        alert('Contract text updated! Check console for details.')
-                      }}
-                      variant="outline"
-                      className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                    >
-                      Preview
-                    </Button>
+
                   </div>
                 </div>
               )}
