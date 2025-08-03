@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/use-toast'
@@ -41,7 +41,7 @@ interface Placeholder {
   suggested?: string
 }
 
-export default function SignContractPage() {
+function SignContractContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
@@ -1963,5 +1963,13 @@ Total Pages: ${getPaginatedText().totalPages}`}
         </Dialog>
       </main>
     </div>
+  )
+}
+
+export default function SignContractPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignContractContent />
+    </Suspense>
   )
 } 
