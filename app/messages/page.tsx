@@ -32,10 +32,16 @@ interface Message {
   sender_id: string
   receiver_id: string
   sender: {
+    id: string
     name: string | null
+    email: string | null
+    avatar_url?: string | null
   } | null
   receiver: {
+    id: string
     name: string | null
+    email: string | null
+    avatar_url?: string | null
   } | null
   parent_id?: number
 }
@@ -83,10 +89,10 @@ export default function MessagesPage() {
         userIds.add(message.receiver_id)
       })
 
-      // Step 2: Fetch user details
+      // Step 2: Fetch user details including avatars
       const { data: usersData, error: usersError } = await supabase
         .from('users')
-        .select('id, name, email')
+        .select('id, name, email, avatar_url')
         .in('id', Array.from(userIds))
 
       if (usersError) {
@@ -299,26 +305,84 @@ export default function MessagesPage() {
                         className="flex-1 min-w-0 cursor-pointer"
                         onClick={() => handleMessageClick(message)}
                       >
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-semibold text-white truncate">
-                            {message.subject}
-                          </h3>
-                          {!message.read && message.receiver_id === user?.id && (
-                            <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">
-                              New
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-gray-400 text-sm line-clamp-2 mb-2">
-                          {message.content}
-                        </p>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <span>
-                            {message.sender_id === user?.id ? 'To: ' : 'From: '}
-                            {message.sender_id === user?.id
-                              ? message.receiver?.name || 'Unknown'
-                              : message.sender?.name || 'Unknown'}
-                          </span>
+                        <div className="flex items-center gap-3 mb-3">
+                          {/* User Avatar */}
+                          <div className="flex-shrink-0">
+                            {message.sender_id === user?.id ? (
+                              // Show receiver avatar for sent messages
+                              <div 
+                                className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm cursor-pointer hover:scale-105 transition-transform duration-200"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (message.receiver?.id) {
+                                    router.push(`/profile/${message.receiver.id}`)
+                                  }
+                                }}
+                                title={`View ${message.receiver?.name || 'User'}'s profile`}
+                              >
+                                {message.receiver?.avatar_url ? (
+                                  <img 
+                                    src={message.receiver.avatar_url} 
+                                    alt={message.receiver?.name || 'User'} 
+                                    className="w-10 h-10 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  message.receiver?.name?.charAt(0)?.toUpperCase() || 
+                                  message.receiver?.email?.charAt(0)?.toUpperCase() || 
+                                  '?'
+                                )}
+                              </div>
+                            ) : (
+                              // Show sender avatar for received messages
+                              <div 
+                                className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-semibold text-sm cursor-pointer hover:scale-105 transition-transform duration-200"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (message.sender?.id) {
+                                    router.push(`/profile/${message.sender.id}`)
+                                  }
+                                }}
+                                title={`View ${message.sender?.name || 'User'}'s profile`}
+                              >
+                                {message.sender?.avatar_url ? (
+                                  <img 
+                                    src={message.sender.avatar_url} 
+                                    alt={message.sender?.name || 'User'} 
+                                    className="w-10 h-10 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  message.sender?.name?.charAt(0)?.toUpperCase() || 
+                                  message.sender?.email?.charAt(0)?.toUpperCase() || 
+                                  '?'
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Message Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="text-lg font-semibold text-white truncate">
+                                {message.subject}
+                              </h3>
+                              {!message.read && message.receiver_id === user?.id && (
+                                <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">
+                                  New
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-gray-400 text-sm line-clamp-2 mb-2">
+                              {message.content}
+                            </p>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <span>
+                                {message.sender_id === user?.id ? 'To: ' : 'From: '}
+                                {message.sender_id === user?.id
+                                  ? message.receiver?.name || message.receiver?.email || 'Unknown'
+                                  : message.sender?.name || message.sender?.email || 'Unknown'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}

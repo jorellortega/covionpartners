@@ -233,7 +233,7 @@ export default function PartnerDashboard() {
   const router = useRouter()
   const { toast } = useToast()
   const { projects } = useProjects(user?.id || '')
-  const [searchQuery, setSearchQuery] = useState("")
+
   const [myProjects, setMyProjects] = useState<ProjectWithRole[]>([])
   const [loadingMyProjects, setLoadingMyProjects] = useState(true)
   const [projectKey, setProjectKey] = useState("")
@@ -259,6 +259,10 @@ export default function PartnerDashboard() {
   const labelTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [dashboardView, setDashboardView] = useState<'default' | 'compact' | 'grid' | 'ai'>('default')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const autoCycleIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [dashboardSearchQuery, setDashboardSearchQuery] = useState('')
+  const [dashboardSearchResults, setDashboardSearchResults] = useState<any[]>([])
+  const [isDashboardSearching, setIsDashboardSearching] = useState(false)
 
   // Show labels for 10 seconds on page load
   useEffect(() => {
@@ -301,6 +305,143 @@ export default function PartnerDashboard() {
       }
     }
   }, [showLabels])
+
+  // Auto-cycle through categories in compact mode every 10 seconds
+  useEffect(() => {
+    if (dashboardView === 'compact') {
+      const categories = ['projects', 'deals', 'finance', 'communication', 'organization', 'workflow', 'join-project', 'business-client', 'job-board']
+      let currentIndex = 0
+      let inactivityTimeout: NodeJS.Timeout | null = null
+      
+      // Start immediately with first category
+      setSelectedCategory(categories[currentIndex])
+      currentIndex = 1
+      
+      const startAutoCycle = () => {
+        autoCycleIntervalRef.current = setInterval(() => {
+          setSelectedCategory(categories[currentIndex])
+          currentIndex = (currentIndex + 1) % categories.length
+        }, 10000)
+      }
+      
+      const pauseAutoCycle = () => {
+        if (autoCycleIntervalRef.current) {
+          clearInterval(autoCycleIntervalRef.current)
+          autoCycleIntervalRef.current = null
+        }
+      }
+      
+      const resumeAfterInactivity = () => {
+        if (inactivityTimeout) {
+          clearTimeout(inactivityTimeout)
+        }
+        inactivityTimeout = setTimeout(() => {
+          startAutoCycle()
+        }, 60000) // Resume after 1 minute of inactivity
+      }
+      
+      // Start auto-cycle
+      startAutoCycle()
+      
+      // Set up activity detection
+      const handleActivity = () => {
+        pauseAutoCycle()
+        resumeAfterInactivity()
+      }
+      
+      // Add event listeners for user activity
+      const contentArea = document.querySelector('main')
+      if (contentArea) {
+        contentArea.addEventListener('scroll', handleActivity)
+        contentArea.addEventListener('mousemove', handleActivity)
+        contentArea.addEventListener('click', handleActivity)
+      }
+      
+      return () => {
+        if (autoCycleIntervalRef.current) clearInterval(autoCycleIntervalRef.current)
+        if (inactivityTimeout) clearTimeout(inactivityTimeout)
+        if (contentArea) {
+          contentArea.removeEventListener('scroll', handleActivity)
+          contentArea.removeEventListener('mousemove', handleActivity)
+          contentArea.removeEventListener('click', handleActivity)
+        }
+      }
+    }
+  }, [dashboardView])
+
+  // Handle manual category selection (turns off auto-cycle)
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category)
+    
+    // Turn off auto-cycle when user manually selects
+    if (autoCycleIntervalRef.current) {
+      clearInterval(autoCycleIntervalRef.current)
+      autoCycleIntervalRef.current = null
+    }
+  }
+
+  // Dashboard search functionality
+  const handleDashboardSearch = async (query: string) => {
+    if (!query.trim()) {
+      setDashboardSearchResults([])
+      return
+    }
+
+    setIsDashboardSearching(true)
+    try {
+      // Search through projects, deals, updates, etc.
+      const results = []
+      
+      // Search projects
+      if (myProjects && myProjects.length > 0) {
+        const projectResults = myProjects.filter(project => 
+          project.name.toLowerCase().includes(query.toLowerCase()) ||
+          project.description?.toLowerCase().includes(query.toLowerCase())
+        ).map(project => ({ ...project, type: 'project' }))
+        results.push(...projectResults)
+      }
+      
+      // Search deals
+      if (deals && deals.length > 0) {
+        const dealResults = deals.filter(deal => 
+          deal.title.toLowerCase().includes(query.toLowerCase()) ||
+          deal.description?.toLowerCase().includes(query.toLowerCase())
+        ).map(deal => ({ ...deal, type: 'deal' }))
+        results.push(...dealResults)
+      }
+      
+      // Search updates
+      if (updates && updates.length > 0) {
+        const updateResults = updates.filter(update => 
+          update.title.toLowerCase().includes(query.toLowerCase()) ||
+          update.description.toLowerCase().includes(query.toLowerCase())
+        ).map(update => ({ ...update, type: 'update' }))
+        results.push(...updateResults)
+      }
+      
+      setDashboardSearchResults(results)
+    } catch (error) {
+      console.error('Search error:', error)
+      toast({
+        title: 'Search Error',
+        description: 'Failed to perform search',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsDashboardSearching(false)
+    }
+  }
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (dashboardSearchQuery) {
+        handleDashboardSearch(dashboardSearchQuery)
+      }
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [dashboardSearchQuery])
 
   // Mock data for demonstration
   const [totalRevenue] = useState(0)
@@ -841,7 +982,7 @@ export default function PartnerDashboard() {
           className={`leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
             selectedCategory === 'projects' ? 'ring-2 ring-blue-500/50' : ''
           }`}
-          onClick={() => setSelectedCategory('projects')}
+          onClick={() => handleCategorySelect('projects')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -861,7 +1002,7 @@ export default function PartnerDashboard() {
           className={`leonardo-card border-gray-800 bg-gradient-to-br from-green-500/10 to-emerald-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
             selectedCategory === 'deals' ? 'ring-2 ring-green-500/50' : ''
           }`}
-          onClick={() => setSelectedCategory('deals')}
+          onClick={() => handleCategorySelect('deals')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -881,7 +1022,7 @@ export default function PartnerDashboard() {
           className={`leonardo-card border-gray-800 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
             selectedCategory === 'finance' ? 'ring-2 ring-yellow-500/50' : ''
           }`}
-          onClick={() => setSelectedCategory('finance')}
+          onClick={() => handleCategorySelect('finance')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -901,7 +1042,7 @@ export default function PartnerDashboard() {
           className={`leonardo-card border-gray-800 bg-gradient-to-br from-cyan-500/10 to-teal-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
             selectedCategory === 'communication' ? 'ring-2 ring-cyan-500/50' : ''
           }`}
-          onClick={() => setSelectedCategory('communication')}
+          onClick={() => handleCategorySelect('communication')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -921,7 +1062,7 @@ export default function PartnerDashboard() {
           className={`leonardo-card border-gray-800 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
             selectedCategory === 'organization' ? 'ring-2 ring-indigo-500/50' : ''
           }`}
-          onClick={() => setSelectedCategory('organization')}
+          onClick={() => handleCategorySelect('organization')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -941,7 +1082,7 @@ export default function PartnerDashboard() {
           className={`leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
             selectedCategory === 'workflow' ? 'ring-2 ring-purple-500/50' : ''
           }`}
-          onClick={() => setSelectedCategory('workflow')}
+          onClick={() => handleCategorySelect('workflow')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -961,7 +1102,7 @@ export default function PartnerDashboard() {
           className={`leonardo-card border-gray-800 bg-gradient-to-br from-purple-500/10 to-pink-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
             selectedCategory === 'join-project' ? 'ring-2 ring-purple-500/50' : ''
           }`}
-          onClick={() => setSelectedCategory('join-project')}
+          onClick={() => handleCategorySelect('join-project')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -981,7 +1122,7 @@ export default function PartnerDashboard() {
           className={`leonardo-card border-gray-800 bg-gradient-to-br from-pink-500/10 to-purple-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
             selectedCategory === 'business-client' ? 'ring-2 ring-pink-500/50' : ''
           }`}
-          onClick={() => setSelectedCategory('business-client')}
+          onClick={() => handleCategorySelect('business-client')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -1001,7 +1142,7 @@ export default function PartnerDashboard() {
           className={`leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 transition-all duration-300 hover:scale-105 cursor-pointer ${
             selectedCategory === 'job-board' ? 'ring-2 ring-blue-500/50' : ''
           }`}
-          onClick={() => setSelectedCategory('job-board')}
+          onClick={() => handleCategorySelect('job-board')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -1868,6 +2009,84 @@ export default function PartnerDashboard() {
           </div>
         </div>
       </header>
+
+      {/* Dashboard Search Bar - Hidden in AI view */}
+      {dashboardView !== 'ai' && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="leonardo-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search projects, deals, updates..."
+                value={dashboardSearchQuery}
+                onChange={(e) => setDashboardSearchQuery(e.target.value)}
+                className="pl-10 bg-gray-800/30 border-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+              />
+            </div>
+            {isDashboardSearching && (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-500"></div>
+            )}
+            {dashboardSearchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setDashboardSearchQuery('')
+                  setDashboardSearchResults([])
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+
+          </div>
+          
+          {/* Search Results */}
+          {dashboardSearchResults.length > 0 && (
+            <div className="mt-4 p-3 bg-gray-800/30 border border-gray-700 rounded-lg">
+              <h3 className="text-sm font-medium text-gray-300 mb-2">
+                Found {dashboardSearchResults.length} result{dashboardSearchResults.length !== 1 ? 's' : ''}
+              </h3>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {dashboardSearchResults.map((result, index) => (
+                  <div
+                    key={`${result.type}-${result.id || index}`}
+                    className="flex items-center gap-3 p-2 hover:bg-gray-700/30 rounded cursor-pointer transition-colors"
+                    onClick={() => {
+                      if (result.type === 'project') {
+                        router.push(`/projects/${result.id}`)
+                      } else if (result.type === 'deal') {
+                        router.push(`/deals/${result.id}`)
+                      } else if (result.type === 'update') {
+                        router.push(`/updates/${result.id}`)
+                      }
+                    }}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${
+                      result.type === 'project' ? 'bg-blue-400' :
+                      result.type === 'deal' ? 'bg-green-400' :
+                      'bg-purple-400'
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {result.name || result.title}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {result.type.charAt(0).toUpperCase() + result.type.slice(1)} • {result.description?.substring(0, 60)}...
+                      </p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-gray-400" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      )}
 
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
         {/* Approved Positions Alert */}

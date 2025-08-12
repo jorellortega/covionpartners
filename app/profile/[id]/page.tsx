@@ -48,7 +48,8 @@ import {
   Star,
   UserCheck,
   DollarSign,
-  TrendingUp
+  TrendingUp,
+  Youtube
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -83,6 +84,7 @@ interface MediaItem {
   type: 'image' | 'video'
   title: string
   thumbnail?: string
+  is_default?: boolean
 }
 
 interface MediaData {
@@ -174,7 +176,11 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const [editingEduIndex, setEditingEduIndex] = useState<number | null>(null)
   const [newEdu, setNewEdu] = useState({ degree: "", school: "", period: "" })
   const [editingField, setEditingField] = useState<null | 'location' | 'company'>(null)
+  const [editingCompany, setEditingCompany] = useState(false)
+  const [editingLocation, setEditingLocation] = useState(false)
   const [editValue, setEditValue] = useState("")
+  const [companyValue, setCompanyValue] = useState("")
+  const [locationValue, setLocationValue] = useState("")
   const [media, setMedia] = useState<MediaItem[]>([])
   const [mediaLoading, setMediaLoading] = useState(true)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -191,6 +197,15 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const [editingTitle2, setEditingTitle2] = useState(false)
   const [title1Value, setTitle1Value] = useState("")
   const [title2Value, setTitle2Value] = useState("")
+  // Add state for editing name and role
+  const [editingName, setEditingName] = useState(false)
+  const [editingRole, setEditingRole] = useState(false)
+  const [editingNickname, setEditingNickname] = useState(false)
+  const [nameValue, setNameValue] = useState("")
+  const [roleValue, setRoleValue] = useState("")
+  const [nicknameValue, setNicknameValue] = useState("")
+  // Add global edit mode state
+  const [isEditMode, setIsEditMode] = useState(false)
   // 1. Add state for organization
   const [organization, setOrganization] = useState<{ id: string, name: string, slug: string } | null>(null)
 
@@ -292,6 +307,12 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           identity_verified: userData?.identity_verified || false,
         }
         setProfileData(transformedData)
+        // Initialize edit values
+        setNameValue(transformedData.name)
+        setRoleValue(transformedData.role)
+        setNicknameValue(transformedData.nickname || "")
+        setCompanyValue(transformedData.company || "")
+        setLocationValue(transformedData.location || "")
       } catch (err) {
         setError('Failed to load profile')
       } finally {
@@ -309,6 +330,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
         .from('profile_media')
         .select('*')
         .eq('profile_id', profileData.id)
+        .order('is_default', { ascending: false })
         .order('created_at', { ascending: false })
       if (!error) setMedia(data || [])
       setMediaLoading(false)
@@ -319,33 +341,187 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   // Upload media handler (image or video)
   const handleMediaUpload = async (file: File, type: 'image' | 'video', title = '') => {
     if (!user || !profileData.id) return
-    const filePath = `profile-media/${profileData.id}/${file.name}`
-    const { error: uploadError } = await supabase.storage
+    
+    console.log('🚀 Starting media upload...')
+    console.log('📁 File:', file.name, 'Size:', file.size, 'Type:', file.type)
+    console.log('👤 User ID:', user.id)
+    console.log('🆔 Profile ID:', profileData.id)
+    
+    // Sanitize filename - remove special characters and spaces
+    const sanitizedFileName = file.name
+      .replace(/[^a-zA-Z0-9.-]/g, '_') // Replace special chars with underscores
+      .replace(/_+/g, '_') // Replace multiple underscores with single
+      .replace(/^_|_$/g, '') // Remove leading/trailing underscores
+    
+    const filePath = `project-files/${profileData.id}_${Date.now()}_${sanitizedFileName}`
+    console.log('📂 Upload path:', filePath)
+    
+    // Try upload with detailed error logging
+    const { data: uploadData, error: uploadError } = await supabase.storage
       .from('partnerfiles')
       .upload(filePath, file)
+    
     if (uploadError) {
-      toast.error('Failed to upload media')
+      console.error('❌ Upload failed:', uploadError)
+      console.error('❌ Error details:', {
+        message: uploadError.message,
+        name: uploadError.name
+      })
+      console.error('❌ Full error object:', JSON.stringify(uploadError, null, 2))
+      toast.error(`Upload failed: ${uploadError.message}`)
       return
     }
-    const { data: urlData } = await supabase.storage
-      .from('partnerfiles')
-      .getPublicUrl(filePath)
-    await supabase.from('profile_media').insert({
+    
+    console.log('✅ Upload successful:', uploadData)
+    
+    // Store the storage path instead of public URL
+    const { error: insertError } = await supabase.from('profile_media').insert({
       user_id: user.id,
       profile_id: profileData.id,
       type,
-      url: urlData.publicUrl,
+      url: filePath, // Store the storage path, not the public URL
       title,
       created_at: new Date().toISOString(),
     })
+    
+    if (insertError) {
+      console.error('❌ Database insert failed:', insertError)
+      toast.error('Failed to save media to database')
+      return
+    }
+    
+    console.log('✅ Database insert successful')
     toast.success('Media uploaded!')
+    
     // Refetch media
     const { data } = await supabase
       .from('profile_media')
       .select('*')
       .eq('profile_id', profileData.id)
+      .order('is_default', { ascending: false })
       .order('created_at', { ascending: false })
     setMedia(data || [])
+  }
+
+  // YouTube embed handler
+  const handleYouTubeEmbed = async () => {
+    if (!user || !profileData.id || !youtubeUrl.trim()) return
+    
+    console.log('🎬 Starting YouTube embed...')
+    console.log('🔗 YouTube URL:', youtubeUrl)
+    
+    // Extract video ID from YouTube URL
+    const videoId = extractYouTubeVideoId(youtubeUrl)
+    console.log('🎥 Video ID:', videoId)
+    
+    if (!videoId) {
+      toast.error('Invalid YouTube URL. Please enter a valid YouTube video link.')
+      return
+    }
+    
+    const embedUrl = `https://www.youtube.com/embed/${videoId}`
+    console.log('📺 Embed URL:', embedUrl)
+    
+    // Add to profile_media table
+    const { data: insertData, error } = await supabase.from('profile_media').insert({
+      user_id: user.id,
+      profile_id: profileData.id,
+      type: 'video',
+      url: embedUrl,
+      title: `YouTube Video - ${youtubeUrl}`,
+      created_at: new Date().toISOString(),
+    })
+    
+    if (error) {
+      console.error('❌ Database insert failed:', error)
+      toast.error('Failed to embed YouTube video')
+      return
+    }
+    
+    console.log('✅ Database insert successful:', insertData)
+    toast.success('YouTube video embedded successfully!')
+    setShowYouTubeEmbed(false)
+    setYoutubeUrl('')
+    
+    // Refetch media
+    const { data } = await supabase
+      .from('profile_media')
+      .select('*')
+      .eq('profile_id', profileData.id)
+      .order('is_default', { ascending: false })
+      .order('created_at', { ascending: false })
+    
+    console.log('🔄 Refetched media:', data)
+    setMedia(data || [])
+  }
+
+  // Extract YouTube video ID from various URL formats
+  const extractYouTubeVideoId = (url: string): string | null => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+      /youtube\.com\/v\/([^&\n?#]+)/,
+      /youtube\.com\/watch\?.*v=([^&\n?#]+)/
+    ]
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern)
+      if (match) return match[1]
+    }
+    return null
+  }
+
+  // Set media as default handler
+  const handleSetAsDefault = async (mediaItem: MediaItem) => {
+    if (!user || !profileData.id) return
+    
+    // If this item is already default, don't do anything
+    if (mediaItem.is_default) {
+      console.log('Item is already default, no action needed')
+      return
+    }
+    
+    try {
+      // First, remove default from all other media items
+      const { error: updateError } = await supabase
+        .from('profile_media')
+        .update({ is_default: false })
+        .eq('profile_id', profileData.id)
+      
+      if (updateError) {
+        toast.error('Failed to update media defaults')
+        return
+      }
+      
+      // Then set the selected item as default
+      const { error: setError } = await supabase
+        .from('profile_media')
+        .update({ is_default: true })
+        .eq('id', mediaItem.id)
+      
+      if (setError) {
+        toast.error('Failed to set media as default')
+        return
+      }
+      
+      toast.success('Default media updated successfully!')
+      
+      // Refetch media to update the UI
+      const { data } = await supabase
+        .from('profile_media')
+        .select('*')
+        .eq('profile_id', profileData.id)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false })
+      setMedia(data || [])
+      
+      // Update current media index if needed
+      const defaultIndex = data?.findIndex(item => item.is_default) || 0
+      if (defaultIndex !== -1) {
+        setCurrentMediaIndex(defaultIndex)
+      }
+    } catch (error) {
+      toast.error('Failed to set media as default')
+    }
   }
 
   // Delete media handler
@@ -364,6 +540,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
       .from('profile_media')
       .select('*')
       .eq('profile_id', profileData.id)
+      .order('is_default', { ascending: false })
       .order('created_at', { ascending: false })
     setMedia(data || [])
   }
@@ -409,12 +586,30 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   }
 
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
-  const [activeTab, setActiveTab] = useState<'images' | 'videos'>('images')
+  const [showYouTubeEmbed, setShowYouTubeEmbed] = useState(false)
+  const [youtubeUrl, setYoutubeUrl] = useState('')
 
-  const images = media.filter(m => m.type === 'image')
-  const videos = media.filter(m => m.type === 'video')
-  const currentMedia = activeTab === 'images' ? images : videos
+  // Helper function to get public URL for storage paths
+  const getMediaUrl = (mediaItem: MediaItem) => {
+    if (mediaItem.url.includes('youtube.com/embed')) {
+      return mediaItem.url // YouTube embeds are already full URLs
+    }
+    // For storage paths, get the public URL
+    const { data } = supabase.storage.from('partnerfiles').getPublicUrl(mediaItem.url)
+    return data.publicUrl
+  }
+
+  // Show all media together instead of separating by type
+  const currentMedia = media
   const currentItem = currentMedia[currentMediaIndex]
+
+  // Debug logging for media
+  console.log('📊 Media state:', {
+    totalMedia: media.length,
+    currentMediaLength: currentMedia.length,
+    currentItem,
+    allMedia: media
+  })
 
   const nextMedia = () => {
     setCurrentMediaIndex((prev) => (prev + 1) % currentMedia.length)
@@ -632,8 +827,49 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           {/* Left Column - Profile Info */}
           <div className="lg:col-span-1 space-y-6">
             {/* Profile Card */}
-            <Card className="leonardo-card border-gray-800">
+            <Card className={`leonardo-card border-gray-800 transition-all duration-300 ${isEditMode ? 'ring-2 ring-purple-500/50 bg-gray-900/50' : ''}`}>
               <CardContent className="pt-6">
+                                  {/* Edit Mode Toggle */}
+                  {isOwner && (
+                    <div className="absolute top-4 right-4">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className={`bg-black/60 hover:bg-black/80 text-white transition-all duration-200 ${isEditMode ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
+                        onClick={() => {
+                          if (!isEditMode) {
+                            // Enter edit mode - activate all fields
+                            setEditingName(true)
+                            setEditingRole(true)
+                            setEditingNickname(true)
+                            setEditingTitle1(true)
+                            setEditingTitle2(true)
+                            setEditingCompany(true)
+                            setCompanyValue(profileData.company || '')
+                            setEditingLocation(true)
+                            setLocationValue(profileData.location || '')
+                            setEditingBio(true)
+                            setIsEditMode(true)
+                          } else {
+                            // Exit edit mode - close all fields
+                            setEditingName(false)
+                            setEditingRole(false)
+                            setEditingNickname(false)
+                            setEditingTitle1(false)
+                            setEditingTitle2(false)
+                            setEditingCompany(false)
+                            setEditingLocation(false)
+                            setEditingField(null)
+                            setEditingBio(false)
+                            setIsEditMode(false)
+                          }
+                        }}
+                        title={isEditMode ? 'Exit Edit Mode' : 'Enter Edit Mode'}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
                 <div className="flex flex-col items-center">
                   <div className="relative w-32 h-32 rounded-full overflow-hidden mb-4">
                     {profileData.avatar_url && profileData.avatar_url !== '/placeholder-avatar.jpg' ? (
@@ -652,7 +888,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                       <div className="absolute bottom-2 right-2 flex gap-2">
                         <input
                           type="file"
-                          accept="image/*"
+                          accept="image/*,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg"
                           className="hidden"
                           ref={setFileInput}
                           onChange={handleAvatarUpload}
@@ -681,18 +917,123 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                     )}
                   </div>
                   <div className="flex flex-col items-center gap-2">
-                    <h1 className="text-3xl font-bold text-center">
-                      {profileData.name}
-                      {profileData.identity_verified && (
-                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-blue-600 text-white text-xs font-semibold">
-                          <CheckCircle className="w-4 h-4 mr-1 text-white" /> Verified
+                    {/* Name Edit */}
+                    {editingName ? (
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault()
+                          await updateProfileField('name', nameValue)
+                          setEditingName(false)
+                        }}
+                        className="flex items-center"
+                      >
+                        <input
+                          value={nameValue}
+                          onChange={e => setNameValue(e.target.value)}
+                          className="bg-gray-800 text-white border-blue-500/50 border rounded px-3 py-1 text-2xl font-bold text-center w-64"
+                          maxLength={100}
+                          autoFocus
+                        />
+                        <button type="submit" className="ml-2 text-blue-400 text-xs">✔</button>
+                        <button type="button" className="ml-1 text-gray-400 text-xs" onClick={() => setEditingName(false)}>✖</button>
+                      </form>
+                    ) : (
+                      <h1 className="text-3xl font-bold text-center group relative">
+                        {profileData.name}
+                        {profileData.identity_verified && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-blue-600 text-white text-xs font-semibold">
+                            <CheckCircle className="w-4 h-4 mr-1 text-white" /> Verified
+                          </span>
+                        )}
+                        {isOwner && (
+                          <span
+                            className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            onClick={() => { setEditingName(true); setNameValue(profileData.name); }}
+                          >
+                            <Pencil className="w-4 h-4 inline-block align-middle ml-2" />
+                          </span>
+                        )}
+                      </h1>
+                    )}
+                    {/* Nickname Edit */}
+                    {editingNickname ? (
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault()
+                          await updateProfileField('nickname', nicknameValue)
+                          setEditingNickname(false)
+                        }}
+                        className="flex items-center"
+                      >
+                        <input
+                          value={nicknameValue}
+                          onChange={e => setNicknameValue(e.target.value)}
+                          className="bg-gray-800 text-blue-400 border-blue-500/50 border rounded px-2 py-0.5 text-base text-center w-32"
+                          maxLength={50}
+                          autoFocus
+                          placeholder="Enter nickname"
+                        />
+                        <button type="submit" className="ml-1 text-blue-400 text-xs">✔</button>
+                        <button type="button" className="ml-1 text-gray-400 text-xs" onClick={() => setEditingNickname(false)}>✖</button>
+                      </form>
+                    ) : (
+                      profileData.nickname && profileData.nickname.trim() !== '' ? (
+                        <span className="ml-2 text-base text-blue-400 font-normal group relative">
+                          ({profileData.nickname})
+                          {isOwner && (
+                            <span
+                              className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              onClick={() => { setEditingNickname(true); setNicknameValue(profileData.nickname || ""); }}
+                            >
+                              <Pencil className="w-3 h-3 inline-block align-middle ml-1" />
+                            </span>
+                          )}
                         </span>
-                      )}
-                    </h1>
-                    {profileData.nickname && profileData.nickname.trim() !== '' && (
-                      <span className="ml-2 text-base text-blue-400 font-normal">({profileData.nickname})</span>
+                      ) : (
+                        isOwner && isEditMode && (
+                          <button
+                            onClick={() => { setEditingNickname(true); setNicknameValue(""); }}
+                            className="ml-2 text-blue-400 text-base font-normal hover:text-blue-300 transition-colors"
+                          >
+                            + Add Nickname
+                          </button>
+                        )
+                      )
                     )}
                   </div>
+                  {/* Role Edit */}
+                  {editingRole ? (
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault()
+                        await updateProfileField('role', roleValue)
+                        setEditingRole(false)
+                      }}
+                      className="flex items-center justify-center mb-4"
+                    >
+                      <input
+                        value={roleValue}
+                        onChange={e => setRoleValue(e.target.value)}
+                        className="bg-gray-800 text-gray-400 border-blue-500/50 border rounded px-3 py-1 text-base text-center w-48"
+                        maxLength={100}
+                        autoFocus
+                      />
+                      <button type="submit" className="ml-2 text-blue-400 text-xs">✔</button>
+                      <button type="button" className="ml-1 text-gray-400 text-xs" onClick={() => setEditingRole(false)}>✖</button>
+                    </form>
+                  ) : (
+                    <p className="text-gray-400 mb-4 group relative">
+                      {profileData.role}
+                      {isOwner && (
+                        <span
+                          className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          onClick={() => { setEditingRole(true); setRoleValue(profileData.role); }}
+                        >
+                          <Pencil className="w-4 h-4 inline-block align-middle ml-2" />
+                        </span>
+                      )}
+                    </p>
+                  )}
                   {/* Titles Inline Edit */}
                   <div className="flex flex-row items-center gap-2 mb-2 justify-center">
                     {/* Title 1 */}
@@ -711,12 +1052,13 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                           className="bg-gray-800 text-blue-400 border-blue-500/50 border rounded px-2 py-0.5 text-sm w-32"
                           maxLength={100}
                           autoFocus
+                          placeholder="Enter title 1"
                         />
                         <button type="submit" className="ml-1 text-blue-400 text-xs">✔</button>
                         <button type="button" className="ml-1 text-gray-400 text-xs" onClick={() => setEditingTitle1(false)}>✖</button>
                       </form>
                     ) : (
-                      profileData.title1 && (
+                      profileData.title1 ? (
                         <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50 group-hover:cursor-pointer relative px-4 py-1 text-base font-semibold">
                           {profileData.title1}
                           {isOwner && (
@@ -728,6 +1070,15 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                             </span>
                           )}
                         </Badge>
+                      ) : (
+                        isOwner && isEditMode && (
+                          <button
+                            onClick={() => { setEditingTitle1(true); setTitle1Value(""); }}
+                            className="px-4 py-1 text-base font-semibold text-blue-400 hover:text-blue-300 transition-colors border border-blue-500/50 rounded hover:bg-blue-500/10"
+                          >
+                            + Add Title 1
+                          </button>
+                        )
                       )
                     )}
                     {/* Title 2 */}
@@ -746,12 +1097,13 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                           className="bg-gray-800 text-purple-400 border-purple-500/50 border rounded px-2 py-0.5 text-sm w-32"
                           maxLength={100}
                           autoFocus
+                          placeholder="Enter title 2"
                         />
                         <button type="submit" className="ml-1 text-purple-400 text-xs">✔</button>
                         <button type="button" className="ml-1 text-gray-400 text-xs" onClick={() => setEditingTitle2(false)}>✖</button>
                       </form>
                     ) : (
-                      profileData.title2 && (
+                      profileData.title2 ? (
                         <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50 group-hover:cursor-pointer relative px-4 py-1 text-base font-semibold">
                           {profileData.title2}
                           {isOwner && (
@@ -763,10 +1115,19 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                             </span>
                           )}
                         </Badge>
+                      ) : (
+                        isOwner && isEditMode && (
+                          <button
+                            onClick={() => { setEditingTitle2(true); setTitle2Value(""); }}
+                            className="px-4 py-1 text-base font-semibold text-purple-400 hover:text-purple-300 transition-colors border border-purple-500/50 rounded hover:bg-purple-500/10"
+                          >
+                            + Add Title 2
+                          </button>
+                        )
                       )
                     )}
                   </div>
-                  <p className="text-gray-400 mb-4">{profileData.role}</p>
+
                   {organization && (
                     <div className="mb-2 text-center">
                       <a
@@ -781,74 +1142,74 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                     </div>
                   )}
                   <div className="flex gap-2 mb-6">
-                    {profileData.company && (
-                      <div className="relative group inline-block">
-                        {editingField === 'company' ? (
-                          <form
-                            onSubmit={e => { e.preventDefault(); updateProfileField('company', editValue); setEditingField(null); }}
-                            className="inline-flex items-center"
-                            style={{ minWidth: '100px' }}
-                          >
-                            <input
-                              value={editValue}
-                              onChange={e => setEditValue(e.target.value)}
-                              className="bg-gray-800 text-white border-none rounded px-2 py-0.5 text-sm"
-                              style={{ width: 'auto', minWidth: '60px' }}
-                              autoFocus
-                              onBlur={() => setEditingField(null)}
-                            />
-                            <button type="submit" className="ml-1 text-blue-400 text-xs">✔</button>
-                          </form>
-                        ) : (
-                          <span className="text-white text-base font-semibold group relative">
-                            {profileData.company}
-                            {isOwner && (
-                              <span
-                                className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                style={{ pointerEvents: 'auto' }}
-                                onClick={e => { e.stopPropagation(); setEditingField('company'); setEditValue(profileData.company); }}
-                              >
-                                <Pencil className="w-3 h-3 inline-block align-middle ml-1" />
-                              </span>
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    {profileData.location && (
-                      <div className="relative group inline-block">
-                        {editingField === 'location' ? (
-                          <form
-                            onSubmit={e => { e.preventDefault(); updateProfileField('location', editValue); setEditingField(null); }}
-                            className="inline-flex items-center"
-                            style={{ minWidth: '100px' }}
-                          >
-                            <input
-                              value={editValue}
-                              onChange={e => setEditValue(e.target.value)}
-                              className="bg-gray-800 text-purple-400 border-none rounded px-2 py-0.5 text-sm"
-                              style={{ width: 'auto', minWidth: '60px' }}
-                              autoFocus
-                              onBlur={() => setEditingField(null)}
-                            />
-                            <button type="submit" className="ml-1 text-purple-400 text-xs">✔</button>
-                          </form>
-                        ) : (
-                          <span className="text-purple-400 text-base font-semibold group relative">
-                            {profileData.location}
-                            {isOwner && (
-                              <span
-                                className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                style={{ pointerEvents: 'auto' }}
-                                onClick={e => { e.stopPropagation(); setEditingField('location'); setEditValue(profileData.location); }}
-                              >
-                                <Pencil className="w-3 h-3 inline-block align-middle ml-1" />
-                              </span>
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    {/* Company Field */}
+                    <div className="relative group inline-block">
+                      {editingCompany ? (
+                        <form
+                          onSubmit={e => { e.preventDefault(); updateProfileField('company', companyValue); setEditingCompany(false); }}
+                          className="inline-flex items-center"
+                          style={{ minWidth: '100px' }}
+                        >
+                          <input
+                            value={companyValue}
+                            onChange={e => setCompanyValue(e.target.value)}
+                            className="bg-gray-800 text-white border-none rounded px-2 py-0.5 text-sm"
+                            style={{ width: 'auto', minWidth: '60px' }}
+                            autoFocus
+                            onBlur={() => setEditingCompany(false)}
+                            placeholder="Enter company"
+                          />
+                          <button type="submit" className="ml-1 text-blue-400 text-xs">✔</button>
+                        </form>
+                      ) : (
+                        <span className="text-white text-base font-semibold group relative">
+                          {profileData.company || 'No company set'}
+                          {isOwner && (
+                            <span
+                              className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              style={{ pointerEvents: 'auto' }}
+                              onClick={e => { e.stopPropagation(); setEditingCompany(true); setCompanyValue(profileData.company || ''); }}
+                            >
+                              <Pencil className="w-3 h-3 inline-block align-middle ml-1" />
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                    {/* Location Field */}
+                    <div className="relative group inline-block">
+                      {editingLocation ? (
+                        <form
+                          onSubmit={e => { e.preventDefault(); updateProfileField('location', locationValue); setEditingLocation(false); }}
+                          className="inline-flex items-center"
+                          style={{ minWidth: '100px' }}
+                        >
+                          <input
+                            value={locationValue}
+                            onChange={e => setLocationValue(e.target.value)}
+                            className="bg-gray-800 text-purple-400 border-none rounded px-2 py-0.5 text-sm"
+                            style={{ width: 'auto', minWidth: '60px' }}
+                            autoFocus
+                            onBlur={() => setEditingLocation(false)}
+                            placeholder="Enter location"
+                          />
+                          <button type="submit" className="ml-1 text-purple-400 text-xs">✔</button>
+                        </form>
+                      ) : (
+                        <span className="text-purple-400 text-base font-semibold group relative">
+                          {profileData.location || 'No location set'}
+                          {isOwner && (
+                            <span
+                              className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              style={{ pointerEvents: 'auto' }}
+                              onClick={e => { e.stopPropagation(); setEditingLocation(true); setLocationValue(profileData.location || ''); }}
+                            >
+                              <Pencil className="w-3 h-3 inline-block align-middle ml-1" />
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {editingBio ? (
                     <form 
@@ -1024,53 +1385,53 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
             </Card>
 
             {/* Mini Analytics Card */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Card className="leonardo-card border-gray-800 mb-3 p-2 opacity-50 cursor-not-allowed">
+            <Card className="leonardo-card border-gray-800 mb-3 p-2">
                     <CardContent className="p-2">
                       <div className="flex flex-row flex-wrap gap-2 justify-center items-center">
-                        <div className="flex items-center gap-1 bg-blue-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+                        <Link href="/projects" className="flex items-center gap-1 bg-blue-900/30 hover:bg-blue-900/50 rounded-full px-3 py-1 shadow-sm min-w-[90px] transition-colors cursor-pointer">
                           <Briefcase className="w-4 h-4 text-blue-400" />
                           <span className="font-bold text-blue-200 text-sm">4</span>
                           <span className="text-xs text-gray-400 ml-1">Projects</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-purple-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+                        </Link>
+                        <Link href="/deals" className="flex items-center gap-1 bg-purple-900/30 hover:bg-purple-900/50 rounded-full px-3 py-1 shadow-sm min-w-[90px] transition-colors cursor-pointer">
                           <Handshake className="w-4 h-4 text-purple-400" />
                           <span className="font-bold text-purple-200 text-sm">7</span>
                           <span className="text-xs text-gray-400 ml-1">Deals</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-green-900/30 rounded-full px-3 py-1 shadow-sm min-w-[110px]">
+                        </Link>
+                        <Link href="/workmode" className="flex items-center gap-1 bg-green-900/30 hover:bg-green-900/50 rounded-full px-3 py-1 shadow-sm min-w-[110px] transition-colors cursor-pointer">
                           <CheckCircle className="w-4 h-4 text-green-400" />
                           <span className="font-bold text-green-200 text-sm">15</span>
                           <span className="text-xs text-gray-400 ml-1">Tasks</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-yellow-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+                        </Link>
+                        <div 
+                          onClick={() => document.getElementById('skills-section')?.scrollIntoView({ behavior: 'smooth' })}
+                          className="flex items-center gap-1 bg-yellow-900/30 hover:bg-yellow-900/50 rounded-full px-3 py-1 shadow-sm min-w-[90px] transition-colors cursor-pointer"
+                        >
                           <Star className="w-4 h-4 text-yellow-400" />
                           <span className="font-bold text-yellow-200 text-sm">6</span>
                           <span className="text-xs text-gray-400 ml-1">Skills</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-pink-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+                        <div className="flex items-center gap-1 bg-pink-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px] opacity-60">
                           <Award className="w-4 h-4 text-pink-400" />
                           <span className="font-bold text-pink-200 text-sm">2</span>
                           <span className="text-xs text-gray-400 ml-1">Years</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-cyan-900/30 rounded-full px-3 py-1 shadow-sm min-w-[110px]">
+                        <Link href="/setup-checklist" className="flex items-center gap-1 bg-cyan-900/30 hover:bg-cyan-900/50 rounded-full px-3 py-1 shadow-sm min-w-[110px] transition-colors cursor-pointer">
                           <UserCheck className="w-4 h-4 text-cyan-400" />
                           <span className="font-bold text-cyan-200 text-sm">98%</span>
                           <span className="text-xs text-gray-400 ml-1">Profile</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-emerald-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+                        </Link>
+                        <div className="flex items-center gap-1 bg-emerald-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px] opacity-60">
                           <CheckCircle className="w-4 h-4 text-emerald-400" />
                           <span className="font-bold text-emerald-200 text-sm">95%</span>
                           <span className="text-xs text-gray-400 ml-1">Professionalism</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-orange-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+                        <div className="flex items-center gap-1 bg-orange-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px] opacity-60">
                           <DollarSign className="w-4 h-4 text-orange-400" />
                           <span className="font-bold text-orange-200 text-sm">3</span>
                           <span className="text-xs text-gray-400 ml-1">Projects Funded</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-indigo-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+                        <div className="flex items-center gap-1 bg-indigo-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px] opacity-60">
                           <TrendingUp className="w-4 h-4 text-indigo-400" />
                           <span className="font-bold text-indigo-200 text-sm">2</span>
                           <span className="text-xs text-gray-400 ml-1">I Funded</span>
@@ -1078,15 +1439,9 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                       </div>
                     </CardContent>
                   </Card>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Coming Soon</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
 
             {/* Skills Card */}
-            <Card className="leonardo-card border-gray-800">
+            <Card id="skills-section" className="leonardo-card border-gray-800">
               <CardHeader>
                 <CardTitle>Skills</CardTitle>
               </CardHeader>
@@ -1274,48 +1629,36 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 Media Gallery
               </CardTitle>
               <div className="flex gap-2">
-                <Button
-                  variant={activeTab === 'images' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setActiveTab('images')
-                    setCurrentMediaIndex(0)
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                  Images
-                </Button>
-                <Button
-                  variant={activeTab === 'videos' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setActiveTab('videos')
-                    setCurrentMediaIndex(0)
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <Video className="w-4 h-4" />
-                  Videos
-                </Button>
                 {isOwner && (
                   <>
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept={activeTab === 'images' ? 'image/*' : 'video/*'}
+                      accept="image/*,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,video/*,.mp4,.mov,.avi,.webm,.mkv"
                       className="hidden"
                       onChange={e => {
                         const file = e.target.files?.[0]
-                        if (file) handleMediaUpload(file, activeTab.slice(0, -1) as 'image' | 'video')
+                        if (file) {
+                          const type = file.type.startsWith('image/') ? 'image' : 'video'
+                          handleMediaUpload(file, type)
+                        }
                       }}
                     />
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="default"
                       onClick={() => fileInputRef.current?.click()}
+                      className="bg-purple-600 hover:bg-purple-700"
                     >
-                      Upload {activeTab === 'images' ? 'Image' : 'Video'}
+                      Upload Media
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowYouTubeEmbed(true)}
+                    >
+                      <Youtube className="w-4 h-4 mr-2" />
+                      Embed YouTube
                     </Button>
                   </>
                 )}
@@ -1330,19 +1673,39 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               <div className="space-y-4">
                 {/* Main Media Display */}
                 <div className="relative w-full max-w-3xl mx-auto aspect-video rounded-lg overflow-hidden bg-gray-800/30 flex items-center justify-center">
+                  {/* Default Media Badge */}
+                  {currentItem?.is_default && (
+                    <div className="absolute top-2 left-2 z-10">
+                      <Badge className="bg-yellow-600 text-black font-semibold">
+                        <Star className="w-3 h-3 mr-1 fill-current" />
+                        Default
+                      </Badge>
+                    </div>
+                  )}
                   {currentItem && (
                     currentItem.type === 'image' ? (
                       <Image
-                        src={currentItem.url}
+                        src={getMediaUrl(currentItem)}
                         alt={currentItem.title}
                         fill
                         className="object-contain w-full h-full"
                         style={{ maxHeight: '80vh' }}
                       />
+                    ) : currentItem.url.includes('youtube.com/embed') ? (
+                      <iframe
+                        key={currentItem.url}
+                        src={currentItem.url}
+                        title={currentItem.title}
+                        className="w-full h-full"
+                        style={{ maxHeight: '80vh' }}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
                     ) : (
                       <video
                         key={currentItem.url}
-                        src={currentItem.url}
+                        src={getMediaUrl(currentItem)}
                         poster={currentItem.thumbnail || ''}
                         className="object-contain w-full h-full"
                         style={{ maxHeight: '80vh' }}
@@ -1354,17 +1717,30 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                       />
                     )
                   )}
-                  {/* Delete button for owner */}
+                  {/* Media action buttons for owner */}
                   {isOwner && currentItem && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="absolute top-2 right-2 bg-black/60 hover:bg-red-600 text-white"
-                      onClick={() => handleDeleteMedia(currentItem)}
-                      title="Delete Media"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </Button>
+                    <div className="absolute top-2 right-2 flex gap-2">
+                      {/* Set as Default button */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className={`bg-black/60 hover:bg-blue-600 text-white ${currentItem.is_default ? 'bg-blue-600' : ''}`}
+                        onClick={() => handleSetAsDefault(currentItem)}
+                        title={currentItem.is_default ? 'Currently Default' : 'Set as Default'}
+                      >
+                        {currentItem.is_default ? 'Default' : 'Set as Default'}
+                      </Button>
+                      {/* Delete button */}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="bg-black/60 hover:bg-red-600 text-white"
+                        onClick={() => handleDeleteMedia(currentItem)}
+                        title="Delete Media"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </Button>
+                    </div>
                   )}
                   {/* Navigation Buttons */}
                   <button
@@ -1390,22 +1766,68 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                         index === currentMediaIndex ? 'ring-2 ring-blue-500' : ''
                       }`}
                     >
+                      {/* Default indicator */}
+                      {media.is_default && (
+                        <div className="absolute top-1 left-1 z-10">
+                          <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                        </div>
+                      )}
                       {media.type === 'image' ? (
                         <Image
-                          src={media.url}
+                          src={getMediaUrl(media)}
                           alt={media.title}
                           width={800}
                           height={600}
                           className="w-full h-full object-cover rounded-lg"
                         />
+                      ) : media.url.includes('youtube.com/embed') ? (
+                        // YouTube embed thumbnail - generate thumbnail from video ID
+                        <div className="w-full h-full bg-gray-800 rounded-lg overflow-hidden">
+                          <img
+                            src={`https://img.youtube.com/vi/${extractYouTubeVideoId(media.url)}/mqdefault.jpg`}
+                            alt={media.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback if thumbnail fails to load
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                              target.nextElementSibling?.classList.remove('hidden')
+                            }}
+                          />
+                          <div className="hidden w-full h-full flex items-center justify-center">
+                            <div className="text-center">
+                              <Video className="w-8 h-8 text-gray-400 mx-auto mb-1" />
+                              <div className="text-xs text-gray-500">YouTube</div>
+                            </div>
+                          </div>
+                        </div>
                       ) : (
-                        <Image
-                          src={media.thumbnail || ''}
-                          alt={media.title}
-                          width={800}
-                          height={600}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
+                        // Regular video thumbnail - try to show first frame or fallback
+                        <div className="w-full h-full bg-gray-800 rounded-lg overflow-hidden">
+                          <video
+                            src={getMediaUrl(media)}
+                            className="w-full h-full object-cover"
+                            muted
+                            preload="metadata"
+                            onLoadedData={(e) => {
+                              // Try to capture first frame
+                              const video = e.target as HTMLVideoElement
+                              video.currentTime = 0.1
+                            }}
+                            onError={(e) => {
+                              // Fallback if video fails to load
+                              const video = e.target as HTMLVideoElement
+                              video.style.display = 'none'
+                              video.nextElementSibling?.classList.remove('hidden')
+                            }}
+                          />
+                          <div className="hidden w-full h-full flex items-center justify-center">
+                            <div className="text-center">
+                              <Video className="w-8 h-8 text-gray-400 mx-auto mb-1" />
+                              <div className="text-xs text-gray-500">Video</div>
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </button>
                   ))}
@@ -1501,6 +1923,59 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           Download Barcode
         </button>
       </div>
+
+      {/* YouTube Embed Dialog */}
+      <Dialog open={showYouTubeEmbed} onOpenChange={setShowYouTubeEmbed}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Embed YouTube Video</DialogTitle>
+            <DialogDescription>
+              Paste a YouTube video URL to embed it in your profile media gallery.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="youtube-url" className="block text-sm font-medium text-gray-300 mb-2">
+                YouTube Video URL
+              </label>
+              <input
+                id="youtube-url"
+                type="url"
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+            <div className="text-sm text-gray-400">
+              <p>Supported formats:</p>
+              <ul className="list-disc list-inside mt-1 space-y-1">
+                <li>https://www.youtube.com/watch?v=VIDEO_ID</li>
+                <li>https://youtu.be/VIDEO_ID</li>
+                <li>https://www.youtube.com/embed/VIDEO_ID</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowYouTubeEmbed(false)
+                setYoutubeUrl('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleYouTubeEmbed}
+              disabled={!youtubeUrl.trim()}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              Embed Video
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 
