@@ -261,7 +261,7 @@ export default function FileDownloadPage() {
       }
 
       // Generate direct share link
-      const shareUrl = `${window.location.origin}/file-download/${data.id}`
+      const shareUrl = `/file-download/${data.id}`
       setShareLink(shareUrl)
 
       // Reset form
@@ -510,7 +510,7 @@ export default function FileDownloadPage() {
                 <p className="text-sm text-gray-500">
                   The link will look like: <br />
                   <code className="bg-gray-800 px-2 py-1 rounded text-xs">
-                    {window.location.origin}/file-download/[id]
+                    /file-download/[id]
                   </code>
                 </p>
               </div>

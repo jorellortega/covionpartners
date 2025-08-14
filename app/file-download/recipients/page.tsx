@@ -63,7 +63,7 @@ export default function RecipientsPage() {
     const recipient = recipients.find(r => r.id === recipientId)
     if (!recipient) return
 
-    const shareUrl = `${window.location.origin}/file-download/${recipient.file_share_id}?recipient=${encodeURIComponent(recipient.recipient_name)}`
+    const shareUrl = `/file-download/${recipient.file_share_id}?recipient=${encodeURIComponent(recipient.recipient_name)}`
     
     try {
       await navigator.clipboard.writeText(shareUrl)

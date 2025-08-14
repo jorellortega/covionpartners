@@ -139,7 +139,7 @@ export default function FileManagementPage() {
   }
 
   const copyToClipboard = async (fileShare: FileShare) => {
-    const shareUrl = `${window.location.origin}/file-download/${fileShare.id}`
+    const shareUrl = `/file-download/${fileShare.id}`
     try {
       await navigator.clipboard.writeText(shareUrl)
       setCopiedId(fileShare.id)
@@ -367,7 +367,7 @@ export default function FileManagementPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredFileShares.map((fileShare) => {
               const status = getStatus(fileShare)
-              const shareUrl = `${window.location.origin}/file-download/${fileShare.id}`
+              const shareUrl = `/file-download/${fileShare.id}`
               
               return (
                 <Card key={fileShare.id} className="leonardo-card border-gray-800">
