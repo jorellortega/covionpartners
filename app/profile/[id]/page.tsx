@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import {
   Card,
   CardContent,
@@ -49,7 +50,8 @@ import {
   UserCheck,
   DollarSign,
   TrendingUp,
-  Youtube
+  Youtube,
+  Download
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -126,12 +128,18 @@ interface ProfileData {
     completionDate: string
     technologies: string[]
     visibility: string
+    status: string
+    profile_visible: boolean
   }[]
   avatar_url?: string
   nickname?: string
   title1?: string
   title2?: string
-  identity_verified?: boolean // <-- add this
+  identity_verified?: boolean
+  resume_url?: string
+  resume_filename?: string
+  resume_uploaded_at?: string
+  resume_visible?: boolean
 }
 
 const defaultProfileData: ProfileData = {
@@ -156,6 +164,10 @@ const defaultProfileData: ProfileData = {
   title1: '',
   title2: '',
   identity_verified: false,
+  resume_url: '',
+  resume_filename: '',
+  resume_uploaded_at: '',
+  resume_visible: true,
 }
 
 export default function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -181,6 +193,8 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const [editValue, setEditValue] = useState("")
   const [companyValue, setCompanyValue] = useState("")
   const [locationValue, setLocationValue] = useState("")
+  const [uploadingResume, setUploadingResume] = useState(false)
+  const [resumeFileInput, setResumeFileInput] = useState<HTMLInputElement | null>(null)
   const [media, setMedia] = useState<MediaItem[]>([])
   const [mediaLoading, setMediaLoading] = useState(true)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -208,6 +222,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const [isEditMode, setIsEditMode] = useState(false)
   // 1. Add state for organization
   const [organization, setOrganization] = useState<{ id: string, name: string, slug: string } | null>(null)
+  const [manageProjectsExpanded, setManageProjectsExpanded] = useState(false)
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -263,12 +278,11 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
         } else {
           setProfileMissing(false)
         }
-        // Fetch user's completed projects from projects table
+        // Fetch user's projects from projects table
         const { data: projectsData, error: projectsError } = await supabase
           .from('projects')
           .select('*')
           .eq('owner_id', id)
-          .eq('status', 'completed')
           .order('created_at', { ascending: false })
         if (projectsError) {
           console.error('Error fetching projects:', projectsError)
@@ -298,13 +312,19 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
             media_files: project.media_files || [],
             completionDate: project.updated_at || project.created_at || '',
             technologies: [],
-            visibility: project.visibility || ''
+            visibility: project.visibility || '',
+            status: project.status || '',
+            profile_visible: project.profile_visible ?? true
           })) || [],
           avatar_url: userData?.avatar_url || '/placeholder-avatar.jpg',
           nickname: profile?.nickname || userData?.nickname || undefined,
           title1: userData?.title1 || '',
           title2: userData?.title2 || '',
           identity_verified: userData?.identity_verified || false,
+          resume_url: profile?.resume_url || '',
+          resume_filename: profile?.resume_filename || '',
+          resume_uploaded_at: profile?.resume_uploaded_at || '',
+          resume_visible: profile?.resume_visible ?? true,
         }
         setProfileData(transformedData)
         // Initialize edit values
@@ -401,6 +421,241 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
       .order('is_default', { ascending: false })
       .order('created_at', { ascending: false })
     setMedia(data || [])
+  }
+
+  // Resume upload handler
+  const handleResumeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !user || !profileData.id) return
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload a PDF, DOC, or DOCX file')
+      return
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB')
+      return
+    }
+
+    try {
+      setUploadingResume(true)
+      
+      // Sanitize filename
+      const sanitizedFileName = file.name
+        .replace(/[^a-zA-Z0-9.-]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
+      
+      const filePath = `resumes/${profileData.id}_${Date.now()}_${sanitizedFileName}`
+      
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('partnerfiles')
+        .upload(filePath, file)
+      
+      if (uploadError) {
+        console.error('Resume upload error:', uploadError)
+        toast.error('Failed to upload resume')
+        return
+      }
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('partnerfiles')
+        .getPublicUrl(filePath)
+      
+      // Update profile with resume information
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          resume_url: publicUrl,
+          resume_filename: file.name,
+          resume_uploaded_at: new Date().toISOString()
+        })
+        .eq('user_id', profileData.id)
+      
+      if (updateError) {
+        console.error('Profile update error:', updateError)
+        toast.error('Failed to save resume information')
+        return
+      }
+      
+      // Update local state
+      setProfileData(prev => ({
+        ...prev,
+        resume_url: publicUrl,
+        resume_filename: file.name,
+        resume_uploaded_at: new Date().toISOString()
+      }))
+      
+      toast.success('Resume uploaded successfully!')
+    } catch (error) {
+      console.error('Resume upload error:', error)
+      toast.error('Failed to upload resume')
+    } finally {
+      setUploadingResume(false)
+    }
+  }
+
+  // Resume download handler
+  const handleResumeDownload = async () => {
+    if (!profileData.resume_url) return
+    
+    try {
+      // Log download (optional - you can add this to resume_downloads table)
+      if (user && user.id !== profileData.id) {
+        // Only log if someone else is downloading
+        await supabase.from('resume_downloads').insert({
+          profile_id: profileData.id,
+          downloaded_by: user.id,
+          user_agent: navigator.userAgent,
+          ip_address: 'client-side' // You'd get this from server-side
+        })
+      }
+      
+      // Create download link
+      const link = document.createElement('a')
+      link.href = profileData.resume_url
+      link.download = profileData.resume_filename || 'resume.pdf'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      toast.success('Resume download started!')
+    } catch (error) {
+      console.error('Resume download error:', error)
+      toast.error('Failed to download resume')
+    }
+  }
+
+  // Resume visibility toggle handler
+  const handleResumeVisibilityToggle = async (visible: boolean) => {
+    if (!user || !profileData.id) return
+    
+    try {
+      // Update profile with new visibility
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ resume_visible: visible })
+        .eq('user_id', profileData.id)
+      
+      if (updateError) {
+        console.error('Profile update error:', updateError)
+        toast.error('Failed to update resume visibility')
+        return
+      }
+      
+      // Update local state immediately
+      setProfileData(prev => ({
+        ...prev,
+        resume_visible: visible
+      }))
+      
+      toast.success(`Resume ${visible ? 'made visible' : 'hidden'} on profile!`)
+    } catch (error) {
+      console.error('Resume visibility toggle error:', error)
+      toast.error('Failed to update resume visibility')
+    }
+  }
+
+
+
+  // Individual project visibility toggle handler
+  const handleProjectVisibilityToggle = async (projectId: string, currentVisibility: boolean) => {
+    if (!user || !profileData.id) return
+    
+    try {
+      const newVisibility = !currentVisibility
+      
+      // Update project with new visibility
+      const { error: updateError } = await supabase
+        .from('projects')
+        .update({ profile_visible: newVisibility })
+        .eq('id', projectId)
+      
+      if (updateError) {
+        console.error('Project update error:', updateError)
+        toast.error('Failed to update project visibility')
+        return
+      }
+      
+      // Update local state immediately without refetching
+      setProfileData(prev => ({
+        ...prev,
+        completed_projects: prev.completed_projects.map(project => 
+          project.id.toString() === projectId 
+            ? { ...project, profile_visible: newVisibility }
+            : project
+        )
+      }))
+      
+      toast.success(`Project ${newVisibility ? 'made visible' : 'hidden'} on profile!`)
+    } catch (error) {
+      console.error('Project visibility toggle error:', error)
+      toast.error('Failed to update project visibility')
+    }
+  }
+
+
+
+
+
+  // Resume delete handler
+  const handleResumeDelete = async () => {
+    if (!user || !profileData.id || !profileData.resume_url) return
+    
+    try {
+      setUploadingResume(true)
+      
+      // Extract file path from URL for deletion
+      const urlParts = profileData.resume_url.split('/')
+      const filePath = urlParts.slice(-1)[0] // Get the filename part
+      
+      // Delete from storage
+      const { error: deleteError } = await supabase.storage
+        .from('partnerfiles')
+        .remove([`resumes/${filePath}`])
+      
+      if (deleteError) {
+        console.error('Storage delete error:', deleteError)
+        // Continue anyway as the file might not exist
+      }
+      
+      // Update profile to remove resume information
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          resume_url: null,
+          resume_filename: null,
+          resume_uploaded_at: null
+        })
+        .eq('user_id', profileData.id)
+      
+      if (updateError) {
+        console.error('Profile update error:', updateError)
+        toast.error('Failed to remove resume information')
+        return
+      }
+      
+      // Update local state
+      setProfileData(prev => ({
+        ...prev,
+        resume_url: '',
+        resume_filename: '',
+        resume_uploaded_at: ''
+      }))
+      
+      toast.success('Resume removed successfully!')
+    } catch (error) {
+      console.error('Resume delete error:', error)
+      toast.error('Failed to remove resume')
+    } finally {
+      setUploadingResume(false)
+    }
   }
 
   // YouTube embed handler
@@ -1411,30 +1666,30 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                           <span className="font-bold text-yellow-200 text-sm">6</span>
                           <span className="text-xs text-gray-400 ml-1">Skills</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-pink-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px] opacity-60">
-                          <Award className="w-4 h-4 text-pink-400" />
-                          <span className="font-bold text-pink-200 text-sm">2</span>
-                          <span className="text-xs text-gray-400 ml-1">Years</span>
+                        <div className="flex items-center gap-1 bg-gray-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
+                          <Award className="w-4 h-4 text-gray-500" />
+                          <span className="font-bold text-gray-500 text-sm">2</span>
+                          <span className="text-xs text-gray-500 ml-1">Years</span>
                         </div>
                         <Link href="/setup-checklist" className="flex items-center gap-1 bg-cyan-900/30 hover:bg-cyan-900/50 rounded-full px-3 py-1 shadow-sm min-w-[110px] transition-colors cursor-pointer">
                           <UserCheck className="w-4 h-4 text-cyan-400" />
                           <span className="font-bold text-cyan-200 text-sm">98%</span>
                           <span className="text-xs text-gray-400 ml-1">Profile</span>
                         </Link>
-                        <div className="flex items-center gap-1 bg-emerald-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px] opacity-60">
-                          <CheckCircle className="w-4 h-4 text-emerald-400" />
-                          <span className="font-bold text-emerald-200 text-sm">95%</span>
-                          <span className="text-xs text-gray-400 ml-1">Professionalism</span>
+                        <div className="flex items-center gap-1 bg-gray-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+                          <CheckCircle className="w-4 h-4 text-gray-500" />
+                          <span className="font-bold text-gray-500 text-sm">95%</span>
+                          <span className="text-xs text-gray-500 ml-1">Professionalism</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-orange-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px] opacity-60">
-                          <DollarSign className="w-4 h-4 text-orange-400" />
-                          <span className="font-bold text-orange-200 text-sm">3</span>
-                          <span className="text-xs text-gray-400 ml-1">Projects Funded</span>
+                        <div className="flex items-center gap-1 bg-gray-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+                          <DollarSign className="w-4 h-4 text-gray-500" />
+                          <span className="font-bold text-gray-500 text-sm">3</span>
+                          <span className="text-xs text-gray-500 ml-1">Projects Funded</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-indigo-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px] opacity-60">
-                          <TrendingUp className="w-4 h-4 text-indigo-400" />
-                          <span className="font-bold text-indigo-200 text-sm">2</span>
-                          <span className="text-xs text-gray-400 ml-1">I Funded</span>
+                        <div className="flex items-center gap-1 bg-gray-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
+                          <TrendingUp className="w-4 h-4 text-gray-500" />
+                          <span className="font-bold text-gray-500 text-sm">2</span>
+                          <span className="text-xs text-gray-500 ml-1">I Funded</span>
                         </div>
                       </div>
                     </CardContent>
@@ -1489,6 +1744,133 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 </div>
               </CardContent>
             </Card>
+
+            {/* Resume Section */}
+            {profileData.resume_visible && (
+              <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center">
+                      <FileText className="w-5 h-5 mr-2 text-gray-400" />
+                      Resume
+                    </CardTitle>
+                    <CardDescription>
+                      {profileData.resume_url ? 'Download or manage your resume' : 'Upload your resume for others to download'}
+                    </CardDescription>
+                  </div>
+                  {isOwner && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-400">Visible</span>
+                      <Switch
+                        checked={profileData.resume_visible}
+                        onCheckedChange={handleResumeVisibilityToggle}
+                        className="data-[state=checked]:bg-blue-600"
+                      />
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {profileData.resume_url ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <FileText className="w-8 h-8 text-blue-400" />
+                        <div>
+                          <p className="font-medium text-white">{profileData.resume_filename}</p>
+                          <p className="text-sm text-gray-400">
+                            Uploaded {profileData.resume_uploaded_at ? new Date(profileData.resume_uploaded_at).toLocaleDateString() : 'recently'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleResumeDownload}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700"
+                        disabled={uploadingResume}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download
+                      </Button>
+                      {isOwner && (
+                        <Button
+                          variant="outline"
+                          onClick={handleResumeDelete}
+                          disabled={uploadingResume}
+                          className="text-red-400 border-red-400 hover:bg-red-400/10"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center space-y-3">
+                    <FileText className="w-12 h-12 text-gray-400 mx-auto" />
+                    <p className="text-gray-400">No resume uploaded</p>
+                    {isOwner && (
+                      <div>
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx"
+                          className="hidden"
+                          onChange={handleResumeUpload}
+                          ref={setResumeFileInput}
+                        />
+                        <Button
+                          onClick={() => resumeFileInput?.click()}
+                          disabled={uploadingResume}
+                          className="w-full"
+                        >
+                          {uploadingResume ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <UploadCloud className="w-4 h-4 mr-2" />
+                              Upload Resume
+                            </>
+                          )}
+                        </Button>
+                        <p className="text-xs text-gray-500 mt-2">
+                          PDF, DOC, or DOCX files up to 5MB
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            )}
+
+            {/* Hidden Resume Indicator (for owners) */}
+            {!profileData.resume_visible && isOwner && (
+              <Card className="leonardo-card border-gray-800">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <FileText className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-400">Resume section is hidden</p>
+                        <p className="text-xs text-gray-500">Others cannot see your resume</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-400">Visible</span>
+                      <Switch
+                        checked={profileData.resume_visible}
+                        onCheckedChange={handleResumeVisibilityToggle}
+                        className="data-[state=checked]:bg-blue-600"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Right Column - Experience & Education */}
@@ -1837,23 +2219,85 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           </CardContent>
         </Card>
 
-        {/* Completed Projects Card */}
+        {/* Projects Management (for owners) */}
+        {isOwner && (
+          <Card className="leonardo-card border-gray-800 mt-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center">
+                    <Award className="w-5 h-5 mr-2 text-gray-400" />
+                    Manage Projects
+                  </CardTitle>
+                  <CardDescription>Choose which projects to display on your profile</CardDescription>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setManageProjectsExpanded(!manageProjectsExpanded)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  {manageProjectsExpanded ? 'Hide' : 'Show'} ({profileData.completed_projects.length})
+                </Button>
+              </div>
+            </CardHeader>
+            {manageProjectsExpanded && (
+              <CardContent>
+                {profileData.completed_projects.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400">No projects found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {profileData.completed_projects.map((project) => (
+                      <div key={project.id} className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg">
+                        <div className="flex-1">
+                          <h4 className="text-white font-medium">{project.title}</h4>
+                          <div className="flex gap-2 mt-1">
+                            <Badge className="bg-gray-700 text-gray-300 text-xs">{project.status}</Badge>
+                            {!project.visibility && (
+                              <Badge className="bg-red-700/30 text-red-400 text-xs">Private</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-gray-400">
+                            {project.profile_visible ? 'Visible' : 'Hidden'}
+                          </span>
+                          <Switch
+                            checked={project.profile_visible}
+                            onCheckedChange={() => handleProjectVisibilityToggle(project.id.toString(), project.profile_visible)}
+                            className="data-[state=checked]:bg-blue-600"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            )}
+          </Card>
+        )}
+
+        {/* Projects Display Card */}
         <Card className="leonardo-card border-gray-800 mt-8">
           <CardHeader>
             <CardTitle className="flex items-center">
               <Award className="w-5 h-5 mr-2 text-gray-400" />
-              Completed Projects
+              Projects
             </CardTitle>
-            <CardDescription>Showcase of successfully completed projects</CardDescription>
+            <CardDescription>Showcase of your projects</CardDescription>
           </CardHeader>
           <CardContent>
-            {profileData.completed_projects.length === 0 ? (
+            {profileData.completed_projects.filter(project => project.profile_visible).length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-gray-400">No completed projects to display</p>
+                <p className="text-gray-400">
+                  {isOwner ? "No projects are currently visible on your profile. Use the toggles to show projects." : "No projects to display"}
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {profileData.completed_projects.map((project) => {
+                {profileData.completed_projects.filter(project => project.profile_visible).map((project) => {
                   const isPublic = project.visibility === 'public'
                   const cardContent = (
                     <div className="bg-gray-800/30 rounded-lg overflow-hidden">
@@ -1870,7 +2314,9 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                         </div>
                       ) : null}
                       <div className="p-4">
-                        <h3 className="text-lg font-semibold text-white mb-2">{project.title}</h3>
+                        <div className="mb-2">
+                          <h3 className="text-lg font-semibold text-white">{project.title}</h3>
+                        </div>
                         <p className="text-gray-400 text-sm mb-4">{project.description}</p>
                         <div className="flex flex-wrap gap-2 mb-4">
                           {project.technologies.map((tech, index) => (
@@ -1879,12 +2325,40 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                             </Badge>
                           ))}
                         </div>
-                        <p className="text-gray-500 text-sm">
-                          Completed: {new Date(project.completionDate).toLocaleDateString()}
-                        </p>
-                        {!isPublic && (
-                          <Badge className="bg-red-700/30 text-red-400 mt-2">Private Project</Badge>
-                        )}
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <p className="text-gray-500 text-sm">
+                              {new Date(project.completionDate).toLocaleDateString()}
+                            </p>
+                            <div className="flex gap-2">
+                              {!isPublic && (
+                                <Badge className="bg-red-700/30 text-red-400">Private</Badge>
+                              )}
+                              {project.status === 'active' && (
+                                <Badge className="bg-green-700/30 text-green-400">Active</Badge>
+                              )}
+                              {project.status === 'completed' && (
+                                <Badge className="bg-blue-700/30 text-blue-400">Completed</Badge>
+                              )}
+                              {project.status === 'pending' && (
+                                <Badge className="bg-yellow-700/30 text-yellow-400">Pending</Badge>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Progress bar for active projects */}
+                          {project.status === 'active' && (
+                            <div className="w-full">
+                              <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                <span>Progress</span>
+                                <span>75%</span>
+                              </div>
+                              <div className="w-full bg-gray-700 rounded-full h-2">
+                                <div className="bg-green-500 h-2 rounded-full" style={{ width: '75%' }}></div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )

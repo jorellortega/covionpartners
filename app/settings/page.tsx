@@ -175,6 +175,17 @@ export default function SettingsPage() {
   const [balance, setBalance] = useState<number | null>(null)
   const [pendingBalance, setPendingBalance] = useState<number | null>(null)
   const [subscriptionLoading, setSubscriptionLoading] = useState(false)
+  const [editingEmail, setEditingEmail] = useState(false)
+  const [newEmail, setNewEmail] = useState("")
+  const [emailUpdating, setEmailUpdating] = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  })
+  const [passwordUpdating, setPasswordUpdating] = useState(false)
+  const [resetEmailCooldown, setResetEmailCooldown] = useState(0)
 
   const fetchBalance = async (userId: string) => {
       try {
@@ -212,7 +223,7 @@ export default function SettingsPage() {
         // Fetch from users table
         const { data: userData, error: userError } = await supabase
           .from("users")
-          .select("id, email, name, phone_number, role")
+          .select("id, email, name, phone_number, role, avatar_url")
           .eq("id", session.user.id)
           .single()
         // Fetch from profiles table
@@ -224,7 +235,7 @@ export default function SettingsPage() {
         setProfile({
           full_name: profileData?.full_name || userData?.name || "",
           email: userData?.email || "",
-          avatar_url: profileData?.avatar_url || "",
+          avatar_url: userData?.avatar_url || "",
           phone_number: userData?.phone_number || "",
           company: profileData?.company || "",
           position: profileData?.position || "",
@@ -394,7 +405,7 @@ export default function SettingsPage() {
 
       // Update profile with new avatar URL
       const { error: updateError } = await supabase
-        .from('profiles')
+        .from('users')
         .update({ avatar_url: publicUrl })
         .eq('id', user.id)
 
@@ -539,6 +550,121 @@ export default function SettingsPage() {
     }
   }
 
+  const handleEmailUpdate = async () => {
+    if (!newEmail || newEmail === profile.email) {
+      setEditingEmail(false)
+      setNewEmail("")
+      return
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(newEmail)) {
+      toast.error('Please enter a valid email address')
+      return
+    }
+
+    try {
+      setEmailUpdating(true)
+      
+      // Update email in Supabase Auth
+      const { error } = await supabase.auth.updateUser({ email: newEmail })
+      
+      if (error) {
+        throw error
+      }
+
+      // Update email in users table
+      const { error: userUpdateError } = await supabase
+        .from('users')
+        .update({ email: newEmail })
+        .eq('id', user?.id)
+
+      if (userUpdateError) {
+        console.error('Error updating users table:', userUpdateError)
+        // Don't throw here as the auth update was successful
+      }
+
+      toast.success('Email update initiated. Please check your new email for confirmation.')
+      setProfile(prev => ({ ...prev, email: newEmail }))
+      setEditingEmail(false)
+      setNewEmail("")
+    } catch (error: any) {
+      console.error('Error updating email:', error)
+      toast.error(error.message || 'Failed to update email')
+    } finally {
+      setEmailUpdating(false)
+    }
+  }
+
+  const handleCancelEmailEdit = () => {
+    setEditingEmail(false)
+    setNewEmail("")
+  }
+
+  const handlePasswordChange = async () => {
+    // Validation
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error('Please fill in all password fields')
+      return
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('New passwords do not match')
+      return
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters long')
+      return
+    }
+
+    try {
+      setPasswordUpdating(true)
+      
+      // Update password using Supabase Auth
+      const { error } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword
+      })
+      
+      if (error) {
+        throw error
+      }
+
+      toast.success('Password updated successfully!')
+      setChangingPassword(false)
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      })
+    } catch (error: any) {
+      console.error('Error updating password:', error)
+      toast.error(error.message || 'Failed to update password')
+    } finally {
+      setPasswordUpdating(false)
+    }
+  }
+
+  const handleCancelPasswordChange = () => {
+    setChangingPassword(false)
+    setPasswordForm({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: ""
+    })
+  }
+
+  // Countdown timer for reset email cooldown
+  useEffect(() => {
+    if (resetEmailCooldown > 0) {
+      const timer = setTimeout(() => {
+        setResetEmailCooldown(resetEmailCooldown - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [resetEmailCooldown])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -609,7 +735,49 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={profile.email} disabled />
+                  {editingEmail ? (
+                    <div className="space-y-2">
+                      <Input
+                        id="email"
+                        type="email"
+                        value={newEmail}
+                        onChange={(e) => setNewEmail(e.target.value)}
+                        placeholder="Enter new email address"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={handleEmailUpdate}
+                          disabled={emailUpdating}
+                        >
+                          {emailUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                          Update Email
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancelEmailEdit}
+                          disabled={emailUpdating}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Input id="email" value={profile.email} disabled />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setNewEmail(profile.email)
+                          setEditingEmail(true)
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
@@ -680,53 +848,161 @@ export default function SettingsPage() {
               <CardTitle>Security Settings</CardTitle>
               <CardDescription>Manage your account security settings.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <Button
-                variant="destructive"
-                onClick={async () => {
-                  try {
-                    // Clear all local storage and session storage
-                    if (typeof window !== 'undefined') {
-                      window.localStorage.clear()
-                      window.sessionStorage.clear()
-                      document.cookie.split(";").forEach(function(c) { 
-                        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+            <CardContent className="space-y-6">
+              {/* Password Change Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-medium">Change Password</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Update your password directly without email confirmation
+                    </p>
+                  </div>
+                  {!changingPassword && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setChangingPassword(true)}
+                    >
+                      Change Password
+                    </Button>
+                  )}
+                </div>
+                
+                {changingPassword && (
+                  <div className="space-y-4 p-4 border rounded-lg bg-gray-800/30">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="currentPassword">Current Password</Label>
+                        <Input
+                          id="currentPassword"
+                          type="password"
+                          value={passwordForm.currentPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                          placeholder="Enter current password"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="newPassword">New Password</Label>
+                        <Input
+                          id="newPassword"
+                          type="password"
+                          value={passwordForm.newPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                          placeholder="Enter new password"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                        placeholder="Confirm new password"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handlePasswordChange}
+                        disabled={passwordUpdating}
+                      >
+                        {passwordUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Update Password
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleCancelPasswordChange}
+                        disabled={passwordUpdating}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Password Reset Section */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-medium">Reset Password</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Send a password reset link to your email address
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  disabled={resetEmailCooldown > 0}
+                  onClick={async () => {
+                    try {
+                      if (!profile.email) {
+                        toast.error('No email found for this user.')
+                        return
+                      }
+                      const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
+                        redirectTo: window.location.origin + '/reset-password'
                       })
+                      if (error) {
+                        if (error.message.includes('security purposes')) {
+                          // Extract the time from the error message
+                          const timeMatch = error.message.match(/(\d+) seconds/)
+                          const seconds = timeMatch ? parseInt(timeMatch[1]) : 60
+                          setResetEmailCooldown(seconds)
+                          toast.error(`Please wait ${seconds} seconds before requesting another reset email`)
+                        } else {
+                          throw error
+                        }
+                        return
+                      }
+                      toast.success('Password reset email sent!')
+                      setResetEmailCooldown(60) // Set 60 second cooldown after successful send
+                    } catch (error: any) {
+                      console.error('Error sending reset password email:', error)
+                      toast.error(error.message || 'Failed to send reset password email')
                     }
-                    // Sign out from Supabase
-                  const { error } = await supabase.auth.signOut()
-                    if (error) throw error
-                    await supabase.auth.setSession({ access_token: '', refresh_token: '' })
-                    window.location.href = '/login?' + new Date().getTime()
-                  } catch (error) {
-                    console.error('Error signing out:', error)
-                    toast.error('Failed to sign out')
+                  }}
+                >
+                  {resetEmailCooldown > 0 
+                    ? `Wait ${resetEmailCooldown}s` 
+                    : 'Send Reset Link'
                   }
-                }}
-              >
-                Sign Out
-              </Button>
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  try {
-                    if (!profile.email) {
-                      toast.error('No email found for this user.')
-                      return
+                </Button>
+              </div>
+
+              {/* Sign Out Section */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-medium">Sign Out</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Sign out of your account and clear all local data
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    try {
+                      // Clear all local storage and session storage
+                      if (typeof window !== 'undefined') {
+                        window.localStorage.clear()
+                        window.sessionStorage.clear()
+                        document.cookie.split(";").forEach(function(c) { 
+                          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                        })
+                      }
+                      // Sign out from Supabase
+                    const { error } = await supabase.auth.signOut()
+                      if (error) throw error
+                      await supabase.auth.setSession({ access_token: '', refresh_token: '' })
+                      window.location.href = '/login?' + new Date().getTime()
+                    } catch (error) {
+                      console.error('Error signing out:', error)
+                      toast.error('Failed to sign out')
                     }
-                    const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
-                      redirectTo: window.location.origin + '/reset-password'
-                    })
-                    if (error) throw error
-                    toast.success('Password reset email sent!')
-                  } catch (error) {
-                    console.error('Error sending reset password email:', error)
-                    toast.error('Failed to send reset password email')
-                  }
-                }}
-              >
-                Reset Password
-              </Button>
+                  }}
+                >
+                  Sign Out
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -897,6 +1173,14 @@ export default function SettingsPage() {
                   >
                     View Plans
                   </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => router.push('/managepayments')}
+                  >
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Manage Payments
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -906,22 +1190,20 @@ export default function SettingsPage() {
         <TabsContent value="billing">
           <Card className="leonardo-card border-gray-800">
             <CardHeader>
-              <CardTitle>Saved Payment Methods</CardTitle>
-              <CardDescription>View and manage your saved payment methods</CardDescription>
+              <CardTitle>Payment Management</CardTitle>
+              <CardDescription>Manage your payment methods and billing</CardDescription>
             </CardHeader>
-            <CardContent>
-              <SavedPaymentsList />
-            </CardContent>
-          </Card>
-          <Card className="leonardo-card border-gray-800 mt-6">
-            <CardHeader>
-              <CardTitle>Add New Payment Method</CardTitle>
-              <CardDescription>Securely save a new payment method for future transactions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Elements stripe={stripePromise}>
-                <PaymentForm />
-              </Elements>
+            <CardContent className="space-y-4">
+              <p className="text-gray-300">
+                Manage your payment methods, view billing history, and update billing information.
+              </p>
+              <Button 
+                onClick={() => router.push('/managepayments')}
+                className="gradient-button w-full"
+              >
+                <CreditCard className="w-5 h-5 mr-2" />
+                Manage Payments
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

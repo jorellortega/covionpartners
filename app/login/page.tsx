@@ -1,7 +1,6 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
+import React, { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -38,6 +37,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("login")
+  const [resetEmailSent, setResetEmailSent] = useState(false)
+  const [resetEmailCooldown, setResetEmailCooldown] = useState(0)
 
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -47,6 +48,59 @@ export default function LoginPage() {
   const handleSignupChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setSignupData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  // Countdown timer for reset email cooldown
+  React.useEffect(() => {
+    if (resetEmailCooldown > 0) {
+      const timer = setTimeout(() => {
+        setResetEmailCooldown(resetEmailCooldown - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [resetEmailCooldown])
+
+  const handleForgotPassword = async () => {
+    if (!loginData.email) {
+      setError('Please enter your email address first')
+      return
+    }
+
+    if (resetEmailCooldown > 0) {
+      setError(`Please wait ${resetEmailCooldown} seconds before requesting another reset email`)
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      setError(null)
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(loginData.email, {
+        redirectTo: window.location.origin + '/reset-password'
+      })
+      
+      if (error) {
+        if (error.message.includes('security purposes')) {
+          // Extract the time from the error message
+          const timeMatch = error.message.match(/(\d+) seconds/)
+          const seconds = timeMatch ? parseInt(timeMatch[1]) : 60
+          setResetEmailCooldown(seconds)
+          setError(`Please wait ${seconds} seconds before requesting another reset email`)
+        } else {
+          throw error
+        }
+        return
+      }
+
+      setResetEmailSent(true)
+      setResetEmailCooldown(60) // Set 60 second cooldown after successful send
+      setSuccess('Password reset email sent! Please check your email.')
+    } catch (error: any) {
+      console.error('Error sending reset password email:', error)
+      setError(error.message || 'Failed to send reset password email')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -179,9 +233,17 @@ export default function LoginPage() {
                     <Label htmlFor="login-password" className="text-white/90">
                       Password
                     </Label>
-                    <Link href="#" className="text-xs text-blue-300 hover:text-blue-200 transition-colors">
-                      Forgot password?
-                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      disabled={resetEmailCooldown > 0 || isLoading}
+                      className="text-xs text-blue-300 hover:text-blue-200 transition-colors disabled:text-gray-500 disabled:cursor-not-allowed"
+                    >
+                      {resetEmailCooldown > 0 
+                        ? `Wait ${resetEmailCooldown}s` 
+                        : 'Forgot password?'
+                      }
+                    </button>
                   </div>
                   <Input
                     id="login-password"
