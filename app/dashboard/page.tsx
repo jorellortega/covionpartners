@@ -67,6 +67,7 @@ import {
   History,
   StickyNote,
   UploadCloud,
+  Download,
 
   List,
   Layout,
@@ -1224,6 +1225,21 @@ export default function PartnerDashboard() {
                     </CardContent>
                   </Card>
                   <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/file-download')}>
+                      <UploadCloud className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">File Sharing</h3>
+                      <p className="text-gray-400">Share files with clients & team</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
+                    <CardContent className="p-6 text-center" onClick={() => router.push('/file-download/recipients')}>
+                      <Download className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Track Recipients</h3>
+                      <p className="text-gray-400">Monitor who downloaded what</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="leonardo-card border-gray-800 bg-gradient-to-br from-blue-500/10 to-purple-500/10 cursor-pointer hover:scale-105 transition-transform">
                     <CardContent className="p-6 text-center" onClick={() => router.push('/team')}>
                       <Users className="w-12 h-12 text-blue-400 mx-auto mb-4" />
                       <h3 className="text-lg font-semibold mb-2">Team Management</h3>
@@ -2231,6 +2247,18 @@ export default function PartnerDashboard() {
                   <FolderKanban className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
                 </Button>
                 <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} sm:block`}>Workspace</span>
+              </div>
+
+              <div className="flex flex-col items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-cyan-500/20 hover:bg-cyan-500/30 hover:text-cyan-400 p-2 sm:p-3 lg:p-4 rounded-lg border border-cyan-500/30 transition-transform duration-200 hover:-translate-y-1"
+                  onClick={() => router.push('/file-download')}
+                >
+                  <UploadCloud className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
+                </Button>
+                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} sm:block`}>File Sharing</span>
               </div>
             </div>
           </div>

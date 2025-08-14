@@ -23,10 +23,11 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/hooks/useAuth'
+import { toast } from 'sonner'
 
 export default function GroupChatPage() {
   const router = useRouter()
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [groupChats, setGroupChats] = useState<any[]>([])
   const [selectedGroup, setSelectedGroup] = useState<any | null>(null)
   const [newMessage, setNewMessage] = useState('')
@@ -66,10 +67,36 @@ export default function GroupChatPage() {
   const [groupFiles, setGroupFiles] = useState<any[]>([])
 
   const fetchGroupChats = async () => {
+    if (!user) return;
+    
+    // First, get all groups where the user is a member
+    const { data: memberGroups, error: memberError } = await supabase
+      .from('group_chat_members')
+      .select('group_chat_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+    
+    if (memberError) {
+      console.error('Error fetching member groups:', memberError)
+      return
+    }
+    
+    if (!memberGroups || memberGroups.length === 0) {
+      setGroupChats([])
+      setSelectedGroup(null)
+      return
+    }
+    
+    // Get the group IDs where user is a member
+    const groupIds = memberGroups.map(mg => mg.group_chat_id)
+    
+    // Fetch the actual group data for groups where user is a member
     const { data, error } = await supabase
       .from('group_chats')
       .select('*')
+      .in('id', groupIds)
       .order('created_at', { ascending: false })
+    
     if (!error && data) {
       setGroupChats(data)
       if (!selectedGroup && data.length > 0) setSelectedGroup(data[0])
@@ -109,7 +136,24 @@ export default function GroupChatPage() {
 
   // Fetch group chat messages
   const fetchMessages = async () => {
-    if (!selectedGroup) return;
+    if (!selectedGroup || !user) return;
+    
+    // First check if user is a member of this group
+    const { data: membership, error: membershipError } = await supabase
+      .from('group_chat_members')
+      .select('id')
+      .eq('group_chat_id', selectedGroup.id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    
+    if (membershipError || !membership) {
+      console.error('User is not a member of this group')
+      setMessages([]);
+      setMessagesLoading(false);
+      return;
+    }
+    
     setMessagesLoading(true);
     // Fetch messages for this group, join sender info, and include attachment_url
     const { data, error } = await supabase
@@ -125,10 +169,19 @@ export default function GroupChatPage() {
     setMessagesLoading(false);
   };
 
+  // Check if user is authenticated
   useEffect(() => {
-    fetchGroupChats()
+    if (!authLoading && user === null) {
+      // User is not authenticated and loading is complete, redirect to login
+      router.push('/login')
+      return
+    }
+    if (user && !authLoading) {
+      // User is authenticated and loading is complete, fetch group chats
+      fetchGroupChats()
+    }
     // eslint-disable-next-line
-  }, [])
+  }, [user, authLoading])
 
   // Fetch group members when selectedGroup changes
   useEffect(() => {
@@ -170,6 +223,21 @@ export default function GroupChatPage() {
   const handleSendMessage = async () => {
     if (uploading) return; // Prevent sending while uploading
     if ((!newMessage.trim() && !attachmentUrl) || !selectedGroup || !user) return;
+    
+    // Check if user is a member of this group before sending
+    const { data: membership, error: membershipError } = await supabase
+      .from('group_chat_members')
+      .select('id')
+      .eq('group_chat_id', selectedGroup.id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    
+    if (membershipError || !membership) {
+      toast.error('You are not a member of this group')
+      return;
+    }
+    
     const { error } = await supabase.from('group_chat_messages').insert({
       group_chat_id: selectedGroup.id,
       sender_id: user.id,
@@ -188,19 +256,36 @@ export default function GroupChatPage() {
     setLoading(true)
     setError(null)
     const { name, description, avatar_url, is_private } = form
-    if (!name.trim()) {
+    if (!name.trim() || !user) {
       setError('Group name is required')
       setLoading(false)
       return
     }
-    const { error: insertError } = await supabase.from('group_chats').insert({
+    
+    // Create the group
+    const { data: groupData, error: insertError } = await supabase.from('group_chats').insert({
       name,
       description,
       avatar_url,
       is_private
-    })
+    }).select().single()
+    
     if (insertError) {
       setError(insertError.message)
+      setLoading(false)
+      return
+    }
+    
+    // Add the creator as a member with admin role
+    const { error: memberError } = await supabase.from('group_chat_members').insert({
+      group_chat_id: groupData.id,
+      user_id: user.id,
+      role: 'admin',
+      status: 'active'
+    })
+    
+    if (memberError) {
+      setError(`Group created but failed to add you as member: ${memberError.message}`)
     } else {
       setForm({ name: '', description: '', avatar_url: '', is_private: false })
       setOpen(false)
@@ -211,7 +296,23 @@ export default function GroupChatPage() {
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedGroup || !selectedUserId) return
+    if (!selectedGroup || !selectedUserId || !user) return
+    
+    // Check if current user is a member of this group
+    const { data: currentUserMembership, error: membershipError } = await supabase
+      .from('group_chat_members')
+      .select('id')
+      .eq('group_chat_id', selectedGroup.id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    
+    if (membershipError || !currentUserMembership) {
+      setAddMemberError('You are not a member of this group.')
+      setAddMemberLoading(false)
+      return
+    }
+    
     setAddMemberLoading(true)
     setAddMemberError(null)
     // Check if already a member
@@ -271,6 +372,21 @@ export default function GroupChatPage() {
 
   const handlePostTaskToChat = async (task: any) => {
     if (!selectedGroup || !user) return;
+    
+    // Check if user is a member of this group before posting
+    const { data: membership, error: membershipError } = await supabase
+      .from('group_chat_members')
+      .select('id')
+      .eq('group_chat_id', selectedGroup.id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    
+    if (membershipError || !membership) {
+      toast.error('You are not a member of this group')
+      return;
+    }
+    
     // Compose the message as a JSON string
     const messageContent = JSON.stringify({
       type: 'task',
@@ -313,6 +429,21 @@ export default function GroupChatPage() {
 
   const handlePostProjectToChat = async (project: any) => {
     if (!selectedGroup || !user) return;
+    
+    // Check if user is a member of this group before posting
+    const { data: membership, error: membershipError } = await supabase
+      .from('group_chat_members')
+      .select('id')
+      .eq('group_chat_id', selectedGroup.id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    
+    if (membershipError || !membership) {
+      toast.error('You are not a member of this group')
+      return;
+    }
+    
     // Compose the message as a JSON string
     const messageContent = JSON.stringify({
       type: 'project',
@@ -336,13 +467,28 @@ export default function GroupChatPage() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !user) return
+    if (!file || !user || !selectedGroup) return
+    
+    // Check if user is a member of this group before uploading
+    const { data: membership, error: membershipError } = await supabase
+      .from('group_chat_members')
+      .select('id')
+      .eq('group_chat_id', selectedGroup.id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    
+    if (membershipError || !membership) {
+      toast.error('You are not a member of this group')
+      return
+    }
+    
     setUploading(true)
     const fileExt = file.name.split('.').pop()
     const filePath = `groupchat_files/${user.id}/${Date.now()}.${fileExt}`
     const { data, error } = await supabase.storage.from('partnerfiles').upload(filePath, file)
     if (error) {
-      alert('Failed to upload attachment')
+      toast.error('Failed to upload attachment')
       setUploading(false)
       return
     }
@@ -362,7 +508,27 @@ export default function GroupChatPage() {
   }
 
   const handleSaveEdit = async (msg: any) => {
-    if (!editMessageContent.trim()) return
+    if (!editMessageContent.trim() || !user) return
+    
+    // Check if user is the message sender and a member of the group
+    if (msg.sender_id !== user.id) {
+      toast.error('You can only edit your own messages')
+      return
+    }
+    
+    const { data: membership, error: membershipError } = await supabase
+      .from('group_chat_members')
+      .select('id')
+      .eq('group_chat_id', selectedGroup.id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    
+    if (membershipError || !membership) {
+      toast.error('You are not a member of this group')
+      return
+    }
+    
     const { error } = await supabase.from('group_chat_messages').update({ content: editMessageContent.trim() }).eq('id', msg.id)
     if (!error) {
       setEditingMessageId(null)
@@ -372,13 +538,48 @@ export default function GroupChatPage() {
   }
 
   const handleDeleteMessage = async (msg: any) => {
-    if (!window.confirm('Delete this message?')) return
+    if (!window.confirm('Delete this message?') || !user) return
+    
+    // Check if user is the message sender and a member of the group
+    if (msg.sender_id !== user.id) {
+      toast.error('You can only delete your own messages')
+      return
+    }
+    
+    const { data: membership, error: membershipError } = await supabase
+      .from('group_chat_members')
+      .select('id')
+      .eq('group_chat_id', selectedGroup.id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    
+    if (membershipError || !membership) {
+      toast.error('You are not a member of this group')
+      return
+    }
+    
     const { error } = await supabase.from('group_chat_messages').delete().eq('id', msg.id)
     if (!error) fetchMessages()
   }
 
   const fetchGroupFiles = async () => {
-    if (!selectedGroup) return;
+    if (!selectedGroup || !user) return;
+    
+    // Check if user is a member of this group before fetching files
+    const { data: membership, error: membershipError } = await supabase
+      .from('group_chat_members')
+      .select('id')
+      .eq('group_chat_id', selectedGroup.id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    
+    if (membershipError || !membership) {
+      setGroupFiles([]);
+      return;
+    }
+    
     const { data, error } = await supabase
       .from('group_chat_messages')
       .select('id, attachment_url, created_at, sender_id, sender:sender_id (name, email, avatar_url)')
@@ -395,6 +596,18 @@ export default function GroupChatPage() {
   useEffect(() => {
     fetchGroupFiles();
   }, [selectedGroup, messages]);
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 relative">
