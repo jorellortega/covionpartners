@@ -179,7 +179,8 @@ export default function NewProjectPage() {
         project_key: projectKey,
         invested: 0,
         roi: 0,
-        media_files: mediaFiles
+        media_files: mediaFiles,
+        organization_id: null // Explicitly set to null for independent projects
       };
 
       // Add deadline if it exists
@@ -194,7 +195,9 @@ export default function NewProjectPage() {
         insertData.budget = parseFloat(projectData.budget);
       }
 
-      // Create the project
+      console.log('User ID:', user.id);
+      console.log('User role:', user.role);
+      console.log('Inserting project data:', insertData);
       const { data, error } = await supabase
         .from('projects')
         .insert([insertData])
@@ -203,6 +206,12 @@ export default function NewProjectPage() {
 
       if (error) {
         console.error('Error creating project:', error);
+        console.error('Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw error;
       }
 
@@ -387,9 +396,8 @@ export default function NewProjectPage() {
                     value={projectData.deadline}
                     onChange={handleChange}
                     className="leonardo-input"
-                    required
                   />
-                  <p className="text-sm text-gray-400 mt-1">Required for project creation. You can update this later.</p>
+                  <p className="text-sm text-gray-400 mt-1">Optional. Leave blank if no deadline is needed.</p>
                 </div>
 
                 <div className="space-y-2">

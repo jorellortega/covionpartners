@@ -255,6 +255,7 @@ function WorkModeContent() {
   
   // Member search functionality
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false)
+  const [isFileUploadModalOpen, setIsFileUploadModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [searching, setSearching] = useState(false)
@@ -1278,8 +1279,48 @@ function WorkModeContent() {
         task_id: ''
       });
       
-      // Refresh submissions
+      // Close modal
+      setIsFileUploadModalOpen(false);
+      
+      // Refresh submissions and project files
       fetchProjectSubmissions();
+      
+      // Refresh project files for the sidebar
+      if (currentProject?.id) {
+        const fetchFiles = async () => {
+          // Fetch from project_files
+          const { data: pfData, error: pfError } = await supabase
+            .from('project_files')
+            .select('*')
+            .eq('project_id', currentProject.id)
+            .order('created_at', { ascending: false });
+          // Fetch from timeline_files
+          const { data: tfData, error: tfError } = await supabase
+            .from('timeline_files')
+            .select('*')
+            .eq('project_id', currentProject.id)
+            .order('uploaded_at', { ascending: false });
+          // Map both to a common format
+          const pfMapped = (pfData || []).map(f => ({
+            id: f.id,
+            name: f.name,
+            size: f.size || 0,
+            created_at: f.created_at,
+            url: f.url,
+          }));
+          const tfMapped = (tfData || []).map(f => ({
+            id: f.id,
+            name: f.file_name,
+            size: f.size || 0,
+            created_at: f.uploaded_at,
+            url: supabase.storage.from('partnerfiles').getPublicUrl(f.file_url).data.publicUrl,
+          }));
+          // Merge and sort by date descending
+          const allFiles = [...pfMapped, ...tfMapped].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          setProjectFiles(allFiles);
+        };
+        fetchFiles();
+      }
     } catch (error: any) {
       console.error('Error submitting file:', error);
       toast.error(error.message || "Failed to submit file");
@@ -1397,6 +1438,17 @@ function WorkModeContent() {
     setSearchResults([]);
     setSelectedUser(null);
     setSelectedRole('member');
+  };
+
+  const openFileUploadModal = () => {
+    setIsFileUploadModalOpen(true);
+    // Reset form when opening modal
+    setSelectedFile(null);
+    setFileSubmission({
+      title: '',
+      description: '',
+      task_id: ''
+    });
   };
 
   const router = useRouter();
@@ -1558,7 +1610,12 @@ function WorkModeContent() {
             <CardContent className="space-y-2">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm text-gray-400">{projectFiles.length} files</span>
-                <Button size="sm" variant="outline" className="border-gray-700 text-xs">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="border-gray-700 text-xs"
+                  onClick={openFileUploadModal}
+                >
                   <Plus className="w-3 h-3 mr-1" />
                   Upload
                 </Button>
@@ -3193,6 +3250,112 @@ function WorkModeContent() {
               className="bg-blue-600 hover:bg-blue-700"
             >
               {addingMember ? 'Adding...' : 'Add Member'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* File Upload Modal */}
+      <Dialog open={isFileUploadModalOpen} onOpenChange={setIsFileUploadModalOpen}>
+        <DialogContent className="bg-gray-900 border-gray-700 max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Upload Project File</DialogTitle>
+            <DialogDescription>
+              Upload a new file to the project. Files are accessible to all team members (Level 1 access).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="file-title">File Title *</Label>
+              <Input
+                id="file-title"
+                placeholder="Enter file title"
+                value={fileSubmission.title}
+                onChange={(e) => setFileSubmission({...fileSubmission, title: e.target.value})}
+                className="bg-gray-800 border-gray-600 text-white"
+              />
+            </div>
+            <div>
+              <Label htmlFor="file-description">Description (Optional)</Label>
+              <Textarea
+                id="file-description"
+                placeholder="Add a description or note about this file"
+                value={fileSubmission.description}
+                onChange={(e) => setFileSubmission({...fileSubmission, description: e.target.value})}
+                className="bg-gray-800 border-gray-600 text-white"
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label htmlFor="file-task">Link to Task (Optional)</Label>
+              <Select 
+                value={fileSubmission.task_id || 'none'} 
+                onValueChange={(value) => setFileSubmission({...fileSubmission, task_id: value === 'none' ? null : value})}
+              >
+                <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                  <SelectValue placeholder="Select a task" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No task</SelectItem>
+                  {projectTasks.map(task => (
+                    <SelectItem key={task.id} value={task.id}>
+                      {task.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="file-upload">Select File *</Label>
+              <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 mt-2">
+                <Input
+                  type="file"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                  id="file-upload"
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="cursor-pointer flex flex-col items-center justify-center"
+                >
+                  {selectedFile ? (
+                    <div className="flex items-center">
+                      <FileText className="w-6 h-6 text-blue-400 mr-2" />
+                      <span className="text-white">{selectedFile.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="ml-2"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setSelectedFile(null);
+                        }}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-400">
+                        Click to select a file or drag and drop
+                      </p>
+                    </>
+                  )}
+                </label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsFileUploadModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleFileSubmission}
+              disabled={!selectedFile || !fileSubmission.title.trim() || submittingFile}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {submittingFile ? 'Uploading...' : 'Upload File'}
             </Button>
           </DialogFooter>
         </DialogContent>

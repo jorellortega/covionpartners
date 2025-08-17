@@ -48,12 +48,12 @@ import {
   Filter,
   Download,
   Upload,
-  Star,
-  StarOff,
+
   MapPin,
   Calendar,
   Tags,
-  ExternalLink
+  ExternalLink,
+  X
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
@@ -73,6 +73,7 @@ interface Contact {
   tags: string[]
   created_at: string
   updated_at: string
+  platform_user_id?: string // Add this field for platform users
 }
 
 export default function ContactsPage() {
@@ -128,184 +129,32 @@ export default function ContactsPage() {
   const fetchContacts = async () => {
     try {
       setLoading(true)
-      // For now, using localStorage until we create the contacts table
-      const savedContacts = localStorage.getItem(`contacts_${user?.id}`)
-      if (savedContacts) {
-        setContacts(JSON.parse(savedContacts))
-      } else {
-        // Add mock data if no saved contacts exist
-        const mockContacts: Contact[] = [
-          {
-            id: '1',
-            name: 'Sarah Johnson',
-            email: 'sarah.johnson@techcorp.com',
-            phone: '+1 (555) 123-4567',
-            company: 'TechCorp Solutions',
-            position: 'Senior Developer',
-            website: 'https://techcorp.com',
-            address: '123 Tech Street, San Francisco, CA 94105',
-            notes: 'Great collaboration on the mobile app project. Very responsive and detail-oriented.',
-            category: 'business',
-            is_favorite: true,
-            tags: ['developer', 'mobile', 'react', 'team'],
-            created_at: '2024-01-15T10:30:00Z',
-            updated_at: '2024-01-15T10:30:00Z'
-          },
-          {
-            id: '2',
-            name: 'Mike Chen',
-            email: 'mike.chen@designstudio.co',
-            phone: '+1 (555) 987-6543',
-            company: 'Creative Design Studio',
-            position: 'UX Designer',
-            website: 'https://designstudio.co',
-            address: '456 Design Ave, New York, NY 10001',
-            notes: 'Excellent eye for user experience. Worked on several successful projects together.',
-            category: 'client',
-            is_favorite: true,
-            tags: ['designer', 'ux', 'creative', 'contractor'],
-            created_at: '2024-01-10T14:20:00Z',
-            updated_at: '2024-01-10T14:20:00Z'
-          },
-          {
-            id: '3',
-            name: 'Emily Rodriguez',
-            email: 'emily.rodriguez@marketing.pro',
-            phone: '+1 (555) 456-7890',
-            company: 'Marketing Pro Agency',
-            position: 'Digital Marketing Manager',
-            website: 'https://marketingpro.agency',
-            address: '789 Marketing Blvd, Austin, TX 78701',
-            notes: 'Handles all our digital marketing campaigns. Very results-driven.',
-            category: 'vendor',
-            is_favorite: false,
-            tags: ['marketing', 'digital', 'campaigns'],
-            created_at: '2024-01-08T09:15:00Z',
-            updated_at: '2024-01-08T09:15:00Z'
-          },
-          {
-            id: '4',
-            name: 'David Williams',
-            email: 'david.williams@freelance.com',
-            phone: '+1 (555) 321-9876',
-            company: 'Freelance',
-            position: 'Full Stack Developer',
-            website: 'https://davidwilliams.dev',
-            address: '321 Code Lane, Seattle, WA 98101',
-            notes: 'Reliable freelancer for backend development. Quick turnaround times.',
-            category: 'business',
-            is_favorite: false,
-            tags: ['freelancer', 'backend', 'nodejs'],
-            created_at: '2024-01-05T16:45:00Z',
-            updated_at: '2024-01-05T16:45:00Z'
-          },
-          {
-            id: '5',
-            name: 'Lisa Thompson',
-            email: 'lisa.thompson@gmail.com',
-            phone: '+1 (555) 654-3210',
-            company: '',
-            position: '',
-            website: '',
-            address: '987 Oak Street, Portland, OR 97201',
-            notes: 'College friend who moved to Portland. Great photographer.',
-            category: 'personal',
-            is_favorite: true,
-            tags: ['friend', 'photographer', 'college'],
-            created_at: '2024-01-03T11:30:00Z',
-            updated_at: '2024-01-03T11:30:00Z'
-          },
-          {
-            id: '6',
-            name: 'James Anderson',
-            email: 'j.anderson@consulting.biz',
-            phone: '+1 (555) 789-0123',
-            company: 'Anderson Consulting',
-            position: 'Business Consultant',
-            website: 'https://andersonconsulting.biz',
-            address: '654 Business Park Dr, Chicago, IL 60601',
-            notes: 'Helped with business strategy planning. Very insightful and professional.',
-            category: 'client',
-            is_favorite: false,
-            tags: ['consultant', 'strategy', 'business'],
-            created_at: '2024-01-01T08:00:00Z',
-            updated_at: '2024-01-01T08:00:00Z'
-          },
-          {
-            id: '7',
-            name: 'Maria Garcia',
-            email: 'maria.garcia@lawfirm.com',
-            phone: '+1 (555) 234-5678',
-            company: 'Garcia & Associates Law Firm',
-            position: 'Corporate Lawyer',
-            website: 'https://garcialaw.com',
-            address: '111 Legal Plaza, Los Angeles, CA 90210',
-            notes: 'Handles all legal matters for the company. Very thorough and knowledgeable.',
-            category: 'vendor',
-            is_favorite: false,
-            tags: ['lawyer', 'legal', 'corporate'],
-            created_at: '2023-12-28T13:20:00Z',
-            updated_at: '2023-12-28T13:20:00Z'
-          },
-          {
-            id: '8',
-            name: 'Robert Kim',
-            email: 'robert.kim@startup.io',
-            phone: '+1 (555) 567-8901',
-            company: 'Innovation Startup',
-            position: 'Co-founder & CTO',
-            website: 'https://innovationstartup.io',
-            address: '222 Startup St, San Jose, CA 95110',
-            notes: 'Met at tech conference. Interesting AI startup. Potential collaboration opportunity.',
-            category: 'other',
-            is_favorite: true,
-            tags: ['startup', 'ai', 'cto', 'hired'],
-            created_at: '2023-12-25T19:45:00Z',
-            updated_at: '2023-12-25T19:45:00Z'
-          },
-          {
-            id: '9',
-            name: 'Jennifer Walsh',
-            email: 'jen.walsh@accounting.pro',
-            phone: '+1 (555) 890-1234',
-            company: 'Walsh Accounting Services',
-            position: 'Senior Accountant',
-            website: 'https://walshaccounting.pro',
-            address: '333 Finance Blvd, Miami, FL 33101',
-            notes: 'Company accountant. Handles all financial reporting and tax preparation.',
-            category: 'vendor',
-            is_favorite: false,
-            tags: ['accounting', 'finance', 'taxes'],
-            created_at: '2023-12-20T10:15:00Z',
-            updated_at: '2023-12-20T10:15:00Z'
-          },
-          {
-            id: '10',
-            name: 'Alex Murphy',
-            email: 'alex.murphy@email.com',
-            phone: '+1 (555) 012-3456',
-            company: '',
-            position: '',
-            website: 'https://alexmurphy.blog',
-            address: '444 Writer Ave, Boston, MA 02101',
-            notes: 'Content writer and blogger. Good for copywriting projects.',
-            category: 'personal',
-            is_favorite: false,
-            tags: ['writer', 'blogger', 'content'],
-            created_at: '2023-12-15T15:30:00Z',
-            updated_at: '2023-12-15T15:30:00Z'
-          }
-        ]
-        
-        setContacts(mockContacts)
-        // Also save to localStorage so the mock data persists
-        localStorage.setItem(`contacts_${user?.id}`, JSON.stringify(mockContacts))
+      
+      if (!user?.id) return
+
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('is_favorite', { ascending: false })
+        .order('name', { ascending: true })
+
+      if (error) {
+        console.error('Error fetching contacts:', error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch contacts",
+          variant: "destructive"
+        })
+        return
       }
+
+      setContacts(data || [])
     } catch (error) {
       console.error('Error fetching contacts:', error)
       toast({
         title: "Error",
-        description: "Failed to load contacts",
+        description: "Failed to fetch contacts",
         variant: "destructive"
       })
     } finally {
@@ -362,98 +211,158 @@ export default function ContactsPage() {
       position: '',
       website: '',
       address: '',
-      notes: `Added from user search`,
-      category: 'business',
+      notes: '',
+      category: 'other',
       is_favorite: false,
-      tags: [],
+      tags: ['platform-user'],
+      platform_user_id: userData.id, // Store the platform user ID directly
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
 
-    const updatedContacts = [...contacts, newContact]
-    saveContactsToStorage(updatedContacts)
-
-    toast({
-      title: "Success",
-      description: "User added to contacts successfully"
-    })
-
+    await addContact(newContact)
     setShowUserSearch(false)
     setUserSearchQuery('')
     setSearchResults([])
   }
 
-  const saveContactsToStorage = (updatedContacts: Contact[]) => {
-    localStorage.setItem(`contacts_${user?.id}`, JSON.stringify(updatedContacts))
-    setContacts(updatedContacts)
-  }
+  const addContact = async (contactData: Contact) => {
+    try {
+      if (!user?.id) return
 
-  const handleAddContact = async () => {
-    if (!formData.name || !formData.email) {
+      // Prepare the data with proper column names
+      const insertData = {
+        user_id: user.id,
+        name: contactData.name,
+        email: contactData.email,
+        phone: contactData.phone,
+        company: contactData.company,
+        "position": contactData.position, // Quote the position column
+        website: contactData.website,
+        address: contactData.address,
+        notes: contactData.notes,
+        category: contactData.category,
+        is_favorite: contactData.is_favorite,
+        tags: contactData.tags,
+        platform_user_id: contactData.platform_user_id
+      }
+
+      const { data, error } = await supabase
+        .from('contacts')
+        .insert([insertData])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setContacts(prev => [data, ...prev])
+      setShowAddDialog(false)
+      resetForm()
+      toast({
+        title: "Success",
+        description: "Contact added successfully",
+        variant: "default"
+      })
+    } catch (error) {
+      console.error('Error adding contact:', error)
       toast({
         title: "Error",
-        description: "Name and email are required",
+        description: "Failed to add contact",
         variant: "destructive"
       })
-      return
     }
+  }
 
-    const newContact: Contact = {
-      id: Date.now().toString(),
-      ...formData,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+  const updateContact = async (contactData: Contact) => {
+    try {
+      // Prepare the update data with proper column names
+      const updateData = {
+        name: contactData.name,
+        email: contactData.email,
+        phone: contactData.phone,
+        company: contactData.company,
+        "position": contactData.position, // Quote the position column
+        website: contactData.website,
+        address: contactData.address,
+        notes: contactData.notes,
+        category: contactData.category,
+        is_favorite: contactData.is_favorite,
+        tags: contactData.tags,
+        platform_user_id: contactData.platform_user_id
+      }
+
+      const { error } = await supabase
+        .from('contacts')
+        .update(updateData)
+        .eq('id', contactData.id)
+
+      if (error) throw error
+
+      setContacts(prev => prev.map(c => c.id === contactData.id ? { ...c, ...contactData } : c))
+      setEditingContact(null)
+      toast({
+        title: "Success",
+        description: "Contact updated successfully",
+        variant: "default"
+      })
+    } catch (error) {
+      console.error('Error updating contact:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update contact",
+        variant: "destructive"
+      })
     }
-
-    const updatedContacts = [...contacts, newContact]
-    saveContactsToStorage(updatedContacts)
-
-    toast({
-      title: "Success",
-      description: "Contact added successfully"
-    })
-
-    setShowAddDialog(false)
-    resetForm()
   }
 
-  const handleUpdateContact = async () => {
-    if (!editingContact) return
+  const deleteContact = async (contactId: string) => {
+    try {
+      const { error } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('id', contactId)
 
-    const updatedContacts = contacts.map(contact =>
-      contact.id === editingContact.id
-        ? { ...formData, id: editingContact.id, created_at: editingContact.created_at, updated_at: new Date().toISOString() }
-        : contact
-    )
+      if (error) throw error
 
-    saveContactsToStorage(updatedContacts)
-
-    toast({
-      title: "Success",
-      description: "Contact updated successfully"
-    })
-
-    setEditingContact(null)
-    resetForm()
+      setContacts(prev => prev.filter(c => c.id !== contactId))
+      toast({
+        title: "Success",
+        description: "Contact deleted successfully",
+        variant: "default"
+      })
+    } catch (error) {
+      console.error('Error deleting contact:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete contact",
+        variant: "destructive"
+      })
+    }
   }
 
-  const handleDeleteContact = async (contactId: string) => {
-    const updatedContacts = contacts.filter(contact => contact.id !== contactId)
-    saveContactsToStorage(updatedContacts)
+  const toggleFavorite = async (contactId: string) => {
+    try {
+      const contact = contacts.find(c => c.id === contactId)
+      if (!contact) return
 
-    toast({
-      title: "Success",
-      description: "Contact deleted successfully"
-    })
-  }
+      const { error } = await supabase
+        .from('contacts')
+        .update({ is_favorite: !contact.is_favorite })
+        .eq('id', contactId)
 
-  const toggleFavorite = (contactId: string) => {
-    const updatedContacts = contacts.map(contact =>
-      contact.id === contactId
-        ? { ...contact, is_favorite: !contact.is_favorite, updated_at: new Date().toISOString() }
-        : contact
-    )
-    saveContactsToStorage(updatedContacts)
+      if (error) throw error
+
+      setContacts(prev => prev.map(c => 
+        c.id === contactId ? { ...c, is_favorite: !c.is_favorite } : c
+      ))
+    } catch (error) {
+      console.error('Error toggling favorite:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update favorite status",
+        variant: "destructive"
+      })
+    }
   }
 
   const resetForm = () => {
@@ -472,28 +381,37 @@ export default function ContactsPage() {
     })
   }
 
-  const openEditDialog = (contact: Contact) => {
-    setFormData({
-      name: contact.name,
-      email: contact.email,
-      phone: contact.phone || '',
-      company: contact.company || '',
-      position: contact.position || '',
-      website: contact.website || '',
-      address: contact.address || '',
-      notes: contact.notes || '',
-      category: contact.category,
-      tags: contact.tags || [],
-      is_favorite: contact.is_favorite
-    })
-    setEditingContact(contact)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!formData.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Name is required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (editingContact) {
+      await updateContact({ ...editingContact, ...formData })
+    } else {
+      await addContact({
+        ...formData,
+        id: Date.now().toString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+    }
   }
 
   const filteredContacts = contacts.filter(contact => {
-    const matchesSearch = contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         contact.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         contact.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         contact.position?.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSearch = !searchQuery || 
+      contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contact.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contact.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contact.position?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contact.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
 
     const matchesCategory = selectedCategory === 'all' || contact.category === selectedCategory
     const matchesFavorites = !showOnlyFavorites || contact.is_favorite
@@ -501,280 +419,103 @@ export default function ContactsPage() {
     return matchesSearch && matchesCategory && matchesFavorites
   })
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'business':
-        return 'bg-blue-500/20 text-blue-400 border-blue-500/50'
-      case 'personal':
-        return 'bg-green-500/20 text-green-400 border-green-500/50'
-      case 'client':
-        return 'bg-purple-500/20 text-purple-400 border-purple-500/50'
-      case 'vendor':
-        return 'bg-orange-500/20 text-orange-400 border-orange-500/50'
-      default:
-        return 'bg-gray-500/20 text-gray-400 border-gray-500/50'
-    }
+  const exportContacts = () => {
+    const csvContent = [
+      ['Name', 'Email', 'Phone', 'Company', 'Position', 'Website', 'Address', 'Notes', 'Category', 'Tags'],
+      ...filteredContacts.map(contact => [
+        contact.name,
+        contact.email || '',
+        contact.phone || '',
+        contact.company || '',
+        contact.position || '',
+        contact.website || '',
+        contact.address || '',
+        contact.notes || '',
+        contact.category,
+        contact.tags.join(', ')
+      ])
+    ].map(row => row.map(field => `"${field}"`).join(',')).join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'contacts.csv'
+    a.click()
+    window.URL.revokeObjectURL(url)
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Please log in to access your contacts</h1>
-          <Button onClick={() => router.push('/login')}>Go to Login</Button>
+      <div className="min-h-screen bg-gray-900 text-white p-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center py-20">
+            <h1 className="text-2xl font-bold mb-4">Please log in to access contacts</h1>
+            <Button onClick={() => router.push('/login')}>Go to Login</Button>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      <header className="leonardo-header">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Button
-                variant="ghost"
-                onClick={() => router.push('/dashboard')}
-                className="mr-4 hover:bg-gray-800"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <div className="flex items-center">
-                <div className="bg-gradient-to-r from-blue-500 to-purple-500 rounded-full p-2 mr-3">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold">Contacts</h1>
-                  <p className="text-gray-400">Manage your contact library</p>
-                </div>
-              </div>
+    <div className="min-h-screen bg-gray-900 text-white p-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.back()}
+              className="text-gray-400 hover:text-white"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Contacts</h1>
+              <p className="text-gray-400">Manage your professional network</p>
             </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                className="border-gray-700 hover:bg-gray-800"
-                onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
-              >
-                {showOnlyFavorites ? <StarOff className="w-4 h-4" /> : <Star className="w-4 h-4" />}
-              </Button>
-              <Dialog open={showUserSearch} onOpenChange={setShowUserSearch}>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-700 hover:bg-blue-900/20 hover:text-blue-400"
-                  >
-                    <Search className="w-4 h-4 mr-2" />
-                    Find User
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[500px]">
-                  <DialogHeader>
-                    <DialogTitle>Search Users</DialogTitle>
-                    <DialogDescription>
-                      Search for existing users by their email address and add them to your contacts
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="py-4">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        placeholder="Search by email address..."
-                        value={userSearchQuery}
-                        onChange={(e) => setUserSearchQuery(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    
-                    <div className="mt-4 max-h-60 overflow-y-auto">
-                      {searchingUsers ? (
-                        <div className="flex items-center justify-center py-8">
-                          <div className="w-6 h-6 border-2 border-t-blue-500 border-b-blue-500 border-l-transparent border-r-transparent rounded-full animate-spin"></div>
-                          <span className="ml-2 text-gray-400">Searching...</span>
-                        </div>
-                      ) : userSearchQuery.length >= 3 ? (
-                        searchResults.length > 0 ? (
-                          <div className="space-y-2">
-                            {searchResults.map((user) => (
-                              <div key={user.id} className="flex items-center justify-between p-3 border border-gray-700 rounded-lg hover:bg-gray-800/50">
-                                <div className="flex items-center space-x-3">
-                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-                                    <span className="text-white text-sm font-semibold">
-                                      {user.name ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : user.email[0].toUpperCase()}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <p className="font-medium">{user.name || user.email}</p>
-                                    <p className="text-sm text-gray-400">{user.email}</p>
-                                  </div>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  onClick={() => addUserAsContact(user)}
-                                  className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                                >
-                                  <Plus className="w-4 h-4 mr-1" />
-                                  Add
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 text-gray-400">
-                            <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                            <p>No users found with that email</p>
-                          </div>
-                        )
-                      ) : userSearchQuery.length > 0 ? (
-                        <div className="text-center py-8 text-gray-400">
-                          <p>Type at least 3 characters to search</p>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-                <DialogTrigger asChild>
-                  <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Contact
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[500px]">
-                  <DialogHeader>
-                    <DialogTitle>Add New Contact</DialogTitle>
-                    <DialogDescription>
-                      Add a new contact to your library
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="name">Name *</Label>
-                        <Input
-                          id="name"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          placeholder="Full name"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="email">Email *</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          placeholder="email@example.com"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="phone">Phone</Label>
-                        <Input
-                          id="phone"
-                          value={formData.phone}
-                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          placeholder="Phone number"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="category">Category</Label>
-                        <Select value={formData.category} onValueChange={(value: any) => setFormData({ ...formData, category: value })}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="business">Business</SelectItem>
-                            <SelectItem value="personal">Personal</SelectItem>
-                            <SelectItem value="client">Client</SelectItem>
-                            <SelectItem value="vendor">Vendor</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="company">Company</Label>
-                        <Input
-                          id="company"
-                          value={formData.company}
-                          onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                          placeholder="Company name"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="position">Position</Label>
-                        <Input
-                          id="position"
-                          value={formData.position}
-                          onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                          placeholder="Job title"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="website">Website</Label>
-                      <Input
-                        id="website"
-                        value={formData.website}
-                        onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                        placeholder="https://example.com"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="address">Address</Label>
-                      <Input
-                        id="address"
-                        value={formData.address}
-                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                        placeholder="Full address"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="notes">Notes</Label>
-                      <Textarea
-                        id="notes"
-                        value={formData.notes}
-                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                        placeholder="Additional notes..."
-                        rows={3}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleAddContact}>Add Contact</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={exportContacts}
+              className="border-gray-600 text-gray-300 hover:bg-gray-800"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+            <Button
+              onClick={() => setShowAddDialog(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Contact
+            </Button>
           </div>
         </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {/* Search and Filter Bar */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search contacts..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+        {/* Search and Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="md:col-span-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Search contacts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-gray-800 border-gray-700 text-white placeholder-gray-400"
+              />
+            </div>
           </div>
+          
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Filter by category" />
+            <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+              <SelectValue placeholder="All Categories" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-gray-800 border-gray-700 text-white">
               <SelectItem value="all">All Categories</SelectItem>
               <SelectItem value="business">Business</SelectItem>
               <SelectItem value="personal">Personal</SelectItem>
@@ -783,236 +524,383 @@ export default function ContactsPage() {
               <SelectItem value="other">Other</SelectItem>
             </SelectContent>
           </Select>
+          
+          <Button
+            variant={showOnlyFavorites ? "default" : "outline"}
+            onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
+            className={showOnlyFavorites ? "bg-blue-600 hover:bg-blue-700" : "border-gray-600 text-gray-300 hover:bg-gray-800"}
+          >
+            <MapPin className={`w-4 h-4 mr-2 ${showOnlyFavorites ? 'text-white' : 'text-blue-500'}`} />
+            Pinned
+          </Button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mb-6">
-          <Card className="leonardo-card border-gray-800">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Team Members</p>
-                  <p className="text-2xl font-bold">{contacts.filter(c => 
-                    c.category === 'business' || 
-                    c.tags.some(tag => ['employee', 'team', 'hired', 'freelancer', 'contractor'].includes(tag.toLowerCase()))
-                  ).length}</p>
-                </div>
-                <Users className="w-8 h-8 text-blue-400" />
+        {/* User Search */}
+        <div className="mb-6">
+          <Button
+            variant="outline"
+            onClick={() => setShowUserSearch(!showUserSearch)}
+            className="border-gray-600 text-gray-300 hover:bg-gray-800"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Find Platform Users
+          </Button>
+          
+          {showUserSearch && (
+            <div className="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+              <div className="flex gap-2 mb-4">
+                <Input
+                  placeholder="Search by email..."
+                  value={userSearchQuery}
+                  onChange={(e) => setUserSearchQuery(e.target.value)}
+                  className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                />
+                <Button
+                  onClick={() => setShowUserSearch(false)}
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-          <Card className="leonardo-card border-gray-800">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Total Contacts</p>
-                  <p className="text-2xl font-bold">{contacts.length}</p>
+              
+              {searchingUsers && (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
                 </div>
-                <Users className="w-8 h-8 text-gray-400" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="leonardo-card border-gray-800">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Business</p>
-                  <p className="text-2xl font-bold">{contacts.filter(c => c.category === 'business').length}</p>
+              )}
+              
+              {searchResults.length > 0 && (
+                <div className="space-y-2">
+                  {searchResults.map((user) => (
+                    <div key={user.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-10 h-10 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => router.push(`/profile/${user.id}`)}
+                          title="Click to view profile"
+                        >
+                          {user.avatar_url ? (
+                            <img 
+                              src={user.avatar_url} 
+                              alt={user.name || user.email}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Fallback to initials if image fails to load
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = `<span class="w-full h-full bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">${user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}</span>`;
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-blue-600 rounded-full flex items-center justify-center">
+                              <span className="text-white font-semibold">
+                                {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{user.name || 'No name'}</p>
+                          <p className="text-sm text-gray-400">{user.email}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => addUserAsContact(user)}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        Add as Contact
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-                <Building className="w-8 h-8 text-purple-400" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="leonardo-card border-gray-800">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Clients</p>
-                  <p className="text-2xl font-bold">{contacts.filter(c => c.category === 'client').length}</p>
-                </div>
-                <UserPlus className="w-8 h-8 text-green-400" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="leonardo-card border-gray-800">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Favorites</p>
-                  <p className="text-2xl font-bold">{contacts.filter(c => c.is_favorite).length}</p>
-                </div>
-                <Star className="w-8 h-8 text-yellow-400" />
-              </div>
-            </CardContent>
-          </Card>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Contacts Grid */}
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="w-16 h-16 border-4 border-t-blue-500 border-b-blue-500 border-l-transparent border-r-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-400">Loading contacts...</p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <Card key={i} className="border-gray-800 bg-gray-800/50 animate-pulse">
+                <CardContent className="p-6">
+                  <div className="h-4 bg-gray-700 rounded mb-4"></div>
+                  <div className="h-3 bg-gray-700 rounded mb-2"></div>
+                  <div className="h-3 bg-gray-700 rounded mb-4"></div>
+                  <div className="h-3 bg-gray-700 rounded"></div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         ) : filteredContacts.length === 0 ? (
-          <div className="text-center py-12">
-            <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <div className="text-center py-20">
+            <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">No contacts found</h3>
-            <p className="text-gray-400 mb-4">
+            <p className="text-gray-400 mb-6">
               {searchQuery || selectedCategory !== 'all' || showOnlyFavorites
-                ? 'Try adjusting your search or filters'
-                : 'Start building your contact library by adding your first contact'}
+                ? 'Try adjusting your search criteria'
+                : 'Start building your network by adding your first contact'
+              }
             </p>
             <Button onClick={() => setShowAddDialog(true)}>
               <Plus className="w-4 h-4 mr-2" />
-              Add First Contact
+              Add Contact
             </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredContacts.map((contact) => (
-              <Card key={contact.id} className="leonardo-card border-gray-800 hover:border-gray-700 transition-colors">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-                        <span className="text-white font-semibold">
-                          {contact.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                        </span>
+              <Card key={contact.id} className="border-gray-800 bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-12 h-12 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => {
+                          // If this is a platform user, navigate to their profile
+                          if (contact.platform_user_id) {
+                            router.push(`/profile/${contact.platform_user_id}`);
+                          }
+                        }}
+                        title={contact.platform_user_id ? "Click to view profile" : "Contact avatar"}
+                      >
+                        <div className="w-full h-full bg-blue-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-semibold text-lg">
+                            {contact.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
                       </div>
                       <div>
-                        <CardTitle className="text-lg">{contact.name}</CardTitle>
-                        <p className="text-sm text-gray-400">{contact.position}</p>
+                        <h3 className="font-semibold text-lg">{contact.name}</h3>
+                        <p className="text-gray-400">{contact.position || 'No position'}</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleFavorite(contact.id)}
-                        className={contact.is_favorite ? 'text-yellow-400' : 'text-gray-400'}
-                      >
-                        {contact.is_favorite ? <Star className="w-4 h-4 fill-current" /> : <Star className="w-4 h-4" />}
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditDialog(contact)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteContact(contact.id)}
-                            className="text-red-400 hover:text-red-300"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Mail className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-300">{contact.email}</span>
-                    </div>
-                    {contact.phone && (
-                      <div className="flex items-center space-x-2">
-                        <Phone className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-300">{contact.phone}</span>
-                      </div>
-                    )}
-                    {contact.company && (
-                      <div className="flex items-center space-x-2">
-                        <Building className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-300">{contact.company}</span>
-                      </div>
-                    )}
-                    {contact.website && (
-                      <div className="flex items-center space-x-2">
-                        <Globe className="w-4 h-4 text-gray-400" />
-                        <a
-                          href={contact.website}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-blue-400 hover:text-blue-300"
+                    
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="bg-gray-800 border-gray-700 text-white">
+                        <DropdownMenuItem onClick={() => setEditingContact(contact)}>
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => deleteContact(contact.id)}
+                          className="text-red-400 hover:text-red-300"
                         >
-                          Website
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  
+                  <div className="space-y-2 mb-4">
+                    {contact.email && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Mail className="w-4 h-4 text-gray-400" />
+                        <a href={`mailto:${contact.email}`} className="text-blue-400 hover:underline">
+                          {contact.email}
                         </a>
                       </div>
                     )}
-                    <div className="flex items-center justify-between mt-4">
-                      <Badge className={`${getCategoryColor(contact.category)} border text-xs`}>
-                        {contact.category}
-                      </Badge>
-                      <span className="text-xs text-gray-500">
-                        {new Date(contact.created_at).toLocaleDateString()}
-                      </span>
+                    
+                    {contact.phone && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="w-4 h-4 text-gray-400" />
+                        <a href={`tel:${contact.phone}`} className="text-blue-400 hover:underline">
+                          {contact.phone}
+                        </a>
+                      </div>
+                    )}
+                    
+                    {contact.company && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Building className="w-4 h-4 text-gray-400" />
+                        <span>{contact.company}</span>
+                      </div>
+                    )}
+                    
+                    {contact.website && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Globe className="w-4 h-4 text-gray-400" />
+                        <a 
+                          href={contact.website.startsWith('http') ? contact.website : `https://${contact.website}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:underline"
+                        >
+                          {contact.website}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {contact.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-4">
+                      {contact.tags.map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="bg-gray-700 text-gray-300">
+                          {tag}
+                        </Badge>
+                      ))}
                     </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between">
+                    <Badge 
+                      variant="outline" 
+                      className={`border-gray-600 ${
+                        contact.category === 'business' ? 'text-blue-400' :
+                        contact.category === 'personal' ? 'text-green-400' :
+                        contact.category === 'client' ? 'text-purple-400' :
+                        contact.category === 'vendor' ? 'text-orange-400' :
+                        'text-gray-400'
+                      }`}
+                    >
+                      {contact.category}
+                    </Badge>
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => toggleFavorite(contact.id)}
+                      className={contact.is_favorite ? 'text-blue-500 hover:text-blue-400' : 'text-gray-400 hover:text-blue-500'}
+                    >
+                      <MapPin className={`w-5 h-5 ${contact.is_favorite ? 'fill-current' : ''}`} />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
-      </main>
+      </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingContact} onOpenChange={(open) => !open && setEditingContact(null)}>
-        <DialogContent className="sm:max-w-[500px]">
+      {/* Add/Edit Contact Dialog */}
+      <Dialog open={showAddDialog || !!editingContact} onOpenChange={() => {
+        setShowAddDialog(false)
+        setEditingContact(null)
+        resetForm()
+      }}>
+        <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Contact</DialogTitle>
+            <DialogTitle>
+              {editingContact ? 'Edit Contact' : 'Add New Contact'}
+            </DialogTitle>
             <DialogDescription>
-              Update contact information
+              {editingContact ? 'Update your contact information' : 'Add a new contact to your network'}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="edit-name">Name *</Label>
+                <Label htmlFor="name">Name *</Label>
                 <Input
-                  id="edit-name"
+                  id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Full name"
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  className="bg-gray-700 border-gray-600 text-white"
+                  required
                 />
               </div>
+              
               <div>
-                <Label htmlFor="edit-email">Email *</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="edit-email"
+                  id="email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="email@example.com"
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  className="bg-gray-700 border-gray-600 text-white"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  className="bg-gray-700 border-gray-600 text-white"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="company">Company</Label>
+                <Input
+                  id="company"
+                  value={formData.company}
+                  onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
+                  className="bg-gray-700 border-gray-600 text-white"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="position">Position</Label>
+                <Input
+                  id="position"
+                  value={formData.position}
+                  onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value }))}
+                  className="bg-gray-700 border-gray-600 text-white"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="website">Website</Label>
+                <Input
+                  id="website"
+                  value={formData.website}
+                  onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
+                  className="bg-gray-700 border-gray-600 text-white"
+                  placeholder="https://example.com"
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            
+            <div>
+              <Label htmlFor="address">Address</Label>
+              <Textarea
+                id="address"
+                value={formData.address}
+                onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                className="bg-gray-700 border-gray-600 text-white"
+                rows={2}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                className="bg-gray-700 border-gray-600 text-white"
+                rows={3}
+                placeholder="Add any additional notes about this contact..."
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="edit-phone">Phone</Label>
-                <Input
-                  id="edit-phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="Phone number"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-category">Category</Label>
-                <Select value={formData.category} onValueChange={(value: any) => setFormData({ ...formData, category: value })}>
-                  <SelectTrigger>
+                <Label htmlFor="category">Category</Label>
+                <Select 
+                  value={formData.category} 
+                  onValueChange={(value: any) => setFormData(prev => ({ ...prev, category: value }))}
+                >
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-gray-800 border-gray-700 text-white">
                     <SelectItem value="business">Business</SelectItem>
                     <SelectItem value="personal">Personal</SelectItem>
                     <SelectItem value="client">Client</SelectItem>
@@ -1021,62 +909,51 @@ export default function ContactsPage() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+              
               <div>
-                <Label htmlFor="edit-company">Company</Label>
+                <Label htmlFor="tags">Tags (comma-separated)</Label>
                 <Input
-                  id="edit-company"
-                  value={formData.company}
-                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                  placeholder="Company name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-position">Position</Label>
-                <Input
-                  id="edit-position"
-                  value={formData.position}
-                  onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                  placeholder="Job title"
+                  id="tags"
+                  value={formData.tags.join(', ')}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag)
+                  }))}
+                  className="bg-gray-700 border-gray-600 text-white"
+                  placeholder="developer, mobile, react"
                 />
               </div>
             </div>
-            <div>
-              <Label htmlFor="edit-website">Website</Label>
-              <Input
-                id="edit-website"
-                value={formData.website}
-                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                placeholder="https://example.com"
+            
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="is_favorite"
+                checked={formData.is_favorite}
+                onChange={(e) => setFormData(prev => ({ ...prev, is_favorite: e.target.checked }))}
+                className="rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500"
               />
+              <Label htmlFor="is_favorite">Pin this contact</Label>
             </div>
-            <div>
-              <Label htmlFor="edit-address">Address</Label>
-              <Input
-                id="edit-address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="Full address"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-notes">Notes</Label>
-              <Textarea
-                id="edit-notes"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Additional notes..."
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingContact(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateContact}>Update Contact</Button>
-          </DialogFooter>
+            
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowAddDialog(false)
+                  setEditingContact(null)
+                  resetForm()
+                }}
+                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                {editingContact ? 'Update Contact' : 'Add Contact'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

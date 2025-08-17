@@ -183,17 +183,34 @@ function StatusCard({ project, onStatusChange, canChangeStatus }: { project: Pro
   if (!project) return null;
 
   const handleDeadlineUpdate = async () => {
-    if (!project || !newDeadline) return
+    if (!project) return
+    
     setIsUpdating(true)
     try {
+      let deadlineValue = null
+      
+      // If a deadline is provided, format it properly
+      if (newDeadline && newDeadline.trim()) {
+        const deadlineDate = new Date(newDeadline)
+        deadlineDate.setHours(23, 59, 59, 999)
+        deadlineValue = deadlineDate.toISOString()
+      }
+      
       const { error } = await supabase
         .from('projects')
-        .update({ deadline: newDeadline })
+        .update({ deadline: deadlineValue })
         .eq('id', project.id)
 
       if (error) throw error
+      
       toast.success('Deadline updated successfully')
       setShowDeadlineDialog(false)
+      
+      // Update the local project state instead of reloading the page
+      if (project) {
+        project.deadline = deadlineValue || undefined
+      }
+      
       // Refresh the page to show updated deadline
       window.location.reload()
     } catch (error) {
@@ -641,6 +658,8 @@ export default function ProjectDetails() {
     receipt_url: '',
     notes: ''
   })
+  const [showDeadlineDialog, setShowDeadlineDialog] = useState(false)
+  const [newDeadline, setNewDeadline] = useState(project?.deadline ? new Date(project.deadline).toISOString().split('T')[0] : '')
   const [isRenamingTeamFile, setIsRenamingTeamFile] = useState(false);
   const [teamFileToRename, setTeamFileToRename] = useState<MediaFile | null>(null);
   const [newTeamFileName, setNewTeamFileName] = useState('');
@@ -766,6 +785,38 @@ export default function ProjectDetails() {
       toast.success('File renamed successfully');
     } catch (error) {
       toast.error('Failed to rename file');
+    }
+  };
+
+  const handleDeadlineUpdate = async () => {
+    if (!project) return;
+    
+    try {
+      let deadlineValue = null;
+      
+      // If a deadline is provided, format it properly
+      if (newDeadline && newDeadline.trim()) {
+        const deadlineDate = new Date(newDeadline);
+        deadlineDate.setHours(23, 59, 59, 999);
+        deadlineValue = deadlineDate.toISOString();
+      }
+      
+      const { error } = await supabase
+        .from('projects')
+        .update({ deadline: deadlineValue })
+        .eq('id', project.id);
+
+      if (error) throw error;
+      
+      toast.success('Deadline updated successfully');
+      setShowDeadlineDialog(false);
+      
+      // Update the local project state
+      setProject(prev => prev ? { ...prev, deadline: deadlineValue || undefined } : prev);
+      
+    } catch (error) {
+      console.error('Error updating deadline:', error);
+      toast.error('Failed to update deadline');
     }
   };
 
@@ -2460,15 +2511,9 @@ export default function ProjectDetails() {
     if (!project) return;
     setUpdatingProjectAccessSetting(true);
     try {
-      const { data, error } = await supabase
-        .from('projects')
-        .update({ show_project_access: !project.show_project_access })
-        .eq('id', project.id)
-        .select()
-        .single();
-      if (error) throw error;
-      setProject(data);
-      toast.success(`Project Access card is now ${data.show_project_access ? 'visible' : 'hidden'}`);
+      // For now, we'll use a placeholder property until the database schema is updated
+      // This function can be implemented later when the show_project_access column is added
+      toast.info('Project Access visibility toggle will be implemented soon');
     } catch (err) {
       toast.error('Failed to update Project Access visibility');
     } finally {
@@ -3172,15 +3217,15 @@ export default function ProjectDetails() {
                 <div className="mb-4">
                   <div className="flex items-center gap-3 mb-2">
                     <Switch
-                      checked={!!project?.show_project_access}
+                      checked={true}
                       onCheckedChange={handleToggleProjectAccess}
                       disabled={updatingProjectAccessSetting}
                     />
                     <span className="text-sm text-gray-300">
-                      {project?.show_project_access ? 'Show Project Access' : 'Hide Project Access'}
+                      Show Project Access
                     </span>
                   </div>
-                  {project?.show_project_access !== false && !isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
+                  {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
                     <Card className="leonardo-card border-gray-800">
                       <CardHeader>
                         <div className="flex items-center justify-between">
@@ -3996,10 +4041,10 @@ export default function ProjectDetails() {
                             {member.access_level && (
                               <p className="text-xs text-gray-400">Access Level: {member.access_level}</p>
                             )}
-              </div>
-            </div>
+                          </div>
+                        </div>
                         {user?.role && (['partner', 'admin', 'investor', 'ceo'] as const).includes(user.role as any) && !isAccessLevel3 && (
-                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -4018,7 +4063,7 @@ export default function ProjectDetails() {
                             </Button>
                           </div>
                         )}
-      </div>
+                      </div>
                     </div>
                   ))}
                   {user?.role && (['partner', 'admin', 'investor', 'ceo'] as const).includes(user.role as any) && !isAccessLevel3 && (
@@ -4030,10 +4075,43 @@ export default function ProjectDetails() {
                       Add Team Member
                     </Button>
                   )}
-                  </div>
+                </div>
               </CardContent>
             </Card>
             )}
+
+            {/* Project Deadline */}
+            <Card className="leonardo-card border-gray-800">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Calendar className="w-5 h-5 mr-2" />
+                  Project Deadline
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Set or update the project deadline
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-400">Current Deadline:</span>
+                    <span className="text-white font-medium">
+                      {project?.deadline ? new Date(project.deadline).toLocaleDateString() : 'Not set'}
+                    </span>
+                  </div>
+                  {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
+                    <Button
+                      variant="outline"
+                      className="w-full border-purple-500/20 hover:bg-purple-500/10 hover:text-purple-400"
+                      onClick={() => setShowDeadlineDialog(true)}
+                    >
+                      <Pencil className="w-4 h-4 mr-2" />
+                      {project?.deadline ? 'Update Deadline' : 'Set Deadline'}
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Project Actions */}
             {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
@@ -5069,6 +5147,42 @@ export default function ProjectDetails() {
               Upload
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Deadline Dialog */}
+      <Dialog open={showDeadlineDialog} onOpenChange={setShowDeadlineDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Deadline</DialogTitle>
+            <DialogDescription>
+              Choose a new deadline for this project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="deadline">Deadline</Label>
+              <Input
+                id="deadline"
+                type="date"
+                value={newDeadline}
+                onChange={(e) => setNewDeadline(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeadlineDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeadlineUpdate}
+            >
+              Update Deadline
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -118,6 +118,7 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { DashboardSettings } from "@/app/components/dashboard-settings"
 
 // Project status badge component
 function StatusBadge({ status }: { status: string }) {
@@ -264,6 +265,245 @@ export default function PartnerDashboard() {
   const [dashboardSearchQuery, setDashboardSearchQuery] = useState('')
   const [dashboardSearchResults, setDashboardSearchResults] = useState<any[]>([])
   const [isDashboardSearching, setIsDashboardSearching] = useState(false)
+  
+  // User preferences state
+  const [userPreferences, setUserPreferences] = useState<any>(null)
+  const [selectedApps, setSelectedApps] = useState<string[]>(['updates', 'messages', 'projects', 'withdraw', 'feed', 'workspace'])
+  const [isViewLocked, setIsViewLocked] = useState(false)
+
+  // Load user preferences from database
+  const loadUserPreferences = async () => {
+    if (!user?.id) return
+
+    try {
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
+        console.error('Error loading user preferences:', error)
+        return
+      }
+
+      if (data) {
+        setUserPreferences(data)
+        setSelectedApps(data.dashboard_apps || ['updates', 'messages', 'projects', 'withdraw', 'feed', 'workspace'])
+        setDashboardView(data.dashboard_view || 'default')
+        
+        // Check if view is locked (stored in preferences JSONB field)
+        const preferences = data.preferences || {}
+        setIsViewLocked(preferences.viewLocked || false)
+      }
+    } catch (error) {
+      console.error('Error loading user preferences:', error)
+    }
+  }
+
+  // Update user preferences in database
+  const updateUserPreferences = async (updates: any) => {
+    if (!user?.id) return
+
+    try {
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: user.id,
+          ...updates
+        }, {
+          onConflict: 'user_id'
+        })
+
+      if (error) throw error
+    } catch (error) {
+      console.error('Error updating user preferences:', error)
+    }
+  }
+
+  // Handle dashboard apps change
+  const handleAppsChange = (newSelectedApps: string[]) => {
+    setSelectedApps(newSelectedApps)
+    updateUserPreferences({ dashboard_apps: newSelectedApps })
+  }
+
+  // Handle dashboard view change with lock check
+  const handleViewChange = (newView: 'default' | 'compact' | 'grid' | 'ai') => {
+    if (isViewLocked) {
+      toast({
+        title: "View Locked",
+        description: "Your dashboard view is locked. Change this in settings.",
+        variant: "default"
+      })
+      return
+    }
+    setDashboardView(newView)
+    updateUserPreferences({ dashboard_view: newView })
+  }
+
+  // Toggle view lock
+  const toggleViewLock = () => {
+    const newLockState = !isViewLocked
+    setIsViewLocked(newLockState)
+    
+    const currentPrefs = userPreferences?.preferences || {}
+    updateUserPreferences({ 
+      preferences: { 
+        ...currentPrefs, 
+        viewLocked: newLockState 
+      } 
+    })
+  }
+
+  // Change view and lock it
+  const changeViewAndLock = (newView: 'default' | 'compact' | 'grid' | 'ai') => {
+    setDashboardView(newView)
+    setIsViewLocked(true)
+    
+    // Update both view and lock state
+    const currentPrefs = userPreferences?.preferences || {}
+    updateUserPreferences({ 
+      dashboard_view: newView,
+      preferences: { 
+        ...currentPrefs, 
+        viewLocked: true 
+      } 
+    })
+  }
+
+  // Define available apps for quick access
+  const getAppConfig = (appId: string) => {
+    const configs = {
+      updates: {
+        icon: <Bell className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/updates',
+        label: 'Updates',
+        className: 'bg-yellow-500/20 hover:bg-yellow-500/30 hover:text-yellow-400 border-yellow-500/30',
+        badge: unreadMessages > 0 ? unreadMessages : null
+      },
+      messages: {
+        icon: <MessageSquare className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/messages',
+        label: 'Messages',
+        className: 'bg-purple-500/20 hover:bg-purple-500/30 hover:text-purple-400 border-purple-500/30',
+        badge: unreadMessages > 0 ? unreadMessages : null
+      },
+      projects: {
+        icon: <Briefcase className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/projects',
+        label: 'Projects',
+        className: 'bg-blue-500/20 hover:bg-blue-500/30 hover:text-blue-400 border-blue-500/30',
+        badge: null
+      },
+      withdraw: {
+        icon: <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/withdraw',
+        label: 'Withdraw',
+        className: 'bg-green-500/20 hover:bg-green-500/30 hover:text-green-400 border-green-500/30',
+        badge: null
+      },
+      feed: {
+        icon: <Users className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/feed',
+        label: 'Activity Feed',
+        className: 'bg-orange-500/20 hover:bg-orange-500/30 hover:text-orange-400 border-orange-500/30',
+        badge: null
+      },
+      workspace: {
+        icon: <FolderKanban className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/workmode',
+        label: 'Workspace',
+        className: 'bg-indigo-500/20 hover:bg-indigo-500/30 hover:text-indigo-400 border-indigo-500/30',
+        badge: null
+      },
+      analytics: {
+        icon: <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/analytics',
+        label: 'Analytics',
+        className: 'bg-cyan-500/20 hover:bg-cyan-500/30 hover:text-cyan-400 border-cyan-500/30',
+        badge: null
+      },
+      calendar: {
+        icon: <Calendar className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/schedule',
+        label: 'Calendar',
+        className: 'bg-pink-500/20 hover:bg-pink-500/30 hover:text-pink-400 border-pink-500/30',
+        badge: null
+      },
+      contracts: {
+        icon: <FileText className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/contract-library',
+        label: 'Contracts',
+        className: 'bg-teal-500/20 hover:bg-teal-500/30 hover:text-teal-400 border-teal-500/30',
+        badge: null
+      },
+      calculator: {
+        icon: <Calculator className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/calculator',
+        label: 'Calculator',
+        className: 'bg-emerald-500/20 hover:bg-emerald-500/30 hover:text-emerald-400 border-emerald-500/30',
+        badge: null
+      },
+      organizations: {
+        icon: <Building2 className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/myorganizations',
+        label: 'Organizations',
+        className: 'bg-violet-500/20 hover:bg-violet-500/30 hover:text-violet-400 border-violet-500/30',
+        badge: null
+      },
+      marketplace: {
+        icon: <Globe className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/marketplace',
+        label: 'Marketplace',
+        className: 'bg-red-500/20 hover:bg-red-500/30 hover:text-red-400 border-red-500/30',
+        badge: null
+      },
+      notes: {
+        icon: <PenSquare className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/notes',
+        label: 'Notes',
+        className: 'bg-amber-500/20 hover:bg-amber-500/30 hover:text-amber-400 border-amber-500/30',
+        badge: null
+      },
+      payments: {
+        icon: <Wallet className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
+        route: '/managepayments',
+        label: 'Payments',
+        className: 'bg-lime-500/20 hover:bg-lime-500/30 hover:text-lime-400 border-lime-500/30',
+        badge: null
+      }
+    }
+    return configs[appId as keyof typeof configs]
+  }
+
+  // Render quick access apps dynamically
+  const renderQuickAccessApps = () => {
+    return selectedApps.map((appId) => {
+      const config = getAppConfig(appId)
+      if (!config) return null
+
+      return (
+        <div key={appId} className="flex flex-col items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className={`relative w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 p-2 sm:p-3 lg:p-4 rounded-lg border transition-transform duration-200 hover:-translate-y-1 ${config.className}`}
+            onClick={() => router.push(config.route)}
+          >
+            {config.icon}
+            {config.badge && (
+              <span className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 bg-red-500 rounded-full text-xs flex items-center justify-center text-white font-bold">
+                {config.badge}
+              </span>
+            )}
+          </Button>
+          <span className={`text-[10px] text-gray-400 uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} sm:block`}>
+            {config.label}
+          </span>
+        </div>
+      )
+    })
+  }
 
   // Show labels for 10 seconds on page load
   useEffect(() => {
@@ -478,6 +718,8 @@ export default function PartnerDashboard() {
         console.log('Dashboard: Auth check complete, user found:', user.email)
         // Check for approved positions when user is loaded
         checkApprovedPositions()
+        // Load user preferences
+        loadUserPreferences()
       }
     } else {
       console.log('Dashboard: Auth check in progress...')
@@ -1957,29 +2199,32 @@ export default function PartnerDashboard() {
                 variant={dashboardView === 'default' ? 'default' : 'ghost'}
                 size="sm"
                 className={`h-8 px-3 ${dashboardView === 'default' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-700/50'}`}
-                onClick={() => setDashboardView('default')}
+                onClick={() => changeViewAndLock('default')}
               >
                 <Layout className="w-4 h-4 mr-1" />
                 Default
+                {isViewLocked && dashboardView === 'default' && <Lock className="w-3 h-3 ml-1" />}
               </Button>
               <Button
                 variant={dashboardView === 'compact' ? 'default' : 'ghost'}
                 size="sm"
                 className={`h-8 px-3 ${dashboardView === 'compact' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-700/50'}`}
-                onClick={() => setDashboardView('compact')}
+                onClick={() => changeViewAndLock('compact')}
               >
                 <List className="w-4 h-4 mr-1" />
                 Compact
+                {isViewLocked && dashboardView === 'compact' && <Lock className="w-3 h-3 ml-1" />}
               </Button>
               
               <Button
                 variant={dashboardView === 'ai' ? 'default' : 'ghost'}
                 size="sm"
                 className={`h-8 px-3 ${dashboardView === 'ai' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-700/50'}`}
-                onClick={() => setDashboardView('ai')}
+                onClick={() => changeViewAndLock('ai')}
               >
                 <Bot className="w-4 h-4 mr-1" />
                 AI
+                {isViewLocked && dashboardView === 'ai' && <Lock className="w-3 h-3 ml-1" />}
               </Button>
             </div>
             
@@ -2137,7 +2382,7 @@ export default function PartnerDashboard() {
           <>
             {/* Quick Access Icons */}
         <div 
-          className="leonardo-card p-4 sm:p-6 mb-6 bg-gradient-to-r from-gray-800/50 to-gray-900/50"
+          className="leonardo-card p-4 sm:p-6 mb-6 bg-gradient-to-r from-gray-800/50 to-gray-900/50 relative"
           onMouseEnter={() => {
             setShowLabels(true)
             // Reset the 10-second timer when hovering
@@ -2153,113 +2398,18 @@ export default function PartnerDashboard() {
             // Don't hide labels immediately on mouse leave, let the timer handle it
           }}
         >
+          {/* Settings Button */}
+          <DashboardSettings 
+            onSettingsChange={handleAppsChange}
+            currentApps={selectedApps}
+            isViewLocked={isViewLocked}
+            onViewLockToggle={toggleViewLock}
+            currentView={dashboardView}
+            onViewChange={changeViewAndLock}
+          />
           <div className="flex justify-center items-center">
-            <div className="grid grid-cols-4 sm:grid-cols-7 gap-3 sm:gap-6 lg:gap-8 w-full max-w-4xl">
-              <div className="flex flex-col items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="relative w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-yellow-500/20 hover:bg-yellow-500/30 hover:text-yellow-400 p-2 sm:p-3 lg:p-4 rounded-lg border border-yellow-500/30 transition-transform duration-200 hover:-translate-y-1"
-                  onClick={() => router.push('/updates')}
-                >
-                  <Bell className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
-                  {unreadMessages > 0 && (
-                    <span className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 bg-red-500 rounded-full text-xs flex items-center justify-center text-white font-bold">
-                      {unreadMessages}
-                    </span>
-                  )}
-                </Button>
-                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} sm:block`}>Updates</span>
-              </div>
-
-              <div className="flex flex-col items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="relative w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-purple-500/20 hover:bg-purple-500/30 hover:text-purple-400 p-2 sm:p-3 lg:p-4 rounded-lg border border-purple-500/30 transition-transform duration-200 hover:-translate-y-1"
-                  onClick={() => router.push('/messages')}
-                >
-                  <MessageSquare className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
-                  {unreadMessages > 0 && (
-                    <span className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 bg-red-500 rounded-full text-xs flex items-center justify-center text-white font-bold">
-                      {unreadMessages}
-                    </span>
-                  )}
-                </Button>
-                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} sm:block`}>Messages</span>
-              </div>
-
-              <div className="flex flex-col items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-blue-500/20 hover:bg-blue-500/30 hover:text-blue-400 p-2 sm:p-3 lg:p-4 rounded-lg border border-blue-500/30 transition-transform duration-200 hover:-translate-y-1"
-                  onClick={() => router.push('/projects')}
-                >
-                  <Briefcase className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
-                </Button>
-                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} sm:block`}>Projects</span>
-              </div>
-
-              <div className="flex flex-col items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-green-500/20 hover:bg-green-500/30 hover:text-green-400 p-2 sm:p-3 lg:p-4 rounded-lg border border-green-500/30 transition-transform duration-200 hover:-translate-y-1"
-                  onClick={() => router.push('/withdraw')}
-                >
-                  <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
-                </Button>
-                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} sm:block`}>Withdraw</span>
-              </div>
-
-              <div className="flex flex-col items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-purple-500/20 hover:bg-purple-500/30 hover:text-purple-400 p-2 sm:p-3 lg:p-4 rounded-lg border border-purple-500/30 transition-transform duration-200 hover:-translate-y-1"
-                  onClick={() => router.push('/workflow')}
-                >
-                  <Workflow className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
-                </Button>
-                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} sm:block`}>Tasks</span>
-              </div>
-
-              <div className="flex flex-col items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-orange-500/20 hover:bg-orange-500/30 hover:text-orange-400 p-2 sm:p-3 lg:p-4 rounded-lg border border-orange-500/30 transition-transform duration-200 hover:-translate-y-1"
-                  onClick={() => router.push('/feed')}
-                >
-                  <Users className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
-                </Button>
-                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} sm:block`}>Activity Feed</span>
-              </div>
-
-              <div className="flex flex-col items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-indigo-500/20 hover:bg-indigo-500/30 hover:text-indigo-400 p-2 sm:p-3 lg:p-4 rounded-lg border border-indigo-500/30 transition-transform duration-200 hover:-translate-y-1"
-                  onClick={() => router.push('/workmode')}
-                >
-                  <FolderKanban className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
-                </Button>
-                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} sm:block`}>Workspace</span>
-              </div>
-
-              <div className="flex flex-col items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-cyan-500/20 hover:bg-cyan-500/30 hover:text-cyan-400 p-2 sm:p-3 lg:p-4 rounded-lg border border-cyan-500/30 transition-transform duration-200 hover:-translate-y-1"
-                  onClick={() => router.push('/file-download')}
-                >
-                  <UploadCloud className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
-                </Button>
-                <span className={`text-xs text-gray-400 font-bold uppercase tracking-wide transition-all duration-200 transform ${showLabels ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} sm:block`}>File Sharing</span>
-              </div>
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 sm:gap-6 lg:gap-8 w-full max-w-4xl">
+              {renderQuickAccessApps()}
             </div>
           </div>
         </div>

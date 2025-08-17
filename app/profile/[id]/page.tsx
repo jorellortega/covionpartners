@@ -541,7 +541,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ resume_visible: visible })
-        .eq('user_id', profileData.id)
+        .eq('user_id', profileData.user_id)
       
       if (updateError) {
         console.error('Profile update error:', updateError)
