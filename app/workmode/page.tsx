@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
 import { useTeamMembers } from "@/hooks/useTeamMembers"
 import { createEntityLink } from "@/lib/entity-links"
+import ProjectLinks from './timeline/[id]/ProjectLinks'
 import {
   Select,
   SelectTrigger,
@@ -76,6 +77,7 @@ const mockRooms = [
   { id: "tasks", name: "Tasks", icon: <FolderKanban className="w-4 h-4 mr-1" /> },
   { id: "notes", name: "Notes", icon: <StickyNote className="w-4 h-4 mr-1" /> },
   { id: "files", name: "Files", icon: <FileText className="w-4 h-4 mr-1" /> },
+  { id: "links", name: "Links", icon: <LinkIcon className="w-4 h-4 mr-1" /> },
   { id: "meetings", name: "Meetings", icon: <Users className="w-4 h-4 mr-1" /> },
 ]
 const mockComments = [
@@ -220,6 +222,10 @@ function WorkModeContent() {
   const [newProjectNoteTitle, setNewProjectNoteTitle] = useState("")
   const [creatingNote, setCreatingNote] = useState(false)
   const [showNoteForm, setShowNoteForm] = useState(false)
+  const [editingNote, setEditingNote] = useState<any>(null)
+  const [editNoteContent, setEditNoteContent] = useState("")
+  const [editNoteTitle, setEditNoteTitle] = useState("")
+  const [deletingNote, setDeletingNote] = useState<string | null>(null)
   const [zoomMeetings, setZoomMeetings] = useState<any[]>([])
   const [zoomLoading, setZoomLoading] = useState(false)
   const [zoomAuthenticated, setZoomAuthenticated] = useState(false)
@@ -256,12 +262,23 @@ function WorkModeContent() {
   // Member search functionality
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false)
   const [isFileUploadModalOpen, setIsFileUploadModalOpen] = useState(false)
+  const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false)
+  const [isInviteMembersModalOpen, setIsInviteMembersModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [searching, setSearching] = useState(false)
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [selectedRole, setSelectedRole] = useState<'lead' | 'member' | 'advisor' | 'consultant'>('member')
   const [addingMember, setAddingMember] = useState(false)
+  const [invitingToGroup, setInvitingToGroup] = useState(false)
+  const [guests, setGuests] = useState<any[]>([])
+  const [guestsLoading, setGuestsLoading] = useState(false)
+  const [newGroup, setNewGroup] = useState({
+    name: '',
+    description: '',
+    is_private: false
+  })
+  const [creatingGroup, setCreatingGroup] = useState(false)
 
   // Load/save current focus from localStorage
   useEffect(() => {
@@ -413,15 +430,15 @@ function WorkModeContent() {
         // Fetch user details for each note
         const notesWithUser = await Promise.all(
           data.map(async (note) => {
-            if (!note.created_by) return { ...note, user: { name: 'Unknown' } };
+            if (!note.created_by) return { ...note, user: { name: 'Unknown', id: null } };
             const { data: userData } = await supabase
               .from('users')
-              .select('name, email')
+              .select('id, name, email')
               .eq('id', note.created_by)
               .single();
             return {
               ...note,
-              user: userData || { name: note.created_by }
+              user: userData || { id: note.created_by, name: 'Unknown', email: note.created_by }
             };
           })
         );
@@ -454,7 +471,7 @@ function WorkModeContent() {
     if (!currentProject?.id) return;
     const fetchActivities = async () => {
       const { data, error } = await supabase
-        .from('activity_log')
+        .from('work_activities')
         .select('*, user:users(name, email)')
         .eq('project_id', currentProject.id)
         .order('created_at', { ascending: false })
@@ -512,6 +529,13 @@ function WorkModeContent() {
   useEffect(() => {
     if (currentProject?.id) {
       fetchProjectSubmissions();
+    }
+  }, [currentProject?.id]);
+
+  // Fetch guests for the current project's organization
+  useEffect(() => {
+    if (currentProject?.id) {
+      fetchGuests();
     }
   }, [currentProject?.id]);
 
@@ -705,13 +729,17 @@ function WorkModeContent() {
 
       // Log activity
       if (data && data[0] && user) {
-        await supabase.from('activity_log').insert([{
+        await supabase.from('work_activities').insert([{
           user_id: user.id,
           project_id: currentProject.id,
-          action_type: 'created_timeline_item',
-          entity_type: 'timeline',
-          entity_id: data[0].id,
-          description: `${user.name || user.email} created timeline item "${newTimelineItem.title}"`,
+          activity_type: 'task_update',
+          activity_data: {
+            action: 'created_timeline_item',
+            title: newTimelineItem.title,
+            type: newTimelineItem.type
+          },
+          related_entity_type: 'timeline',
+          related_entity_id: data[0].id
         }]);
       }
 
@@ -788,13 +816,17 @@ function WorkModeContent() {
 
       // Log activity
       if (user) {
-        await supabase.from('activity_log').insert([{
+        await supabase.from('work_activities').insert([{
           user_id: user.id,
           project_id: currentProject.id,
-          action_type: 'edited_timeline_item',
-          entity_type: 'timeline',
-          entity_id: editingTimelineItem.id,
-          description: `${user.name || user.email} edited timeline item "${editingTimelineItem.title}"`,
+          activity_type: 'task_update',
+          activity_data: {
+            action: 'edited_timeline_item',
+            title: editingTimelineItem.title,
+            type: editingTimelineItem.type
+          },
+          related_entity_type: 'timeline',
+          entity_id: editingTimelineItem.id
         }]);
       }
 
@@ -1027,6 +1059,118 @@ function WorkModeContent() {
     } finally {
       setCreatingNote(false);
     }
+  };
+
+  const handleEditNote = async () => {
+    if (!editingNote || !editNoteContent.trim() || !currentProject?.id || !user) {
+      toast.error("Please enter note content");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('notes')
+        .update({
+          content: editNoteContent.trim(),
+          note_title: editNoteTitle.trim() || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingNote.id);
+
+      if (error) throw error;
+
+      // Log activity
+      if (user) {
+        await supabase.from('work_activities').insert([{
+          user_id: user.id,
+          project_id: currentProject.id,
+          action_type: 'edited_note',
+          entity_type: 'note',
+          entity_id: editingNote.id,
+          activity_data: {
+            note_title: editNoteTitle.trim() || null,
+            content: editNoteContent.trim()
+          },
+          description: `${user.name || user.email} edited a note`,
+          created_at: new Date().toISOString()
+        }]);
+      }
+
+      toast.success("Note updated successfully");
+      setEditingNote(null);
+      setEditNoteContent("");
+      setEditNoteTitle("");
+      
+      // Refresh notes
+      const { data: updatedNotes } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('entity_type', 'project')
+        .eq('entity_id', currentProject.id)
+        .order('created_at', { ascending: false });
+      setProjectNotes(updatedNotes || []);
+    } catch (error: any) {
+      console.error('Error updating note:', error);
+      toast.error(error.message || "Failed to update note");
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!currentProject?.id || !user) {
+      toast.error("Unauthorized");
+      return;
+    }
+
+    try {
+      setDeletingNote(noteId);
+      const { error } = await supabase
+        .from('notes')
+        .delete()
+        .eq('id', noteId);
+
+      if (error) throw error;
+
+      // Log activity
+      if (user) {
+        await supabase.from('work_activities').insert([{
+          user_id: user.id,
+          project_id: currentProject.id,
+          action_type: 'deleted_note',
+          entity_type: 'note',
+          entity_id: noteId,
+          description: `${user.name || user.email} deleted a note`,
+          created_at: new Date().toISOString()
+        }]);
+      }
+
+      toast.success("Note deleted successfully");
+      
+      // Refresh notes
+      const { data: updatedNotes } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('entity_type', 'project')
+        .eq('entity_id', currentProject.id)
+        .order('created_at', { ascending: false });
+      setProjectNotes(updatedNotes || []);
+    } catch (error: any) {
+      console.error('Error deleting note:', error);
+      toast.error(error.message || "Failed to delete note");
+    } finally {
+      setDeletingNote(null);
+    }
+  };
+
+  const startEditingNote = (note: any) => {
+    setEditingNote(note);
+    setEditNoteContent(note.content || "");
+    setEditNoteTitle(note.note_title || "");
+  };
+
+  const cancelEditingNote = () => {
+    setEditingNote(null);
+    setEditNoteContent("");
+    setEditNoteTitle("");
   };
 
   // Zoom API Integration
@@ -1451,6 +1595,213 @@ function WorkModeContent() {
     });
   };
 
+  const openCreateGroupModal = () => {
+    setIsCreateGroupModalOpen(true);
+    // Reset form when opening modal
+    setNewGroup({
+      name: '',
+      description: '',
+      is_private: false
+    });
+  };
+
+  const openInviteMembersModal = () => {
+    setIsInviteMembersModalOpen(true);
+    // Reset form when opening modal
+    setSearchQuery("");
+    setSearchResults([]);
+    setSelectedUser(null);
+  };
+
+  const fetchGuests = async () => {
+    if (!currentProject?.id) return;
+    
+    setGuestsLoading(true);
+    try {
+      // First get the organization ID from the project
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .select('organization_id')
+        .eq('id', currentProject.id)
+        .single();
+
+      if (projectError || !projectData?.organization_id) {
+        console.error('Error fetching project organization:', projectError);
+        setGuests([]);
+        return;
+      }
+
+      // Fetch guests for the organization
+      const { data: guestsData, error: guestsError } = await supabase
+        .from('guest_accounts')
+        .select('*')
+        .eq('organization_id', projectData.organization_id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (guestsError) {
+        console.error('Error fetching guests:', guestsError);
+        setGuests([]);
+      } else {
+        setGuests(guestsData || []);
+      }
+    } catch (error) {
+      console.error('Error in fetchGuests:', error);
+      setGuests([]);
+    } finally {
+      setGuestsLoading(false);
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    if (!newGroup.name.trim() || !currentProject?.id || !user) {
+      toast.error("Please enter a group name");
+      return;
+    }
+
+    try {
+      setCreatingGroup(true);
+      const { data, error } = await supabase
+        .from('group_chats')
+        .insert([{
+          name: newGroup.name.trim(),
+          description: newGroup.description.trim() || null,
+          created_by: user.id,
+          is_private: newGroup.is_private
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Log activity to work_activities table
+      await supabase.from('work_activities').insert([{
+        user_id: user.id,
+        project_id: currentProject.id,
+        activity_type: 'comment_posted',
+        activity_data: {
+          action: 'created_group',
+          group_name: newGroup.name,
+          group_id: data.id
+        },
+        related_entity_type: 'group_chat',
+        related_entity_id: data.id
+      }]);
+
+      toast.success("Group created successfully");
+      
+      // Reset form
+      setNewGroup({
+        name: '',
+        description: '',
+        is_private: false
+      });
+      
+      // Close modal
+      setIsCreateGroupModalOpen(false);
+      
+      // Refresh group chats
+      const { data: updatedGroupChats } = await supabase
+        .from('group_chats')
+        .select('*')
+        .order('created_at', { ascending: false });
+      setGroupChats(updatedGroupChats || []);
+      
+      // Set the new group as active
+      setGroup(data);
+      setActiveRoom('general');
+    } catch (error: any) {
+      console.error('Error creating group:', error);
+      toast.error(error.message || "Failed to create group");
+    } finally {
+      setCreatingGroup(false);
+    }
+  };
+
+  const handleInviteToGroup = async () => {
+    if (!selectedUser || !group || !currentProject?.id || !user) {
+      toast.error("Please select a user and ensure group is loaded");
+      return;
+    }
+
+    setInvitingToGroup(true);
+    try {
+      // Check if selected user is a guest or regular user
+      const isGuest = selectedUser.guest_code; // Guests have guest_code property
+      
+      if (isGuest) {
+        // Handle guest invitation
+        await supabase.from('work_activities').insert([{
+          user_id: user.id,
+          project_id: currentProject.id,
+          activity_type: 'comment_posted',
+          activity_data: {
+            action: 'invited_guest_to_group',
+            group_name: group.name,
+            group_id: group.id,
+            invited_guest: selectedUser.display_name || selectedUser.guest_code
+          },
+          related_entity_type: 'group_chat',
+          entity_id: group.id
+        }]);
+
+        toast.success(`Invited guest ${selectedUser.display_name} to ${group.name}`);
+      } else {
+        // Handle regular user invitation
+        // First check if user is already a team member
+        const isTeamMember = teamMembers.some(m => m.user_id === selectedUser.id);
+        
+        if (!isTeamMember) {
+          // Add user to team first
+          const { error: teamError } = await supabase
+            .from('team_members')
+            .insert([{
+              project_id: currentProject.id,
+              user_id: selectedUser.id,
+              role: 'member',
+              status: 'active',
+              joined_at: new Date().toISOString()
+            }]);
+
+          if (teamError) {
+            throw teamError;
+          }
+        }
+
+        // Log regular user invitation
+        await supabase.from('work_activities').insert([{
+          user_id: user.id,
+          project_id: currentProject.id,
+          activity_type: 'comment_posted',
+          activity_data: {
+            action: 'invited_to_group',
+            group_name: group.name,
+            group_id: group.id,
+            invited_user: selectedUser.name || selectedUser.email
+          },
+          related_entity_type: 'group_chat',
+          entity_id: group.id
+        }]);
+
+        toast.success(`Invited ${selectedUser.name || selectedUser.email} to ${group.name}`);
+      }
+
+      setIsInviteMembersModalOpen(false);
+      setSelectedUser(null);
+      setSearchQuery("");
+      setSearchResults([]);
+      
+      // Refresh team members and guests
+      await refreshTeamMembers();
+      await fetchGuests();
+    } catch (error: any) {
+      console.error('Error inviting to group:', error);
+      toast.error(error.message || "Failed to invite user to group");
+    } finally {
+      setInvitingToGroup(false);
+    }
+  };
+
   const router = useRouter();
 
   return (
@@ -1727,27 +2078,38 @@ function WorkModeContent() {
                           All Tasks
                         </Button>
                       )}
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="border-gray-700 text-xs px-2 py-1"
-                        onClick={() => {
-                          if (r.name === 'Tasks') {
-                            setIsNewTaskModalOpen(true);
-                          } else if (r.name === 'Notes') {
-                            // Toggle note form visibility and focus on input
-                            setShowNoteForm(true);
-                            setTimeout(() => {
-                              const noteInput = document.querySelector('input[placeholder="Type a note..."]') as HTMLInputElement;
-                              if (noteInput) {
-                                noteInput.focus();
-                              }
-                            }, 100);
-                          }
-                        }}
-                      >
-                        + New {r.name === 'Files' ? 'File' : r.name === 'Notes' ? 'Note' : r.name === 'Tasks' ? 'Task' : 'Message'}
-                      </Button>
+                      {r.name === 'General' ? (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="border-gray-700 text-xs px-2 py-1"
+                          onClick={openCreateGroupModal}
+                        >
+                          + New Group
+                        </Button>
+                      ) : (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="border-gray-700 text-xs px-2 py-1"
+                          onClick={() => {
+                            if (r.name === 'Tasks') {
+                              setIsNewTaskModalOpen(true);
+                            } else if (r.name === 'Notes') {
+                              // Toggle note form visibility and focus on input
+                              setShowNoteForm(true);
+                              setTimeout(() => {
+                                const noteInput = document.querySelector('input[placeholder="Type a note..."]') as HTMLInputElement;
+                                if (noteInput) {
+                                  noteInput.focus();
+                                }
+                              }, 100);
+                            }
+                          }}
+                        >
+                          + New {r.name === 'Files' ? 'File' : r.name === 'Notes' ? 'Note' : r.name === 'Tasks' ? 'Task' : 'Message'}
+                        </Button>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -1755,7 +2117,31 @@ function WorkModeContent() {
                       <div className="space-y-3">
                         {/* Group Chat Selector */}
                         <div className="mb-2 sm:mb-4">
-                          <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1">Select Group Chat</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs sm:text-sm font-medium text-gray-300">Select Group Chat</label>
+                            <div className="flex items-center gap-2">
+                              {group && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="border-gray-700 text-xs px-2 py-1"
+                                  onClick={openInviteMembersModal}
+                                >
+                                  <Users className="w-3 h-3 mr-1" />
+                                  Invite Members
+                                </Button>
+                              )}
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="border-gray-700 text-xs px-2 py-1"
+                                onClick={() => router.push('/groupchat')}
+                              >
+                                <MessageCircle className="w-3 h-3 mr-1" />
+                                All Groups
+                              </Button>
+                            </div>
+                          </div>
                           <select
                             className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-2 text-white text-xs sm:text-base"
                             value={group?.id || ''}
@@ -2022,8 +2408,19 @@ function WorkModeContent() {
                       </div>
                     ) : r.id === 'notes' ? (
                       <div className="space-y-3">
+                        {/* Notes Room Header */}
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-white">Notes Room</h3>
+                          <Button 
+                            variant="outline"
+                            onClick={() => setShowNoteForm(true)}
+                            className="border-gray-600 text-gray-400 hover:text-white"
+                          >
+                            + New Note
+                          </Button>
+                        </div>
                         {/* Project Notes */}
-                        <div className="space-y-4 h-[200px] sm:h-[300px] overflow-y-auto pr-2 sm:pr-4 bg-gray-900 rounded-lg p-2 sm:p-4">
+                        <div className="space-y-4 h-[200px] sm:h-[300px] overflow-y-auto pr-2 sm:pr-4 rounded-lg p-2 sm:p-4" style={{ backgroundColor: '#141414' }}>
                           {notesLoading ? (
                             <div className="text-gray-400 text-center py-8">Loading notes...</div>
                           ) : projectNotes.length === 0 ? (
@@ -2033,37 +2430,108 @@ function WorkModeContent() {
                               <div key={note.id} className="flex items-start gap-2 sm:gap-3">
                                 <User className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400 mt-1" />
                                 <div className="flex-1">
-                                  <div className="font-semibold text-white text-xs sm:text-sm">
-                                    {note.user?.name || note.user?.email || 'Unknown'} 
-                                    <span className="text-xs text-gray-400 ml-2">
-                                      {new Date(note.created_at).toLocaleString()}
-                                    </span>
-                                  </div>
-                                  {note.note_title && (
-                                    <div className="text-sm font-medium text-blue-400 mb-1">
-                                      {note.note_title}
+                                  {editingNote?.id === note.id ? (
+                                    // Edit form
+                                    <div className="space-y-2">
+                                      <Input 
+                                        placeholder="Note title (optional)" 
+                                        value={editNoteTitle} 
+                                        onChange={e => setEditNoteTitle(e.target.value)} 
+                                        className="border-gray-600 text-white text-xs sm:text-base" 
+                                        style={{ backgroundColor: '#141414' }}
+                                      />
+                                      <Textarea 
+                                        placeholder="Edit note content..." 
+                                        value={editNoteContent} 
+                                        onChange={e => setEditNoteContent(e.target.value)} 
+                                        className="border-gray-600 text-white text-xs sm:text-base" 
+                                        style={{ backgroundColor: '#141414' }}
+                                        rows={3}
+                                      />
+                                      <div className="flex items-center gap-2">
+                                        <Button 
+                                          size="sm"
+                                          onClick={handleEditNote}
+                                          disabled={!editNoteContent.trim()}
+                                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1"
+                                        >
+                                          Save
+                                        </Button>
+                                        <Button 
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={cancelEditingNote}
+                                          className="border-gray-600 text-gray-400 hover:text-white px-3 py-1"
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
                                     </div>
+                                  ) : (
+                                    // Display note
+                                    <>
+                                      <div className="flex items-center justify-between">
+                                                                                 <div className="font-semibold text-white text-xs sm:text-sm">
+                                           {note.user?.name || note.user?.email || 'Unknown'} 
+                                           <span className="text-xs text-gray-400 ml-2">
+                                             {new Date(note.created_at).toLocaleString()}
+                                           </span>
+                                         </div>
+                                        {note.user?.id === user?.id && (
+                                          <div className="flex items-center gap-1">
+                                            <Button 
+                                              size="icon" 
+                                              variant="ghost" 
+                                              className="h-6 w-6 p-0 hover:bg-gray-700" 
+                                              onClick={() => startEditingNote(note)}
+                                            >
+                                              <Edit className="w-3 h-3" />
+                                            </Button>
+                                            <Button 
+                                              size="icon" 
+                                              variant="ghost" 
+                                              className="h-6 w-6 p-0 hover:bg-gray-700 text-red-400 hover:text-red-300" 
+                                              onClick={() => handleDeleteNote(note.id)}
+                                              disabled={deletingNote === note.id}
+                                            >
+                                              {deletingNote === note.id ? (
+                                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-400"></div>
+                                              ) : (
+                                                <Trash2 className="w-3 h-3" />
+                                              )}
+                                            </Button>
+                                          </div>
+                                        )}
+                                      </div>
+                                      {note.note_title && (
+                                        <div className="text-sm font-medium text-blue-400 mb-1">
+                                          {note.note_title}
+                                        </div>
+                                      )}
+                                      <div className="text-gray-300 text-xs sm:text-base whitespace-pre-wrap">{note.content}</div>
+                                    </>
                                   )}
-                                  <div className="text-gray-300 text-xs sm:text-base whitespace-pre-wrap">{note.content}</div>
                                 </div>
                               </div>
                             ))
                           )}
                         </div>
                         {(showNoteForm || newProjectNote.trim() || newProjectNoteTitle.trim()) && (
-                          <div className="space-y-2 mt-2 sm:mt-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                          <div className="space-y-2 mt-2 sm:mt-4 p-4 rounded-lg border border-gray-700" style={{ backgroundColor: '#141414' }}>
                             <Input 
                               placeholder="Note title (optional)" 
                               value={newProjectNoteTitle} 
                               onChange={e => setNewProjectNoteTitle(e.target.value)} 
-                              className="bg-gray-900 border-gray-600 text-white text-xs sm:text-base" 
+                              className="border-gray-600 text-white text-xs sm:text-base" 
+                              style={{ backgroundColor: '#141414' }}
                             />
                             <div className="flex items-center gap-2">
                               <Input 
                                 placeholder="Type a note..." 
                                 value={newProjectNote} 
                                 onChange={e => setNewProjectNote(e.target.value)} 
-                                className="flex-1 bg-gray-900 border-gray-600 text-white text-xs sm:text-base" 
+                                className="flex-1 border-gray-600 text-white text-xs sm:text-base" 
+                                style={{ backgroundColor: '#141414' }}
                               />
                               <Button 
                                 onClick={handleCreateProjectNote}
@@ -2086,17 +2554,11 @@ function WorkModeContent() {
                             </div>
                           </div>
                         )}
-                        {!showNoteForm && !newProjectNote.trim() && !newProjectNoteTitle.trim() && (
-                          <div className="text-center py-4">
-                            <Button 
-                              variant="outline"
-                              onClick={() => setShowNoteForm(true)}
-                              className="border-gray-600 text-gray-400 hover:text-white"
-                            >
-                              + Add Note
-                            </Button>
-                          </div>
-                        )}
+
+                      </div>
+                    ) : r.id === 'links' ? (
+                      <div className="space-y-4">
+                        <ProjectLinks projectId={currentProject?.id || ''} />
                       </div>
                     ) : r.id === 'meetings' ? (
                       <div className="space-y-4">
@@ -2756,14 +3218,38 @@ function WorkModeContent() {
               {activities.length === 0 ? (
                 <div className="text-gray-400">No recent activity.</div>
               ) : (
-                activities.map(a => (
-                  <div key={a.id} className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-gray-400" />
-                    <span className="font-medium text-white">{a.user?.name || a.user?.email || a.user_id}</span>
-                    <span className="text-gray-300">{a.description}</span>
-                    <span className="text-xs text-gray-400 ml-2">{a.created_at ? new Date(a.created_at).toLocaleTimeString() : ''}</span>
-                  </div>
-                ))
+                activities.map(a => {
+                  const activityText = a.activity_data?.action === 'created_group' 
+                    ? `created group "${a.activity_data.group_name}"`
+                    : a.activity_data?.action === 'invited_to_group'
+                    ? `invited ${a.activity_data.invited_user} to group "${a.activity_data.group_name}"`
+                    : a.activity_data?.action === 'invited_guest_to_group'
+                    ? `invited guest ${a.activity_data.invited_guest} to group "${a.activity_data.group_name}"`
+                    : a.activity_type === 'comment_posted' 
+                    ? 'posted a comment'
+                    : a.activity_type === 'task_update'
+                    ? 'updated a task'
+                    : a.activity_type === 'note_created'
+                    ? 'created a note'
+                    : a.activity_type === 'file_uploaded'
+                    ? 'uploaded a file'
+                    : a.activity_type === 'session_started'
+                    ? 'started a work session'
+                    : a.activity_type === 'session_ended'
+                    ? 'ended a work session'
+                    : a.activity_type === 'status_changed'
+                    ? 'changed status'
+                    : 'performed an action';
+                  
+                  return (
+                    <div key={a.id} className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-gray-400" />
+                      <span className="font-medium text-white">{a.user?.name || a.user?.email || a.user_id}</span>
+                      <span className="text-gray-300">{activityText}</span>
+                      <span className="text-xs text-gray-400 ml-2">{a.created_at ? new Date(a.created_at).toLocaleTimeString() : ''}</span>
+                    </div>
+                  );
+                })
               )}
             </CardContent>
           </Card>
@@ -3148,11 +3634,28 @@ function WorkModeContent() {
                       key={user.id}
                       className={`p-3 rounded-lg border transition-colors ${
                         isAlreadyMember
-                          ? 'border-gray-600 bg-gray-700/30 cursor-not-allowed opacity-60'
+                          ? 'border-gray-600 cursor-not-allowed opacity-60'
                           : selectedUser?.id === user.id
-                          ? 'border-blue-500 bg-blue-500/10 cursor-pointer'
-                          : 'border-gray-700 bg-gray-800/50 hover:bg-gray-700/50 cursor-pointer'
+                          ? 'border-blue-500 cursor-pointer'
+                          : 'border-gray-700 cursor-pointer'
                       }`}
+                      style={{
+                        backgroundColor: isAlreadyMember 
+                          ? 'rgba(20, 20, 20, 0.3)' 
+                          : selectedUser?.id === user.id 
+                          ? 'rgba(59, 130, 246, 0.1)' 
+                          : '#141414'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isAlreadyMember && selectedUser?.id !== user.id) {
+                          e.currentTarget.style.backgroundColor = '#1a1a1a';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isAlreadyMember && selectedUser?.id !== user.id) {
+                          e.currentTarget.style.backgroundColor = '#141414';
+                        }
+                      }}
                       onClick={() => !isAlreadyMember && setSelectedUser(user)}
                     >
                       <div className="flex items-center gap-3">
@@ -3215,7 +3718,7 @@ function WorkModeContent() {
 
             {/* Selected User Display */}
             {selectedUser && (
-              <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <div className="p-3 border border-blue-500/30 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-sm font-medium">
                     {selectedUser.name?.[0] || selectedUser.email[0]?.toUpperCase() || '?'}
@@ -3250,6 +3753,484 @@ function WorkModeContent() {
               className="bg-blue-600 hover:bg-blue-700"
             >
               {addingMember ? 'Adding...' : 'Add Member'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Group Modal */}
+      <Dialog open={isCreateGroupModalOpen} onOpenChange={setIsCreateGroupModalOpen}>
+        <DialogContent className="border-gray-700 max-w-md" style={{ backgroundColor: '#141414' }}>
+          <DialogHeader>
+            <DialogTitle>Create New Group</DialogTitle>
+            <DialogDescription>
+              Create a new group chat for team collaboration.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="group-name">Group Name *</Label>
+              <Input
+                id="group-name"
+                placeholder="Enter group name"
+                value={newGroup.name}
+                onChange={(e) => setNewGroup({...newGroup, name: e.target.value})}
+                className="border-gray-600 text-white"
+                style={{ backgroundColor: '#141414' }}
+              />
+            </div>
+            <div>
+              <Label htmlFor="group-description">Description (Optional)</Label>
+              <Textarea
+                id="group-description"
+                placeholder="Add a description for this group"
+                value={newGroup.description}
+                onChange={(e) => setNewGroup({...newGroup, description: e.target.value})}
+                className="border-gray-600 text-white"
+                style={{ backgroundColor: '#141414' }}
+                rows={3}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="group-private"
+                checked={newGroup.is_private}
+                onChange={(e) => setNewGroup({...newGroup, is_private: e.target.checked})}
+                className="rounded"
+              />
+              <Label htmlFor="group-private">Private Group</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateGroupModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateGroup}
+              disabled={!newGroup.name.trim() || creatingGroup}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {creatingGroup ? 'Creating...' : 'Create Group'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invite Members Modal */}
+      <Dialog open={isInviteMembersModalOpen} onOpenChange={setIsInviteMembersModalOpen}>
+        <DialogContent className="border-gray-700 max-w-md" style={{ backgroundColor: '#141414' }}>
+          <DialogHeader>
+            <DialogTitle>Invite Members to Group</DialogTitle>
+            <DialogDescription>
+              Invite team members from the project to join "{group?.name}" group chat.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Search Input */}
+            <div className="space-y-2">
+              <Label htmlFor="invite-search-email">Search by Email</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="invite-search-email"
+                  placeholder="Enter email address..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (e.target.value.length >= 2) {
+                      searchUsers(e.target.value);
+                    } else {
+                      setSearchResults([]);
+                    }
+                  }}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Tabs for different member types */}
+            <Tabs defaultValue="team" className="w-full">
+              <TabsList className="grid w-full grid-cols-3" style={{ backgroundColor: '#141414' }}>
+                <TabsTrigger value="team" className="text-xs">Team Members</TabsTrigger>
+                <TabsTrigger value="guests" className="text-xs">Guest Accounts</TabsTrigger>
+                <TabsTrigger value="invite" className="text-xs">Invite New</TabsTrigger>
+              </TabsList>
+              
+              {/* Team Members Tab */}
+              <TabsContent value="team" className="space-y-2 mt-4">
+                <Label className="text-sm font-medium">Current Team Members</Label>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {teamMembers.length === 0 ? (
+                    <div className="text-gray-400 text-sm">No team members found</div>
+                  ) : (
+                    teamMembers.map((member) => {
+                      const isAlreadyInGroup = false; // TODO: Check if user is already in group chat
+                      return (
+                        <div
+                          key={member.id}
+                                                  className={`p-2 rounded-lg border transition-colors ${
+                          isAlreadyInGroup
+                            ? 'border-gray-600 cursor-not-allowed opacity-60'
+                            : 'border-gray-700'
+                        }`}
+                        style={{
+                          backgroundColor: isAlreadyInGroup ? 'rgba(20, 20, 20, 0.3)' : '#141414'
+                        }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center text-xs font-medium">
+                              {member.user?.name?.[0] || member.user?.email?.[0]?.toUpperCase() || '?'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-white text-sm truncate">
+                                {member.user?.name || member.user?.email || 'Unknown'}
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                {member.role} • {isAlreadyInGroup ? 'Already in group' : 'Available to invite'}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs bg-green-500/20 text-green-400 border-green-500/50">
+                                {member.role}
+                              </Badge>
+                              {isAlreadyInGroup && (
+                                <Badge variant="outline" className="text-xs bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
+                                  In Group
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </TabsContent>
+
+              {/* Guest Accounts Tab */}
+              <TabsContent value="guests" className="space-y-2 mt-4">
+                <Label className="text-sm font-medium">Guest Accounts</Label>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {guestsLoading ? (
+                    <div className="text-gray-400 text-sm">Loading guests...</div>
+                  ) : guests.length === 0 ? (
+                    <div className="text-gray-400 text-sm">No guest accounts found</div>
+                  ) : (
+                    guests.map((guest) => {
+                      const isAlreadyInGroup = false; // TODO: Check if user is already in group chat
+                      const isSelected = selectedUser?.id === guest.id;
+                      return (
+                        <div
+                          key={guest.id}
+                          className={`p-2 rounded-lg border transition-colors cursor-pointer ${
+                            isAlreadyInGroup
+                              ? 'border-gray-600 bg-gray-700/30 cursor-not-allowed opacity-60'
+                              : isSelected
+                              ? 'border-purple-500 bg-purple-500/10'
+                              : 'border-gray-700 bg-gray-800/50 hover:bg-gray-700/50'
+                          }`}
+                          onClick={() => !isAlreadyInGroup && setSelectedUser(guest)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-xs font-medium">
+                              {guest.display_name?.[0]?.toUpperCase() || 'G'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-white text-sm truncate">
+                                {guest.display_name}
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                Guest • {guest.email || 'No email'} • {isAlreadyInGroup ? 'Already in group' : 'Available to invite'}
+                              </div>
+                              {guest.expires_at && (
+                                <div className="text-xs text-orange-400">
+                                  Expires: {new Date(guest.expires_at).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs bg-purple-500/20 text-purple-400 border-purple-500/50">
+                                Guest
+                              </Badge>
+                              {isAlreadyInGroup && (
+                                <Badge variant="outline" className="text-xs bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
+                                  In Group
+                                </Badge>
+                              )}
+                              {isSelected && !isAlreadyInGroup && (
+                                <CheckCircle className="w-4 h-4 text-purple-400" />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </TabsContent>
+
+              {/* Invite New Members Tab */}
+              <TabsContent value="invite" className="space-y-4 mt-4">
+                {/* Search for New Users */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Invite New Members</Label>
+                  <p className="text-xs text-gray-400">Search for users by email to invite them to the project and group</p>
+                </div>
+
+                {/* Guest Code Search */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Search Guest Codes</Label>
+                  <p className="text-xs text-gray-400">Search for guest codes by organization or email to invite guests</p>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Search by organization name or email..."
+                      className="flex-1 bg-gray-800 border-gray-600 text-white text-sm"
+                      onChange={(e) => {
+                        // TODO: Implement guest code search
+                        console.log('Searching for guest codes:', e.target.value);
+                      }}
+                    />
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="border-gray-600 text-gray-400 hover:text-white"
+                      onClick={() => {
+                        // TODO: Implement guest code search
+                        toast.info('Guest code search functionality coming soon');
+                      }}
+                    >
+                      <Search className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Guest Accounts</Label>
+              <div className="max-h-32 overflow-y-auto space-y-2">
+                {guestsLoading ? (
+                  <div className="text-gray-400 text-sm">Loading guests...</div>
+                ) : guests.length === 0 ? (
+                  <div className="text-gray-400 text-sm">No guest accounts found</div>
+                ) : (
+                  guests.map((guest) => {
+                    const isAlreadyInGroup = false; // TODO: Check if guest is already in group chat
+                    const isSelected = selectedUser?.id === guest.id;
+                    return (
+                      <div
+                        key={guest.id}
+                        className={`p-2 rounded-lg border transition-colors cursor-pointer ${
+                          isAlreadyInGroup
+                            ? 'border-gray-600 cursor-not-allowed opacity-60'
+                            : isSelected
+                            ? 'border-purple-500'
+                            : 'border-gray-700'
+                        }`}
+                        style={{
+                          backgroundColor: isAlreadyInGroup 
+                            ? 'rgba(20, 20, 20, 0.3)' 
+                            : isSelected 
+                            ? 'rgba(147, 51, 234, 0.1)' 
+                            : '#141414'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isAlreadyInGroup && !isSelected) {
+                            e.currentTarget.style.backgroundColor = '#1a1a1a';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isAlreadyInGroup && !isSelected) {
+                            e.currentTarget.style.backgroundColor = '#141414';
+                          }
+                        }}
+                        onClick={() => !isAlreadyInGroup && setSelectedUser(guest)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-xs font-medium">
+                            {guest.display_name?.[0]?.toUpperCase() || 'G'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-white text-sm truncate">
+                              {guest.display_name}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              Guest • {guest.email || 'No email'} • {isAlreadyInGroup ? 'Already in group' : 'Available to invite'}
+                            </div>
+                            {guest.expires_at && (
+                              <div className="text-xs text-orange-400">
+                                Expires: {new Date(guest.expires_at).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs bg-purple-500/20 text-purple-400 border-purple-500/50">
+                              Guest
+                            </Badge>
+                            {isAlreadyInGroup && (
+                              <Badge variant="outline" className="text-xs bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
+                                In Group
+                              </Badge>
+                            )}
+                            {isSelected && !isAlreadyInGroup && (
+                              <CheckCircle className="w-4 h-4 text-purple-400" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-gray-700 my-4"></div>
+
+            {/* Search Section */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Invite New Members</Label>
+              <p className="text-xs text-gray-400">Search for users by email to invite them to the project and group</p>
+            </div>
+
+            {/* Guest Search Section */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Search Guest Codes</Label>
+              <p className="text-xs text-gray-400">Search for guest codes by organization or email to invite guests</p>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Search by organization name or email..."
+                  className="flex-1 bg-gray-800 border-gray-600 text-white text-sm"
+                  onChange={(e) => {
+                    // TODO: Implement guest code search
+                    console.log('Searching for guest codes:', e.target.value);
+                  }}
+                />
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="border-gray-600 text-gray-400 hover:text-white"
+                  onClick={() => {
+                    // TODO: Implement guest code search
+                    toast.info('Guest code search functionality coming soon');
+                  }}
+                >
+                  <Search className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Search Results */}
+            {searching && (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
+                <p className="text-gray-400 mt-2">Searching...</p>
+              </div>
+            )}
+
+            {!searching && searchQuery.length >= 2 && searchResults.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Search Results</Label>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {searchResults.map((user) => {
+                    const isAlreadyMember = teamMembers.some(member => member.user_id === user.id);
+                    const isAlreadyInGroup = false; // TODO: Check if user is already in group chat
+                    return (
+                      <div
+                        key={user.id}
+                        className={`p-3 rounded-lg border transition-colors ${
+                          isAlreadyMember && isAlreadyInGroup
+                            ? 'border-gray-600 bg-gray-700/30 cursor-not-allowed opacity-60'
+                            : selectedUser?.id === user.id
+                            ? 'border-blue-500 bg-blue-500/10 cursor-pointer'
+                            : 'border-gray-700 bg-gray-800/50 hover:bg-gray-700/50 cursor-pointer'
+                        }`}
+                        onClick={() => !isAlreadyMember && !isAlreadyInGroup && setSelectedUser(user)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-sm font-medium">
+                            {user.name?.[0] || user.email[0]?.toUpperCase() || '?'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-white truncate">
+                              {user.name || 'No name'}
+                            </div>
+                            <div className="text-sm text-gray-400 truncate">
+                              {user.email}
+                            </div>
+                            {isAlreadyMember && (
+                              <div className="text-xs text-green-400 mt-1">
+                                Already a team member
+                              </div>
+                            )}
+                            {isAlreadyInGroup && (
+                              <div className="text-xs text-yellow-400 mt-1">
+                                Already in group
+                              </div>
+                              )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isAlreadyMember && (
+                              <Badge variant="outline" className="text-xs bg-green-500/20 text-green-400 border-green-500/50">
+                                Member
+                              </Badge>
+                            )}
+                            {selectedUser?.id === user.id && !isAlreadyMember && !isAlreadyInGroup && (
+                              <CheckCircle className="w-5 h-5 text-blue-500" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {!searching && searchQuery.length >= 2 && searchResults.length === 0 && (
+              <div className="text-center py-4">
+                <p className="text-gray-400">No users found</p>
+              </div>
+            )}
+
+            {/* Selected User Display */}
+            {selectedUser && (
+              <div className="p-3 border border-blue-500/30 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-sm font-medium">
+                    {selectedUser.name?.[0] || selectedUser.email[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <div className="font-medium text-white">
+                      {selectedUser.name || 'No name'}
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {selectedUser.email}
+                    </div>
+                    <div className="text-xs text-blue-400">
+                      Will be invited to: {group?.name}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsInviteMembersModalOpen(false)}
+              disabled={invitingToGroup}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleInviteToGroup}
+              disabled={!selectedUser || invitingToGroup}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {invitingToGroup ? 'Inviting...' : 'Invite to Group'}
             </Button>
           </DialogFooter>
         </DialogContent>

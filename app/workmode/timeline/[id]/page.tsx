@@ -11,6 +11,7 @@ import StatusUpdate from './StatusUpdate';
 import Link from 'next/link';
 import { getLinkedEntities } from '@/lib/entity-links';
 import LinkedEntitiesCard from './LinkedEntitiesCard';
+import ProjectLinks from './ProjectLinks';
 
 export default function TimelineItemPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -184,6 +185,11 @@ export default function TimelineItemPage({ params }: { params: Promise<{ id: str
           referencingTimelineItems={referencingTimelineItems}
           onRefresh={fetchTimelineData}
         />
+      </div>
+
+      {/* Project Links */}
+      <div className="mt-6">
+        <ProjectLinks projectId={item.project_id} />
       </div>
     </div>
   );

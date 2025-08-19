@@ -9,3 +9,5 @@ ALTER COLUMN deadline DROP NOT NULL;
 COMMENT ON COLUMN public.projects.deadline IS 'Optional deadline for the project. Can be NULL if no deadline is set.';
 
 COMMIT;
+
+

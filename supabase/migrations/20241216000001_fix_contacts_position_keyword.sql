@@ -169,3 +169,5 @@ INSERT INTO contacts (user_id, name, email, phone, company, "position", website,
     ARRAY['designer', 'ux', 'creative', 'contractor']
   );
 
+
+
