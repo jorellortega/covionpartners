@@ -2626,6 +2626,11 @@ export default function PartnerDashboard() {
                       <Users className="w-4 h-4 mr-2" /> View My Organizations
                     </Button>
                   </Link>
+                  <Link href="/corporate">
+                    <Button className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 mb-2">
+                      <Building2 className="w-4 h-4 mr-2" /> Corporate Dashboard
+                    </Button>
+                  </Link>
                   <Link href="/createorganization">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
                       <Building2 className="w-4 h-4 mr-2" /> Create Organization
