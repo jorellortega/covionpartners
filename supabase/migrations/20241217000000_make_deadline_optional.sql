@@ -11,3 +11,5 @@ COMMENT ON COLUMN public.projects.deadline IS 'Optional deadline for the project
 COMMIT;
 
 
+
+
