@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { DatePicker } from '@/components/ui/date-picker'
 import {
   FileText,
   Home,
@@ -83,6 +84,12 @@ export default function ContractViewPage() {
     expires_at: '',
     max_uses: 1
   })
+  const [userAccessLevel, setUserAccessLevel] = useState<number | null>(null)
+  const [isOwner, setIsOwner] = useState(false)
+  const [hasEditAccess, setHasEditAccess] = useState(false)
+  const [accessCode, setAccessCode] = useState<string>('')
+  const [showAccessDialog, setShowAccessDialog] = useState(false)
+  const [isExternalUser, setIsExternalUser] = useState(false)
 
   // CRUD states
   const [showEditDialog, setShowEditDialog] = useState(false)
@@ -123,17 +130,146 @@ export default function ContractViewPage() {
   const [editPages, setEditPages] = useState<string[]>([])
 
   useEffect(() => {
-    if (params.id && user) {
-      fetchContract()
-      fetchAccessCodes()
+    if (params.id) {
+      // Check if there's an access code in the URL
+      const urlParams = new URLSearchParams(window.location.search)
+      const code = urlParams.get('code')
+      
+      if (code) {
+        // External user with access code
+        setAccessCode(code)
+        setIsExternalUser(true)
+        fetchContractByCode(code)
+      } else if (user) {
+        // Authenticated user
+        fetchContract()
+        fetchAccessCodes()
+      } else {
+        // No user and no access code - show access dialog
+        setShowAccessDialog(true)
+      }
     }
   }, [params.id, user])
+
+  // Check user's access level and ownership for the contract's organization
+  useEffect(() => {
+    if (contract?.organization_id && user) {
+      checkUserAccess()
+    }
+  }, [contract?.organization_id, user])
+
+  const checkUserAccess = async () => {
+    if (!contract?.organization_id || !user) {
+      console.log('🔍 Debug: checkUserAccess - No contract org ID or user:', { 
+        hasOrgId: !!contract?.organization_id, 
+        hasUser: !!user,
+        isExternalUser 
+      })
+      return
+    }
+
+    try {
+      console.log('🔍 Debug: Checking access for user:', user.id, 'in organization:', contract.organization_id)
+      
+      // Check if user is organization owner
+      const { data: orgData, error: orgError } = await supabase
+        .from('organizations')
+        .select('owner_id')
+        .eq('id', contract.organization_id)
+        .single()
+
+      console.log('🔍 Debug: Organization check result:', { orgData, orgError })
+
+      if (!orgError && orgData) {
+        const userIsOwner = orgData.owner_id === user.id
+        setIsOwner(userIsOwner)
+        console.log('🔍 Debug: User is owner:', userIsOwner)
+        
+        if (userIsOwner) {
+          setUserAccessLevel(5)
+          setHasEditAccess(true)
+          return
+        }
+      }
+
+      // Check user's access level in organization staff
+      const { data: staffData, error: staffError } = await supabase
+        .from('organization_staff')
+        .select('access_level')
+        .eq('user_id', user.id)
+        .eq('organization_id', contract.organization_id)
+        .single()
+
+      console.log('🔍 Debug: Staff check result:', { staffData, staffError })
+
+      if (!staffError && staffData) {
+        const accessLevel = staffData.access_level
+        setUserAccessLevel(accessLevel)
+        setHasEditAccess(accessLevel >= 4)
+        console.log('🔍 Debug: User access level:', accessLevel, 'Has edit access:', accessLevel >= 4)
+      } else {
+        setUserAccessLevel(null)
+        setHasEditAccess(false)
+        console.log('🔍 Debug: No staff record found, setting no access')
+      }
+    } catch (error) {
+      console.error('Error checking user access:', error)
+      setUserAccessLevel(null)
+      setHasEditAccess(false)
+    }
+  }
+
+
+
+  const fetchContractByCode = async (code: string) => {
+    try {
+      setLoading(true)
+      console.log('🔍 Debug: Fetching contract with access code:', code)
+      
+      const response = await fetch(`/api/contract-access?code=${code}`)
+      const data = await response.json()
+      
+      console.log('🔍 Debug: Contract access API response:', data)
+      
+      if (response.ok && data.contract) {
+        setContract(data.contract)
+        // For external users, we might not have organization details
+        if (data.contract.organization_id) {
+          try {
+            const { data: org } = await supabase
+              .from('organizations')
+              .select('*')
+              .eq('id', data.contract.organization_id)
+              .single()
+            setOrganization(org)
+          } catch (orgError) {
+            console.log('🔍 Debug: Could not fetch organization details for external user')
+          }
+        }
+      } else {
+        throw new Error(data.error || 'Invalid access code')
+      }
+    } catch (error: any) {
+      console.error('Error fetching contract by code:', error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load contract",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const fetchContract = async () => {
     try {
       setLoading(true)
+      console.log('🔍 Debug: Fetching contract for authenticated user')
+      
       const response = await fetch(`/api/contracts?id=${params.id}`)
       const data = await response.json()
+      
+      console.log('🔍 Debug: Contracts API response:', data)
       
       if (response.ok && data.contract) {
         setContract(data.contract)
@@ -691,24 +827,28 @@ export default function ContractViewPage() {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Button
-                onClick={handleEdit}
-                variant="outline"
-                className="border-gray-700 bg-gray-800/30 text-white hover:bg-blue-900/20 hover:text-blue-400"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Edit Contract</span>
-                <span className="sm:hidden">Edit</span>
-              </Button>
-              <Button
-                onClick={() => setShowDeleteDialog(true)}
-                variant="outline"
-                className="border-gray-700 bg-gray-800/30 text-white hover:bg-red-900/20 hover:text-red-400"
-              >
-                <X className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Delete Contract</span>
-                <span className="sm:hidden">Delete</span>
-              </Button>
+              {hasEditAccess && (
+                <>
+                  <Button
+                    onClick={handleEdit}
+                    variant="outline"
+                    className="border-gray-700 bg-gray-800/30 text-white hover:bg-blue-900/20 hover:text-blue-400"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Edit Contract</span>
+                    <span className="sm:hidden">Edit</span>
+                  </Button>
+                  <Button
+                    onClick={() => setShowDeleteDialog(true)}
+                    variant="outline"
+                    className="border-gray-700 bg-gray-800/30 text-white hover:bg-red-900/20 hover:text-red-400"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Delete Contract</span>
+                    <span className="sm:hidden">Delete</span>
+                  </Button>
+                </>
+              )}
               <Button
                 onClick={() => {
                   if (accessCodes.length > 0) {
@@ -728,17 +868,18 @@ export default function ContractViewPage() {
                 <span className="hidden sm:inline">Share Contract</span>
                 <span className="sm:hidden">Share</span>
               </Button>
-              <Dialog open={showGenerateCode} onOpenChange={setShowGenerateCode}>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                  >
-                    <Key className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline">Generate Access Code</span>
-                    <span className="sm:hidden">Code</span>
-                  </Button>
-                </DialogTrigger>
+              {hasEditAccess && (
+                <Dialog open={showGenerateCode} onOpenChange={setShowGenerateCode}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                    >
+                      <Key className="w-4 h-4 mr-2" />
+                      <span className="hidden sm:inline">Generate Access Code</span>
+                      <span className="sm:hidden">Code</span>
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent className="w-[95vw] max-w-md">
                   <DialogHeader>
                     <DialogTitle>Generate Access Code</DialogTitle>
@@ -749,11 +890,13 @@ export default function ContractViewPage() {
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
                       <Label>Expiration Date (Optional)</Label>
-                      <Input
-                        type="datetime-local"
-                        value={newCodeForm.expires_at}
-                        onChange={(e) => setNewCodeForm({ ...newCodeForm, expires_at: e.target.value })}
-                        className="bg-gray-800/30 border-gray-700 text-white"
+                      <DatePicker
+                        date={newCodeForm.expires_at ? new Date(newCodeForm.expires_at) : undefined}
+                        onDateChange={(date) => setNewCodeForm({ 
+                          ...newCodeForm, 
+                          expires_at: date ? date.toISOString() : '' 
+                        })}
+                        placeholder="Select expiration date"
                       />
                     </div>
                     <div className="space-y-2">
@@ -776,7 +919,8 @@ export default function ContractViewPage() {
                     </Button>
                   </DialogFooter>
                 </DialogContent>
-              </Dialog>
+                </Dialog>
+              )}
               <Button
                 onClick={() => router.push(`/sign-contract?contract_id=${contract.id}`)}
                 className="gradient-button hover:bg-purple-700"
@@ -796,6 +940,47 @@ export default function ContractViewPage() {
                   <span className="sm:hidden">Download</span>
                 </Button>
               )}
+              
+              {/* Access Level Information */}
+              {!hasEditAccess && userAccessLevel && (
+                <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
+                  <p className="text-yellow-300 text-sm">
+                    <strong>Access Restricted:</strong> You have Access Level {userAccessLevel}. 
+                    Only users with Access Level 4 or 5 can edit contracts.
+                  </p>
+                </div>
+              )}
+              
+              {/* Access Level Information */}
+              {!hasEditAccess && userAccessLevel && !isExternalUser && (
+                <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
+                  <p className="text-yellow-300 text-sm">
+                    <strong>Access Restricted:</strong> You have Access Level {userAccessLevel}. 
+                    Only users with Access Level 4 or 5 can edit contracts.
+                  </p>
+                </div>
+              )}
+              
+              {/* External User Notice */}
+              {isExternalUser && (
+                <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg">
+                  <p className="text-blue-300 text-sm">
+                    <strong>External Access:</strong> You are viewing this contract using an access code.
+                    You have read-only access.
+                  </p>
+                </div>
+              )}
+              
+              {/* Debug Information */}
+              <div className="mt-4 p-3 bg-gray-900/20 border border-gray-700/50 rounded-lg">
+                <p className="text-gray-300 text-sm">
+                  <strong>Debug Info:</strong> User: {user ? 'Authenticated' : 'Not authenticated'}, 
+                  Access Level: {userAccessLevel || 'None'}, 
+                  Is Owner: {isOwner ? 'Yes' : 'No'}, 
+                  Has Edit Access: {hasEditAccess ? 'Yes' : 'No'}, 
+                  Is External: {isExternalUser ? 'Yes' : 'No'}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -1573,6 +1758,51 @@ export default function ContractViewPage() {
               className="gradient-button hover:bg-purple-700 disabled:opacity-50"
             >
               Create Field
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Access Code Dialog */}
+      <Dialog open={showAccessDialog} onOpenChange={setShowAccessDialog}>
+        <DialogContent className="bg-gray-900 border-gray-700 text-white">
+          <DialogHeader>
+            <DialogTitle>Access Required</DialogTitle>
+            <DialogDescription>
+              Enter an access code to view this contract
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Access Code</Label>
+              <Input
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value)}
+                placeholder="Enter your access code"
+                className="bg-gray-800/30 border-gray-700 text-white"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowAccessDialog(false)}
+              className="border-gray-700 bg-gray-800/30 text-white hover:bg-red-900/20 hover:text-red-400"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (accessCode.trim()) {
+                  fetchContractByCode(accessCode.trim())
+                  setShowAccessDialog(false)
+                }
+              }}
+              disabled={!accessCode.trim()}
+              className="gradient-button hover:bg-purple-700 disabled:opacity-50"
+            >
+              Access Contract
             </Button>
           </DialogFooter>
         </DialogContent>
