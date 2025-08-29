@@ -82,14 +82,13 @@ export default function ContractViewPage() {
   const [generatingCode, setGeneratingCode] = useState(false)
   const [newCodeForm, setNewCodeForm] = useState({
     expires_at: '',
-    max_uses: 1
+    max_uses: 10
   })
   const [userAccessLevel, setUserAccessLevel] = useState<number | null>(null)
   const [isOwner, setIsOwner] = useState(false)
   const [hasEditAccess, setHasEditAccess] = useState(false)
-  const [accessCode, setAccessCode] = useState<string>('')
-  const [showAccessDialog, setShowAccessDialog] = useState(false)
-  const [isExternalUser, setIsExternalUser] = useState(false)
+  const [signatures, setSignatures] = useState<any[]>([])
+  const [deletingSignature, setDeletingSignature] = useState<string | null>(null)
 
   // CRUD states
   const [showEditDialog, setShowEditDialog] = useState(false)
@@ -103,6 +102,10 @@ export default function ContractViewPage() {
     category: '',
     status: ''
   })
+
+  // Access dialog states
+  const [showAccessDialog, setShowAccessDialog] = useState(false)
+  const [accessCode, setAccessCode] = useState('')
 
   // Edit signature fields state
   const [editSignatureFields, setEditSignatureFields] = useState<any[]>([])
@@ -130,24 +133,10 @@ export default function ContractViewPage() {
   const [editPages, setEditPages] = useState<string[]>([])
 
   useEffect(() => {
-    if (params.id) {
-      // Check if there's an access code in the URL
-      const urlParams = new URLSearchParams(window.location.search)
-      const code = urlParams.get('code')
-      
-      if (code) {
-        // External user with access code
-        setAccessCode(code)
-        setIsExternalUser(true)
-        fetchContractByCode(code)
-      } else if (user) {
-        // Authenticated user
-        fetchContract()
-        fetchAccessCodes()
-      } else {
-        // No user and no access code - show access dialog
-        setShowAccessDialog(true)
-      }
+    if (params.id && user) {
+      // For authenticated users, fetch contract and check access
+      console.log('🔍 Debug: Authenticated user, will check access before fetching contract')
+      fetchContract()
     }
   }, [params.id, user])
 
@@ -158,12 +147,23 @@ export default function ContractViewPage() {
     }
   }, [contract?.organization_id, user])
 
+  // For authenticated users, fetch contract and check access
+  useEffect(() => {
+    if (user && params.id) {
+      // First fetch the contract to get organization_id, then check access
+      fetchContract()
+    }
+  }, [user, params.id])
+
+
+
   const checkUserAccess = async () => {
     if (!contract?.organization_id || !user) {
       console.log('🔍 Debug: checkUserAccess - No contract org ID or user:', { 
         hasOrgId: !!contract?.organization_id, 
         hasUser: !!user,
-        isExternalUser 
+        contractOrgId: contract?.organization_id,
+        userId: user?.id
       })
       return
     }
@@ -178,18 +178,24 @@ export default function ContractViewPage() {
         .eq('id', contract.organization_id)
         .single()
 
-      console.log('🔍 Debug: Organization check result:', { orgData, orgError })
+      console.log('🔍 Debug: Organization check result:', { orgData, orgError, contractOrgId: contract.organization_id })
 
       if (!orgError && orgData) {
         const userIsOwner = orgData.owner_id === user.id
         setIsOwner(userIsOwner)
-        console.log('🔍 Debug: User is owner:', userIsOwner)
+        console.log('🔍 Debug: User is owner:', userIsOwner, 'Owner ID:', orgData.owner_id, 'User ID:', user.id)
         
         if (userIsOwner) {
           setUserAccessLevel(5)
           setHasEditAccess(true)
+          console.log('🔍 Debug: Setting owner access - level 5, edit access: true')
+          // Fetch access codes for owners
+          fetchAccessCodes()
+          fetchSignatures()
           return
         }
+      } else {
+        console.log('🔍 Debug: Organization lookup failed:', orgError)
       }
 
       // Check user's access level in organization staff
@@ -207,10 +213,25 @@ export default function ContractViewPage() {
         setUserAccessLevel(accessLevel)
         setHasEditAccess(accessLevel >= 4)
         console.log('🔍 Debug: User access level:', accessLevel, 'Has edit access:', accessLevel >= 4)
+        
+        // Fetch access codes for organization members
+        fetchAccessCodes()
+        fetchSignatures()
       } else {
+        // User is not a member of this organization
         setUserAccessLevel(null)
         setHasEditAccess(false)
-        console.log('🔍 Debug: No staff record found, setting no access')
+        console.log('🔍 Debug: User is NOT a member of this organization - blocking access')
+        
+        // Redirect to access denied or show access dialog
+        toast({
+          title: "Access Denied",
+          description: "You are not a member of this organization. Please use an access code to view this contract.",
+          variant: "destructive"
+        })
+        
+        // External users cannot access this contract
+        return
       }
     } catch (error) {
       console.error('Error checking user access:', error)
@@ -221,45 +242,7 @@ export default function ContractViewPage() {
 
 
 
-  const fetchContractByCode = async (code: string) => {
-    try {
-      setLoading(true)
-      console.log('🔍 Debug: Fetching contract with access code:', code)
-      
-      const response = await fetch(`/api/contract-access?code=${code}`)
-      const data = await response.json()
-      
-      console.log('🔍 Debug: Contract access API response:', data)
-      
-      if (response.ok && data.contract) {
-        setContract(data.contract)
-        // For external users, we might not have organization details
-        if (data.contract.organization_id) {
-          try {
-            const { data: org } = await supabase
-              .from('organizations')
-              .select('*')
-              .eq('id', data.contract.organization_id)
-              .single()
-            setOrganization(org)
-          } catch (orgError) {
-            console.log('🔍 Debug: Could not fetch organization details for external user')
-          }
-        }
-      } else {
-        throw new Error(data.error || 'Invalid access code')
-      }
-    } catch (error: any) {
-      console.error('Error fetching contract by code:', error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to load contract",
-        variant: "destructive"
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+
 
   const fetchContract = async () => {
     try {
@@ -282,6 +265,7 @@ export default function ContractViewPage() {
             .single()
           setOrganization(org)
         }
+        // Don't fetch access codes yet - wait for access check
       } else {
         throw new Error(data.error || 'Contract not found')
       }
@@ -315,6 +299,42 @@ export default function ContractViewPage() {
     }
   }
 
+  const fetchContractByCode = async (code: string) => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/contracts?access_code=${code}`)
+      const data = await response.json()
+      
+      if (response.ok && data.contract) {
+        setContract(data.contract)
+        // Fetch organization details
+        if (data.contract.organization_id) {
+          const { data: org } = await supabase
+            .from('organizations')
+            .select('*')
+            .eq('id', data.contract.organization_id)
+            .single()
+          setOrganization(org)
+        }
+        // Set access level for external users
+        setUserAccessLevel(1)
+        setHasEditAccess(false)
+        setIsOwner(false)
+      } else {
+        throw new Error(data.error || 'Invalid access code')
+      }
+    } catch (error: any) {
+      console.error('Error fetching contract by code:', error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load contract with access code",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const generateAccessCode = async () => {
     try {
       setGeneratingCode(true)
@@ -336,7 +356,7 @@ export default function ContractViewPage() {
           description: "Access code generated successfully"
         })
         setShowGenerateCode(false)
-        setNewCodeForm({ expires_at: '', max_uses: 1 })
+        setNewCodeForm({ expires_at: '', max_uses: 10 })
         fetchAccessCodes() // Refresh the list
       } else {
         throw new Error(data.error)
@@ -386,6 +406,90 @@ export default function ContractViewPage() {
         description: "Failed to copy to clipboard",
         variant: "destructive"
       })
+    }
+  }
+
+  const fetchSignatures = async () => {
+    try {
+      console.log('🔍 Fetching signatures for contract:', params.id)
+      
+      // Try API first
+      const response = await fetch(`/api/contract-signatures?contract_id=${params.id}`)
+      const data = await response.json()
+      
+      console.log('🔍 Signatures API response:', { response: response.status, data })
+      
+      if (response.ok && data.signatures) {
+        console.log('🔍 Setting signatures from API:', data.signatures)
+        setSignatures(data.signatures)
+        return
+      } else {
+        console.log('🔍 API failed, trying direct Supabase query')
+      }
+      
+      // Fallback: Direct Supabase query
+      if (user) {
+        // First, let's see what columns exist
+        const { data: tableInfo, error: tableError } = await supabase
+          .from('contract_signatures')
+          .select('*')
+          .limit(1)
+        
+        if (tableError) {
+          console.error('Table info error:', tableError)
+        } else if (tableInfo && tableInfo.length > 0) {
+          console.log('🔍 Table structure:', Object.keys(tableInfo[0]))
+        }
+        
+        const { data: signatures, error } = await supabase
+          .from('contract_signatures')
+          .select('*')
+          .eq('contract_id', params.id)
+        
+        if (error) {
+          console.error('Supabase query error:', error)
+          setSignatures([])
+        } else {
+          console.log('🔍 Setting signatures from Supabase:', signatures)
+          setSignatures(signatures || [])
+        }
+      } else {
+        console.log('🔍 No user, cannot fetch signatures')
+        setSignatures([])
+      }
+    } catch (error) {
+      console.error('Error fetching signatures:', error)
+      setSignatures([])
+    }
+  }
+
+  const deleteSignature = async (signatureId: string) => {
+    try {
+      setDeletingSignature(signatureId)
+      const response = await fetch(`/api/contract-signatures`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signature_id: signatureId })
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Signature deleted successfully"
+        })
+        fetchSignatures() // Refresh the list
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete signature')
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete signature",
+        variant: "destructive"
+      })
+    } finally {
+      setDeletingSignature(null)
     }
   }
 
@@ -805,6 +909,8 @@ export default function ContractViewPage() {
     )
   }
 
+
+
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="leonardo-header sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md">
@@ -905,7 +1011,7 @@ export default function ContractViewPage() {
                         type="number"
                         min="1"
                         value={newCodeForm.max_uses}
-                        onChange={(e) => setNewCodeForm({ ...newCodeForm, max_uses: parseInt(e.target.value) || 1 })}
+                        onChange={(e) => setNewCodeForm({ ...newCodeForm, max_uses: parseInt(e.target.value) || 10 })}
                         className="bg-gray-800/30 border-gray-700 text-white"
                       />
                     </div>
@@ -952,7 +1058,7 @@ export default function ContractViewPage() {
               )}
               
               {/* Access Level Information */}
-              {!hasEditAccess && userAccessLevel && !isExternalUser && (
+              {!hasEditAccess && userAccessLevel && (
                 <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
                   <p className="text-yellow-300 text-sm">
                     <strong>Access Restricted:</strong> You have Access Level {userAccessLevel}. 
@@ -962,7 +1068,7 @@ export default function ContractViewPage() {
               )}
               
               {/* External User Notice */}
-              {isExternalUser && (
+              {!user && (
                 <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg">
                   <p className="text-blue-300 text-sm">
                     <strong>External Access:</strong> You are viewing this contract using an access code.
@@ -971,16 +1077,7 @@ export default function ContractViewPage() {
                 </div>
               )}
               
-              {/* Debug Information */}
-              <div className="mt-4 p-3 bg-gray-900/20 border border-gray-700/50 rounded-lg">
-                <p className="text-gray-300 text-sm">
-                  <strong>Debug Info:</strong> User: {user ? 'Authenticated' : 'Not authenticated'}, 
-                  Access Level: {userAccessLevel || 'None'}, 
-                  Is Owner: {isOwner ? 'Yes' : 'No'}, 
-                  Has Edit Access: {hasEditAccess ? 'Yes' : 'No'}, 
-                  Is External: {isExternalUser ? 'Yes' : 'No'}
-                </p>
-              </div>
+
             </div>
           </div>
         </div>
@@ -1286,6 +1383,88 @@ export default function ContractViewPage() {
                     <span>Uses: {code.current_uses}/{code.max_uses}</span>
                     {code.expires_at && (
                       <span>Expires: {new Date(code.expires_at).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Signatures */}
+        <div className="leonardo-card p-6 mt-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <h2 className="text-xl font-bold text-white">Signatures</h2>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchSignatures}
+                className="border-gray-700 bg-gray-800/30 text-white hover:bg-blue-900/20 hover:text-blue-400"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => console.log('🔍 Current signatures state:', signatures)}
+                className="border-gray-700 bg-gray-800/30 text-white hover:bg-green-900/20 hover:text-green-400"
+              >
+                Debug
+              </Button>
+            </div>
+          </div>
+          
+          {/* Debug info */}
+          <div className="mb-4 p-2 bg-gray-800/30 border border-gray-700 rounded text-xs text-gray-400">
+            <div>Signatures count: {signatures.length}</div>
+            <div>Contract ID: {params.id}</div>
+            <div>Has edit access: {hasEditAccess ? 'Yes' : 'No'}</div>
+          </div>
+          
+          {signatures.length === 0 ? (
+            <p className="text-gray-400 text-center py-4">No signatures yet</p>
+          ) : (
+            <div className="space-y-3">
+              {signatures.map((signature) => (
+                <div key={signature.id} className="bg-gray-800/30 border border-gray-700 rounded-lg p-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-white font-medium">{signature.signer_name || 'Unknown Signer'}</span>
+                      <span className="text-gray-400 text-sm">{signature.signer_email || 'No email'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(signature.signer_name || '')}
+                        className="text-gray-400 hover:text-white"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                      {hasEditAccess && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteSignature(signature.id)}
+                          disabled={deletingSignature === signature.id}
+                          className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                          title="Delete signature"
+                        >
+                          {deletingSignature === signature.id ? (
+                            <div className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <X className="w-3 h-3" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs text-gray-400">
+                    <span>Signed: {new Date(signature.signed_at).toLocaleDateString()}</span>
+                    {signature.ip_address && (
+                      <span>IP: {signature.ip_address}</span>
                     )}
                   </div>
                 </div>

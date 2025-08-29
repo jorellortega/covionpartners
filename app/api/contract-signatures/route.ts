@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Contract not found' }, { status: 404 })
     }
 
-    // Check if contract is in a signable state - allow more statuses for testing
-    if (!['draft', 'pending', 'sent'].includes(contract.status)) {
+    // Check if contract is in a signable state - allow signed contracts for additional signatures
+    if (!['draft', 'pending', 'sent', 'signed'].includes(contract.status)) {
       return NextResponse.json({ 
         error: `Contract is not available for signing. Current status: ${contract.status}` 
       }, { status: 400 })
@@ -97,12 +97,9 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies()
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     
-    // Get authenticated user
+    // Get authenticated user (but don't require it)
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
+    
     const { searchParams } = new URL(request.url)
     const contractId = searchParams.get('contract_id')
 
@@ -110,12 +107,57 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Contract ID is required' }, { status: 400 })
     }
 
+    // Check if user has access to this contract
+    let hasAccess = false
+    
+    if (user) {
+      // Check if user is organization member or contract creator
+      const { data: contract, error: contractError } = await supabase
+        .from('contracts')
+        .select('created_by, organization_id')
+        .eq('id', contractId)
+        .single()
+
+      if (!contractError && contract) {
+        // Check if user is contract creator
+        if (contract.created_by === user.id) {
+          hasAccess = true
+        } else {
+          // Check if user is organization member
+          const { data: staffData } = await supabase
+            .from('organization_staff')
+            .select('user_id')
+            .eq('organization_id', contract.organization_id)
+            .eq('user_id', user.id)
+            .single()
+
+          if (staffData) {
+            hasAccess = true
+          }
+
+          // Check if user is organization owner
+          const { data: orgData } = await supabase
+            .from('organizations')
+            .select('owner_id')
+            .eq('id', contract.organization_id)
+            .single()
+
+          if (orgData?.owner_id === user.id) {
+            hasAccess = true
+          }
+        }
+      }
+    }
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Access denied. You do not have permission to view signatures for this contract.' }, { status: 403 })
+    }
+
     // Get signatures for contract
     const { data: signatures, error } = await supabase
       .from('contract_signatures')
       .select('*')
       .eq('contract_id', contractId)
-      .order('created_at', { ascending: true })
 
     if (error) {
       console.error('Error fetching signatures:', error)
@@ -171,6 +213,80 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ signature })
   } catch (error) {
     console.error('Error in PUT /api/contract-signatures:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    
+    // Get authenticated user
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { signature_id } = body
+
+    if (!signature_id) {
+      return NextResponse.json({ error: 'Signature ID is required' }, { status: 400 })
+    }
+
+    // Get the signature to check permissions
+    const { data: signature, error: fetchError } = await supabase
+      .from('contract_signatures')
+      .select('contract_id, signer_user_id')
+      .eq('id', signature_id)
+      .single()
+
+    if (fetchError || !signature) {
+      return NextResponse.json({ error: 'Signature not found' }, { status: 404 })
+    }
+
+    // Check if user can delete this signature (contract owner or signature owner)
+    const { data: contract, error: contractError } = await supabase
+      .from('contracts')
+      .select('created_by, organization_id')
+      .eq('id', signature.contract_id)
+      .single()
+
+    if (contractError || !contract) {
+      return NextResponse.json({ error: 'Contract not found' }, { status: 404 })
+    }
+
+    // Check if user is contract creator or organization owner
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('owner_id')
+      .eq('id', contract.organization_id)
+      .single()
+
+    const canDelete = 
+      signature.signer_user_id === user.id || // Signature owner
+      contract.created_by === user.id || // Contract creator
+      orgData?.owner_id === user.id // Organization owner
+
+    if (!canDelete) {
+      return NextResponse.json({ error: 'Access denied. You can only delete your own signatures or signatures from contracts you own.' }, { status: 403 })
+    }
+
+    // Delete the signature
+    const { error: deleteError } = await supabase
+      .from('contract_signatures')
+      .delete()
+      .eq('id', signature_id)
+
+    if (deleteError) {
+      console.error('Error deleting signature:', deleteError)
+      return NextResponse.json({ error: 'Failed to delete signature' }, { status: 500 })
+    }
+
+    return NextResponse.json({ message: 'Signature deleted successfully' })
+  } catch (error) {
+    console.error('Error in DELETE /api/contract-signatures:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 

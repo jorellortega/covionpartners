@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         contract_id,
         access_code: accessCode,
         expires_at: expires_at ? new Date(expires_at).toISOString() : null,
-        max_uses: max_uses || 1,
+        max_uses: max_uses || 10,
         created_by: user.id
       })
       .select()
@@ -101,40 +101,58 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('🔍 GET /api/contract-access called')
     const { searchParams } = new URL(request.url)
-    const accessCode = searchParams.get('code')
+    const code = searchParams.get('code')
     const contractId = searchParams.get('contract_id')
+    
+    console.log('🔍 Search params:', { code, contractId })
 
-    if (!accessCode && !contractId) {
-      return NextResponse.json({ error: 'Access code or contract ID is required' }, { status: 400 })
+    if (!code && !contractId) {
+      console.log('🔍 No code or contract_id provided')
+      return NextResponse.json({ error: 'Code or contract_id parameter is required' }, { status: 400 })
     }
 
     const supabase = createRouteHandlerClient({ cookies })
 
-    if (accessCode) {
-      // Validate access code and get contract
+    if (code) {
+      console.log('🔍 Looking up contract by access code:', code)
+      // Look up contract by access code
       const { data: accessCodeData, error: accessError } = await supabase
         .from('contract_access_codes')
         .select('*')
-        .eq('access_code', accessCode)
+        .eq('access_code', code)
         .single()
 
+      console.log('🔍 Access code lookup result:', { accessCodeData, accessError })
+
       if (accessError || !accessCodeData) {
-        return NextResponse.json({ error: 'Invalid access code' }, { status: 404 })
+        console.log('🔍 Access code not found or error:', accessError)
+        if (accessError?.code === 'PGRST116') {
+          return NextResponse.json({ 
+            error: 'Access code not found. Please check the code or generate a new one.',
+            code: code,
+            suggestion: 'Generate a new access code from the contract library page'
+          }, { status: 404 })
+        }
+        return NextResponse.json({ 
+          error: 'Invalid access code',
+          code: code,
+          suggestion: 'Please verify the access code is correct'
+        }, { status: 404 })
       }
 
-      // Check if code is expired
+      // Check if code has expired
       if (accessCodeData.expires_at && new Date(accessCodeData.expires_at) < new Date()) {
         return NextResponse.json({ error: 'Access code has expired' }, { status: 410 })
       }
 
-      // Note: Removed max uses check to allow multiple access to the same contract
       // Check if max uses exceeded
-      // if (accessCodeData.current_uses >= accessCodeData.max_uses) {
-      //   return NextResponse.json({ error: 'Access code usage limit exceeded' }, { status: 410 })
-      // }
+      if (accessCodeData.max_uses && accessCodeData.current_uses >= accessCodeData.max_uses) {
+        return NextResponse.json({ error: 'Access code usage limit exceeded' }, { status: 410 })
+      }
 
-      // Get contract without signatures for now
+      // Get the contract
       const { data: contract, error: contractError } = await supabase
         .from('contracts')
         .select('*')
@@ -145,22 +163,21 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Contract not found' }, { status: 404 })
       }
 
-      // Note: Removed usage count increment to allow multiple access
       // Increment usage count
-      // await supabase
-      //   .from('contract_access_codes')
-      //   .update({ current_uses: accessCodeData.current_uses + 1 })
-      //   .eq('id', accessCodeData.id)
+      await supabase
+        .from('contract_access_codes')
+        .update({ current_uses: (accessCodeData.current_uses || 0) + 1 })
+        .eq('id', accessCodeData.id)
 
-      return NextResponse.json({ contract, access_code: accessCodeData })
-    } else {
-      // Get access codes for a specific contract (for authenticated users)
+      return NextResponse.json({ contract })
+    } else if (contractId) {
+      // Get access codes for a contract (requires authentication)
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
 
-      // First check if user has access to this contract
+      // Check if user has access to the contract
       const { data: contractAccess, error: accessError } = await supabase
         .from('contracts')
         .select('organization_id')
@@ -183,7 +200,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Access denied to contract' }, { status: 403 })
       }
 
-      // Get access codes for this contract
+      // Get access codes for the contract
       const { data: accessCodes, error: codesError } = await supabase
         .from('contract_access_codes')
         .select('*')
@@ -191,12 +208,13 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: false })
 
       if (codesError) {
-        console.error('Error fetching access codes:', codesError)
         return NextResponse.json({ error: 'Failed to fetch access codes' }, { status: 500 })
       }
 
-      return NextResponse.json({ access_codes: accessCodes || [] })
+      return NextResponse.json({ access_codes: accessCodes })
     }
+
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   } catch (error) {
     console.error('Error in GET /api/contract-access:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
