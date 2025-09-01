@@ -21,7 +21,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Calendar, CheckCircle, Clock, Target, Users, TrendingUp, AlertCircle, Plus, Edit, Trash2 } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle, Clock, Target, Users, TrendingUp, AlertCircle, Plus, Edit, Trash2 } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
 
 const supabase = createClientComponentClient();
 
@@ -772,11 +775,15 @@ export default function CorporatePage() {
                           ))}
                         </SelectContent>
                       </Select>
-                    <Input
-                      type="date"
-                      value={newTask.due_date}
-                      onChange={(e) => setNewTask(prev => ({ ...prev, due_date: e.target.value }))}
-                    />
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Due Date</label>
+                      <Input
+                        type="date"
+                        value={newTask.due_date || ''}
+                        onChange={(e) => setNewTask(prev => ({ ...prev, due_date: e.target.value }))}
+                        className="w-full"
+                      />
+                    </div>
                     <Select value={newTask.project_id} onValueChange={(value) => setNewTask(prev => ({ ...prev, project_id: value }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select Project (Optional)" />
@@ -852,11 +859,15 @@ export default function CorporatePage() {
                           ))}
                         </SelectContent>
                       </Select>
-                    <Input
-                      type="date"
-                      value={newGoal.target_date}
-                      onChange={(e) => setNewGoal(prev => ({ ...prev, target_date: e.target.value }))}
-                    />
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Target Date</label>
+                      <Input
+                        type="date"
+                        value={newGoal.target_date || ''}
+                        onChange={(e) => setNewGoal(prev => ({ ...prev, target_date: e.target.value }))}
+                        className="w-full"
+                      />
+                    </div>
                     <Select value={newGoal.project_id} onValueChange={(value) => setNewGoal(prev => ({ ...prev, project_id: value }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select Project (Optional)" />
@@ -1171,11 +1182,15 @@ export default function CorporatePage() {
                 ))}
               </SelectContent>
             </Select>
-            <Input
-              type="date"
-              value={editingTask?.due_date || ''}
-              onChange={(e) => setEditingTask(prev => prev ? { ...prev, due_date: e.target.value } : null)}
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Due Date</label>
+              <Input
+                type="date"
+                value={editingTask?.due_date || ''}
+                onChange={(e) => setEditingTask(prev => prev ? { ...prev, due_date: e.target.value } : null)}
+                className="w-full"
+              />
+            </div>
             <Select value={editingTask?.project_id || 'no-project'} onValueChange={(value) => setEditingTask(prev => prev ? { ...prev, project_id: value } : null)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Project (Optional)" />
@@ -1249,11 +1264,15 @@ export default function CorporatePage() {
                 ))}
               </SelectContent>
             </Select>
-            <Input
-              type="date"
-              value={editingGoal?.target_date || ''}
-              onChange={(e) => setEditingGoal(prev => prev ? { ...prev, target_date: e.target.value } : null)}
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Target Date</label>
+              <Input
+                type="date"
+                value={editingGoal?.target_date || ''}
+                onChange={(e) => setEditingGoal(prev => prev ? { ...prev, target_date: e.target.value } : null)}
+                className="w-full"
+              />
+            </div>
             <Select value={editingGoal?.project_id || 'no-project'} onValueChange={(value) => setEditingGoal(prev => prev ? { ...prev, project_id: value } : null)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Project (Optional)" />

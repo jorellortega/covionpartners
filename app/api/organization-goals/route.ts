@@ -3,7 +3,8 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies })
+  const cookieStore = await cookies()
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
   const { searchParams } = new URL(request.url)
   const organizationId = searchParams.get('organizationId')
 
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
           .from('organization_goals')
           .select(`
             *,
-            project:projects(id, name, description)
+            projects!project_id(id, name, description)
           `)
           .eq('organization_id', organizationId)
           .order('target_date', { ascending: true })
@@ -36,7 +37,8 @@ export async function POST(request: Request) {
   console.log('POST /api/organization-goals called')
   
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     
@@ -126,7 +128,8 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies })
+  const cookieStore = await cookies()
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
   
   try {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
@@ -214,7 +217,8 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies })
+  const cookieStore = await cookies()
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
   
   try {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
