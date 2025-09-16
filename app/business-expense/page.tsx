@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +57,8 @@ export default function BusinessExpensePage() {
     recurrence: "One-time",
     is_recurring: false,
     next_payment_date: "",
-    verified: false
+    verified: false,
+    payment_account: ""
   });
   const [editExpense, setEditExpense] = useState<any>(null);
   const [showEdit, setShowEdit] = useState(false);
@@ -162,7 +163,7 @@ export default function BusinessExpensePage() {
 
   // Check access for the selected organization
   const selectedOrgObj = organizations.find(org => org.id === selectedOrg);
-  const isOwner = selectedOrgObj && selectedOrgObj.owner_id === user.id;
+  const isOwner = selectedOrgObj && user && selectedOrgObj.owner_id === user.id;
   const hasAccess = isOwner || userStaffLevel === 5;
 
   useEffect(() => {
@@ -332,6 +333,7 @@ export default function BusinessExpensePage() {
             is_recurring: newExpense.is_recurring,
             next_payment_date: newExpense.is_recurring && newExpense.next_payment_date ? newExpense.next_payment_date : null,
             verified: newExpense.verified,
+            payment_account: newExpense.payment_account,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           }
@@ -341,7 +343,7 @@ export default function BusinessExpensePage() {
       if (error) throw error;
       setExpenses(prev => [data, ...prev]);
       setShowAdd(false);
-      setNewExpense({ description: "", amount: "", category: "", status: "Pending", due_date: "", receipt_url: "", notes: "", recurrence: "One-time", is_recurring: false, next_payment_date: "", verified: false });
+      setNewExpense({ description: "", amount: "", category: "", status: "Pending", due_date: "", receipt_url: "", notes: "", recurrence: "One-time", is_recurring: false, next_payment_date: "", verified: false, payment_account: "" });
       toast.success("Expense added successfully");
     } catch (error) {
       toast.error("Failed to add expense");
@@ -364,6 +366,7 @@ export default function BusinessExpensePage() {
           recurrence: editExpense.is_recurring ? editExpense.recurrence : "One-time",
           next_payment_date: editExpense.is_recurring && editExpense.next_payment_date ? editExpense.next_payment_date : null,
           verified: editExpense.verified,
+          payment_account: editExpense.payment_account,
           updated_at: new Date().toISOString()
         })
         .eq("id", editExpense.id)
@@ -453,31 +456,37 @@ export default function BusinessExpensePage() {
             <>
               {/* Analytics Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <div className="leonardo-card p-4 flex items-center border-2 !border-green-500">
+                <div className="leonardo-card p-4 flex items-center border-2 !border-green-500 group cursor-pointer">
                   <div className="p-3 rounded-full bg-green-500/20 mr-4 flex items-center justify-center">
                     <DollarSign className="w-6 h-6 text-green-400" />
                   </div>
                   <div>
                     <p className="text-gray-300 text-sm font-medium mb-1">Total Expenses</p>
-                    <p className="text-2xl font-bold text-green-400">${totalExpenses.toFixed(2)}</p>
+                    <h3 className="text-lg font-bold mt-1 hidden group-hover:block text-green-400">
+                      ${totalExpenses.toFixed(2)}
+                    </h3>
                   </div>
                 </div>
-                <div className="leonardo-card p-4 flex items-center border-2 !border-blue-500">
+                <div className="leonardo-card p-4 flex items-center border-2 !border-blue-500 group cursor-pointer">
                   <div className="p-3 rounded-full bg-green-500/20 mr-4 flex items-center justify-center">
                     <DollarSign className="w-6 h-6 text-green-400" />
                   </div>
                   <div>
                     <p className="text-gray-300 text-sm font-medium mb-1">Monthly Expenses</p>
-                    <p className="text-2xl font-bold text-green-400">${monthlyExpenses.toFixed(2)}</p>
+                    <h3 className="text-lg font-bold mt-1 hidden group-hover:block text-green-400">
+                      ${monthlyExpenses.toFixed(2)}
+                    </h3>
                   </div>
                 </div>
-                <div className="leonardo-card p-4 flex items-center border-2 !border-purple-500">
+                <div className="leonardo-card p-4 flex items-center border-2 !border-purple-500 group cursor-pointer">
                   <div className="p-3 rounded-full bg-green-500/20 mr-4 flex items-center justify-center">
                     <DollarSign className="w-6 h-6 text-green-400" />
                   </div>
                   <div>
                     <p className="text-gray-300 text-sm font-medium mb-1">Yearly Expenses</p>
-                    <p className="text-2xl font-bold text-green-400">${yearlyExpenses.toFixed(2)}</p>
+                    <h3 className="text-lg font-bold mt-1 hidden group-hover:block text-green-400">
+                      ${yearlyExpenses.toFixed(2)}
+                    </h3>
                   </div>
                 </div>
               </div>
@@ -489,6 +498,7 @@ export default function BusinessExpensePage() {
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Add Organization Expense</DialogTitle>
+                      <DialogDescription>Add a new expense for your organization</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                       <Input placeholder="Description" value={newExpense.description} onChange={e => setNewExpense({ ...newExpense, description: e.target.value })} />
@@ -572,6 +582,7 @@ export default function BusinessExpensePage() {
                       )}
                       <Input placeholder="Due Date" type="date" value={newExpense.due_date} onChange={e => setNewExpense({ ...newExpense, due_date: e.target.value })} />
                       <Input placeholder="Receipt URL" value={newExpense.receipt_url} onChange={e => setNewExpense({ ...newExpense, receipt_url: e.target.value })} />
+                      <Input placeholder="Payment Account (Bank/Card)" value={newExpense.payment_account} onChange={e => setNewExpense({ ...newExpense, payment_account: e.target.value })} />
                       <Input placeholder="Notes" value={newExpense.notes} onChange={e => setNewExpense({ ...newExpense, notes: e.target.value })} />
                       <Select
                         value={newExpense.status}
@@ -636,6 +647,7 @@ export default function BusinessExpensePage() {
                                 <th className="px-4 py-2">Amount</th>
                                 <th className="px-4 py-2">Status</th>
                                 <th className="px-4 py-2">Due Date</th>
+                                <th className="px-4 py-2">Payment Account</th>
                                 <th className="px-4 py-2">Notes</th>
                                 <th className="px-4 py-2">Actions</th>
                               </tr>
@@ -697,8 +709,39 @@ export default function BusinessExpensePage() {
                                       {expense.status}
                                     </td>
                                     <td className="px-4 py-2">{parseLocalDate(expense.due_date) ? parseLocalDate(expense.due_date)!.toLocaleDateString() : ''}</td>
+                                    <td className="px-4 py-2">{expense.payment_account || '-'}</td>
                                     <td className="px-4 py-2">{expense.notes}</td>
                                     <td className="px-4 py-2 flex gap-2">
+                                      <Select
+                                        value={expense.category}
+                                        onValueChange={async (newCategory) => {
+                                          try {
+                                            const { error } = await supabase
+                                              .from("expenses")
+                                              .update({ 
+                                                category: newCategory,
+                                                updated_at: new Date().toISOString()
+                                              })
+                                              .eq("id", expense.id);
+                                            if (error) throw error;
+                                            setExpenses(prev => prev.map(exp => 
+                                              exp.id === expense.id ? { ...exp, category: newCategory } : exp
+                                            ));
+                                            toast.success("Category updated");
+                                          } catch (error) {
+                                            toast.error("Failed to update category");
+                                          }
+                                        }}
+                                      >
+                                        <SelectTrigger className="w-32 h-8 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {uniqueCategories.map(cat => (
+                                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
                                       <Button size="icon" variant="ghost" onClick={() => { setEditExpense(expense); setShowEdit(true); }}><Pencil className="w-4 h-4" /></Button>
                                       <Button size="icon" variant="ghost" onClick={() => handleDeleteExpense(expense.id)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
                                     </td>
@@ -708,7 +751,7 @@ export default function BusinessExpensePage() {
                               <tr className="border-t border-gray-800 font-bold">
                                 <td className="px-4 py-2 text-right" colSpan={1}>Total</td>
                                 <td className="px-4 py-2">${(categoryExpenses as any[]).reduce((sum, e) => sum + (e.amount || 0), 0).toFixed(2)}</td>
-                                <td className="px-4 py-2" colSpan={4}></td>
+                                <td className="px-4 py-2" colSpan={5}></td>
                               </tr>
                             </tbody>
                           </table>
@@ -736,6 +779,36 @@ export default function BusinessExpensePage() {
                                     <p className="text-lg font-semibold text-cyan-400">${(expense.amount || 0).toFixed(2)}</p>
                                   </div>
                                   <div className="flex gap-1 ml-2">
+                                    <Select
+                                      value={expense.category}
+                                      onValueChange={async (newCategory) => {
+                                        try {
+                                          const { error } = await supabase
+                                            .from("expenses")
+                                            .update({ 
+                                              category: newCategory,
+                                              updated_at: new Date().toISOString()
+                                            })
+                                            .eq("id", expense.id);
+                                          if (error) throw error;
+                                          setExpenses(prev => prev.map(exp => 
+                                            exp.id === expense.id ? { ...exp, category: newCategory } : exp
+                                          ));
+                                          toast.success("Category updated");
+                                        } catch (error) {
+                                          toast.error("Failed to update category");
+                                        }
+                                      }}
+                                    >
+                                      <SelectTrigger className="w-24 h-8 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {uniqueCategories.map(cat => (
+                                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                     <Button 
                                       size="sm" 
                                       variant="ghost" 
@@ -772,6 +845,13 @@ export default function BusinessExpensePage() {
                                     <div className="flex justify-between">
                                       <span className="text-gray-400">Due Date:</span>
                                       <span>{parseLocalDate(expense.due_date) ? parseLocalDate(expense.due_date)!.toLocaleDateString() : ''}</span>
+                                    </div>
+                                  )}
+                                  
+                                  {expense.payment_account && (
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-400">Payment Account:</span>
+                                      <span className="text-right max-w-[200px] truncate">{expense.payment_account}</span>
                                     </div>
                                   )}
                                   
@@ -861,6 +941,7 @@ export default function BusinessExpensePage() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Add Business Note</DialogTitle>
+                  <DialogDescription>Add a new note for your organization</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <Input 
@@ -923,6 +1004,7 @@ export default function BusinessExpensePage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Business Note</DialogTitle>
+            <DialogDescription>Update your business note</DialogDescription>
           </DialogHeader>
           {editNote && (
             <div className="space-y-4">
@@ -950,12 +1032,13 @@ export default function BusinessExpensePage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Organization Expense</DialogTitle>
+            <DialogDescription>Update expense details for your organization</DialogDescription>
           </DialogHeader>
           {editExpense && (
             <div className="space-y-4">
-              <Input placeholder="Description" value={editExpense.description} onChange={e => setEditExpense({ ...editExpense, description: e.target.value })} />
-              <Input placeholder="Amount" type="number" value={editExpense.amount} onChange={e => setEditExpense({ ...editExpense, amount: e.target.value })} />
-              <Input placeholder="Category" value={editExpense.category} onChange={e => setEditExpense({ ...editExpense, category: e.target.value })} />
+              <Input placeholder="Description" value={editExpense.description || ""} onChange={e => setEditExpense({ ...editExpense, description: e.target.value })} />
+              <Input placeholder="Amount" type="number" value={editExpense.amount || ""} onChange={e => setEditExpense({ ...editExpense, amount: e.target.value })} />
+              <Input placeholder="Category" value={editExpense.category || ""} onChange={e => setEditExpense({ ...editExpense, category: e.target.value })} />
               {/* Recurring expense fields for edit */}
               <div className="flex items-center gap-2">
                 <input
@@ -969,7 +1052,7 @@ export default function BusinessExpensePage() {
               {editExpense.is_recurring && (
                 <div className="flex flex-col gap-2">
                   <Select
-                    value={editExpense.recurrence}
+                    value={editExpense.recurrence || ""}
                     onValueChange={val => setEditExpense({ ...editExpense, recurrence: val })}
                   >
                     <SelectTrigger className="w-full leonardo-input text-white">
@@ -991,10 +1074,11 @@ export default function BusinessExpensePage() {
                   />
                 </div>
               )}
-              <Input placeholder="Due Date" type="date" value={editExpense.due_date} onChange={e => setEditExpense({ ...editExpense, due_date: e.target.value })} />
-              <Input placeholder="Receipt URL" value={editExpense.receipt_url} onChange={e => setEditExpense({ ...editExpense, receipt_url: e.target.value })} />
-              <Input placeholder="Notes" value={editExpense.notes} onChange={e => setEditExpense({ ...editExpense, notes: e.target.value })} />
-              <Select value={editExpense.status} onValueChange={val => setEditExpense({ ...editExpense, status: val })}>
+              <Input placeholder="Due Date" type="date" value={editExpense.due_date || ""} onChange={e => setEditExpense({ ...editExpense, due_date: e.target.value })} />
+              <Input placeholder="Receipt URL" value={editExpense.receipt_url || ""} onChange={e => setEditExpense({ ...editExpense, receipt_url: e.target.value })} />
+              <Input placeholder="Payment Account (Bank/Card)" value={editExpense.payment_account || ""} onChange={e => setEditExpense({ ...editExpense, payment_account: e.target.value })} />
+              <Input placeholder="Notes" value={editExpense.notes || ""} onChange={e => setEditExpense({ ...editExpense, notes: e.target.value })} />
+              <Select value={editExpense.status || ""} onValueChange={val => setEditExpense({ ...editExpense, status: val })}>
                 <SelectTrigger className="w-full max-w-md bg-gray-900 border-gray-700 text-white">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
