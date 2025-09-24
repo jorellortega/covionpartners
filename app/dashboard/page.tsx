@@ -67,6 +67,7 @@ import {
   History,
   StickyNote,
   UploadCloud,
+  Cloud,
   Download,
 
   List,
@@ -2644,6 +2645,11 @@ export default function PartnerDashboard() {
                   <Link href="/work-dashboard">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
                       <FolderKanban className="w-4 h-4 mr-2" /> Work Dashboard
+                    </Button>
+                  </Link>
+                  <Link href="/cloud-services">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <Cloud className="w-4 h-4 mr-2" /> Cloud Services
                     </Button>
                   </Link>
                   <Link href="/approved-positions">

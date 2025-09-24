@@ -470,13 +470,34 @@ function WorkModeContent() {
   useEffect(() => {
     if (!currentProject?.id) return;
     const fetchActivities = async () => {
-      const { data, error } = await supabase
-        .from('work_activities')
-        .select('*, user:users(name, email)')
-        .eq('project_id', currentProject.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-      setActivities(data || []);
+      try {
+        // First check if the table exists by trying a simple query
+        const { data, error } = await supabase
+          .from('work_activities')
+          .select('*')
+          .eq('project_id', currentProject.id)
+          .order('created_at', { ascending: false })
+          .limit(20);
+        
+        if (error) {
+          console.error('Error fetching work activities:', error);
+          
+          // If it's a 404 or table doesn't exist, create a mock activity
+          if (error.code === 'PGRST116' || error.message.includes('relation "work_activities" does not exist')) {
+            console.log('work_activities table does not exist, using empty array');
+            setActivities([]);
+            return;
+          }
+          
+          setActivities([]);
+        } else {
+          console.log('Successfully fetched work activities:', data?.length || 0, 'items');
+          setActivities(data || []);
+        }
+      } catch (err) {
+        console.error('Error in fetchActivities:', err);
+        setActivities([]);
+      }
     };
     fetchActivities();
   }, [currentProject?.id]);
@@ -729,18 +750,22 @@ function WorkModeContent() {
 
       // Log activity
       if (data && data[0] && user) {
-        await supabase.from('work_activities').insert([{
-          user_id: user.id,
-          project_id: currentProject.id,
-          activity_type: 'task_update',
-          activity_data: {
-            action: 'created_timeline_item',
-            title: newTimelineItem.title,
-            type: newTimelineItem.type
-          },
-          related_entity_type: 'timeline',
-          related_entity_id: data[0].id
-        }]);
+        try {
+          await supabase.from('work_activities').insert([{
+            user_id: user.id,
+            project_id: currentProject.id,
+            activity_type: 'task_update',
+            activity_data: {
+              action: 'created_timeline_item',
+              title: newTimelineItem.title,
+              type: newTimelineItem.type
+            },
+            related_entity_type: 'timeline',
+            related_entity_id: data[0].id
+          }]);
+        } catch (activityError) {
+          console.log('Could not log activity (table may not exist):', activityError);
+        }
       }
 
       toast.success("Timeline item created successfully")
@@ -856,18 +881,19 @@ function WorkModeContent() {
   }
 
   const handleDeleteTimelineItem = async () => {
-    if (!deleteTimelineItem) return
+    if (!itemToDelete) return
 
     try {
       const { error } = await supabase
         .from('project_timeline')
         .delete()
-        .eq('id', deleteTimelineItem.id)
+        .eq('id', itemToDelete.id)
 
       if (error) throw error
 
       toast.success("Timeline item deleted successfully")
-      setDeleteTimelineItem(null)
+      setItemToDelete(null)
+      setIsDeleteModalOpen(false)
       
       // Refresh timeline
       const { data: updatedTimeline } = await supabase
@@ -1625,8 +1651,14 @@ function WorkModeContent() {
         .eq('id', currentProject.id)
         .single();
 
-      if (projectError || !projectData?.organization_id) {
+      if (projectError) {
         console.error('Error fetching project organization:', projectError);
+        setGuests([]);
+        return;
+      }
+
+      if (!projectData?.organization_id) {
+        console.log('Project has no organization_id, skipping guest fetch');
         setGuests([]);
         return;
       }
@@ -3148,7 +3180,7 @@ function WorkModeContent() {
                                     size="sm"
                                     variant="ghost"
                                     className="h-6 w-6 p-0 hover:bg-red-500/20 hover:text-red-400"
-                                    onClick={() => openDeleteModal(item)}
+                                    onClick={() => setItemToDelete(item)}
                                   >
                                     <Trash2 className="w-3 h-3" />
                                   </Button>
@@ -3161,7 +3193,7 @@ function WorkModeContent() {
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogCancel onClick={() => setItemToDelete(null)}>Cancel</AlertDialogCancel>
                                     <AlertDialogAction
                                       onClick={handleDeleteTimelineItem}
                                       className="bg-red-600 hover:bg-red-700"
@@ -3184,11 +3216,7 @@ function WorkModeContent() {
                             <>
                               <span className="text-xs text-gray-400">{item.progress}%</span>
                               <div className="w-24 bg-gray-700 rounded-full h-1.5">
-                                <div className={`h-1.5 rounded-full transition-all duration-300 ${
-                                  item.status === 'completed' ? 'bg-green-500' :
-                                  item.status === 'in_progress' ? 'bg-blue-500' :
-                                  'bg-gray-500'
-                                }`} style={{ width: `${item.progress}%` }}></div>
+                                <div className="bg-gradient-to-r from-green-500 to-blue-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${item.progress}%` }}></div>
                               </div>
                             </>
                           )}

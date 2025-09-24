@@ -31,12 +31,10 @@ export default function RootLayout({
     <html lang="en">
       <head>
         {/* Google AdSense script */}
-        <Script
-          id="adsense-script"
+        <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5771281829620343"
           crossOrigin="anonymous"
-          strategy="afterInteractive"
         />
       </head>
       <body className={inter.className}>
