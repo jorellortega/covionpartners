@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Calendar as CalendarIcon, CheckCircle, Clock, Target, Users, TrendingUp, AlertCircle, Plus, Edit, Trash2 } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle, Clock, Target, Users, TrendingUp, AlertCircle, Plus, Edit, Trash2, Calendar as CalendarIcon2, CalendarDays, CalendarRange } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
@@ -57,8 +58,10 @@ interface OrganizationGoal {
   status: 'active' | 'completed' | 'paused';
   priority: 'low' | 'medium' | 'high';
   category: 'financial' | 'growth' | 'operational' | 'strategic';
+  goal_type: 'weekly' | 'monthly' | 'yearly';
   project_id?: string;
   organization_id: string;
+  assigned_to?: string;
   created_at: string;
   updated_at: string;
   project?: {
@@ -88,7 +91,9 @@ export default function CorporatePage() {
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterProject, setFilterProject] = useState<string>('all');
+  const [filterGoalType, setFilterGoalType] = useState<string>('all');
   const [organizationStaff, setOrganizationStaff] = useState<any[]>([]);
+  const [activeGoalTab, setActiveGoalTab] = useState<string>('weekly');
 
   const [newTask, setNewTask] = useState({
     title: "",
@@ -106,6 +111,7 @@ export default function CorporatePage() {
     target_date: "",
     priority: "medium" as const,
     category: "strategic" as const,
+    goal_type: "yearly" as const,
     project_id: "no-project",
     assigned_to: "unassigned"
   });
@@ -236,6 +242,7 @@ export default function CorporatePage() {
     setFilterPriority('all');
     setFilterCategory('all');
     setFilterProject('all');
+    setFilterGoalType('all');
   }, [selectedOrg]);
 
   // Fetch organization staff members
@@ -376,7 +383,9 @@ export default function CorporatePage() {
         target_date: "",
         priority: "medium",
         category: "strategic",
-        project_id: "no-project"
+        goal_type: "yearly",
+        project_id: "no-project",
+        assigned_to: "unassigned"
       });
     } catch (error) {
       console.error("Error adding goal:", error);
@@ -502,20 +511,35 @@ export default function CorporatePage() {
   const handleUpdateGoal = async (updatedGoal: OrganizationGoal) => {
     if (!selectedOrg) return;
     
+    const requestData = {
+      id: updatedGoal.id,
+      title: updatedGoal.title,
+      description: updatedGoal.description,
+      target_date: updatedGoal.target_date,
+      status: updatedGoal.status,
+      priority: updatedGoal.priority,
+      category: updatedGoal.category,
+      goal_type: updatedGoal.goal_type,
+      organization_id: updatedGoal.organization_id,
+      assigned_to: updatedGoal.assigned_to === 'unassigned' ? null : updatedGoal.assigned_to,
+      project_id: updatedGoal.project_id === 'no-project' ? null : updatedGoal.project_id,
+    };
+    
+    console.log('DEBUG: Sending goal update data:', requestData);
+    
     try {
       const response = await fetch('/api/organization-goals', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...updatedGoal,
-          assigned_to: updatedGoal.assigned_to === 'unassigned' ? null : updatedGoal.assigned_to,
-        }),
+        body: JSON.stringify(requestData),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.log('DEBUG: Server response error:', response.status, errorText);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
       setGoals(prev => prev.map(goal => 
@@ -563,13 +587,119 @@ export default function CorporatePage() {
       if (filterProject === 'no-project' && goal.project_id !== null) return false;
       if (filterProject !== 'no-project' && goal.project_id !== filterProject) return false;
     }
+    if (filterGoalType !== 'all' && goal.goal_type !== filterGoalType) return false;
     return true;
   });
+
+  // Separate goals by type for tabs
+  const weeklyGoals = goals.filter(goal => goal.goal_type === 'weekly');
+  const monthlyGoals = goals.filter(goal => goal.goal_type === 'monthly');
+  const yearlyGoals = goals.filter(goal => goal.goal_type === 'yearly');
 
   const pendingTasks = tasks.filter(t => t.status === 'pending').length;
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
   const activeGoals = goals.filter(g => g.status === 'active').length;
+
+  // Helper function to render goals list
+  const renderGoalsList = (goalsList: OrganizationGoal[]) => {
+    if (goalsList.length === 0) {
+      return (
+        <div className="text-center py-8 text-gray-500">
+          <p>No goals found for this time period</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        {goalsList.map((goal) => (
+          <div
+            key={goal.id}
+            className="flex items-start gap-2 sm:gap-3 rounded-lg p-2 sm:p-3 mb-2 cursor-pointer hover:bg-gray-800 transition border border-gray-700"
+            style={{ backgroundColor: '#000000' }}
+          >
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <div className="font-semibold text-white text-xs sm:text-base">{goal.title}</div>
+              </div>
+              <div className="flex items-center gap-2 sm:gap-3 mt-1 text-xs text-gray-400">
+                <span>Status: <span className="font-medium">{goal.status}</span></span>
+                <span>Target: {goal.target_date ? new Date(goal.target_date).toLocaleDateString() : '--'}</span>
+                <span>Priority: <span className="font-medium">{goal.priority}</span></span>
+                <span>Category: <span className="font-medium">{goal.category}</span></span>
+              </div>
+              <div className="flex items-center gap-1 mt-1">
+                <Badge className={`text-xs ${
+                  goal.goal_type === 'weekly' ? 'bg-blue-600/20 text-blue-300 border-blue-500/30' :
+                  goal.goal_type === 'monthly' ? 'bg-green-600/20 text-green-300 border-green-500/30' :
+                  'bg-purple-600/20 text-purple-300 border-purple-500/30'
+                }`}>
+                  {goal.goal_type.charAt(0).toUpperCase() + goal.goal_type.slice(1)}
+                </Badge>
+              </div>
+              {goal.description && (
+                <div className="mt-1 text-xs text-gray-400">
+                  {goal.description}
+                </div>
+              )}
+              {goal.project && (
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-xs text-gray-400">Project:</span>
+                  <Badge className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30">
+                    {goal.project.name}
+                  </Badge>
+                </div>
+              )}
+              {goal.assigned_to && goal.assigned_to !== 'unassigned' && (
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-xs text-gray-400">Assigned to:</span>
+                  <Badge className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
+                    {(() => {
+                      const staff = organizationStaff.find(s => s.id === goal.assigned_to);
+                      return staff?.user?.name || staff?.user?.email || 'Unknown';
+                    })()}
+                  </Badge>
+                </div>
+              )}
+            </div>
+            {canManageCorporate && (
+              <div className="flex gap-2">
+                <Select value={goal.status} onValueChange={(value) => handleUpdateGoalStatus(goal.id, value)}>
+                  <SelectTrigger className="w-32 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
+                  onClick={() => setEditingGoal(goal)}
+                >
+                  <Edit className="w-3 h-3 mr-1" />
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30"
+                  onClick={() => setDeletingGoal(goal)}
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Delete
+                </Button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   if (!user) {
     return (
@@ -709,6 +839,18 @@ export default function CorporatePage() {
                 ))}
               </SelectContent>
             </Select>
+            
+            <Select value={filterGoalType} onValueChange={setFilterGoalType}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Goal Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="yearly">Yearly</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Action Buttons */}
@@ -844,6 +986,16 @@ export default function CorporatePage() {
                         <SelectItem value="growth">Growth</SelectItem>
                         <SelectItem value="operational">Operational</SelectItem>
                         <SelectItem value="strategic">Strategic</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={newGoal.goal_type} onValueChange={(value) => setNewGoal(prev => ({ ...prev, goal_type: value as any }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Goal Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="yearly">Yearly</SelectItem>
                       </SelectContent>
                     </Select>
                                           <Select value={newGoal.assigned_to} onValueChange={(value) => setNewGoal(prev => ({ ...prev, assigned_to: value }))}>
@@ -993,104 +1145,57 @@ export default function CorporatePage() {
             </CardContent>
           </Card>
 
-          {/* Goals Section */}
+          {/* Goals Section with Tabs */}
           <Card>
             <CardHeader>
               <CardTitle>Organization Goals</CardTitle>
               <CardDescription>Strategic objectives and organizational targets</CardDescription>
             </CardHeader>
             <CardContent>
-              {filteredGoals.length === 0 ? (
+              {goals.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  {goals.length === 0 ? (
-                    <div>
-                      <p>No goals found</p>
-                      <p className="text-sm text-gray-400 mt-2">
-                        Database tables may not be set up yet. Run the migration to create the organization_goals table.
-                      </p>
-                    </div>
-                  ) : (
-                    "No goals match the current filters"
-                  )}
+                  <p>No goals found</p>
+                  <p className="text-sm text-gray-400 mt-2">
+                    Database tables may not be set up yet. Run the migration to create the organization_goals table.
+                  </p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {filteredGoals.map((goal) => (
-                    <div
-                      key={goal.id}
-                      className="flex items-start gap-2 sm:gap-3 rounded-lg p-2 sm:p-3 mb-2 cursor-pointer hover:bg-gray-800 transition border border-gray-700"
-                      style={{ backgroundColor: '#000000' }}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <div className="font-semibold text-white text-xs sm:text-base">{goal.title}</div>
-                        </div>
-                        <div className="flex items-center gap-2 sm:gap-3 mt-1 text-xs text-gray-400">
-                          <span>Status: <span className="font-medium">{goal.status}</span></span>
-                          <span>Target: {goal.target_date ? new Date(goal.target_date).toLocaleDateString() : '--'}</span>
-                          <span>Priority: <span className="font-medium">{goal.priority}</span></span>
-                          <span>Category: <span className="font-medium">{goal.category}</span></span>
-                        </div>
-                        {goal.description && (
-                          <div className="mt-1 text-xs text-gray-400">
-                            {goal.description}
-                          </div>
-                        )}
-                        {goal.project && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <span className="text-xs text-gray-400">Project:</span>
-                            <Badge className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30">
-                              {goal.project.name}
-                            </Badge>
-                          </div>
-                        )}
-                        {goal.assigned_to && goal.assigned_to !== 'unassigned' && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <span className="text-xs text-gray-400">Assigned to:</span>
-                            <Badge className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
-                              {(() => {
-                                const staff = organizationStaff.find(s => s.id === goal.assigned_to);
-                                return staff?.user?.name || staff?.user?.email || 'Unknown';
-                              })()}
-                            </Badge>
-                          </div>
-                        )}
-                      </div>
-                      {canManageCorporate && (
-                        <div className="flex gap-2">
-                          <Select value={goal.status} onValueChange={(value) => handleUpdateGoalStatus(goal.id, value)}>
-                            <SelectTrigger className="w-32 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                              <SelectItem value="paused">Paused</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
-                            onClick={() => setEditingGoal(goal)}
-                          >
-                            <Edit className="w-3 h-3 mr-1" />
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30"
-                            onClick={() => setDeletingGoal(goal)}
-                          >
-                            <Trash2 className="w-3 h-3 mr-1" />
-                            Delete
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <Tabs value={activeGoalTab} onValueChange={setActiveGoalTab} className="w-full">
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="all" className="flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      All Goals ({goals.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="weekly" className="flex items-center gap-2">
+                      <CalendarIcon2 className="h-4 w-4" />
+                      Weekly ({weeklyGoals.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="monthly" className="flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4" />
+                      Monthly ({monthlyGoals.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="yearly" className="flex items-center gap-2">
+                      <CalendarRange className="h-4 w-4" />
+                      Yearly ({yearlyGoals.length})
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="all" className="mt-4">
+                    {renderGoalsList(filteredGoals)}
+                  </TabsContent>
+                  
+                  <TabsContent value="weekly" className="mt-4">
+                    {renderGoalsList(weeklyGoals)}
+                  </TabsContent>
+                  
+                  <TabsContent value="monthly" className="mt-4">
+                    {renderGoalsList(monthlyGoals)}
+                  </TabsContent>
+                  
+                  <TabsContent value="yearly" className="mt-4">
+                    {renderGoalsList(yearlyGoals)}
+                  </TabsContent>
+                </Tabs>
               )}
             </CardContent>
           </Card>
@@ -1249,6 +1354,16 @@ export default function CorporatePage() {
                 <SelectItem value="growth">Growth</SelectItem>
                 <SelectItem value="operational">Operational</SelectItem>
                 <SelectItem value="strategic">Strategic</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={editingGoal?.goal_type || 'yearly'} onValueChange={(value) => setEditingGoal(prev => prev ? { ...prev, goal_type: value as any } : null)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Goal Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="yearly">Yearly</SelectItem>
               </SelectContent>
             </Select>
             <Select value={editingGoal?.assigned_to || 'unassigned'} onValueChange={(value) => setEditingGoal(prev => prev ? { ...prev, assigned_to: value } : null)}>

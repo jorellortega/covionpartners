@@ -50,9 +50,9 @@ export async function POST(request: Request) {
       )
     }
 
-    const { title, description, target_date, priority, category, project_id, organization_id } = await request.json()
+    const { title, description, target_date, priority, category, goal_type, project_id, organization_id, assigned_to } = await request.json()
 
-    console.log('Received goal data:', { title, description, target_date, priority, category, project_id, organization_id })
+    console.log('Received goal data:', { title, description, target_date, priority, category, goal_type, project_id, organization_id, assigned_to })
 
     if (!title || !organization_id) {
       return NextResponse.json(
@@ -95,8 +95,10 @@ export async function POST(request: Request) {
       target_date: target_date || null,
       priority: priority || 'medium',
       category: category || 'strategic',
+      goal_type: goal_type || 'yearly',
       project_id: project_id === 'no-project' ? null : project_id,
       organization_id,
+      assigned_to: assigned_to === 'unassigned' ? null : assigned_to,
       status: 'active'
     }
 
@@ -188,10 +190,23 @@ export async function PUT(request: Request) {
       }
     }
 
+    // Clean up the update data
+    const cleanedUpdateData = { ...updateData };
+    
+    // Handle assigned_to field - convert 'unassigned' to null
+    if (cleanedUpdateData.assigned_to === 'unassigned') {
+      cleanedUpdateData.assigned_to = null;
+    }
+    
+    // Handle project_id field - convert 'no-project' to null
+    if (cleanedUpdateData.project_id === 'no-project') {
+      cleanedUpdateData.project_id = null;
+    }
+
     const { data, error } = await supabase
       .from('organization_goals')
       .update({
-        ...updateData,
+        ...cleanedUpdateData,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -200,8 +215,9 @@ export async function PUT(request: Request) {
 
     if (error) {
       console.error('Error updating organization goal:', error)
+      console.error('Update data that failed:', cleanedUpdateData)
       return NextResponse.json(
-        { message: 'Failed to update goal' },
+        { message: 'Failed to update goal', error: error.message, details: error.details },
         { status: 500 }
       )
     }

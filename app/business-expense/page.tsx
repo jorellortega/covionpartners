@@ -571,16 +571,29 @@ export default function BusinessExpensePage() {
                               <SelectItem value="One-time">One-time</SelectItem>
                             </SelectContent>
                           </Select>
-                          <Input
-                            placeholder="Next Payment Date"
-                            type="date"
-                            value={newExpense.next_payment_date || ""}
-                            onChange={e => setNewExpense({ ...newExpense, next_payment_date: e.target.value })}
-                            className="leonardo-input text-white"
-                          />
+                          <div>
+                            <Label htmlFor="next_payment_date" className="text-sm text-gray-300 mb-1 block">Next Payment Date</Label>
+                            <Input
+                              id="next_payment_date"
+                              placeholder="Next Payment Date"
+                              type="date"
+                              value={newExpense.next_payment_date || ""}
+                              onChange={e => setNewExpense({ ...newExpense, next_payment_date: e.target.value })}
+                              className="leonardo-input text-white"
+                            />
+                          </div>
                         </div>
                       )}
-                      <Input placeholder="Due Date" type="date" value={newExpense.due_date} onChange={e => setNewExpense({ ...newExpense, due_date: e.target.value })} />
+                      <div>
+                        <Label htmlFor="due_date" className="text-sm text-gray-300 mb-1 block">Due Date</Label>
+                        <Input 
+                          id="due_date"
+                          placeholder="Due Date" 
+                          type="date" 
+                          value={newExpense.due_date} 
+                          onChange={e => setNewExpense({ ...newExpense, due_date: e.target.value })} 
+                        />
+                      </div>
                       <Input placeholder="Receipt URL" value={newExpense.receipt_url} onChange={e => setNewExpense({ ...newExpense, receipt_url: e.target.value })} />
                       <Input placeholder="Payment Account (Bank/Card)" value={newExpense.payment_account} onChange={e => setNewExpense({ ...newExpense, payment_account: e.target.value })} />
                       <Input placeholder="Notes" value={newExpense.notes} onChange={e => setNewExpense({ ...newExpense, notes: e.target.value })} />
@@ -1065,16 +1078,29 @@ export default function BusinessExpensePage() {
                       <SelectItem value="One-time">One-time</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Input
-                    placeholder="Next Payment Date"
-                    type="date"
-                    value={editExpense.next_payment_date || ""}
-                    onChange={e => setEditExpense({ ...editExpense, next_payment_date: e.target.value })}
-                    className="leonardo-input text-white"
-                  />
+                  <div>
+                    <Label htmlFor="edit_next_payment_date" className="text-sm text-gray-300 mb-1 block">Next Payment Date</Label>
+                    <Input
+                      id="edit_next_payment_date"
+                      placeholder="Next Payment Date"
+                      type="date"
+                      value={editExpense.next_payment_date || ""}
+                      onChange={e => setEditExpense({ ...editExpense, next_payment_date: e.target.value })}
+                      className="leonardo-input text-white"
+                    />
+                  </div>
                 </div>
               )}
-              <Input placeholder="Due Date" type="date" value={editExpense.due_date || ""} onChange={e => setEditExpense({ ...editExpense, due_date: e.target.value })} />
+              <div>
+                <Label htmlFor="edit_due_date" className="text-sm text-gray-300 mb-1 block">Due Date</Label>
+                <Input 
+                  id="edit_due_date"
+                  placeholder="Due Date" 
+                  type="date" 
+                  value={editExpense.due_date || ""} 
+                  onChange={e => setEditExpense({ ...editExpense, due_date: e.target.value })} 
+                />
+              </div>
               <Input placeholder="Receipt URL" value={editExpense.receipt_url || ""} onChange={e => setEditExpense({ ...editExpense, receipt_url: e.target.value })} />
               <Input placeholder="Payment Account (Bank/Card)" value={editExpense.payment_account || ""} onChange={e => setEditExpense({ ...editExpense, payment_account: e.target.value })} />
               <Input placeholder="Notes" value={editExpense.notes || ""} onChange={e => setEditExpense({ ...editExpense, notes: e.target.value })} />
