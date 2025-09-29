@@ -106,17 +106,19 @@ export async function POST(
     console.log('🔍 Config:', config);
     console.log('🔍 Redirect URI:', config.redirectUri);
     
-    const authUrl = new URL(config.authUrl);
-    authUrl.searchParams.set('client_id', config.clientId!);
-    authUrl.searchParams.set('redirect_uri', config.redirectUri);
-    authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('scope', config.scope);
-    authUrl.searchParams.set('state', state);
-    authUrl.searchParams.set('access_type', 'offline'); // For Google Drive refresh tokens
-    authUrl.searchParams.set('prompt', 'consent'); // Force consent screen for Google Drive
+    // Build URL manually to avoid double encoding issues
+    const params = new URLSearchParams();
+    params.set('client_id', config.clientId!);
+    params.set('redirect_uri', config.redirectUri);
+    params.set('response_type', 'code');
+    params.set('scope', config.scope);
+    params.set('state', state);
+    params.set('access_type', 'offline'); // For Google Drive refresh tokens
+    params.set('prompt', 'consent'); // Force consent screen for Google Drive
 
-    const finalUrl = authUrl.toString();
+    const finalUrl = `${config.authUrl}?${params.toString()}`;
     console.log('🔍 Final OAuth URL:', finalUrl);
+    console.log('🔍 Redirect URI in final URL:', params.get('redirect_uri'));
 
     return NextResponse.json({ authUrl: finalUrl });
   } catch (error) {

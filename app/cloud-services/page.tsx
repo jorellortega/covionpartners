@@ -126,6 +126,8 @@ export default function CloudServicesPage() {
       
       if (response.ok) {
         const { authUrl } = await response.json();
+        console.log('🔍 Received authUrl from server:', authUrl);
+        console.log('🔍 Decoded authUrl:', decodeURIComponent(authUrl));
         window.location.href = authUrl;
       } else {
         const errorData = await response.json();
