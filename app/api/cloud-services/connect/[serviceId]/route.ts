@@ -55,31 +55,46 @@ export async function POST(
     // Check if user already has a connection for this service
     const { data: existingConnection } = await supabase
       .from('cloud_services')
-      .select('id')
+      .select('id, is_active, access_token')
       .eq('user_id', user.id)
       .eq('service_id', serviceId)
-      .eq('is_active', true)
       .single();
-
-    if (existingConnection) {
-      return NextResponse.json({ error: 'Service already connected' }, { status: 400 });
-    }
 
     // Generate state parameter for security
     const state = `${user.id}:${serviceId}:${Date.now()}`;
     
-    // Store state in session or database for verification
-    const { error: stateError } = await supabase
-      .from('cloud_services')
-      .insert({
-        user_id: user.id,
-        service_id: serviceId,
-        service_name: getServiceName(serviceId),
-        access_token: '', // Will be filled after OAuth callback
-        account_info: {},
-        scopes: config.scope.split(' '),
-        is_active: false, // Will be activated after successful OAuth
-      });
+    let stateError;
+    if (existingConnection) {
+      // Update existing connection (reset for new OAuth flow)
+      console.log('🔍 Updating existing connection for service:', serviceId);
+      const { error } = await supabase
+        .from('cloud_services')
+        .update({
+          access_token: '', // Will be filled after OAuth callback
+          refresh_token: null,
+          account_info: {},
+          scopes: config.scope.split(' '),
+          is_active: false, // Will be activated after successful OAuth
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingConnection.id);
+      stateError = error;
+    } else {
+      // Create new connection
+      console.log('🔍 Creating new connection for service:', serviceId);
+      const { error } = await supabase
+        .from('cloud_services')
+        .insert({
+          user_id: user.id,
+          service_id: serviceId,
+          service_name: getServiceName(serviceId),
+          access_token: '', // Will be filled after OAuth callback
+          account_info: {},
+          scopes: config.scope.split(' '),
+          is_active: false, // Will be activated after successful OAuth
+        });
+      stateError = error;
+    }
 
     if (stateError) {
       console.error('Error storing OAuth state:', stateError);
