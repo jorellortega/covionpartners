@@ -68,24 +68,30 @@ export default function CloudServicesPage() {
     console.log('🔍 CloudServicesPage: Initial services state:', services);
     console.log('🔍 CloudServicesPage: Loading state:', loading);
     
-    // Load connected services from API (commented out for now)
-    // loadConnectedServices();
+    // Load connected services from API
+    loadConnectedServices();
   }, []);
 
   const loadConnectedServices = async () => {
     try {
+      console.log('🔍 Loading connected services...');
       const response = await fetch('/api/cloud-services/connections');
+      console.log('🔍 Connections response status:', response.status);
+      
       if (response.ok) {
         const connections = await response.json();
+        console.log('🔍 Loaded connections:', connections);
         setServices(prev => prev.map(service => ({
           ...service,
           connected: connections.some((conn: any) => conn.service_id === service.id),
           accountInfo: connections.find((conn: any) => conn.service_id === service.id)?.account_info,
           lastSync: connections.find((conn: any) => conn.service_id === service.id)?.last_sync
         })));
+      } else {
+        console.error('🔍 Failed to load connections:', response.status, await response.text());
       }
     } catch (error) {
-      console.error('Failed to load connected services:', error);
+      console.error('🔍 Failed to load connected services:', error);
     }
   };
 
@@ -98,21 +104,19 @@ export default function CloudServicesPage() {
     });
     
     try {
-      console.log('🔍 Showing OAuth setup message for:', serviceId);
-      // For now, just show a message that OAuth setup is needed
-      alert(`To connect ${serviceId}, you need to set up OAuth credentials first. Check the CLOUD_SERVICES_SETUP.md file for instructions.`);
+      console.log('🔍 Initiating OAuth connection for:', serviceId);
       
-      // Uncomment this when OAuth is set up:
-      // const response = await fetch(`/api/cloud-services/connect/${serviceId}`, {
-      //   method: 'POST',
-      // });
-      // 
-      // if (response.ok) {
-      //   const { authUrl } = await response.json();
-      //   window.location.href = authUrl;
-      // } else {
-      //   throw new Error('Failed to initiate connection');
-      // }
+      const response = await fetch(`/api/cloud-services/connect/${serviceId}`, {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        const { authUrl } = await response.json();
+        window.location.href = authUrl;
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to initiate connection');
+      }
     } catch (error) {
       console.error('🔍 Connection failed:', error);
       alert('Failed to connect to service. Please try again.');
@@ -133,23 +137,20 @@ export default function CloudServicesPage() {
     setLoading(prev => ({ ...prev, [serviceId]: true }));
     
     try {
-      // For now, just show a message
-      alert('Disconnect functionality will be available once OAuth is set up.');
+      const response = await fetch(`/api/cloud-services/disconnect/${serviceId}`, {
+        method: 'DELETE',
+      });
       
-      // Uncomment this when OAuth is set up:
-      // const response = await fetch(`/api/cloud-services/disconnect/${serviceId}`, {
-      //   method: 'DELETE',
-      // });
-      // 
-      // if (response.ok) {
-      //   setServices(prev => prev.map(service => 
-      //     service.id === serviceId 
-      //       ? { ...service, connected: false, accountInfo: undefined, lastSync: undefined }
-      //       : service
-      //   ));
-      // } else {
-      //   throw new Error('Failed to disconnect service');
-      // }
+      if (response.ok) {
+        setServices(prev => prev.map(service => 
+          service.id === serviceId 
+            ? { ...service, connected: false, accountInfo: undefined, lastSync: undefined }
+            : service
+        ));
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to disconnect service');
+      }
     } catch (error) {
       console.error('Disconnection failed:', error);
       alert('Failed to disconnect service. Please try again.');
@@ -159,11 +160,7 @@ export default function CloudServicesPage() {
   };
 
   const handleManage = (serviceId: string) => {
-    // For now, just show a message
-    alert('Service management will be available once OAuth is set up.');
-    
-    // Uncomment this when OAuth is set up:
-    // window.location.href = `/cloud-services/${serviceId}`;
+    window.location.href = `/cloud-services/${serviceId}`;
   };
 
   // Debug logging inside component
@@ -271,6 +268,21 @@ export default function CloudServicesPage() {
       </div>
 
       <Separator className="my-8" />
+
+      {/* Debug Panel */}
+      <Card className="mb-8 border-yellow-200 bg-yellow-50">
+        <CardHeader>
+          <CardTitle className="text-sm text-yellow-800">Debug Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-xs text-yellow-700 space-y-1">
+            <p><strong>Services Status:</strong> {services.filter(s => s.connected).length} connected, {services.filter(s => !s.connected).length} not connected</p>
+            <p><strong>Loading States:</strong> {Object.keys(loading).filter(key => loading[key]).join(', ') || 'None'}</p>
+            <p><strong>Environment:</strong> {process.env.NODE_ENV}</p>
+            <p><strong>Site URL:</strong> {process.env.NEXT_PUBLIC_SITE_URL}</p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

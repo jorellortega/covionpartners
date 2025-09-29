@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 // OAuth configuration for different services
 const OAUTH_CONFIG = {
@@ -12,7 +13,7 @@ const OAUTH_CONFIG = {
   'dropbox': {
     clientId: process.env.DROPBOX_CLIENT_ID,
     redirectUri: `${process.env.NEXT_PUBLIC_SITE_URL}/api/cloud-services/callback/dropbox`,
-    scope: 'files.metadata.read files.content.read account_info.read',
+    scope: 'files.metadata.write files.content.write files.content.read account_info.read',
     authUrl: 'https://www.dropbox.com/oauth2/authorize',
   },
   'onedrive': {
@@ -31,10 +32,11 @@ const OAUTH_CONFIG = {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { serviceId: string } }
+  { params }: { params: Promise<{ serviceId: string }> }
 ) {
   try {
-    const supabase = createClient();
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     
     // Get the current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -43,7 +45,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { serviceId } = params;
+    const { serviceId } = await params;
     const config = OAUTH_CONFIG[serviceId as keyof typeof OAUTH_CONFIG];
 
     if (!config) {
@@ -85,6 +87,10 @@ export async function POST(
     }
 
     // Build OAuth URL
+    console.log('🔍 Building OAuth URL for service:', serviceId);
+    console.log('🔍 Config:', config);
+    console.log('🔍 Redirect URI:', config.redirectUri);
+    
     const authUrl = new URL(config.authUrl);
     authUrl.searchParams.set('client_id', config.clientId!);
     authUrl.searchParams.set('redirect_uri', config.redirectUri);
@@ -94,7 +100,10 @@ export async function POST(
     authUrl.searchParams.set('access_type', 'offline'); // For Google Drive refresh tokens
     authUrl.searchParams.set('prompt', 'consent'); // Force consent screen for Google Drive
 
-    return NextResponse.json({ authUrl: authUrl.toString() });
+    const finalUrl = authUrl.toString();
+    console.log('🔍 Final OAuth URL:', finalUrl);
+
+    return NextResponse.json({ authUrl: finalUrl });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
