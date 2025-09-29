@@ -2,24 +2,33 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
+  console.log('🔍 Dropbox callback hit!');
+  console.log('🔍 Full URL:', request.url);
+  
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const error = searchParams.get('error');
 
+    console.log('🔍 Callback params:', { code: !!code, state, error });
+
     if (error) {
-      console.error('OAuth error:', error);
+      console.error('🔍 OAuth error:', error);
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=oauth_error`);
     }
 
     if (!code || !state) {
+      console.log('🔍 Missing code or state');
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=missing_parameters`);
     }
 
     // Parse state to get user ID and service ID
     const [userId, serviceId, timestamp] = state.split(':');
+    console.log('🔍 Parsed state:', { userId, serviceId, timestamp });
+    
     if (!userId || !serviceId) {
+      console.log('🔍 Invalid state format');
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=invalid_state`);
     }
 
