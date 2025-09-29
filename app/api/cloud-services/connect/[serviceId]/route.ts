@@ -35,6 +35,8 @@ export async function POST(
   { params }: { params: Promise<{ serviceId: string }> }
 ) {
   try {
+    const { serviceId } = await params;
+    
     const cookieStore = await cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     
@@ -44,8 +46,6 @@ export async function POST(
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const { serviceId } = await params;
     const config = OAUTH_CONFIG[serviceId as keyof typeof OAUTH_CONFIG];
 
     if (!config) {
