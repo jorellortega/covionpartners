@@ -70,6 +70,18 @@ export default function CloudServicesPage() {
     
     // Load connected services from API
     loadConnectedServices();
+
+    // Check for OAuth callback success/error in URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const error = urlParams.get('error');
+    
+    if (success === 'connected') {
+      console.log('🔍 OAuth callback successful, reloading connections...');
+      setTimeout(() => loadConnectedServices(), 1000); // Reload after a short delay
+    } else if (error) {
+      console.log('🔍 OAuth callback error:', error);
+    }
   }, []);
 
   const loadConnectedServices = async () => {
@@ -83,15 +95,17 @@ export default function CloudServicesPage() {
         console.log('🔍 Loaded connections:', connections);
         setServices(prev => prev.map(service => ({
           ...service,
-          connected: connections.some((conn: any) => conn.service_id === service.id),
+          connected: connections.some((conn: any) => conn.service_id === service.id && conn.is_active),
           accountInfo: connections.find((conn: any) => conn.service_id === service.id)?.account_info,
           lastSync: connections.find((conn: any) => conn.service_id === service.id)?.last_sync
         })));
       } else {
-        console.error('🔍 Failed to load connections:', response.status, await response.text());
+        console.log('🔍 No connections available (user may not be authenticated)');
+        // Don't show error for 401, just keep services as not connected
       }
     } catch (error) {
-      console.error('🔍 Failed to load connected services:', error);
+      console.log('🔍 Failed to load connected services (user may not be authenticated):', error);
+      // Don't show error, just keep services as not connected
     }
   };
 

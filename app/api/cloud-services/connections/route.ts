@@ -10,8 +10,11 @@ export async function GET(request: NextRequest) {
     // Get the current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
+    console.log('🔍 Connections API - Auth check:', { user: !!user, error: authError });
+    
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      console.log('🔍 No authenticated user, returning empty connections');
+      return NextResponse.json([]);
     }
 
     // Get all active cloud service connections for the user
