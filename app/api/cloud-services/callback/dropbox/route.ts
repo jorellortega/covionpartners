@@ -48,6 +48,8 @@ export async function GET(request: NextRequest) {
     const tokens = await tokenResponse.json();
 
     // Get user info from Dropbox
+    console.log('🔍 Getting user info from Dropbox with token:', tokens.access_token?.substring(0, 10) + '...');
+    
     const userInfoResponse = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
       method: 'POST',
       headers: {
@@ -57,12 +59,25 @@ export async function GET(request: NextRequest) {
       body: JSON.stringify({}),
     });
 
+    console.log('🔍 User info response status:', userInfoResponse.status);
+    
     if (!userInfoResponse.ok) {
-      console.error('Failed to get user info:', await userInfoResponse.text());
+      const errorText = await userInfoResponse.text();
+      console.error('🔍 Failed to get user info:', userInfoResponse.status, errorText);
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=user_info_failed`);
     }
 
     const userInfo = await userInfoResponse.json();
+    console.log('🔍 User info received:', userInfo);
+
+    // Prepare account info (with fallback if user info is incomplete)
+    const accountInfo = {
+      name: userInfo.name?.display_name || 'Dropbox User',
+      email: userInfo.email || 'unknown@dropbox.com',
+      account_id: userInfo.account_id || 'unknown',
+    };
+
+    console.log('🔍 Prepared account info:', accountInfo);
 
     // Update the cloud service connection
     const { error: updateError } = await supabase
@@ -70,11 +85,7 @@ export async function GET(request: NextRequest) {
       .update({
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
-        account_info: {
-          name: userInfo.name.display_name,
-          email: userInfo.email,
-          account_id: userInfo.account_id,
-        },
+        account_info: accountInfo,
         is_active: true,
         last_sync: new Date().toISOString(),
       })
