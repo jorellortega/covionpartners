@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Calendar as CalendarIcon, CheckCircle, Clock, Target, Users, TrendingUp, AlertCircle, Plus, Edit, Trash2, Calendar as CalendarIcon2, CalendarDays, CalendarRange } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle, Clock, Target, Users, TrendingUp, AlertCircle, Plus, Edit, Trash2, Calendar as CalendarIcon2, CalendarDays, CalendarRange, Eye } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 
@@ -85,6 +85,8 @@ export default function CorporatePage() {
   const [editingGoal, setEditingGoal] = useState<OrganizationGoal | null>(null);
   const [deletingTask, setDeletingTask] = useState<CorporateTask | null>(null);
   const [deletingGoal, setDeletingGoal] = useState<OrganizationGoal | null>(null);
+  const [viewingTask, setViewingTask] = useState<CorporateTask | null>(null);
+  const [viewingGoal, setViewingGoal] = useState<OrganizationGoal | null>(null);
   const [userAccessLevel, setUserAccessLevel] = useState<number | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -93,7 +95,7 @@ export default function CorporatePage() {
   const [filterProject, setFilterProject] = useState<string>('all');
   const [filterGoalType, setFilterGoalType] = useState<string>('all');
   const [organizationStaff, setOrganizationStaff] = useState<any[]>([]);
-  const [activeGoalTab, setActiveGoalTab] = useState<string>('weekly');
+  const [activeGoalTab, setActiveGoalTab] = useState<string>('all');
 
   const [newTask, setNewTask] = useState({
     title: "",
@@ -673,9 +675,9 @@ export default function CorporatePage() {
               )}
             </div>
             {canManageCorporate && (
-              <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
+              <div className="flex flex-col gap-2 mt-2">
                 <Select value={goal.status} onValueChange={(value) => handleUpdateGoalStatus(goal.id, value)}>
-                  <SelectTrigger className="w-full sm:w-32 text-xs">
+                  <SelectTrigger className="w-full text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -684,11 +686,20 @@ export default function CorporatePage() {
                     <SelectItem value="paused">Paused</SelectItem>
                   </SelectContent>
                 </Select>
-                <div className="flex gap-2">
+                <div className="flex gap-1 flex-wrap">
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 flex-1 sm:flex-none"
+                    className="text-xs px-2 py-1 bg-green-600/20 border-green-500/30 text-green-300 hover:bg-green-600/30 flex-1 min-w-0"
+                    onClick={() => setViewingGoal(goal)}
+                  >
+                    <Eye className="w-3 h-3 mr-1" />
+                    View
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 flex-1 min-w-0"
                     onClick={() => setEditingGoal(goal)}
                   >
                     <Edit className="w-3 h-3 mr-1" />
@@ -697,7 +708,7 @@ export default function CorporatePage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30 flex-1 sm:flex-none"
+                    className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30 flex-1 min-w-0"
                     onClick={() => setDeletingGoal(goal)}
                   >
                     <Trash2 className="w-3 h-3 mr-1" />
@@ -1116,9 +1127,9 @@ export default function CorporatePage() {
                         )}
                       </div>
                       {canManageCorporate && (
-                        <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
+                        <div className="flex flex-col gap-2 mt-2">
                           <Select value={task.status} onValueChange={(value) => handleUpdateTaskStatus(task.id, value)}>
-                            <SelectTrigger className="w-full sm:w-32 text-xs">
+                            <SelectTrigger className="w-full text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1128,11 +1139,20 @@ export default function CorporatePage() {
                               <SelectItem value="cancelled">Cancelled</SelectItem>
                             </SelectContent>
                           </Select>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1 flex-wrap">
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 flex-1 sm:flex-none"
+                              className="text-xs px-2 py-1 bg-green-600/20 border-green-500/30 text-green-300 hover:bg-green-600/30 flex-1 min-w-0"
+                              onClick={() => setViewingTask(task)}
+                            >
+                              <Eye className="w-3 h-3 mr-1" />
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 flex-1 min-w-0"
                               onClick={() => setEditingTask(task)}
                             >
                               <Edit className="w-3 h-3 mr-1" />
@@ -1141,7 +1161,7 @@ export default function CorporatePage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30 flex-1 sm:flex-none"
+                              className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30 flex-1 min-w-0"
                               onClick={() => setDeletingTask(task)}
                             >
                               <Trash2 className="w-3 h-3 mr-1" />
@@ -1470,6 +1490,46 @@ export default function CorporatePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* View Task Dialog */}
+      <Dialog open={!!viewingTask} onOpenChange={() => setViewingTask(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">{viewingTask?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {viewingTask?.description && (
+              <div>
+                <p className="text-gray-300 whitespace-pre-wrap">{viewingTask.description}</p>
+              </div>
+            )}
+            
+            <div className="text-sm text-gray-400/25">
+              <strong>Due Date:</strong> {viewingTask?.due_date ? new Date(viewingTask.due_date).toLocaleDateString() : 'No due date'}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Goal Dialog */}
+      <Dialog open={!!viewingGoal} onOpenChange={() => setViewingGoal(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">{viewingGoal?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {viewingGoal?.description && (
+              <div>
+                <p className="text-gray-300 whitespace-pre-wrap">{viewingGoal.description}</p>
+              </div>
+            )}
+            
+            <div className="text-sm text-gray-400/25">
+              <strong>Target Date:</strong> {viewingGoal?.target_date ? new Date(viewingGoal.target_date).toLocaleDateString() : 'No target date'}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

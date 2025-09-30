@@ -42,7 +42,7 @@ export async function GET(request: Request) {
         const staff = staffData?.find(s => s.id === staffId);
         return {
           id: staffId,
-          name: staff?.user?.name || 'Unknown',
+          name: staff?.user?.name || staff?.user?.email || 'Unknown',
           email: staff?.user?.email || '',
           avatar_url: staff?.profile?.avatar_url || '',
           status: 'assigned',
