@@ -15,12 +15,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('🔍 OAuth error:', error);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=oauth_error`);
+      return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=oauth_error`);
     }
 
     if (!code || !state) {
       console.log('🔍 Missing code or state');
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=missing_parameters`);
+      return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=missing_parameters`);
     }
 
     // Parse state to get user ID and service ID
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     
     if (!userId || !serviceId) {
       console.log('🔍 Invalid state format');
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=invalid_state`);
+      return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=invalid_state`);
     }
 
     const supabase = createClient();
@@ -45,13 +45,15 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.DROPBOX_CLIENT_SECRET!,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: `${process.env.NEXT_PUBLIC_SITE_URL}/api/cloud-services/callback/dropbox`,
+        redirect_uri: process.env.NODE_ENV === 'development' 
+          ? 'http://localhost:3000/api/cloud-services/callback/dropbox'
+          : `${process.env.NEXT_PUBLIC_SITE_URL}/api/cloud-services/callback/dropbox`,
       }),
     });
 
     if (!tokenResponse.ok) {
       console.error('Token exchange failed:', await tokenResponse.text());
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=token_exchange_failed`);
+      return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=token_exchange_failed`);
     }
 
     const tokens = await tokenResponse.json();
@@ -63,9 +65,7 @@ export async function GET(request: NextRequest) {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${tokens.access_token}`,
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({}),
     });
 
     console.log('🔍 User info response status:', userInfoResponse.status);
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     if (!userInfoResponse.ok) {
       const errorText = await userInfoResponse.text();
       console.error('🔍 Failed to get user info:', userInfoResponse.status, errorText);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=user_info_failed`);
+      return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=user_info_failed`);
     }
 
     const userInfo = await userInfoResponse.json();
@@ -103,12 +103,12 @@ export async function GET(request: NextRequest) {
 
     if (updateError) {
       console.error('Error updating connection:', updateError);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=update_failed`);
+      return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=update_failed`);
     }
 
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?success=connected`);
+    return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?success=connected`);
   } catch (error) {
     console.error('Unexpected error in Dropbox callback:', error);
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=unexpected_error`);
+    return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=unexpected_error`);
   }
 }

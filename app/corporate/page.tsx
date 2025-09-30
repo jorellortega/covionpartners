@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MultiSelect } from '@/components/ui/multiselect';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -23,7 +24,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Calendar as CalendarIcon, CheckCircle, Clock, Target, Users, TrendingUp, AlertCircle, Plus, Edit, Trash2, Calendar as CalendarIcon2, CalendarDays, CalendarRange } from 'lucide-react';
-import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 
@@ -58,7 +58,7 @@ interface OrganizationGoal {
   status: 'active' | 'completed' | 'paused';
   priority: 'low' | 'medium' | 'high';
   category: 'financial' | 'growth' | 'operational' | 'strategic';
-  goal_type: 'weekly' | 'monthly' | 'yearly';
+  goal_type: 'weekly' | 'monthly' | 'yearly' | 'scheduled';
   project_id?: string;
   organization_id: string;
   assigned_to?: string;
@@ -100,6 +100,7 @@ export default function CorporatePage() {
     description: "",
     priority: "medium" as const,
     assigned_to: "unassigned",
+    assigned_users: [] as string[],
     due_date: "",
     category: "other" as const,
     project_id: "no-project"
@@ -111,9 +112,10 @@ export default function CorporatePage() {
     target_date: "",
     priority: "medium" as const,
     category: "strategic" as const,
-    goal_type: "yearly" as const,
+    goal_type: "scheduled" as const,
     project_id: "no-project",
-    assigned_to: "unassigned"
+    assigned_to: "unassigned",
+    assigned_users: [] as string[]
   });
 
   const selectedOrganization = organizations.find(org => org.id === selectedOrg);
@@ -330,6 +332,7 @@ export default function CorporatePage() {
           ...newTask,
           organization_id: selectedOrg,
           assigned_to: newTask.assigned_to === 'unassigned' ? null : newTask.assigned_to,
+          assigned_users: newTask.assigned_users,
         }),
       });
 
@@ -345,6 +348,7 @@ export default function CorporatePage() {
         description: "",
         priority: "medium",
         assigned_to: "unassigned",
+        assigned_users: [],
         due_date: "",
         category: "other",
         project_id: "no-project"
@@ -367,6 +371,7 @@ export default function CorporatePage() {
           ...newGoal,
           organization_id: selectedOrg,
           assigned_to: newGoal.assigned_to === 'unassigned' ? null : newGoal.assigned_to,
+          assigned_users: newGoal.assigned_users,
         }),
       });
 
@@ -385,7 +390,8 @@ export default function CorporatePage() {
         category: "strategic",
         goal_type: "yearly",
         project_id: "no-project",
-        assigned_to: "unassigned"
+        assigned_to: "unassigned",
+        assigned_users: []
       });
     } catch (error) {
       console.error("Error adding goal:", error);
@@ -492,6 +498,7 @@ export default function CorporatePage() {
         body: JSON.stringify({
           ...updatedTask,
           assigned_to: updatedTask.assigned_to === 'unassigned' ? null : updatedTask.assigned_to,
+          assigned_users: updatedTask.assigned_users?.map(u => u.id) || [],
         }),
       });
 
@@ -522,6 +529,7 @@ export default function CorporatePage() {
       goal_type: updatedGoal.goal_type,
       organization_id: updatedGoal.organization_id,
       assigned_to: updatedGoal.assigned_to === 'unassigned' ? null : updatedGoal.assigned_to,
+      assigned_users: updatedGoal.assigned_users?.map(u => u.id) || [],
       project_id: updatedGoal.project_id === 'no-project' ? null : updatedGoal.project_id,
     };
     
@@ -595,6 +603,7 @@ export default function CorporatePage() {
   const weeklyGoals = goals.filter(goal => goal.goal_type === 'weekly');
   const monthlyGoals = goals.filter(goal => goal.goal_type === 'monthly');
   const yearlyGoals = goals.filter(goal => goal.goal_type === 'yearly');
+  const scheduledGoals = goals.filter(goal => goal.goal_type === 'scheduled');
 
   const pendingTasks = tasks.filter(t => t.status === 'pending').length;
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
@@ -633,7 +642,8 @@ export default function CorporatePage() {
                 <Badge className={`text-xs ${
                   goal.goal_type === 'weekly' ? 'bg-blue-600/20 text-blue-300 border-blue-500/30' :
                   goal.goal_type === 'monthly' ? 'bg-green-600/20 text-green-300 border-green-500/30' :
-                  'bg-purple-600/20 text-purple-300 border-purple-500/30'
+                  goal.goal_type === 'yearly' ? 'bg-purple-600/20 text-purple-300 border-purple-500/30' :
+                  'bg-orange-600/20 text-orange-300 border-orange-500/30'
                 }`}>
                   {goal.goal_type.charAt(0).toUpperCase() + goal.goal_type.slice(1)}
                 </Badge>
@@ -651,22 +661,21 @@ export default function CorporatePage() {
                   </Badge>
                 </div>
               )}
-              {goal.assigned_to && goal.assigned_to !== 'unassigned' && (
-                <div className="flex items-center gap-1 mt-1">
+              {goal.assigned_users && goal.assigned_users.length > 0 && (
+                <div className="flex items-center gap-1 mt-1 flex-wrap">
                   <span className="text-xs text-gray-400">Assigned to:</span>
-                  <Badge className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
-                    {(() => {
-                      const staff = organizationStaff.find(s => s.id === goal.assigned_to);
-                      return staff?.user?.name || staff?.user?.email || 'Unknown';
-                    })()}
-                  </Badge>
+                  {goal.assigned_users.map((assignedUser, index) => (
+                    <Badge key={index} className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
+                      {assignedUser.name}
+                    </Badge>
+                  ))}
                 </div>
               )}
             </div>
             {canManageCorporate && (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
                 <Select value={goal.status} onValueChange={(value) => handleUpdateGoalStatus(goal.id, value)}>
-                  <SelectTrigger className="w-32 text-xs">
+                  <SelectTrigger className="w-full sm:w-32 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -675,24 +684,26 @@ export default function CorporatePage() {
                     <SelectItem value="paused">Paused</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
-                  onClick={() => setEditingGoal(goal)}
-                >
-                  <Edit className="w-3 h-3 mr-1" />
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30"
-                  onClick={() => setDeletingGoal(goal)}
-                >
-                  <Trash2 className="w-3 h-3 mr-1" />
-                  Delete
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 flex-1 sm:flex-none"
+                    onClick={() => setEditingGoal(goal)}
+                  >
+                    <Edit className="w-3 h-3 mr-1" />
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30 flex-1 sm:flex-none"
+                    onClick={() => setDeletingGoal(goal)}
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    Delete
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -849,6 +860,7 @@ export default function CorporatePage() {
                 <SelectItem value="weekly">Weekly</SelectItem>
                 <SelectItem value="monthly">Monthly</SelectItem>
                 <SelectItem value="yearly">Yearly</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -904,19 +916,18 @@ export default function CorporatePage() {
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
-                                          <Select value={newTask.assigned_to} onValueChange={(value) => setNewTask(prev => ({ ...prev, assigned_to: value }))}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Assign To (Optional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unassigned">Unassigned</SelectItem>
-                          {organizationStaff.map((staff) => (
-                            <SelectItem key={staff.id} value={staff.id}>
-                              {staff.user?.name || staff.user?.email || 'Unknown'}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Assign To (Optional)</label>
+                      <MultiSelect
+                        options={organizationStaff.map(staff => ({
+                          value: staff.id,
+                          label: staff.user?.name || staff.user?.email || 'Unknown'
+                        }))}
+                        value={newTask.assigned_users}
+                        onChange={(values) => setNewTask(prev => ({ ...prev, assigned_users: values }))}
+                        placeholder="Select team members"
+                      />
+                    </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Due Date</label>
                       <Input
@@ -996,21 +1007,21 @@ export default function CorporatePage() {
                         <SelectItem value="weekly">Weekly</SelectItem>
                         <SelectItem value="monthly">Monthly</SelectItem>
                         <SelectItem value="yearly">Yearly</SelectItem>
+                        <SelectItem value="scheduled">Scheduled</SelectItem>
                       </SelectContent>
                     </Select>
-                                          <Select value={newGoal.assigned_to} onValueChange={(value) => setNewGoal(prev => ({ ...prev, assigned_to: value }))}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Assign To (Optional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unassigned">Unassigned</SelectItem>
-                          {organizationStaff.map((staff) => (
-                            <SelectItem key={staff.id} value={staff.id}>
-                              {staff.user?.name || staff.user?.email || 'Unknown'}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Assign To (Optional)</label>
+                      <MultiSelect
+                        options={organizationStaff.map(staff => ({
+                          value: staff.id,
+                          label: staff.user?.name || staff.user?.email || 'Unknown'
+                        }))}
+                        value={newGoal.assigned_users}
+                        onChange={(values) => setNewGoal(prev => ({ ...prev, assigned_users: values }))}
+                        placeholder="Select team members"
+                      />
+                    </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Target Date</label>
                       <Input
@@ -1093,22 +1104,21 @@ export default function CorporatePage() {
                             </Badge>
                           </div>
                         )}
-                        {task.assigned_to && task.assigned_to !== 'unassigned' && (
-                          <div className="flex items-center gap-1 mt-1">
+                        {task.assigned_users && task.assigned_users.length > 0 && (
+                          <div className="flex items-center gap-1 mt-1 flex-wrap">
                             <span className="text-xs text-gray-400">Assigned to:</span>
-                            <Badge className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
-                              {(() => {
-                                const staff = organizationStaff.find(s => s.id === task.assigned_to);
-                                return staff?.user?.name || staff?.user?.email || 'Unknown';
-                              })()}
-                            </Badge>
+                            {task.assigned_users.map((assignedUser, index) => (
+                              <Badge key={index} className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
+                                {assignedUser.name}
+                              </Badge>
+                            ))}
                           </div>
                         )}
                       </div>
                       {canManageCorporate && (
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
                           <Select value={task.status} onValueChange={(value) => handleUpdateTaskStatus(task.id, value)}>
-                            <SelectTrigger className="w-32 text-xs">
+                            <SelectTrigger className="w-full sm:w-32 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1118,24 +1128,26 @@ export default function CorporatePage() {
                               <SelectItem value="cancelled">Cancelled</SelectItem>
                             </SelectContent>
                           </Select>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
-                            onClick={() => setEditingTask(task)}
-                          >
-                            <Edit className="w-3 h-3 mr-1" />
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30"
-                            onClick={() => setDeletingTask(task)}
-                          >
-                            <Trash2 className="w-3 h-3 mr-1" />
-                            Delete
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 flex-1 sm:flex-none"
+                              onClick={() => setEditingTask(task)}
+                            >
+                              <Edit className="w-3 h-3 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30 flex-1 sm:flex-none"
+                              onClick={() => setDeletingTask(task)}
+                            >
+                              <Trash2 className="w-3 h-3 mr-1" />
+                              Delete
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1161,7 +1173,7 @@ export default function CorporatePage() {
                 </div>
               ) : (
                 <Tabs value={activeGoalTab} onValueChange={setActiveGoalTab} className="w-full">
-                  <TabsList className="grid w-full grid-cols-4">
+                  <TabsList className="grid w-full grid-cols-5">
                     <TabsTrigger value="all" className="flex items-center gap-2">
                       <Target className="h-4 w-4" />
                       All Goals ({goals.length})
@@ -1177,6 +1189,10 @@ export default function CorporatePage() {
                     <TabsTrigger value="yearly" className="flex items-center gap-2">
                       <CalendarRange className="h-4 w-4" />
                       Yearly ({yearlyGoals.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="scheduled" className="flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4" />
+                      Scheduled ({scheduledGoals.length})
                     </TabsTrigger>
                   </TabsList>
                   
@@ -1194,6 +1210,10 @@ export default function CorporatePage() {
                   
                   <TabsContent value="yearly" className="mt-4">
                     {renderGoalsList(yearlyGoals)}
+                  </TabsContent>
+                  
+                  <TabsContent value="scheduled" className="mt-4">
+                    {renderGoalsList(scheduledGoals)}
                   </TabsContent>
                 </Tabs>
               )}
@@ -1274,19 +1294,29 @@ export default function CorporatePage() {
                 <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={editingTask?.assigned_to || 'unassigned'} onValueChange={(value) => setEditingTask(prev => prev ? { ...prev, assigned_to: value } : null)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Assign To (Optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
-                {organizationStaff.map((staff) => (
-                  <SelectItem key={staff.id} value={staff.id}>
-                    {staff.user?.name || staff.user?.email || 'Unknown'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Assign To (Optional)</label>
+              <MultiSelect
+                options={organizationStaff.map(staff => ({
+                  value: staff.id,
+                  label: staff.user?.name || staff.user?.email || 'Unknown'
+                }))}
+                value={editingTask?.assigned_users?.map(u => u.id) || []}
+                onChange={(values) => setEditingTask(prev => prev ? { 
+                  ...prev, 
+                  assigned_users: values.map(id => {
+                    const staff = organizationStaff.find(s => s.id === id);
+                    return {
+                      id,
+                      name: staff?.user?.name || staff?.user?.email || 'Unknown',
+                      email: staff?.user?.email || '',
+                      avatar_url: staff?.profile?.avatar_url || ''
+                    };
+                  })
+                } : null)}
+                placeholder="Select team members"
+              />
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Due Date</label>
               <Input
@@ -1364,21 +1394,32 @@ export default function CorporatePage() {
                 <SelectItem value="weekly">Weekly</SelectItem>
                 <SelectItem value="monthly">Monthly</SelectItem>
                 <SelectItem value="yearly">Yearly</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={editingGoal?.assigned_to || 'unassigned'} onValueChange={(value) => setEditingGoal(prev => prev ? { ...prev, assigned_to: value } : null)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Assign To (Optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
-                {organizationStaff.map((staff) => (
-                  <SelectItem key={staff.id} value={staff.id}>
-                    {staff.user?.name || staff.user?.email || 'Unknown'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Assign To (Optional)</label>
+              <MultiSelect
+                options={organizationStaff.map(staff => ({
+                  value: staff.id,
+                  label: staff.user?.name || staff.user?.email || 'Unknown'
+                }))}
+                value={editingGoal?.assigned_users?.map(u => u.id) || []}
+                onChange={(values) => setEditingGoal(prev => prev ? { 
+                  ...prev, 
+                  assigned_users: values.map(id => {
+                    const staff = organizationStaff.find(s => s.id === id);
+                    return {
+                      id,
+                      name: staff?.user?.name || staff?.user?.email || 'Unknown',
+                      email: staff?.user?.email || '',
+                      avatar_url: staff?.profile?.avatar_url || ''
+                    };
+                  })
+                } : null)}
+                placeholder="Select team members"
+              />
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Target Date</label>
               <Input

@@ -12,7 +12,9 @@ const OAUTH_CONFIG = {
   },
   'dropbox': {
     clientId: process.env.DROPBOX_CLIENT_ID,
-    redirectUri: `${process.env.NEXT_PUBLIC_SITE_URL}/api/cloud-services/callback/dropbox`,
+    redirectUri: process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:3000/api/cloud-services/callback/dropbox'
+      : `${process.env.NEXT_PUBLIC_SITE_URL}/api/cloud-services/callback/dropbox`,
     scope: 'files.metadata.write files.content.write files.content.read account_info.read',
     authUrl: 'https://www.dropbox.com/oauth2/authorize',
   },
@@ -101,26 +103,31 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to initiate connection' }, { status: 500 });
     }
 
-    // Build OAuth URL
-    console.log('🔍 Building OAuth URL for service:', serviceId);
-    console.log('🔍 Config:', config);
-    console.log('🔍 Redirect URI:', config.redirectUri);
+    // Debug environment variables
+    console.log('🔍 NEXT_PUBLIC_SITE_URL:', process.env.NEXT_PUBLIC_SITE_URL);
+    console.log('🔍 Config redirectUri:', config.redirectUri);
+    console.log('🔍 Config clientId:', config.clientId);
+    console.log('🔍 Config scope:', config.scope);
+    console.log('🔍 State:', state);
     
-    // Build URL manually to avoid double encoding issues
-    const params = new URLSearchParams();
-    params.set('client_id', config.clientId!);
-    params.set('redirect_uri', config.redirectUri);
-    params.set('response_type', 'code');
-    params.set('scope', config.scope);
-    params.set('state', state);
-    params.set('access_type', 'offline'); // For Google Drive refresh tokens
-    params.set('prompt', 'consent'); // Force consent screen for Google Drive
+    // Build OAuth URL with proper encoding
+    const urlParams = new URLSearchParams();
+    urlParams.set('client_id', config.clientId!);
+    urlParams.set('redirect_uri', config.redirectUri);
+    urlParams.set('response_type', 'code');
+    urlParams.set('scope', config.scope);
+    urlParams.set('state', state);
+    urlParams.set('access_type', 'offline');
+    urlParams.set('prompt', 'consent');
 
-    const finalUrl = `${config.authUrl}?${params.toString()}`;
-    console.log('🔍 Final OAuth URL:', finalUrl);
-    console.log('🔍 Redirect URI in final URL:', params.get('redirect_uri'));
+    const authUrl = `${config.authUrl}?${urlParams.toString()}`;
+    
+    console.log('🔍 OAuth URL generated for', serviceId);
+    console.log('🔍 Final URL:', authUrl);
+    console.log('🔍 Redirect URI:', config.redirectUri);
+    console.log('🔍 URLSearchParams toString():', urlParams.toString());
 
-    return NextResponse.json({ authUrl: finalUrl });
+    return NextResponse.json({ authUrl });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

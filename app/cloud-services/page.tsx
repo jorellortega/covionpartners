@@ -125,12 +125,25 @@ export default function CloudServicesPage() {
       });
       
       if (response.ok) {
-        const { authUrl } = await response.json();
-        console.log('🔍 Received authUrl from server:', authUrl);
-        console.log('🔍 Decoded authUrl:', decodeURIComponent(authUrl));
-        window.location.href = authUrl;
+        const data = await response.json();
+        console.log('🔍 Received OAuth URL for', serviceId);
+        console.log('🔍 Raw authUrl from server:', data.authUrl);
+        console.log('🔍 Decoded authUrl:', decodeURIComponent(data.authUrl));
+        
+        // Test URL parsing
+        try {
+          const testUrl = new URL(data.authUrl);
+          console.log('🔍 Parsed URL hostname:', testUrl.hostname);
+          console.log('🔍 Parsed redirect_uri:', testUrl.searchParams.get('redirect_uri'));
+        } catch (e) {
+          console.error('🔍 URL parsing error:', e);
+        }
+        
+        // Redirect to OAuth provider
+        window.location.href = data.authUrl;
       } else {
         const errorData = await response.json();
+        console.error('🔍 Connection failed:', response.status, errorData);
         throw new Error(errorData.error || 'Failed to initiate connection');
       }
     } catch (error) {

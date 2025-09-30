@@ -13,20 +13,49 @@ export async function GET(request: Request) {
   }
 
   try {
-            const { data, error } = await supabase
-          .from('organization_goals')
-          .select(`
-            *,
-            projects!project_id(id, name, description)
-          `)
-          .eq('organization_id', organizationId)
-          .order('target_date', { ascending: true })
+    const { data, error } = await supabase
+      .from('organization_goals')
+      .select(`
+        *,
+        project:projects(id, name, description)
+      `)
+      .eq('organization_id', organizationId)
+      .order('target_date', { ascending: true })
 
     if (error) {
       return NextResponse.json({ message: 'Failed to fetch goals', error }, { status: 500 })
     }
 
-    return NextResponse.json(data || [])
+    // Get organization staff for assignment details
+    const { data: staffData } = await supabase
+      .from('organization_staff')
+      .select(`
+        id,
+        user:users(name, email),
+        profile:profiles(avatar_url)
+      `)
+      .eq('organization_id', organizationId)
+
+    // Transform the data to match frontend expectations
+    const transformedData = data?.map(goal => ({
+      ...goal,
+      assigned_users: goal.assigned_to?.map(staffId => {
+        const staff = staffData?.find(s => s.id === staffId);
+        return {
+          id: staffId,
+          name: staff?.user?.name || 'Unknown',
+          email: staff?.user?.email || '',
+          avatar_url: staff?.profile?.avatar_url || '',
+          status: 'assigned',
+          notes: '',
+          assigned_at: goal.created_at
+        };
+      }) || [],
+      // Keep backward compatibility with single assignment
+      assigned_to: goal.assigned_to?.[0] || null
+    })) || []
+
+    return NextResponse.json(transformedData)
   } catch (error) {
     console.error('Error fetching organization goals:', error)
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 })
@@ -50,7 +79,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { title, description, target_date, priority, category, goal_type, project_id, organization_id, assigned_to } = await request.json()
+    const { title, description, target_date, priority, category, goal_type, project_id, organization_id, assigned_to, assigned_users } = await request.json()
 
     console.log('Received goal data:', { title, description, target_date, priority, category, goal_type, project_id, organization_id, assigned_to })
 
@@ -89,6 +118,22 @@ export async function POST(request: Request) {
       }
     }
 
+    // Get the user's organization_staff record ID for assigned_by
+    const { data: staffRecord, error: staffError } = await supabase
+      .from('organization_staff')
+      .select('id')
+      .eq('organization_id', organization_id)
+      .eq('user_id', session.user.id)
+      .single()
+
+    if (staffError) {
+      console.error('Staff lookup error:', staffError)
+      return NextResponse.json(
+        { message: 'User not found in organization staff', error: staffError.message },
+        { status: 400 }
+      )
+    }
+
     const insertData = {
       title,
       description,
@@ -98,28 +143,44 @@ export async function POST(request: Request) {
       goal_type: goal_type || 'yearly',
       project_id: project_id === 'no-project' ? null : project_id,
       organization_id,
-      assigned_to: assigned_to === 'unassigned' ? null : assigned_to,
+      assigned_to: null, // We'll handle assignments separately
+      assigned_by: staffRecord.id,
       status: 'active'
     }
 
     console.log('Attempting to insert goal with data:', insertData)
 
-    const { data, error } = await supabase
+    const { data: goalData, error: goalError } = await supabase
       .from('organization_goals')
       .insert([insertData])
       .select()
       .single()
 
-    if (error) {
-      console.error('Error creating organization goal:', error)
+    if (goalError) {
+      console.error('Error creating organization goal:', goalError)
       return NextResponse.json(
-        { message: 'Failed to create goal', error: error.message, details: error.details },
+        { message: 'Failed to create goal', error: goalError.message, details: goalError.details },
         { status: 500 }
       )
     }
 
-    console.log('Goal created successfully:', data)
-    return NextResponse.json(data)
+    // Handle multiple assignments - update the goal with assigned_users array
+    const staffIds = assigned_users || (assigned_to ? [assigned_to] : [])
+    
+    if (staffIds.length > 0) {
+      const { error: updateError } = await supabase
+        .from('organization_goals')
+        .update({ assigned_to: staffIds })
+        .eq('id', goalData.id)
+
+      if (updateError) {
+        console.error('Error updating goal assignments:', updateError)
+        // Don't fail the entire operation, just log the error
+      }
+    }
+
+    console.log('Goal created successfully:', goalData)
+    return NextResponse.json(goalData)
   } catch (error) {
     console.error('Unexpected error in organization goal creation:', error)
     return NextResponse.json(
@@ -143,7 +204,7 @@ export async function PUT(request: Request) {
       )
     }
 
-    const { id, ...updateData } = await request.json()
+    const { id, assigned_users, ...updateData } = await request.json()
 
     if (!id) {
       return NextResponse.json(
@@ -220,6 +281,20 @@ export async function PUT(request: Request) {
         { message: 'Failed to update goal', error: error.message, details: error.details },
         { status: 500 }
       )
+    }
+
+    // Handle assignment updates if provided
+    if (assigned_users !== undefined) {
+      // Update the goal with new assigned_users array
+      const { error: assignmentError } = await supabase
+        .from('organization_goals')
+        .update({ assigned_to: assigned_users })
+        .eq('id', id)
+
+      if (assignmentError) {
+        console.error('Error updating goal assignments:', assignmentError)
+        // Don't fail the entire operation, just log the error
+      }
     }
 
     return NextResponse.json(data)

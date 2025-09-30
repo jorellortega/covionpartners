@@ -12,32 +12,46 @@ export async function GET(request: Request) {
   }
 
   try {
-            const { data, error } = await supabase
-          .from('corporate_tasks')
-          .select(`
-            *,
-            project:projects(id, name, description)
-          `)
-          .eq('organization_id', organizationId)
-          .order('created_at', { ascending: false })
+    const { data, error } = await supabase
+      .from('corporate_tasks')
+      .select(`
+        *,
+        project:projects(id, name, description)
+      `)
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false })
 
     if (error) {
       return NextResponse.json({ message: 'Failed to fetch tasks', error }, { status: 500 })
     }
 
+    // Get organization staff for assignment details
+    const { data: staffData } = await supabase
+      .from('organization_staff')
+      .select(`
+        id,
+        user:users(name, email),
+        profile:profiles(avatar_url)
+      `)
+      .eq('organization_id', organizationId)
+
     // Transform the data to match frontend expectations
     const transformedData = data?.map(task => ({
       ...task,
-      assigned_user: task.assigned_user ? {
-        name: task.assigned_user.user?.name || 'Unknown',
-        email: task.assigned_user.user?.email || '',
-        avatar_url: task.assigned_user.profile?.avatar_url || ''
-      } : null,
-      assigned_by_user: task.assigned_by_user ? {
-        name: task.assigned_by_user.user?.name || 'Unknown',
-        email: task.assigned_by_user.user?.email || '',
-        avatar_url: task.assigned_by_user.profile?.avatar_url || ''
-      } : null
+      assigned_users: task.assigned_to?.map(staffId => {
+        const staff = staffData?.find(s => s.id === staffId);
+        return {
+          id: staffId,
+          name: staff?.user?.name || 'Unknown',
+          email: staff?.user?.email || '',
+          avatar_url: staff?.profile?.avatar_url || '',
+          status: 'assigned',
+          notes: '',
+          assigned_at: task.created_at
+        };
+      }) || [],
+      // Keep backward compatibility with single assignment
+      assigned_to: task.assigned_to?.[0] || null
     })) || []
 
     return NextResponse.json(transformedData)
@@ -63,7 +77,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { title, description, priority, assigned_to, due_date, category, project_id, organization_id } = await request.json()
+    const { title, description, priority, assigned_to, assigned_users, due_date, category, project_id, organization_id } = await request.json()
 
     if (!title || !organization_id) {
       return NextResponse.json(
@@ -120,7 +134,7 @@ export async function POST(request: Request) {
       title,
       description,
       priority: priority || 'medium',
-      assigned_to: assigned_to || null,
+      assigned_to: null, // We'll handle assignments separately
       assigned_by: staffRecord.id,
       due_date: due_date || null,
       category: category || 'other',
@@ -131,21 +145,36 @@ export async function POST(request: Request) {
 
     console.log('Attempting to insert task with data:', insertData)
 
-    const { data, error } = await supabase
+    const { data: taskData, error: taskError } = await supabase
       .from('corporate_tasks')
       .insert([insertData])
       .select()
       .single()
 
-    if (error) {
-      console.error('Error creating corporate task:', error)
+    if (taskError) {
+      console.error('Error creating corporate task:', taskError)
       return NextResponse.json(
-        { message: 'Failed to create task', error: error.message, details: error.details },
+        { message: 'Failed to create task', error: taskError.message, details: taskError.details },
         { status: 500 }
       )
     }
 
-    return NextResponse.json(data)
+    // Handle multiple assignments - update the task with assigned_users array
+    const staffIds = assigned_users || (assigned_to ? [assigned_to] : [])
+    
+    if (staffIds.length > 0) {
+      const { error: updateError } = await supabase
+        .from('corporate_tasks')
+        .update({ assigned_to: staffIds })
+        .eq('id', taskData.id)
+
+      if (updateError) {
+        console.error('Error updating task assignments:', updateError)
+        // Don't fail the entire operation, just log the error
+      }
+    }
+
+    return NextResponse.json(taskData)
   } catch (error) {
     console.error('Unexpected error in corporate task creation:', error)
     return NextResponse.json(
@@ -168,7 +197,7 @@ export async function PUT(request: Request) {
       )
     }
 
-    const { id, ...updateData } = await request.json()
+    const { id, assigned_users, ...updateData } = await request.json()
 
     if (!id) {
       return NextResponse.json(
@@ -231,6 +260,20 @@ export async function PUT(request: Request) {
         { message: 'Failed to update task' },
         { status: 500 }
       )
+    }
+
+    // Handle assignment updates if provided
+    if (assigned_users !== undefined) {
+      // Update the task with new assigned_users array
+      const { error: assignmentError } = await supabase
+        .from('corporate_tasks')
+        .update({ assigned_to: assigned_users })
+        .eq('id', id)
+
+      if (assignmentError) {
+        console.error('Error updating task assignments:', assignmentError)
+        // Don't fail the entire operation, just log the error
+      }
     }
 
     return NextResponse.json(data)
