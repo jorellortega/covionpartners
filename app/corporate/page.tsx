@@ -64,10 +64,31 @@ interface OrganizationGoal {
   assigned_to?: string;
   created_at: string;
   updated_at: string;
+  subtasks_completed?: number;
+  subtasks_total?: number;
   project?: {
     id: string;
     name: string;
     description?: string;
+  };
+}
+
+interface GoalSubtask {
+  id: string;
+  goal_id: string;
+  title: string;
+  description?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  priority: 'low' | 'medium' | 'high';
+  assigned_to?: string;
+  due_date?: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  assigned_user?: {
+    id: string;
+    name: string;
+    email: string;
   };
 }
 
@@ -96,6 +117,11 @@ export default function CorporatePage() {
   const [filterGoalType, setFilterGoalType] = useState<string>('all');
   const [organizationStaff, setOrganizationStaff] = useState<any[]>([]);
   const [activeGoalTab, setActiveGoalTab] = useState<string>('all');
+  const [subtasks, setSubtasks] = useState<GoalSubtask[]>([]);
+  const [showAddSubtask, setShowAddSubtask] = useState(false);
+  const [editingSubtask, setEditingSubtask] = useState<GoalSubtask | null>(null);
+  const [deletingSubtask, setDeletingSubtask] = useState<GoalSubtask | null>(null);
+  const [selectedGoalForSubtasks, setSelectedGoalForSubtasks] = useState<OrganizationGoal | null>(null);
 
   const [newTask, setNewTask] = useState({
     title: "",
@@ -118,6 +144,14 @@ export default function CorporatePage() {
     project_id: "no-project",
     assigned_to: "unassigned",
     assigned_users: [] as string[]
+  });
+
+  const [newSubtask, setNewSubtask] = useState({
+    title: "",
+    description: "",
+    priority: "medium" as const,
+    assigned_to: "unassigned",
+    due_date: ""
   });
 
   const selectedOrganization = organizations.find(org => org.id === selectedOrg);
@@ -561,6 +595,154 @@ export default function CorporatePage() {
     }
   };
 
+  // Subtasks functions
+  const fetchSubtasks = async (goalId: string) => {
+    try {
+      const response = await fetch(`/api/goal-subtasks?goalId=${goalId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSubtasks(data || []);
+      } else {
+        console.log("No subtasks found or API not available yet");
+        setSubtasks([]);
+      }
+    } catch (error) {
+      console.log("Error fetching subtasks:", error);
+      setSubtasks([]);
+    }
+  };
+
+  const handleAddSubtask = async () => {
+    if (!selectedGoalForSubtasks) return;
+    
+    try {
+      const response = await fetch('/api/goal-subtasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          goalId: selectedGoalForSubtasks.id,
+          ...newSubtask,
+          assigned_to: newSubtask.assigned_to === 'unassigned' ? null : newSubtask.assigned_to,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setSubtasks(prev => [data, ...prev]);
+      setShowAddSubtask(false);
+      setNewSubtask({
+        title: "",
+        description: "",
+        priority: "medium",
+        assigned_to: "unassigned",
+        due_date: ""
+      });
+      
+      // Refresh goals to update subtask counts
+      const goalsResponse = await fetch(`/api/organization-goals?organizationId=${selectedOrg}`);
+      if (goalsResponse.ok) {
+        const goalsData = await goalsResponse.json();
+        setGoals(goalsData || []);
+      }
+    } catch (error) {
+      console.error("Error adding subtask:", error);
+    }
+  };
+
+  const handleUpdateSubtask = async (updatedSubtask: GoalSubtask) => {
+    try {
+      const response = await fetch('/api/goal-subtasks', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...updatedSubtask,
+          assigned_to: updatedSubtask.assigned_to === 'unassigned' ? null : updatedSubtask.assigned_to,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      setSubtasks(prev => prev.map(subtask => 
+        subtask.id === updatedSubtask.id ? updatedSubtask : subtask
+      ));
+      setEditingSubtask(null);
+      
+      // Refresh goals to update subtask counts
+      const goalsResponse = await fetch(`/api/organization-goals?organizationId=${selectedOrg}`);
+      if (goalsResponse.ok) {
+        const goalsData = await goalsResponse.json();
+        setGoals(goalsData || []);
+      }
+    } catch (error) {
+      console.error("Error updating subtask:", error);
+    }
+  };
+
+  const handleDeleteSubtask = async (subtaskId: string) => {
+    try {
+      const response = await fetch(`/api/goal-subtasks?id=${subtaskId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      setSubtasks(prev => prev.filter(subtask => subtask.id !== subtaskId));
+      setDeletingSubtask(null);
+      
+      // Refresh goals to update subtask counts
+      const goalsResponse = await fetch(`/api/organization-goals?organizationId=${selectedOrg}`);
+      if (goalsResponse.ok) {
+        const goalsData = await goalsResponse.json();
+        setGoals(goalsData || []);
+      }
+    } catch (error) {
+      console.error("Error deleting subtask:", error);
+    }
+  };
+
+  const handleUpdateSubtaskStatus = async (subtaskId: string, status: string) => {
+    try {
+      const response = await fetch('/api/goal-subtasks', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: subtaskId,
+          status,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      setSubtasks(prev => prev.map(subtask => 
+        subtask.id === subtaskId ? { ...subtask, status: status as any } : subtask
+      ));
+      
+      // Refresh goals to update subtask counts
+      const goalsResponse = await fetch(`/api/organization-goals?organizationId=${selectedOrg}`);
+      if (goalsResponse.ok) {
+        const goalsData = await goalsResponse.json();
+        setGoals(goalsData || []);
+      }
+    } catch (error) {
+      console.error("Error updating subtask status:", error);
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'critical': return 'bg-red-500';
@@ -662,9 +844,27 @@ export default function CorporatePage() {
                     className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-green-600/20 border-green-500/30 text-green-300 hover:bg-green-600/30 flex-1 sm:flex-1 min-w-0"
                     onClick={() => setViewingGoal(goal)}
                   >
-                    <Eye className="w-3 h-3 mr-1 sm:mr-1" />
-                    <span className="sm:hidden">View Details</span>
+                    <Eye className="w-3 h-3 mr-0 sm:mr-1" />
                     <span className="hidden sm:inline">View</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 flex-1 sm:flex-1 min-w-0 overflow-hidden"
+                    onClick={() => {
+                      setSelectedGoalForSubtasks(goal);
+                      fetchSubtasks(goal.id);
+                    }}
+                  >
+                    <div className="flex items-center gap-1 sm:gap-1 min-w-0">
+                      <Users className="w-3 h-3 flex-shrink-0" />
+                      <span className="hidden sm:inline flex-shrink-0">Subtasks</span>
+                      {goal.subtasks_total && goal.subtasks_total > 0 && (
+                        <span className="bg-purple-500/30 px-1 rounded text-xs hidden sm:inline flex-shrink-0">
+                          {goal.subtasks_completed || 0}/{goal.subtasks_total}
+                        </span>
+                      )}
+                    </div>
                   </Button>
                   <Button
                     size="sm"
@@ -672,8 +872,7 @@ export default function CorporatePage() {
                     className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 flex-1 sm:flex-1 min-w-0"
                     onClick={() => setEditingGoal(goal)}
                   >
-                    <Edit className="w-3 h-3 mr-1 sm:mr-1" />
-                    <span className="sm:hidden">Edit Goal</span>
+                    <Edit className="w-3 h-3 mr-0 sm:mr-1" />
                     <span className="hidden sm:inline">Edit</span>
                   </Button>
                   <Button
@@ -682,8 +881,7 @@ export default function CorporatePage() {
                     className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30 flex-1 sm:flex-1 min-w-0"
                     onClick={() => setDeletingGoal(goal)}
                   >
-                    <Trash2 className="w-3 h-3 mr-1 sm:mr-1" />
-                    <span className="sm:hidden">Delete</span>
+                    <Trash2 className="w-3 h-3 mr-0 sm:mr-1" />
                     <span className="hidden sm:inline">Delete</span>
                   </Button>
                 </div>
@@ -1165,26 +1363,41 @@ export default function CorporatePage() {
                 </div>
               ) : (
                 <Tabs value={activeGoalTab} onValueChange={setActiveGoalTab} className="w-full">
-                  <TabsList className="grid w-full grid-cols-5">
-                    <TabsTrigger value="all" className="flex items-center gap-2">
-                      <Target className="h-4 w-4" />
-                      All Goals ({goals.length})
+                  <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-1">
+                    <TabsTrigger value="all" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1.5">
+                      <Target className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                      <span className="hidden md:inline">All Goals</span>
+                      <span className="hidden sm:inline md:hidden">All</span>
+                      <span className="sm:hidden">All</span>
+                      <span className="text-xs ml-1">({goals.length})</span>
                     </TabsTrigger>
-                    <TabsTrigger value="weekly" className="flex items-center gap-2">
-                      <CalendarIcon2 className="h-4 w-4" />
-                      Weekly ({weeklyGoals.length})
+                    <TabsTrigger value="weekly" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1.5">
+                      <CalendarIcon2 className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                      <span className="hidden md:inline">Weekly</span>
+                      <span className="hidden sm:inline md:hidden">Week</span>
+                      <span className="sm:hidden">W</span>
+                      <span className="text-xs ml-1">({weeklyGoals.length})</span>
                     </TabsTrigger>
-                    <TabsTrigger value="monthly" className="flex items-center gap-2">
-                      <CalendarDays className="h-4 w-4" />
-                      Monthly ({monthlyGoals.length})
+                    <TabsTrigger value="monthly" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1.5">
+                      <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                      <span className="hidden md:inline">Monthly</span>
+                      <span className="hidden sm:inline md:hidden">Month</span>
+                      <span className="sm:hidden">M</span>
+                      <span className="text-xs ml-1">({monthlyGoals.length})</span>
                     </TabsTrigger>
-                    <TabsTrigger value="yearly" className="flex items-center gap-2">
-                      <CalendarRange className="h-4 w-4" />
-                      Yearly ({yearlyGoals.length})
+                    <TabsTrigger value="yearly" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1.5">
+                      <CalendarRange className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                      <span className="hidden md:inline">Yearly</span>
+                      <span className="hidden sm:inline md:hidden">Year</span>
+                      <span className="sm:hidden">Y</span>
+                      <span className="text-xs ml-1">({yearlyGoals.length})</span>
                     </TabsTrigger>
-                    <TabsTrigger value="scheduled" className="flex items-center gap-2">
-                      <CalendarIcon className="h-4 w-4" />
-                      Scheduled ({scheduledGoals.length})
+                    <TabsTrigger value="scheduled" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1.5">
+                      <CalendarIcon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                      <span className="hidden md:inline">Scheduled</span>
+                      <span className="hidden sm:inline md:hidden">Sched</span>
+                      <span className="sm:hidden">S</span>
+                      <span className="text-xs ml-1">({scheduledGoals.length})</span>
                     </TabsTrigger>
                   </TabsList>
                   
@@ -1586,6 +1799,241 @@ export default function CorporatePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Subtasks Dialog */}
+      <Dialog open={!!selectedGoalForSubtasks} onOpenChange={() => setSelectedGoalForSubtasks(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">
+              Subtasks for "{selectedGoalForSubtasks?.title}"
+            </DialogTitle>
+            <DialogDescription>Manage subtasks for this goal</DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Add Subtask Button */}
+            {canManageCorporate && (
+              <div className="flex justify-between items-center">
+                <Button
+                  onClick={() => setShowAddSubtask(true)}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Subtask
+                </Button>
+                <div className="text-sm text-gray-400">
+                  {subtasks.filter(s => s.status === 'completed').length} of {subtasks.length} completed
+                </div>
+              </div>
+            )}
+
+            {/* Subtasks List */}
+            <div className="space-y-2">
+              {subtasks.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No subtasks found for this goal</p>
+                </div>
+              ) : (
+                subtasks.map((subtask) => (
+                  <div
+                    key={subtask.id}
+                    className="flex items-start gap-3 rounded-lg p-3 border border-gray-700 bg-gray-800/50"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="font-medium text-white text-sm">{subtask.title}</div>
+                        <Badge className={`text-xs ${
+                          subtask.priority === 'high' ? 'bg-red-600/20 text-red-300 border-red-500/30' :
+                          subtask.priority === 'medium' ? 'bg-yellow-600/20 text-yellow-300 border-yellow-500/30' :
+                          'bg-green-600/20 text-green-300 border-green-500/30'
+                        }`}>
+                          {subtask.priority}
+                        </Badge>
+                      </div>
+                      {subtask.description && (
+                        <div className="text-xs text-gray-400 mb-2">{subtask.description}</div>
+                      )}
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                        <span className="text-gray-400/25 hover:text-gray-400 transition-colors">Due: {subtask.due_date ? new Date(subtask.due_date + 'T00:00:00').toLocaleDateString() : 'No due date'}</span>
+                        {subtask.assigned_user && (
+                          <span>Assigned to: {subtask.assigned_user.name}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Select 
+                        value={subtask.status} 
+                        onValueChange={(value) => handleUpdateSubtaskStatus(subtask.id, value)}
+                      >
+                        <SelectTrigger className="w-32 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {canManageCorporate && (
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
+                            onClick={() => setEditingSubtask(subtask)}
+                          >
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30"
+                            onClick={() => setDeletingSubtask(subtask)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Subtask Dialog */}
+      <Dialog open={showAddSubtask} onOpenChange={setShowAddSubtask}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Subtask</DialogTitle>
+            <DialogDescription>Create a new subtask for this goal</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Subtask title"
+              value={newSubtask.title}
+              onChange={(e) => setNewSubtask(prev => ({ ...prev, title: e.target.value }))}
+            />
+            <Textarea
+              placeholder="Subtask description"
+              value={newSubtask.description}
+              onChange={(e) => setNewSubtask(prev => ({ ...prev, description: e.target.value }))}
+            />
+            <Select value={newSubtask.priority} onValueChange={(value) => setNewSubtask(prev => ({ ...prev, priority: value as any }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={newSubtask.assigned_to} onValueChange={(value) => setNewSubtask(prev => ({ ...prev, assigned_to: value }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Assign To (Optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {organizationStaff.map((staff) => (
+                  <SelectItem key={staff.id} value={staff.id}>
+                    {staff.user?.name || staff.user?.email || 'Unknown'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              type="date"
+              placeholder="Due Date"
+              value={newSubtask.due_date}
+              onChange={(e) => setNewSubtask(prev => ({ ...prev, due_date: e.target.value }))}
+            />
+            <div className="flex gap-2">
+              <Button onClick={() => setShowAddSubtask(false)} variant="outline" className="flex-1">Cancel</Button>
+              <Button onClick={handleAddSubtask} className="flex-1">Add Subtask</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Subtask Dialog */}
+      <Dialog open={!!editingSubtask} onOpenChange={() => setEditingSubtask(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Subtask</DialogTitle>
+            <DialogDescription>Update subtask details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Subtask title"
+              value={editingSubtask?.title || ''}
+              onChange={(e) => setEditingSubtask(prev => prev ? { ...prev, title: e.target.value } : null)}
+            />
+            <Textarea
+              placeholder="Subtask description"
+              value={editingSubtask?.description || ''}
+              onChange={(e) => setEditingSubtask(prev => prev ? { ...prev, description: e.target.value } : null)}
+            />
+            <Select value={editingSubtask?.priority || 'medium'} onValueChange={(value) => setEditingSubtask(prev => prev ? { ...prev, priority: value as any } : null)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={editingSubtask?.assigned_to || 'unassigned'} onValueChange={(value) => setEditingSubtask(prev => prev ? { ...prev, assigned_to: value } : null)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Assign To (Optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {organizationStaff.map((staff) => (
+                  <SelectItem key={staff.id} value={staff.id}>
+                    {staff.user?.name || staff.user?.email || 'Unknown'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              type="date"
+              placeholder="Due Date"
+              value={editingSubtask?.due_date || ''}
+              onChange={(e) => setEditingSubtask(prev => prev ? { ...prev, due_date: e.target.value } : null)}
+            />
+            <div className="flex gap-2">
+              <Button onClick={() => setEditingSubtask(null)} variant="outline" className="flex-1">Cancel</Button>
+              <Button onClick={() => editingSubtask && handleUpdateSubtask(editingSubtask)} className="flex-1">Update Subtask</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Subtask Confirmation Dialog */}
+      <AlertDialog open={!!deletingSubtask} onOpenChange={() => setDeletingSubtask(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Subtask</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deletingSubtask?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingSubtask && handleDeleteSubtask(deletingSubtask.id)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
