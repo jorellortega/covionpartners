@@ -627,26 +627,26 @@ export default function CorporatePage() {
         {goalsList.map((goal) => (
           <div
             key={goal.id}
-            className="flex items-start gap-2 sm:gap-3 rounded-lg p-2 sm:p-3 mb-2 cursor-pointer hover:bg-gray-800 transition border border-gray-700"
+            className="flex flex-col sm:flex-row items-start gap-3 rounded-lg p-3 sm:p-4 mb-3 cursor-pointer hover:bg-gray-800 transition border border-gray-700"
             style={{ backgroundColor: '#000000' }}
           >
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <div className="font-semibold text-white text-xs sm:text-base">{goal.title}</div>
+            <div className="flex-1 w-full sm:w-auto">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="font-semibold text-white text-sm sm:text-base">{goal.title}</div>
               </div>
-              <div className="flex items-center gap-2 sm:gap-3 mt-1 text-xs text-gray-400/25 hover:text-gray-400 transition-colors">
+              <div className="flex items-center gap-2 sm:gap-3 mb-2 text-xs text-gray-400/25 hover:text-gray-400 transition-colors">
                 <span>Target: {goal.target_date ? new Date(goal.target_date + 'T00:00:00').toLocaleDateString() : '--'}</span>
               </div>
               {goal.description && (
-                <div className="mt-1 text-xs text-gray-400">
+                <div className="text-xs text-gray-400 leading-relaxed">
                   {goal.description}
                 </div>
               )}
             </div>
             {canManageCorporate && (
-              <div className="flex flex-col gap-2 mt-2">
+              <div className="w-full sm:w-auto flex flex-col sm:flex-col gap-3">
                 <Select value={goal.status} onValueChange={(value) => handleUpdateGoalStatus(goal.id, value)}>
-                  <SelectTrigger className="w-full text-xs">
+                  <SelectTrigger className="w-full sm:w-32 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -655,33 +655,36 @@ export default function CorporatePage() {
                     <SelectItem value="paused">Paused</SelectItem>
                   </SelectContent>
                 </Select>
-                <div className="flex gap-1 flex-wrap">
+                <div className="flex gap-2 sm:gap-1 flex-wrap sm:flex-nowrap">
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-xs px-2 py-1 bg-green-600/20 border-green-500/30 text-green-300 hover:bg-green-600/30 flex-1 min-w-0"
+                    className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-green-600/20 border-green-500/30 text-green-300 hover:bg-green-600/30 flex-1 sm:flex-1 min-w-0"
                     onClick={() => setViewingGoal(goal)}
                   >
-                    <Eye className="w-3 h-3 mr-1" />
-                    View
+                    <Eye className="w-3 h-3 mr-1 sm:mr-1" />
+                    <span className="sm:hidden">View Details</span>
+                    <span className="hidden sm:inline">View</span>
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 flex-1 min-w-0"
+                    className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 flex-1 sm:flex-1 min-w-0"
                     onClick={() => setEditingGoal(goal)}
                   >
-                    <Edit className="w-3 h-3 mr-1" />
-                    Edit
+                    <Edit className="w-3 h-3 mr-1 sm:mr-1" />
+                    <span className="sm:hidden">Edit Goal</span>
+                    <span className="hidden sm:inline">Edit</span>
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30 flex-1 min-w-0"
+                    className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30 flex-1 sm:flex-1 min-w-0"
                     onClick={() => setDeletingGoal(goal)}
                   >
-                    <Trash2 className="w-3 h-3 mr-1" />
-                    Delete
+                    <Trash2 className="w-3 h-3 mr-1 sm:mr-1" />
+                    <span className="sm:hidden">Delete</span>
+                    <span className="hidden sm:inline">Delete</span>
                   </Button>
                 </div>
               </div>
