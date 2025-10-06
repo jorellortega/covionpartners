@@ -581,7 +581,7 @@ export default function CorporatePage() {
     }
   };
 
-  const filteredTasks = tasks.filter(task => {
+  const filteredTasks = tasks?.filter(task => {
     if (filterStatus !== 'all' && task.status !== filterStatus) return false;
     if (filterPriority !== 'all' && task.priority !== filterPriority) return false;
     if (filterCategory !== 'all' && task.category !== filterCategory) return false;
@@ -590,27 +590,27 @@ export default function CorporatePage() {
       if (filterProject !== 'no-project' && task.project_id !== filterProject) return false;
     }
     return true;
-  });
+  }) || [];
 
-  const filteredGoals = goals.filter(goal => {
+  const filteredGoals = goals?.filter(goal => {
     if (filterProject !== 'all') {
       if (filterProject === 'no-project' && goal.project_id !== null) return false;
       if (filterProject !== 'no-project' && goal.project_id !== filterProject) return false;
     }
     if (filterGoalType !== 'all' && goal.goal_type !== filterGoalType) return false;
     return true;
-  });
+  }) || [];
 
   // Separate goals by type for tabs
-  const weeklyGoals = goals.filter(goal => goal.goal_type === 'weekly');
-  const monthlyGoals = goals.filter(goal => goal.goal_type === 'monthly');
-  const yearlyGoals = goals.filter(goal => goal.goal_type === 'yearly');
-  const scheduledGoals = goals.filter(goal => goal.goal_type === 'scheduled');
+  const weeklyGoals = goals?.filter(goal => goal.goal_type === 'weekly') || [];
+  const monthlyGoals = goals?.filter(goal => goal.goal_type === 'monthly') || [];
+  const yearlyGoals = goals?.filter(goal => goal.goal_type === 'yearly') || [];
+  const scheduledGoals = goals?.filter(goal => goal.goal_type === 'scheduled') || [];
 
-  const pendingTasks = tasks.filter(t => t.status === 'pending').length;
-  const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
-  const completedTasks = tasks.filter(t => t.status === 'completed').length;
-  const activeGoals = goals.filter(g => g.status === 'active').length;
+  const pendingTasks = tasks?.filter(t => t.status === 'pending').length || 0;
+  const inProgressTasks = tasks?.filter(t => t.status === 'in_progress').length || 0;
+  const completedTasks = tasks?.filter(t => t.status === 'completed').length || 0;
+  const activeGoals = goals?.filter(g => g.status === 'active').length || 0;
 
   // Helper function to render goals list
   const renderGoalsList = (goalsList: OrganizationGoal[]) => {
@@ -634,43 +634,12 @@ export default function CorporatePage() {
               <div className="flex items-center gap-2">
                 <div className="font-semibold text-white text-xs sm:text-base">{goal.title}</div>
               </div>
-              <div className="flex items-center gap-2 sm:gap-3 mt-1 text-xs text-gray-400">
-                <span>Status: <span className="font-medium">{goal.status}</span></span>
-                <span>Target: {goal.target_date ? new Date(goal.target_date).toLocaleDateString() : '--'}</span>
-                <span>Priority: <span className="font-medium">{goal.priority}</span></span>
-                <span>Category: <span className="font-medium">{goal.category}</span></span>
-              </div>
-              <div className="flex items-center gap-1 mt-1">
-                <Badge className={`text-xs ${
-                  goal.goal_type === 'weekly' ? 'bg-blue-600/20 text-blue-300 border-blue-500/30' :
-                  goal.goal_type === 'monthly' ? 'bg-green-600/20 text-green-300 border-green-500/30' :
-                  goal.goal_type === 'yearly' ? 'bg-purple-600/20 text-purple-300 border-purple-500/30' :
-                  'bg-orange-600/20 text-orange-300 border-orange-500/30'
-                }`}>
-                  {goal.goal_type.charAt(0).toUpperCase() + goal.goal_type.slice(1)}
-                </Badge>
+              <div className="flex items-center gap-2 sm:gap-3 mt-1 text-xs text-gray-400/25 hover:text-gray-400 transition-colors">
+                <span>Target: {goal.target_date ? new Date(goal.target_date + 'T00:00:00').toLocaleDateString() : '--'}</span>
               </div>
               {goal.description && (
                 <div className="mt-1 text-xs text-gray-400">
                   {goal.description}
-                </div>
-              )}
-              {goal.project && (
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="text-xs text-gray-400">Project:</span>
-                  <Badge className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30">
-                    {goal.project.name}
-                  </Badge>
-                </div>
-              )}
-              {goal.assigned_users && goal.assigned_users.length > 0 && (
-                <div className="flex items-center gap-1 mt-1 flex-wrap">
-                  <span className="text-xs text-gray-400">Assigned to:</span>
-                  {goal.assigned_users.map((assignedUser, index) => (
-                    <Badge key={index} className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
-                      {assignedUser.name}
-                    </Badge>
-                  ))}
                 </div>
               )}
             </div>
@@ -1098,7 +1067,7 @@ export default function CorporatePage() {
                         </div>
                         <div className="flex items-center gap-2 sm:gap-3 mt-1 text-xs text-gray-400">
                           <span>Status: <span className="font-medium">{task.status}</span></span>
-                          <span>Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : '--'}</span>
+                          <span>Due: {task.due_date ? new Date(task.due_date + 'T00:00:00').toLocaleDateString() : '--'}</span>
                           <span>Priority: <span className="font-medium">{task.priority}</span></span>
                           <span>Category: <span className="font-medium">{task.category}</span></span>
                         </div>
@@ -1505,7 +1474,7 @@ export default function CorporatePage() {
             )}
             
             <div className="text-sm text-gray-400/25">
-              <strong>Due Date:</strong> {viewingTask?.due_date ? new Date(viewingTask.due_date).toLocaleDateString() : 'No due date'}
+              <strong>Due Date:</strong> {viewingTask?.due_date ? new Date(viewingTask.due_date + 'T00:00:00').toLocaleDateString() : 'No due date'}
             </div>
           </div>
         </DialogContent>
@@ -1513,20 +1482,104 @@ export default function CorporatePage() {
 
       {/* View Goal Dialog */}
       <Dialog open={!!viewingGoal} onOpenChange={() => setViewingGoal(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">{viewingGoal?.title}</DialogTitle>
+            <DialogDescription>Complete goal details and information</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-6">
             {viewingGoal?.description && (
               <div>
-                <p className="text-gray-300 whitespace-pre-wrap">{viewingGoal.description}</p>
+                <h4 className="text-sm font-semibold text-gray-300 mb-2">Description</h4>
+                <p className="text-gray-300 whitespace-pre-wrap p-3 rounded-lg" style={{ backgroundColor: '#141414' }}>{viewingGoal.description}</p>
               </div>
             )}
             
-            <div className="text-sm text-gray-400/25">
-              <strong>Target Date:</strong> {viewingGoal?.target_date ? new Date(viewingGoal.target_date).toLocaleDateString() : 'No target date'}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-300 mb-1">Status</h4>
+                  <Badge className={`${
+                    viewingGoal?.status === 'active' ? 'bg-green-600/20 text-green-300 border-green-500/30' :
+                    viewingGoal?.status === 'completed' ? 'bg-blue-600/20 text-blue-300 border-blue-500/30' :
+                    'bg-yellow-600/20 text-yellow-300 border-yellow-500/30'
+                  }`}>
+                    {viewingGoal?.status?.charAt(0).toUpperCase() + viewingGoal?.status?.slice(1)}
+                  </Badge>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-300 mb-1">Priority</h4>
+                  <Badge className={`${
+                    viewingGoal?.priority === 'high' ? 'bg-red-600/20 text-red-300 border-red-500/30' :
+                    viewingGoal?.priority === 'medium' ? 'bg-yellow-600/20 text-yellow-300 border-yellow-500/30' :
+                    'bg-green-600/20 text-green-300 border-green-500/30'
+                  }`}>
+                    {viewingGoal?.priority?.charAt(0).toUpperCase() + viewingGoal?.priority?.slice(1)}
+                  </Badge>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-300 mb-1">Category</h4>
+                  <Badge className="bg-purple-600/20 text-purple-300 border-purple-500/30">
+                    {viewingGoal?.category?.charAt(0).toUpperCase() + viewingGoal?.category?.slice(1)}
+                  </Badge>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-300 mb-1">Goal Type</h4>
+                  <Badge className={`${
+                    viewingGoal?.goal_type === 'weekly' ? 'bg-blue-600/20 text-blue-300 border-blue-500/30' :
+                    viewingGoal?.goal_type === 'monthly' ? 'bg-green-600/20 text-green-300 border-green-500/30' :
+                    viewingGoal?.goal_type === 'yearly' ? 'bg-purple-600/20 text-purple-300 border-purple-500/30' :
+                    'bg-orange-600/20 text-orange-300 border-orange-500/30'
+                  }`}>
+                    {viewingGoal?.goal_type?.charAt(0).toUpperCase() + viewingGoal?.goal_type?.slice(1)}
+                  </Badge>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-300 mb-1">Target Date</h4>
+                  <p className="text-gray-300">
+                    {viewingGoal?.target_date ? new Date(viewingGoal.target_date + 'T00:00:00').toLocaleDateString() : 'No target date set'}
+                  </p>
+                </div>
+                
+                <div className="hover:text-gray-300 transition-colors">
+                  <h4 className="text-sm font-semibold text-gray-300/25 hover:text-gray-300 transition-colors mb-1">Created</h4>
+                  <p className="text-gray-300/25 hover:text-gray-300 transition-colors">
+                    {viewingGoal?.created_at ? new Date(viewingGoal.created_at).toLocaleDateString() : 'Unknown'}
+                  </p>
+                </div>
+              </div>
             </div>
+            
+            {viewingGoal?.project && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-300 mb-2">Associated Project</h4>
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <p className="text-gray-300 font-medium">{viewingGoal.project.name}</p>
+                  {viewingGoal.project.description && (
+                    <p className="text-gray-400 text-sm mt-1">{viewingGoal.project.description}</p>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {viewingGoal?.assigned_users && viewingGoal.assigned_users.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-300 mb-2">Assigned Team Members</h4>
+                <div className="flex flex-wrap gap-2">
+                  {viewingGoal.assigned_users.map((assignedUser, index) => (
+                    <Badge key={index} className="bg-green-600/20 text-green-300 border-green-500/30">
+                      {assignedUser.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
