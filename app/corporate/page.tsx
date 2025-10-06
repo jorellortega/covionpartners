@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Calendar as CalendarIcon, CheckCircle, Clock, Target, Users, TrendingUp, AlertCircle, Plus, Edit, Trash2, Calendar as CalendarIcon2, CalendarDays, CalendarRange, Eye } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle, Clock, Target, Users, TrendingUp, AlertCircle, Plus, Edit, Trash2, Calendar as CalendarIcon2, CalendarDays, CalendarRange, Eye, ListTodo } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 
@@ -763,7 +763,7 @@ export default function CorporatePage() {
     }
   };
 
-  const filteredTasks = tasks?.filter(task => {
+  const filteredTasks = (tasks?.filter(task => {
     if (filterStatus !== 'all' && task.status !== filterStatus) return false;
     if (filterPriority !== 'all' && task.priority !== filterPriority) return false;
     if (filterCategory !== 'all' && task.category !== filterCategory) return false;
@@ -772,27 +772,27 @@ export default function CorporatePage() {
       if (filterProject !== 'no-project' && task.project_id !== filterProject) return false;
     }
     return true;
-  }) || [];
+  }) || []);
 
-  const filteredGoals = goals?.filter(goal => {
+  const filteredGoals = (goals?.filter(goal => {
     if (filterProject !== 'all') {
       if (filterProject === 'no-project' && goal.project_id !== null) return false;
       if (filterProject !== 'no-project' && goal.project_id !== filterProject) return false;
     }
     if (filterGoalType !== 'all' && goal.goal_type !== filterGoalType) return false;
     return true;
-  }) || [];
+  }) || []);
 
   // Separate goals by type for tabs
-  const weeklyGoals = goals?.filter(goal => goal.goal_type === 'weekly') || [];
-  const monthlyGoals = goals?.filter(goal => goal.goal_type === 'monthly') || [];
-  const yearlyGoals = goals?.filter(goal => goal.goal_type === 'yearly') || [];
-  const scheduledGoals = goals?.filter(goal => goal.goal_type === 'scheduled') || [];
+  const weeklyGoals = (goals?.filter(goal => goal.goal_type === 'weekly') || []);
+  const monthlyGoals = (goals?.filter(goal => goal.goal_type === 'monthly') || []);
+  const yearlyGoals = (goals?.filter(goal => goal.goal_type === 'yearly') || []);
+  const scheduledGoals = (goals?.filter(goal => goal.goal_type === 'scheduled') || []);
 
-  const pendingTasks = tasks?.filter(t => t.status === 'pending').length || 0;
-  const inProgressTasks = tasks?.filter(t => t.status === 'in_progress').length || 0;
-  const completedTasks = tasks?.filter(t => t.status === 'completed').length || 0;
-  const activeGoals = goals?.filter(g => g.status === 'active').length || 0;
+  const pendingTasks = (tasks?.filter(t => t.status === 'pending') || []).length;
+  const inProgressTasks = (tasks?.filter(t => t.status === 'in_progress') || []).length;
+  const completedTasks = (tasks?.filter(t => t.status === 'completed') || []).length;
+  const activeGoals = (goals?.filter(g => g.status === 'active') || []).length;
 
   // Helper function to render goals list
   const renderGoalsList = (goalsList: OrganizationGoal[]) => {
@@ -857,7 +857,7 @@ export default function CorporatePage() {
                     }}
                   >
                     <div className="flex items-center gap-1 sm:gap-1 min-w-0">
-                      <Users className="w-3 h-3 flex-shrink-0" />
+                      <ListTodo className="w-3 h-3 flex-shrink-0" />
                       <span className="hidden sm:inline flex-shrink-0">Subtasks</span>
                       {goal.subtasks_total && goal.subtasks_total > 0 && (
                         <span className="bg-purple-500/30 px-1 rounded text-xs hidden sm:inline flex-shrink-0">
@@ -1363,43 +1363,42 @@ export default function CorporatePage() {
                 </div>
               ) : (
                 <Tabs value={activeGoalTab} onValueChange={setActiveGoalTab} className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-1">
-                    <TabsTrigger value="all" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1.5">
-                      <Target className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span className="hidden md:inline">All Goals</span>
-                      <span className="hidden sm:inline md:hidden">All</span>
-                      <span className="sm:hidden">All</span>
-                      <span className="text-xs ml-1">({goals.length})</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="weekly" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1.5">
-                      <CalendarIcon2 className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span className="hidden md:inline">Weekly</span>
-                      <span className="hidden sm:inline md:hidden">Week</span>
-                      <span className="sm:hidden">W</span>
-                      <span className="text-xs ml-1">({weeklyGoals.length})</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="monthly" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1.5">
-                      <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span className="hidden md:inline">Monthly</span>
-                      <span className="hidden sm:inline md:hidden">Month</span>
-                      <span className="sm:hidden">M</span>
-                      <span className="text-xs ml-1">({monthlyGoals.length})</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="yearly" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1.5">
-                      <CalendarRange className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span className="hidden md:inline">Yearly</span>
-                      <span className="hidden sm:inline md:hidden">Year</span>
-                      <span className="sm:hidden">Y</span>
-                      <span className="text-xs ml-1">({yearlyGoals.length})</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="scheduled" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1.5">
-                      <CalendarIcon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span className="hidden md:inline">Scheduled</span>
-                      <span className="hidden sm:inline md:hidden">Sched</span>
-                      <span className="sm:hidden">S</span>
-                      <span className="text-xs ml-1">({scheduledGoals.length})</span>
-                    </TabsTrigger>
-                  </TabsList>
+                  <div className="relative">
+                    <div className="overflow-x-auto scrollbar-hide">
+                      <TabsList className="inline-flex w-max min-w-full gap-1 p-1 bg-gray-800/50">
+                        <TabsTrigger value="all" className="flex items-center gap-1 text-xs sm:text-sm px-3 py-2 whitespace-nowrap">
+                          <Target className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                          <span className="hidden sm:inline">All Goals</span>
+                          <span className="sm:hidden">All</span>
+                          <span className="text-xs ml-1">({goals.length})</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="weekly" className="flex items-center gap-1 text-xs sm:text-sm px-3 py-2 whitespace-nowrap">
+                          <CalendarIcon2 className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                          <span className="hidden sm:inline">Weekly</span>
+                          <span className="sm:hidden">Week</span>
+                          <span className="text-xs ml-1">({weeklyGoals.length})</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="monthly" className="flex items-center gap-1 text-xs sm:text-sm px-3 py-2 whitespace-nowrap">
+                          <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                          <span className="hidden sm:inline">Monthly</span>
+                          <span className="sm:hidden">Month</span>
+                          <span className="text-xs ml-1">({monthlyGoals.length})</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="yearly" className="flex items-center gap-1 text-xs sm:text-sm px-3 py-2 whitespace-nowrap">
+                          <CalendarRange className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                          <span className="hidden sm:inline">Yearly</span>
+                          <span className="sm:hidden">Year</span>
+                          <span className="text-xs ml-1">({yearlyGoals.length})</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="scheduled" className="flex items-center gap-1 text-xs sm:text-sm px-3 py-2 whitespace-nowrap">
+                          <CalendarIcon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                          <span className="hidden sm:inline">Scheduled</span>
+                          <span className="sm:hidden">Sched</span>
+                          <span className="text-xs ml-1">({scheduledGoals.length})</span>
+                        </TabsTrigger>
+                      </TabsList>
+                    </div>
+                  </div>
                   
                   <TabsContent value="all" className="mt-4">
                     {renderGoalsList(filteredGoals)}
@@ -1802,26 +1801,26 @@ export default function CorporatePage() {
 
       {/* Subtasks Dialog */}
       <Dialog open={!!selectedGoalForSubtasks} onOpenChange={() => setSelectedGoalForSubtasks(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">
+            <DialogTitle className="text-lg sm:text-xl font-bold">
               Subtasks for "{selectedGoalForSubtasks?.title}"
             </DialogTitle>
-            <DialogDescription>Manage subtasks for this goal</DialogDescription>
+            <DialogDescription className="text-sm">Manage subtasks for this goal</DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             {/* Add Subtask Button */}
             {canManageCorporate && (
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <Button
                   onClick={() => setShowAddSubtask(true)}
-                  className="bg-purple-600 hover:bg-purple-700"
+                  className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Subtask
                 </Button>
-                <div className="text-sm text-gray-400">
+                <div className="text-sm text-gray-400 text-center sm:text-right w-full sm:w-auto">
                   {subtasks.filter(s => s.status === 'completed').length} of {subtasks.length} completed
                 </div>
               </div>
@@ -1837,10 +1836,10 @@ export default function CorporatePage() {
                 subtasks.map((subtask) => (
                   <div
                     key={subtask.id}
-                    className="flex items-start gap-3 rounded-lg p-3 border border-gray-700 bg-gray-800/50"
+                    className="flex flex-col sm:flex-row items-start gap-3 rounded-lg p-3 border border-gray-700 bg-gray-800/50"
                   >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                    <div className="flex-1 w-full sm:w-auto">
+                      <div className="flex items-center gap-2 mb-2">
                         <div className="font-medium text-white text-sm">{subtask.title}</div>
                         <Badge className={`text-xs ${
                           subtask.priority === 'high' ? 'bg-red-600/20 text-red-300 border-red-500/30' :
@@ -1851,21 +1850,21 @@ export default function CorporatePage() {
                         </Badge>
                       </div>
                       {subtask.description && (
-                        <div className="text-xs text-gray-400 mb-2">{subtask.description}</div>
+                        <div className="text-xs text-gray-400 mb-2 leading-relaxed">{subtask.description}</div>
                       )}
-                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-xs text-gray-400">
                         <span className="text-gray-400/25 hover:text-gray-400 transition-colors">Due: {subtask.due_date ? new Date(subtask.due_date + 'T00:00:00').toLocaleDateString() : 'No due date'}</span>
                         {subtask.assigned_user && (
                           <span>Assigned to: {subtask.assigned_user.name}</span>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
                       <Select 
                         value={subtask.status} 
                         onValueChange={(value) => handleUpdateSubtaskStatus(subtask.id, value)}
                       >
-                        <SelectTrigger className="w-32 text-xs">
+                        <SelectTrigger className="w-full sm:w-32 text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
