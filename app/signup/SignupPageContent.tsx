@@ -8,6 +8,7 @@ import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js/pure";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "../../hooks/useAuth";
+import { useRouter } from "next/navigation";
 
 export default function SignupPageContent() {
   const [form, setForm] = useState({
@@ -26,6 +27,7 @@ export default function SignupPageContent() {
     ? `Signing up for: ${accountType.charAt(0).toUpperCase() + accountType.slice(1)} Account`
     : null;
   const { signUp } = useAuth();
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   const roleMap: Record<string, string> = {
@@ -71,14 +73,19 @@ export default function SignupPageContent() {
         return;
       }
       setAccountCreated(true);
-      // For public accounts, create a Stripe customer ID immediately after signup
-      if (accountType === "public") {
+      // For public/viewer accounts, create a Stripe customer ID immediately after signup
+      if (accountType === "public" || accountType === "viewer") {
         try {
           await fetch("/api/payment-methods/create-customer", { method: "POST" });
         } catch (e) {
           // Optionally handle error, but don't block user
           console.error("Failed to create Stripe customer for public account", e);
         }
+        // Automatically redirect free accounts to dashboard
+        setTimeout(() => {
+          router.push('/dashboard');
+          router.refresh();
+        }, 1500); // Small delay to show success message
       }
     } catch (err: any) {
       setError(err.message || "Failed to create account. Please try again.");
@@ -174,7 +181,7 @@ export default function SignupPageContent() {
           </form>
         ) : (
           <>
-            {accountType !== "public" ? (
+            {accountType !== "public" && accountType !== "viewer" ? (
           <div>
             <h2 className="text-2xl font-bold text-center mb-4 text-purple-400">Account Created!</h2>
             <p className="text-center text-gray-400 mb-6">Add your payment method to get started.</p>

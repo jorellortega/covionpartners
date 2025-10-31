@@ -38,16 +38,31 @@ export function useAuth() {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single()
+        .maybeSingle()
 
       if (error) {
-        console.error('Error fetching user data:', error)
-        throw error
+        // Only log errors that aren't "no rows" errors
+        if (error.code !== 'PGRST116') {
+          console.error('Error fetching user data:', error)
+        }
+        setUser(null)
+        return
       }
-      console.log('User data fetched:', data)
-      setUser(data)
-    } catch (error) {
-      console.error('Error in fetchUser:', error)
+      
+      if (data) {
+        console.log('User data fetched:', data)
+        setUser(data)
+      } else {
+        // User not found in users table
+        console.log('User not found in users table')
+        setUser(null)
+      }
+    } catch (error: any) {
+      // Gracefully handle errors - don't throw
+      if (error.code !== 'PGRST116') {
+        console.error('Error in fetchUser:', error)
+      }
+      setUser(null)
     } finally {
       setLoading(false)
     }
@@ -98,15 +113,24 @@ export function useAuth() {
           .from('users')
           .select('*')
           .eq('id', data.user.id)
-          .single()
+          .maybeSingle()
 
         if (userError) {
-          console.error('Error fetching user data after sign in:', userError)
-          throw userError
+          // Only log errors that aren't "no rows" errors
+          if (userError.code !== 'PGRST116') {
+            console.error('Error fetching user data after sign in:', userError)
+          }
+          // Continue with auth user data even if profile not found
+          return { data, error: null }
         }
 
-        console.log('User data fetched after sign in:', userData)
-        setUser(userData)
+        if (userData) {
+          console.log('User data fetched after sign in:', userData)
+          setUser(userData)
+        } else {
+          console.log('User profile not found in users table')
+          setUser(null)
+        }
       }
 
       return { data, error: null }

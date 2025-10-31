@@ -23,6 +23,8 @@ import {
   Loader2,
   Upload,
   Plus,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import Image from "next/image"
 import { useAuth } from '@/hooks/useAuth'
@@ -186,6 +188,9 @@ export default function SettingsPage() {
   })
   const [passwordUpdating, setPasswordUpdating] = useState(false)
   const [resetEmailCooldown, setResetEmailCooldown] = useState(0)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const fetchBalance = async (userId: string) => {
       try {
@@ -638,6 +643,9 @@ export default function SettingsPage() {
         newPassword: "",
         confirmPassword: ""
       })
+      setShowCurrentPassword(false)
+      setShowNewPassword(false)
+      setShowConfirmPassword(false)
     } catch (error: any) {
       console.error('Error updating password:', error)
       toast.error(error.message || 'Failed to update password')
@@ -653,6 +661,9 @@ export default function SettingsPage() {
       newPassword: "",
       confirmPassword: ""
     })
+    setShowCurrentPassword(false)
+    setShowNewPassword(false)
+    setShowConfirmPassword(false)
   }
 
   // Countdown timer for reset email cooldown
@@ -873,34 +884,76 @@ export default function SettingsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="currentPassword">Current Password</Label>
-                        <Input
-                          id="currentPassword"
-                          type="password"
-                          value={passwordForm.currentPassword}
-                          onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                          placeholder="Enter current password"
-                        />
+                        <div className="relative">
+                          <Input
+                            id="currentPassword"
+                            type={showCurrentPassword ? "text" : "password"}
+                            value={passwordForm.currentPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                            placeholder="Enter current password"
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                          >
+                            {showCurrentPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="newPassword">New Password</Label>
-                        <Input
-                          id="newPassword"
-                          type="password"
-                          value={passwordForm.newPassword}
-                          onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                          placeholder="Enter new password"
-                        />
+                        <div className="relative">
+                          <Input
+                            id="newPassword"
+                            type={showNewPassword ? "text" : "password"}
+                            value={passwordForm.newPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                            placeholder="Enter new password"
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                          >
+                            {showNewPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        value={passwordForm.confirmPassword}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                        placeholder="Confirm new password"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="confirmPassword"
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={passwordForm.confirmPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                          placeholder="Confirm new password"
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <Button

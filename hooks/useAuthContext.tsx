@@ -72,16 +72,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single()
+        .maybeSingle()
 
       if (error) {
-        console.error('Error fetching user data:', error)
-        throw error
+        // Only log errors that aren't "no rows" errors
+        if (error.code !== 'PGRST116') {
+          console.error('Error fetching user data:', error)
+        }
+        setUser(null)
+        setLoading(false)
+        isFetchingRef.current = false
+        return
       }
-      console.log('User data fetched:', data)
-      setUser(data)
-    } catch (error) {
-      console.error('Error in fetchUser:', error)
+      
+      if (data) {
+        console.log('User data fetched:', data)
+        setUser(data)
+      } else {
+        // User not found in users table
+        console.log('User not found in users table')
+        setUser(null)
+      }
+    } catch (error: any) {
+      // Gracefully handle errors - don't throw
+      if (error.code !== 'PGRST116') {
+        console.error('Error in fetchUser:', error)
+      }
+      setUser(null)
     } finally {
       setLoading(false)
       isFetchingRef.current = false
