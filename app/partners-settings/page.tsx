@@ -627,6 +627,24 @@ export default function PartnersSettingsPage() {
     }
   }
 
+  const handleRemoveProject = async (invitationId: string, projectId: string) => {
+    try {
+      const { error } = await supabase
+        .from('partner_access')
+        .delete()
+        .eq('partner_invitation_id', invitationId)
+        .eq('project_id', projectId)
+
+      if (error) throw error
+
+      toast.success('Project removed successfully!')
+      fetchInvitations()
+    } catch (error: any) {
+      console.error('Error removing project:', error)
+      toast.error('Failed to remove project')
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -811,8 +829,15 @@ export default function PartnersSettingsPage() {
                             <FolderKanban className="w-4 h-4 text-gray-500" />
                             <span className="text-xs text-gray-500">Projects:</span>
                             {assignedProjects.map((project) => (
-                              <Badge key={project.id} variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-xs">
+                              <Badge key={project.id} variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-xs flex items-center gap-1">
                                 {project.name}
+                                <button
+                                  onClick={() => handleRemoveProject(invitation.id, project.id)}
+                                  className="ml-1 hover:text-red-400 transition-colors"
+                                  title="Remove project"
+                                >
+                                  <XCircle className="w-3 h-3" />
+                                </button>
                               </Badge>
                             ))}
                           </div>
