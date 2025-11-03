@@ -2657,6 +2657,16 @@ export default function PartnerDashboard() {
                       <CheckCircle className="w-4 h-4 mr-2" /> Approved Positions
                     </Button>
                   </Link>
+                  <Link href="/partners-settings">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <Key className="w-4 h-4 mr-2" /> Partner Settings
+                    </Button>
+                  </Link>
+                  <Link href="/partners-overview">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <Handshake className="w-4 h-4 mr-2" /> Partners Overview
+                    </Button>
+                  </Link>
                   <Link href="/work-submission">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
                       <PenSquare className="w-4 h-4 mr-2" /> Work for Hire Submission
