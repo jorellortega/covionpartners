@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import { ArrowRight, BarChart2, Briefcase, Zap, FolderKanban, Handshake, Users, Lock, FileText, Globe, DollarSign, Shield, Building2, Leaf, Clock, Check, Target, Heart, MessageSquare } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { toast } from "sonner"
@@ -15,11 +16,27 @@ import React from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import Head from "next/head"
 
+function escapeHtml(content: string) {
+  return content
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+}
+
+function formatMiniResponse(content: string) {
+  const escaped = escapeHtml(content)
+  return escaped.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cyan-300 underline">$1</a>').replace(/\n/g, '<br />')
+}
+
 export default function Home() {
   const { user, loading } = useAuth()
   const router = useRouter()
   const { projects, loading: projectsLoading, error } = useProjects()
   const [logoError, setLogoError] = useState(false)
+  const [miniPrompt, setMiniPrompt] = useState('')
+  const [miniResponse, setMiniResponse] = useState('')
+  const [miniLoading, setMiniLoading] = useState(false)
+  const [miniError, setMiniError] = useState<string | null>(null)
 
   useEffect(() => {
     // Only redirect if user is authenticated and not in the process of logging out
@@ -45,6 +62,39 @@ export default function Home() {
     const shuffled = [...projects].sort(() => 0.5 - Math.random())
     return shuffled.slice(0, 3)
   }, [projects])
+
+  const handleMiniChat = async () => {
+    if (!miniPrompt.trim() || miniLoading) return
+
+    setMiniLoading(true)
+    setMiniError(null)
+    setMiniResponse('')
+
+    try {
+      const response = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: miniPrompt.trim()
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data?.error || 'Unable to reach Infinito AI')
+      }
+
+      const data = await response.json()
+      setMiniResponse(data.message)
+      setMiniPrompt('')
+    } catch (err: any) {
+      setMiniError(err?.message || 'Something went wrong. Please try again.')
+    } finally {
+      setMiniLoading(false)
+    }
+  }
 
   const featureCards = [
     {
@@ -120,6 +170,60 @@ export default function Home() {
                 Business Community and Management Platform for project collaboration, deal making, and business growth. 
                 Connect with partners, manage projects, and build successful ventures together.
               </p>
+              <div className="w-full max-w-2xl mx-auto bg-gray-900/70 border border-gray-800 rounded-2xl p-6 shadow-lg">
+                <div className="mb-3 text-left">
+                  <a
+                    href="https://www.infinitoagi.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-lg font-semibold text-white hover:text-cyan-300 transition-colors"
+                  >
+                    Infinito AI
+                  </a>
+                  <p className="text-sm text-gray-400">Ask the assistant anything about Covion.</p>
+                </div>
+                <div className="space-y-4">
+                  <Textarea
+                    value={miniPrompt}
+                    onChange={(event) => setMiniPrompt(event.target.value)}
+                    placeholder="Try: Which Covion features help with deal flow?"
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault()
+                        handleMiniChat()
+                      }
+                    }}
+                    rows={3}
+                    className="bg-gray-950 border-gray-800 text-gray-100 placeholder:text-gray-500"
+                    disabled={miniLoading}
+                  />
+                  <div className="flex items-center justify-between">
+                    {miniError ? (
+                      <span className="text-sm text-red-400">{miniError}</span>
+                    ) : miniLoading ? (
+                      <span className="text-sm text-cyan-300 flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:-0.2s]"></span>
+                        <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce"></span>
+                        <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]"></span>
+                        Thinking…
+                      </span>
+                    ) : <span />}
+                    <Button
+                      onClick={handleMiniChat}
+                      disabled={miniLoading || !miniPrompt.trim()}
+                      className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400"
+                    >
+                      Ask Infinito
+                    </Button>
+                  </div>
+                  {miniResponse && (
+                    <div
+                      className="bg-gray-950/80 border border-gray-800 rounded-xl p-4 text-left text-sm text-gray-100 leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: formatMiniResponse(miniResponse) }}
+                    />
+                  )}
+                </div>
+              </div>
             </div>
             <svg width="0" height="0">
               <defs>

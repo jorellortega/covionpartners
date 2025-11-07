@@ -75,7 +75,8 @@ import {
   Bot,
   Send,
   X,
-  Key
+  Key,
+  Infinity
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -85,7 +86,7 @@ import { ProjectCardSkeleton } from "@/components/ui/loading-skeleton"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
-import { Project, ProjectRole } from "@/types"
+import { Project, ProjectRole, AIMessage } from "@/types"
 import {
   Dialog,
   DialogContent,
@@ -231,11 +232,31 @@ interface Deal {
   }[]
 }
 
+function escapeHtml(content: string) {
+  return content
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+}
+
+function formatAiContent(content: string) {
+  const escaped = escapeHtml(content)
+  const withLinks = escaped.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-300 underline">$1</a>')
+  return withLinks.replace(/\n/g, "<br />")
+}
+
+const DASHBOARD_AI_GREETING: AIMessage = {
+  role: "assistant",
+  content: "Hi! I'm Covion Intelligence. Ask about projects, investors, or workflows and I'll guide you to the right tools.",
+  timestamp: new Date().toISOString()
+}
+
 export default function PartnerDashboard() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
   const { projects } = useProjects(user?.id || '')
+  const userRole = user?.role?.toLowerCase()
 
   const [myProjects, setMyProjects] = useState<ProjectWithRole[]>([])
   const [loadingMyProjects, setLoadingMyProjects] = useState(true)
@@ -263,6 +284,7 @@ export default function PartnerDashboard() {
   const [dashboardView, setDashboardView] = useState<'default' | 'compact' | 'grid' | 'ai'>('default')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const autoCycleIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const aiConversationRef = useRef<HTMLDivElement | null>(null)
   const [dashboardSearchQuery, setDashboardSearchQuery] = useState('')
   const [dashboardSearchResults, setDashboardSearchResults] = useState<any[]>([])
   const [isDashboardSearching, setIsDashboardSearching] = useState(false)
@@ -704,7 +726,8 @@ export default function PartnerDashboard() {
 
   const [balance, setBalance] = useState<number | null>(null)
   const [aiPrompt, setAiPrompt] = useState("")
-  const [aiResponse, setAiResponse] = useState("")
+  const [aiConversation, setAiConversation] = useState<AIMessage[]>([DASHBOARD_AI_GREETING])
+  const [aiError, setAiError] = useState<string | null>(null)
   const [isAiLoading, setIsAiLoading] = useState(false)
   const supabase = createClientComponentClient()
 
@@ -1194,27 +1217,53 @@ export default function PartnerDashboard() {
   };
 
   const handleAI = async () => {
-    if (!aiPrompt.trim()) return;
-    
-    setIsAiLoading(true);
-    setAiResponse("");
-    
-    try {
-      // Simulate AI response - replace with actual AI API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Development message with user's name
-      const developmentResponse = `Hello ${user?.name || user?.email || 'there'}! I'm under development. Come back soon!`;
-      
-      setAiResponse(developmentResponse);
-    } catch (error) {
-      console.error('Error getting AI response:', error);
-      setAiResponse("Sorry, I encountered an error while processing your request. Please try again.");
-    } finally {
-      setIsAiLoading(false);
-      setAiPrompt('');
+    if (!aiPrompt.trim()) return
+
+    const prompt = aiPrompt.trim()
+    const history = [...aiConversation]
+    const userMessage: AIMessage = {
+      role: "user",
+      content: prompt,
+      timestamp: new Date().toISOString()
     }
-  };
+
+    setAiConversation([...history, userMessage])
+    setAiPrompt("")
+    setAiError(null)
+    setIsAiLoading(true)
+
+    try {
+      const response = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: prompt,
+          conversationHistory: history
+        })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Failed to connect to Covion Intelligence')
+      }
+
+      const data = await response.json()
+      const assistantMessage: AIMessage = {
+        role: 'assistant',
+        content: data.message,
+        timestamp: new Date().toISOString()
+      }
+
+      setAiConversation((prev) => [...prev, assistantMessage])
+    } catch (error: any) {
+      console.error('Error getting AI response:', error)
+      setAiError(error?.message || 'The assistant is unavailable. Please try again soon.')
+    } finally {
+      setIsAiLoading(false)
+    }
+  }
 
   // Dashboard View Components
   const renderCompactView = () => (
@@ -2042,78 +2091,115 @@ export default function PartnerDashboard() {
 
 
   const renderAIView = () => (
-    <div className="max-w-2xl mx-auto pt-8">
-      {/* Simple Header */}
-      <div className="text-center mb-8">
-        {/* Coming Soon Badge */}
-        <div className="inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 mb-4">
-          <span className="text-xs font-medium text-purple-300">Coming Soon</span>
+    <div className="max-w-3xl mx-auto pt-8 space-y-6">
+      <div className="text-center space-y-3">
+        <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+          <Infinity className="w-8 h-8 text-white" />
         </div>
-        
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mx-auto mb-4 group cursor-pointer">
-          <Bot className="w-8 h-8 text-white group-hover:hidden" />
-          <span className="text-white font-bold text-lg hidden group-hover:block">JOR</span>
+        <div>
+          <Link href="https://www.infinitoagi.com/" target="_blank" rel="noopener noreferrer" className="text-3xl font-bold text-white inline-flex items-center gap-2 hover:text-cyan-300 transition-colors">
+            Infinito AI
+            <span className="text-cyan-300">∞</span>
+          </Link>
+          <p className="text-gray-400">Ask about projects, investors, funding tasks, or platform workflows.</p>
         </div>
-        <h1 className="text-2xl font-bold text-white mb-2">AI Assistant</h1>
-        <p className="text-gray-400">Ask me anything about your projects or business</p>
+        {userRole === 'ceo' && (
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <Link href="/ai-settings">
+              <Button variant="outline" className="border-gray-700 text-gray-200 hover:text-white hover:border-gray-500">
+                Manage AI Settings
+              </Button>
+            </Link>
+            <Link href="/ai-info">
+              <Button variant="outline" className="border-gray-700 text-gray-200 hover:text-white hover:border-gray-500">
+                Edit System Prompt
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
 
-      {/* Prompt Input */}
-      <div className="space-y-4">
-                <div className="flex-1">
-          <div className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-800/50 to-gray-900/50 p-4 relative">
-            {/* Binary Code Border */}
-            <div className="absolute inset-0 pointer-events-none">
-              {/* Binary text along borders */}
-              <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 text-[8px] text-purple-400 font-mono select-none opacity-60">01001010 01001111 01010010</div>
-              <div className="absolute bottom-1 right-1 text-xs text-purple-400 font-mono select-none opacity-60">JOR</div>
+      <div className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-900/60 to-gray-950/80 p-6">
+        <div ref={aiConversationRef} className="h-[420px] overflow-y-auto space-y-5 pr-1">
+          {aiConversation.map((message, index) => (
+            <div key={`${message.role}-${index}-${message.timestamp}`} className={`flex ${message.role === 'assistant' ? 'justify-start' : 'justify-end'}`}>
+              <div
+                className={`max-w-[80%] rounded-2xl px-4 py-3 border ${
+                  message.role === 'assistant'
+                    ? 'bg-gray-900/80 border-gray-700 text-gray-100'
+                    : 'bg-gradient-to-r from-purple-500 to-blue-500 border-transparent text-white'
+                }`}
+              >
+                <div
+                  className="text-sm leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: formatAiContent(message.content) }}
+                />
+                {message.timestamp && (
+                  <p className={`mt-2 text-xs ${message.role === 'assistant' ? 'text-gray-400' : 'text-purple-100/80'}`}>
+                    {new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                  </p>
+                )}
+              </div>
             </div>
-            <textarea
-              placeholder="Ask me anything..."
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleAI()}
-              className="flex min-h-[120px] w-full rounded-lg border border-gray-700 bg-gray-900/50 px-4 py-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 resize-none transition-all duration-200 relative z-10"
-              disabled={isAiLoading}
-            />
-          </div>
+          ))}
+          {isAiLoading && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] rounded-2xl px-4 py-3 border bg-gray-900/60 border-gray-700 text-gray-300">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:-0.2s]"></span>
+                  <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce"></span>
+                  <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]"></span>
+                  <span className="text-sm">Infinito AI is thinking…</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+      </div>
+
+      {aiError && (
+        <div className="text-sm text-red-400 bg-red-900/20 border border-red-800/50 rounded-lg px-4 py-3">
+          {aiError}
+        </div>
+      )}
+
+      <div className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-900/60 to-gray-950/80 p-6 space-y-4">
+        <textarea
+          placeholder="Ask me anything about your Covion workspace..."
+          value={aiPrompt}
+          onChange={(event) => setAiPrompt(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault()
+              handleAI()
+            }
+          }}
+          className="flex min-h-[120px] w-full rounded-lg border border-gray-700 bg-gray-900/60 px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 resize-none"
+          disabled={isAiLoading}
+        />
         <div className="flex justify-end">
           <Button
             onClick={handleAI}
             disabled={isAiLoading || !aiPrompt.trim()}
-            className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-6 h-12"
+            className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-6 h-12 inline-flex items-center gap-2"
           >
             {isAiLoading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span className="h-5 w-5 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
             ) : (
               <Send className="w-5 h-5" />
             )}
+            <span>{isAiLoading ? 'Working' : 'Send'}</span>
           </Button>
         </div>
       </div>
-      
-      {/* Response */}
-      {aiResponse && (
-        <div className="mt-6 leonardo-card border-gray-800 bg-gradient-to-br from-gray-800/50 to-gray-900/50 p-6">
-          <div className="flex items-start space-x-3 mb-4">
-            <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-              <Bot className="w-4 h-4 text-purple-400" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center space-x-2 mb-2">
-                <h3 className="text-lg font-semibold text-white">AI Response</h3>
-                <span className="text-sm text-purple-400 font-medium">by JOR</span>
-              </div>
-              <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-                <p className="text-gray-300 leading-relaxed whitespace-pre-wrap">{aiResponse}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
+
+  useEffect(() => {
+    if (aiConversationRef.current) {
+      aiConversationRef.current.scrollTop = aiConversationRef.current.scrollHeight
+    }
+  }, [aiConversation])
 
   return (
     <div className="min-h-screen bg-gray-950">
