@@ -60,7 +60,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUser = async (userId: string) => {
     // Prevent duplicate fetches for the same user
     if (user?.id === userId || isFetchingRef.current) {
-      setLoading(false)
+      console.log('[AuthContext] Skipping fetchUser due to existing fetch or cached user', {
+        requestedUserId: userId,
+        currentUserId: user?.id,
+        isFetching: isFetchingRef.current
+      })
       return
     }
 

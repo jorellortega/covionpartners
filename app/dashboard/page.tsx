@@ -2254,7 +2254,6 @@ export default function PartnerDashboard() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold group-hover:text-purple-400 transition-colors">Welcome, {user?.name || user?.email}!</h2>
-                  <p className="text-sm text-gray-400">Here's what's happening in your workspace</p>
                 </div>
               </div>
             </>

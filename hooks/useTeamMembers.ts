@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { TeamMember } from '../types'
 import { User } from '@/types'
@@ -15,13 +15,7 @@ export function useTeamMembers(projectId: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (projectId) {
-      fetchTeamMembers()
-    }
-  }, [projectId])
-
-  const fetchTeamMembers = async () => {
+  const fetchTeamMembers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -126,7 +120,13 @@ export function useTeamMembers(projectId: string) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId])
+
+  useEffect(() => {
+    if (projectId) {
+      fetchTeamMembers()
+    }
+  }, [projectId, fetchTeamMembers])
 
   const addTeamMember = async (userId: string, role: TeamMember['role']) => {
     try {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -86,7 +86,8 @@ import { toast } from "sonner"
 import { TaskList } from '@/components/task-list'
 import { Textarea } from "@/components/ui/textarea"
 import { QRCodeCanvas } from 'qrcode.react'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { MultiSelect } from "@/components/ui/multiselect"
 import Image from "next/image"
 import Cropper from 'react-easy-crop'
 
@@ -119,6 +120,8 @@ function StatusBadge({ status, projectId, onStatusChange }: { status: string, pr
         .eq('id', projectId)
 
       if (error) throw error
+      if (!data) throw new Error('No task returned from insert')
+      if (!data) throw new Error('No task returned from insert')
       onStatusChange(newStatus)
       toast.success('Status updated successfully')
     } catch (error) {
@@ -202,6 +205,8 @@ function StatusCard({ project, onStatusChange, canChangeStatus }: { project: Pro
         .eq('id', project.id)
 
       if (error) throw error
+      if (!data) throw new Error('No task returned from update')
+      if (!data) throw new Error('No task returned from update')
       
       toast.success('Deadline updated successfully')
       setShowDeadlineDialog(false)
@@ -587,7 +592,7 @@ export default function ProjectDetails() {
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
-    assigned_to: '',
+    assigned_users: [] as string[],
     due_date: '',
     priority: 'medium',
   })
@@ -633,6 +638,55 @@ export default function ProjectDetails() {
     url: '',
     description: ''
   })
+
+  const normalizeAssigneeIds = (value: any): string[] => {
+    if (Array.isArray(value)) {
+      return value.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+    }
+
+    if (typeof value === 'string' && value.trim().length > 0) {
+      try {
+        const parsed = JSON.parse(value)
+        return Array.isArray(parsed)
+          ? parsed.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+          : [value]
+      } catch {
+        return [value]
+      }
+    }
+
+    return []
+  }
+
+  const normalizeTask = (task: any) => ({
+    ...task,
+    assigned_users: normalizeAssigneeIds(task?.assigned_users),
+  })
+
+  const getTaskAssigneeIds = (task: any): string[] => {
+    const assigned = normalizeAssigneeIds(task?.assigned_users)
+    if (assigned.length > 0) {
+      return assigned
+    }
+
+    if (typeof task?.assigned_to === 'string' && task.assigned_to.trim().length > 0) {
+      return [task.assigned_to]
+    }
+
+    return []
+  }
+
+  const assignableMembers = teamMembers.filter(member => typeof member.user_id === 'string' && member.user_id.trim().length > 0)
+
+  const uniqueAssignableMembers = useMemo(() => {
+    const seen = new Set<string>()
+    return assignableMembers.filter(member => {
+      if (!member.user_id) return false
+      if (seen.has(member.user_id)) return false
+      seen.add(member.user_id)
+      return true
+    })
+  }, [assignableMembers])
   const [selectedImage, setSelectedImage] = useState<number>(0)
   const [editPosition, setEditPosition] = useState('');
   const [editAccessLevel, setEditAccessLevel] = useState('1');
@@ -821,31 +875,71 @@ export default function ProjectDetails() {
   };
 
   useEffect(() => {
+    if (!projectId) return
+
+    console.log('[ProjectPage] refreshTeamMembers effect fired', {
+      projectId,
+      authLoading,
+      hasUser: !!user,
+      userId: user?.id
+    })
+
+    if (authLoading || !user) {
+      console.log('[ProjectPage] Skipping team member refresh until auth ready')
+      return
+    }
+
     refreshTeamMembers()
-  }, [projectId])
+  }, [projectId, authLoading, user, refreshTeamMembers])
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    console.log('[ProjectPage] auth guard check', {
+      authLoading,
+      hasUser: !!user,
+      userId: user?.id,
+      projectId
+    })
+
+    if (authLoading) {
+      console.log('[ProjectPage] auth still loading, delaying data fetch')
+      return
+    }
+
+    if (!user) {
+      console.warn('[ProjectPage] No authenticated user after auth load, redirecting to login')
       router.push('/login')
       return
     }
 
     if (!projectId) {
+      console.warn('[ProjectPage] Missing projectId, redirecting to projects list')
       router.push('/projects')
       return
     }
 
     const fetchProject = async () => {
       try {
+        console.log('[ProjectPage] Fetching project data', { projectId, userId: user.id })
+
         const { data, error } = await supabase
           .from('projects')
           .select('*')
           .eq('id', projectId)
           .single()
 
-        if (error) throw error
+        if (error) {
+          console.error('[ProjectPage] Error fetching project', { projectId, error })
+          throw error
+        }
 
         if (data) {
+          console.log('[ProjectPage] Project data received', {
+            projectId,
+            ownerId: data.owner_id,
+            status: data.status,
+            progress: data.progress
+          })
+
           const validatedProject = {
             ...data,
             name: data.name || 'Unnamed Project',
@@ -858,7 +952,8 @@ export default function ProjectDetails() {
             roi: typeof data.roi === 'number' ? data.roi : 0,
             created_at: data.created_at || new Date().toISOString(),
             updated_at: data.updated_at || new Date().toISOString(),
-            owner_id: data.owner_id || user?.id || 'unknown'
+            owner_id: data.owner_id || user?.id || 'unknown',
+            show_project_access: typeof data.show_project_access === 'boolean' ? data.show_project_access : true
           }
           setProject(validatedProject)
 
@@ -870,16 +965,26 @@ export default function ProjectDetails() {
             .single()
 
           if (!ownerError && ownerData) {
+            console.log('[ProjectPage] Owner info loaded', {
+              ownerId: validatedProject.owner_id,
+              ownerName: ownerData.name || ownerData.email
+            })
             setProject(prev => ({
               ...prev!,
               owner_name: ownerData.name || ownerData.email
             }))
+          } else if (ownerError) {
+            console.warn('[ProjectPage] Failed to load owner info', {
+              ownerId: validatedProject.owner_id,
+              error: ownerError
+            })
           }
         } else {
+          console.warn('[ProjectPage] No project found, redirecting to projects list', { projectId })
           router.push('/projects')
         }
       } catch (error) {
-        console.error('Error fetching project:', error)
+        console.error('[ProjectPage] Exception fetching project', error)
         router.push('/projects')
       }
     }
@@ -934,16 +1039,16 @@ export default function ProjectDetails() {
           .select('*')
           .eq('project_id', projectId)
           .order('due_date', { ascending: true })
-
-        // If user is a viewer or investor, only fetch tasks assigned to them
-        if (user?.role === 'viewer' || user?.role === 'investor') {
-          query = query.eq('assigned_to', user.id)
-        }
-
         const { data, error } = await query
 
         if (error) throw error
-        setTasks(data || [])
+        const normalizedTasks = (data || []).map(normalizeTask)
+        const filteredTasks =
+          user?.role === 'viewer' || user?.role === 'investor'
+            ? normalizedTasks.filter(task => getTaskAssigneeIds(task).includes(user.id))
+            : normalizedTasks
+
+        setTasks(filteredTasks)
       } catch (error) {
         console.error('Error fetching tasks:', error)
         toast.error('Failed to load tasks')
@@ -1425,26 +1530,28 @@ export default function ProjectDetails() {
     if (!user || !projectId) return
 
     try {
+      const uniqueAssignees = Array.from(new Set(normalizeAssigneeIds(newTask.assigned_users)))
       const { data, error } = await supabase
         .from('tasks')
         .insert([{
           ...newTask,
+          assigned_users: uniqueAssignees,
           project_id: projectId,
           created_by: user.id,
           status: 'pending',
-          assigned_to: newTask.assigned_to === 'unassigned' ? null : newTask.assigned_to,
+          assigned_to: uniqueAssignees.length === 1 ? uniqueAssignees[0] : null,
         }])
         .select()
         .single()
 
       if (error) throw error
 
-      setTasks(prev => [...prev, data])
+      setTasks(prev => [...prev, normalizeTask(data)])
       setIsAddingTask(false)
       setNewTask({
         title: '',
         description: '',
-        assigned_to: '',
+        assigned_users: [],
         due_date: '',
         priority: 'medium',
       })
@@ -1459,7 +1566,8 @@ export default function ProjectDetails() {
     if (!editingTask || !projectId) return
 
     try {
-      const { error } = await supabase
+      const uniqueAssignees = Array.from(new Set(normalizeAssigneeIds(editingTask.assigned_users)))
+      const { data, error } = await supabase
         .from('tasks')
         .update({
           title: editingTask.title,
@@ -1467,14 +1575,17 @@ export default function ProjectDetails() {
           due_date: editingTask.due_date,
           priority: editingTask.priority,
           status: editingTask.status,
-          assigned_to: editingTask.assigned_to === 'unassigned' ? null : editingTask.assigned_to,
+          assigned_users: uniqueAssignees,
+          assigned_to: uniqueAssignees.length === 1 ? uniqueAssignees[0] : null,
         })
         .eq('id', editingTask.id)
+        .select()
+        .single()
 
       if (error) throw error
 
       setTasks(prev => prev.map(task => 
-        task.id === editingTask.id ? editingTask : task
+        task.id === editingTask.id ? normalizeTask(data) : task
       ))
       setIsEditingTask(false)
       setEditingTask(null)
@@ -1482,6 +1593,31 @@ export default function ProjectDetails() {
     } catch (error) {
       console.error('Error updating task:', error)
       toast.error('Failed to update task')
+    }
+  }
+
+  const updateTaskAssignees = async (taskId: string, assigneeIds: string[]) => {
+    try {
+      const uniqueAssignees = Array.from(new Set(normalizeAssigneeIds(assigneeIds)))
+      const { data, error } = await supabase
+        .from('tasks')
+        .update({
+          assigned_users: uniqueAssignees,
+          assigned_to: uniqueAssignees.length === 1 ? uniqueAssignees[0] : null,
+        })
+        .eq('id', taskId)
+        .select()
+        .single()
+
+      if (error) throw error
+      if (!data) throw new Error('No task returned from assignee update')
+
+      setTasks(prev => prev.map(task =>
+        task.id === taskId ? normalizeTask(data) : task
+      ))
+    } catch (error) {
+      console.error('Error updating task assignees:', error)
+      toast.error('Failed to update task assignees')
     }
   }
 
@@ -1505,7 +1641,7 @@ export default function ProjectDetails() {
   }
 
   const startEditingTask = (task: any) => {
-    setEditingTask({ ...task })
+    setEditingTask(normalizeTask(task))
     setIsEditingTask(true)
   }
 
@@ -2511,10 +2647,18 @@ export default function ProjectDetails() {
     if (!project) return;
     setUpdatingProjectAccessSetting(true);
     try {
-      // For now, we'll use a placeholder property until the database schema is updated
-      // This function can be implemented later when the show_project_access column is added
-      toast.info('Project Access visibility toggle will be implemented soon');
+      const nextValue = !(project.show_project_access ?? true);
+      const { data, error } = await supabase
+        .from('projects')
+        .update({ show_project_access: nextValue })
+        .eq('id', project.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setProject(data);
+      toast.success(`Project Access card is now ${data.show_project_access ? 'visible' : 'hidden'}`);
     } catch (err) {
+      console.error('Failed updating Project Access visibility', err);
       toast.error('Failed to update Project Access visibility');
     } finally {
       setUpdatingProjectAccessSetting(false);
@@ -3151,7 +3295,16 @@ export default function ProjectDetails() {
                     </DialogHeader>
                     <div className="space-y-4">
                       <Input placeholder="Description" value={newExpense.description} onChange={e => setNewExpense({ ...newExpense, description: e.target.value })} />
-                      <Input placeholder="Amount" type="number" value={newExpense.amount} onChange={e => setNewExpense({ ...newExpense, amount: e.target.value })} />
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-3 flex items-center text-gray-400 pointer-events-none">$</span>
+                        <Input
+                          placeholder="Amount"
+                          type="number"
+                          className="pl-8"
+                          value={newExpense.amount}
+                          onChange={e => setNewExpense({ ...newExpense, amount: e.target.value })}
+                        />
+                      </div>
                       <Input placeholder="Category" value={newExpense.category} onChange={e => setNewExpense({ ...newExpense, category: e.target.value })} />
                       <Select value={newExpense.status} onValueChange={v => setNewExpense({ ...newExpense, status: v })}>
                         <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
@@ -3179,7 +3332,16 @@ export default function ProjectDetails() {
                     </DialogHeader>
                     <div className="space-y-4">
                       <Input placeholder="Description" value={editExpense?.description || ''} onChange={e => setEditExpense({ ...editExpense, description: e.target.value })} />
-                      <Input placeholder="Amount" type="number" value={editExpense?.amount || ''} onChange={e => setEditExpense({ ...editExpense, amount: e.target.value })} />
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-3 flex items-center text-gray-400 pointer-events-none">$</span>
+                        <Input
+                          placeholder="Amount"
+                          type="number"
+                          className="pl-8"
+                          value={editExpense?.amount ?? ''}
+                          onChange={e => setEditExpense({ ...editExpense, amount: e.target.value })}
+                        />
+                      </div>
                       <Input placeholder="Category" value={editExpense?.category || ''} onChange={e => setEditExpense({ ...editExpense, category: e.target.value })} />
                       <Select value={editExpense?.status || ''} onValueChange={v => setEditExpense({ ...editExpense, status: v })}>
                         <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
@@ -3217,7 +3379,7 @@ export default function ProjectDetails() {
                 <div className="mb-4">
                   <div className="flex items-center gap-3 mb-2">
                     <Switch
-                      checked={true}
+                      checked={project?.show_project_access ?? true}
                       onCheckedChange={handleToggleProjectAccess}
                       disabled={updatingProjectAccessSetting}
                     />
@@ -3225,7 +3387,7 @@ export default function ProjectDetails() {
                       Show Project Access
                     </span>
                   </div>
-                  {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (
+                  {!isAccessLevel1 && !isAccessLevel2 && !isAccessLevel3 && (project?.show_project_access ?? true) && (
                     <Card className="leonardo-card border-gray-800">
                       <CardHeader>
                         <div className="flex items-center justify-between">
@@ -3460,7 +3622,28 @@ export default function ProjectDetails() {
                         {user?.role === 'viewer' || user?.role === 'investor' ? 'No tasks assigned to you' : 'No tasks found'}
                       </div>
                     ) : (
-                      tasks.map(task => (
+                      tasks.map(task => {
+                        const assigneeIds = Array.from(new Set(getTaskAssigneeIds(task)))
+                        const assigneeNames =
+                          assigneeIds.length > 0
+                            ? assigneeIds
+                                .map(id => {
+                                  const member = uniqueAssignableMembers.find(m => m.user_id === id)
+                                  return member?.user?.name || member?.user?.email || null
+                                })
+                                .filter((name, index, array): name is string => !!name && array.indexOf(name) === index)
+                                .join(', ')
+                            : 'Unassigned'
+
+                        const handleAssigneeToggle = (memberId: string, checked: boolean | "indeterminate") => {
+                          const nextAssignees =
+                            checked === true
+                              ? Array.from(new Set([...assigneeIds, memberId]))
+                              : assigneeIds.filter(id => id !== memberId)
+                          updateTaskAssignees(task.id, nextAssignees)
+                        }
+
+                        return (
                         <div key={task.id} className="p-3 bg-gray-800/50 rounded-lg">
                           <div className="flex flex-col gap-3">
                             <div className="flex flex-col gap-2">
@@ -3477,44 +3660,40 @@ export default function ProjectDetails() {
                                   <Button variant="ghost" size="sm" className="h-auto p-0 text-gray-400 hover:text-indigo-400">
                                     <span className="flex items-center">
                                       <UserIcon className="w-4 h-4 mr-1" />
-                                      {task.assigned_to === 'unassigned' ? 'Unassigned' : teamMembers.find(member => member.user_id === task.assigned_to)?.user?.name || 'Unassigned'}
+                                      {assigneeNames}
                                     </span>
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent className="w-56 bg-gray-900 border-gray-700">
-                                  <DropdownMenuItem 
+                                  <DropdownMenuLabel className="text-gray-300">Assign To</DropdownMenuLabel>
+                                  <DropdownMenuSeparator className="bg-gray-700" />
+                                  <DropdownMenuItem
                                     className="text-white hover:bg-indigo-900/20 hover:text-indigo-400 focus:bg-indigo-900/20 focus:text-indigo-400"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      try {
-                                        const { error } = await supabase
-                                          .from('tasks')
-                                          .update({ assigned_to: null })
-                                          .eq('id', task.id);
-                                        if (error) throw error;
-                                        setTasks(prev => prev.map(t => 
-                                          t.id === task.id ? { ...t, assigned_to: null } : t
-                                        ));
-                                        toast.success('Task unassigned successfully');
-                                      } catch (error) {
-                                        console.error('Error unassigning task:', error);
-                                        toast.error('Failed to unassign task');
-                                      }
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      updateTaskAssignees(task.id, [])
                                     }}
                                   >
-                                    Unassign
+                                    Clear all
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator className="bg-gray-700" />
-                                  <SelectContent>
-                                    <SelectItem key="unassigned" value="unassigned">
-                                      Unassigned
-                                    </SelectItem>
-                                    {teamMembers.map(member => (
-                                      <SelectItem key={member.id} value={member.user_id}>
-                                        {member.user.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
+                                  {uniqueAssignableMembers.length === 0 ? (
+                                    <DropdownMenuItem disabled className="text-gray-500">
+                                      No team members available
+                                    </DropdownMenuItem>
+                                  ) : (
+                                    uniqueAssignableMembers.map(member => (
+                                      <DropdownMenuCheckboxItem
+                                        key={member.id}
+                                        checked={assigneeIds.includes(member.user_id)}
+                                        onCheckedChange={(checked) => handleAssigneeToggle(member.user_id, checked)}
+                                        className="text-white hover:bg-indigo-900/20 hover:text-indigo-400 focus:bg-indigo-900/20 focus:text-indigo-400"
+                                      >
+                                        {member.user?.name || member.user?.email || 'Unnamed member'}
+                                      </DropdownMenuCheckboxItem>
+                                    ))
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                               <Badge
@@ -3640,7 +3819,8 @@ export default function ProjectDetails() {
                             )}
                           </div>
                         </div>
-                      ))
+                        )
+                      })
                     )}
                   </div>
                 </CardContent>
@@ -4546,25 +4726,16 @@ export default function ProjectDetails() {
               />
             </div>
             <div>
-              <Label>Assigned To</Label>
-              <Select
-                value={newTask.assigned_to === 'unassigned' ? 'unassigned' : newTask.assigned_to}
-                onValueChange={(value) => setNewTask({ ...newTask, assigned_to: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select team member" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem key="unassigned" value="unassigned">
-                    Unassigned
-                  </SelectItem>
-                  {teamMembers.map(member => (
-                    <SelectItem key={member.id} value={member.user_id}>
-                      {member.user.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Assign To</Label>
+              <MultiSelect
+                options={uniqueAssignableMembers.map(member => ({
+                  value: member.user_id,
+                  label: member.user?.name || member.user?.email || 'Unnamed member'
+                }))}
+                value={newTask.assigned_users}
+                onChange={(values) => setNewTask(prev => ({ ...prev, assigned_users: values }))}
+                placeholder="Select one or more team members (optional)"
+              />
             </div>
             <div>
               <Label>Due Date</Label>
@@ -4624,6 +4795,20 @@ export default function ProjectDetails() {
                 value={editingTask?.description || ''}
                 onChange={(e) => setEditingTask((prev: any) => ({ ...prev, description: e.target.value }))}
                 placeholder="Enter task description"
+              />
+            </div>
+            <div>
+              <Label>Assign To</Label>
+              <MultiSelect
+                options={uniqueAssignableMembers.map(member => ({
+                  value: member.user_id,
+                  label: member.user?.name || member.user?.email || 'Unnamed member'
+                }))}
+                value={editingTask ? getTaskAssigneeIds(editingTask) : []}
+                onChange={(values) =>
+                  setEditingTask((prev: any) => (prev ? { ...prev, assigned_users: values } : prev))
+                }
+                placeholder="Select one or more team members"
               />
             </div>
             <div>
