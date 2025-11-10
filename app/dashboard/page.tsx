@@ -1052,6 +1052,12 @@ export default function PartnerDashboard() {
     if (user) fetchBalance();
   }, [user, supabase]);
 
+  useEffect(() => {
+    if (aiConversationRef.current) {
+      aiConversationRef.current.scrollTop = aiConversationRef.current.scrollHeight
+    }
+  }, [aiConversation])
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -2090,7 +2096,7 @@ export default function PartnerDashboard() {
 
 
 
-  const renderAIView = () => (
+const renderAIView = () => (
     <div className="max-w-3xl mx-auto pt-8 space-y-6">
       <div className="text-center space-y-3">
         <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
@@ -2194,12 +2200,6 @@ export default function PartnerDashboard() {
       </div>
     </div>
   )
-
-  useEffect(() => {
-    if (aiConversationRef.current) {
-      aiConversationRef.current.scrollTop = aiConversationRef.current.scrollHeight
-    }
-  }, [aiConversation])
 
   return (
     <div className="min-h-screen bg-gray-950">

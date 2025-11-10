@@ -817,6 +817,7 @@ export default function CorporatePage() {
                 <div className="font-semibold text-white text-sm sm:text-base">{goal.title}</div>
               </div>
               <div className="flex items-center gap-2 sm:gap-3 mb-2 text-xs text-gray-400/25 hover:text-gray-400 transition-colors">
+                <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 text-white flex-shrink-0" />
                 <span>Target: {goal.target_date ? new Date(goal.target_date + 'T00:00:00').toLocaleDateString() : '--'}</span>
               </div>
               {goal.description && (
@@ -1115,7 +1116,7 @@ export default function CorporatePage() {
                         type="date"
                         value={newTask.due_date || ''}
                         onChange={(e) => setNewTask(prev => ({ ...prev, due_date: e.target.value }))}
-                        className="w-full"
+                        className="w-full calendar-picker-white"
                       />
                     </div>
                     <Select value={newTask.project_id} onValueChange={(value) => setNewTask(prev => ({ ...prev, project_id: value }))}>
@@ -1209,7 +1210,7 @@ export default function CorporatePage() {
                         type="date"
                         value={newGoal.target_date || ''}
                         onChange={(e) => setNewGoal(prev => ({ ...prev, target_date: e.target.value }))}
-                        className="w-full"
+                        className="w-full calendar-picker-white"
                       />
                     </div>
                     <Select value={newGoal.project_id} onValueChange={(value) => setNewGoal(prev => ({ ...prev, project_id: value }))}>
@@ -1527,7 +1528,7 @@ export default function CorporatePage() {
                 type="date"
                 value={editingTask?.due_date || ''}
                 onChange={(e) => setEditingTask(prev => prev ? { ...prev, due_date: e.target.value } : null)}
-                className="w-full"
+                className="w-full calendar-picker-white"
               />
             </div>
             <Select value={editingTask?.project_id || 'no-project'} onValueChange={(value) => setEditingTask(prev => prev ? { ...prev, project_id: value } : null)}>
@@ -1630,7 +1631,7 @@ export default function CorporatePage() {
                 type="date"
                 value={editingGoal?.target_date || ''}
                 onChange={(e) => setEditingGoal(prev => prev ? { ...prev, target_date: e.target.value } : null)}
-                className="w-full"
+                className="w-full calendar-picker-white"
               />
             </div>
             <Select value={editingGoal?.project_id || 'no-project'} onValueChange={(value) => setEditingGoal(prev => prev ? { ...prev, project_id: value } : null)}>
@@ -1949,6 +1950,7 @@ export default function CorporatePage() {
               placeholder="Due Date"
               value={newSubtask.due_date}
               onChange={(e) => setNewSubtask(prev => ({ ...prev, due_date: e.target.value }))}
+              className="calendar-picker-white"
             />
             <div className="flex gap-2">
               <Button onClick={() => setShowAddSubtask(false)} variant="outline" className="flex-1">Cancel</Button>
@@ -2004,6 +2006,7 @@ export default function CorporatePage() {
               placeholder="Due Date"
               value={editingSubtask?.due_date || ''}
               onChange={(e) => setEditingSubtask(prev => prev ? { ...prev, due_date: e.target.value } : null)}
+              className="calendar-picker-white"
             />
             <div className="flex gap-2">
               <Button onClick={() => setEditingSubtask(null)} variant="outline" className="flex-1">Cancel</Button>

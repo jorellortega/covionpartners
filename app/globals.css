@@ -143,6 +143,15 @@ body {
   outline: none;
 }
 
+input.calendar-picker-white {
+  color-scheme: dark;
+}
+
+input.calendar-picker-white::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 1;
+}
+
 /* Header styling */
 .leonardo-header {
   background: #13131a;
