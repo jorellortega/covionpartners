@@ -50,6 +50,24 @@ export interface Project {
   funding_goal?: number | null
   current_funding?: number | null
   accepts_support?: boolean
+  min_investment?: number | null
+  max_investment?: number | null
+  investment_start?: string | null
+  investment_end?: string | null
+  payment_methods?: string[] | null
+  investment_type?: 'equity' | 'debt' | 'revenue_share' | 'donation' | null
+  investment_pitch?: string | null
+  investment_terms?: string | null
+  auto_approve_investments?: boolean
+  max_investors?: number | null
+  enable_waitlist?: boolean
+  investment_perks?: string | null
+  country_restrictions?: string[] | null
+  accredited_only?: boolean
+  investment_contact_email?: string | null
+  investment_terms_file_url?: string | null
+  allow_public_investments?: boolean
+  allow_investor_investments?: boolean
   promo_title?: string | null
   promo_description?: string | null
   external_links?: Array<{

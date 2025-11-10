@@ -81,25 +81,31 @@ function InvestorDashboardContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedInvestmentType, setSelectedInvestmentType] = useState("")
 
-  // Check if user has access to this page and handle project pre-selection
+  // Handle project pre-selection from URL
   useEffect(() => {
-    if (user && !["investor", "partner", "admin"].includes(user.role)) {
-      router.push("/")
-      toast.error("You don't have access to this page")
-      return
-    }
-
     // Handle project pre-selection from URL
     const projectId = searchParams.get('project')
     if (projectId && projects?.some(p => p.id === projectId)) {
       setSelectedProject(projectId)
-      // Scroll to investment section
-      const investmentSection = document.getElementById('investment-section')
-      if (investmentSection) {
-        investmentSection.scrollIntoView({ behavior: 'smooth' })
+      // Scroll to investment section after a brief delay to ensure it's rendered
+      setTimeout(() => {
+        const investmentSection = document.getElementById('investment-section')
+        if (investmentSection) {
+          investmentSection.scrollIntoView({ behavior: 'smooth' })
+        }
+      }, 500)
+    }
+  }, [projects, searchParams])
+
+  // Auto-set investment type when project is selected
+  useEffect(() => {
+    if (selectedProject && projects) {
+      const project = projects.find(p => p.id === selectedProject)
+      if (project?.investment_type) {
+        setSelectedInvestmentType(project.investment_type)
       }
     }
-  }, [user, router, projects, searchParams])
+  }, [selectedProject, projects])
 
   if (loading) {
     return (
@@ -145,13 +151,52 @@ function InvestorDashboardContent() {
     }
   }
 
-  // Filter projects based on search query and public visibility
-  const filteredProjects = projects?.filter(project =>
-    project.visibility === 'public' && (
-      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  ) || []
+  // Filter projects based on public visibility and investment settings
+  const investmentEligibleProjects = projects?.filter(project => {
+    // Must be public
+    if (project.visibility !== 'public') return false
+    
+    // Check if investments are enabled for this project
+    if (!project.show_invest) return false
+    
+    // Check if investments are allowed based on user role (or allow public if no user)
+    if (user) {
+      const isInvestor = user.role === 'investor' || user.role === 'partner' || user.role === 'admin'
+      const allowsInvestment = isInvestor 
+        ? (project.allow_investor_investments ?? true)
+        : (project.allow_public_investments ?? true)
+      
+      if (!allowsInvestment) return false
+    } else {
+      // For non-logged-in users, check if public investments are allowed
+      if (project.allow_public_investments === false) return false
+    }
+    
+    // Check if investment period is active (if dates are set)
+    const now = new Date()
+    if (project.investment_start) {
+      const startDate = new Date(project.investment_start)
+      if (now < startDate) return false
+    }
+    if (project.investment_end) {
+      const endDate = new Date(project.investment_end)
+      if (now > endDate) return false
+    }
+    
+    return true
+  }) || []
+
+  // Apply search query filter if provided
+  const filteredProjects = searchQuery
+    ? investmentEligibleProjects.filter(project => {
+        const query = searchQuery.toLowerCase()
+        return (
+          project.name.toLowerCase().includes(query) ||
+          project.description?.toLowerCase().includes(query) ||
+          project.investment_pitch?.toLowerCase().includes(query)
+        )
+      })
+    : investmentEligibleProjects
 
   return (
     <>
@@ -281,7 +326,7 @@ function InvestorDashboardContent() {
                     disabled={loading}
                   >
                     <option value="">Select a public project</option>
-                    {projects?.filter(p => p.visibility === 'public').map((project) => (
+                    {filteredProjects.map((project) => (
                       <option key={project.id} value={project.id}>
                         {project.name}
                       </option>
@@ -357,68 +402,80 @@ function InvestorDashboardContent() {
                     </div>
                   </div>
 
+                  {/* Investment Pitch */}
+                  {project.investment_pitch && (
+                    <div className="bg-gray-800/50 p-4 rounded-lg">
+                      <Label className="text-gray-400 mb-2">Investment Pitch</Label>
+                      <p className="text-sm text-gray-300">{project.investment_pitch}</p>
+                    </div>
+                  )}
+
                   {/* Investment Types */}
                   <div className="space-y-4">
-                    <Label className="text-gray-400">Available Investment Types</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <Button 
-                        variant={selectedInvestmentType === "equity" ? "default" : "outline"}
-                        className={`flex flex-col items-center gap-2 h-auto py-4 relative group ${
-                          selectedInvestmentType === "equity" ? "border-purple-400" : ""
-                        }`}
-                        onClick={() => setSelectedInvestmentType("equity")}
-                      >
-                        <div className="absolute top-2 right-2 text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">
-                          Available
-                        </div>
-                        <DollarSign className="w-5 h-5 text-purple-400" />
-                        <span className="text-sm font-medium">Equity</span>
-                        <span className="text-xs text-gray-400">Min: $10,000</span>
-                      </Button>
-                      <Button 
-                        variant={selectedInvestmentType === "debt" ? "default" : "outline"}
-                        className={`flex flex-col items-center gap-2 h-auto py-4 relative group ${
-                          selectedInvestmentType === "debt" ? "border-purple-400" : ""
-                        }`}
-                        onClick={() => setSelectedInvestmentType("debt")}
-                      >
-                        <div className="absolute top-2 right-2 text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">
-                          Available
-                        </div>
-                        <Building2 className="w-5 h-5 text-purple-400" />
-                        <span className="text-sm font-medium">Debt</span>
-                        <span className="text-xs text-gray-400">Min: $5,000</span>
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="flex flex-col items-center gap-2 h-auto py-4 relative group opacity-50 cursor-not-allowed"
-                      >
-                        <div className="absolute top-2 right-2 text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">
-                          Coming Soon
-                        </div>
-                        <Target className="w-5 h-5 text-purple-400" />
-                        <span className="text-sm font-medium">Revenue Share</span>
-                        <span className="text-xs text-gray-400">Min: $1,000</span>
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="flex flex-col items-center gap-2 h-auto py-4 relative group opacity-50 cursor-not-allowed"
-                      >
-                        <div className="absolute top-2 right-2 text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">
-                          Coming Soon
-                        </div>
-                        <Wallet className="w-5 h-5 text-purple-400" />
-                        <span className="text-sm font-medium">Convertible Note</span>
-                        <span className="text-xs text-gray-400">Min: $25,000</span>
-                      </Button>
-                    </div>
-                    {!selectedInvestmentType && (
-                      <div className="flex items-center text-yellow-500 text-sm mt-2">
-                        <AlertCircle className="w-4 h-4 mr-2" />
-                        <span>Please select an investment type to proceed</span>
+                    <Label className="text-gray-400">Available Investment Type</Label>
+                    {project.investment_type ? (
+                      <div className="flex flex-col gap-2">
+                        <Button 
+                          variant="default"
+                          className="flex items-center justify-between h-auto py-4 border-purple-400"
+                          onClick={() => setSelectedInvestmentType(project.investment_type!)}
+                        >
+                          <div className="flex items-center gap-3">
+                            {project.investment_type === 'equity' && <DollarSign className="w-5 h-5 text-purple-400" />}
+                            {project.investment_type === 'debt' && <Building2 className="w-5 h-5 text-purple-400" />}
+                            {project.investment_type === 'revenue_share' && <Target className="w-5 h-5 text-purple-400" />}
+                            {project.investment_type === 'donation' && <Wallet className="w-5 h-5 text-purple-400" />}
+                            <div className="text-left">
+                              <span className="text-sm font-medium block capitalize">{project.investment_type.replace('_', ' ')}</span>
+                              {project.min_investment && (
+                                <span className="text-xs text-gray-400">Min: ${project.min_investment.toLocaleString()}</span>
+                              )}
+                              {project.max_investment && (
+                                <span className="text-xs text-gray-400 ml-2">Max: ${project.max_investment.toLocaleString()}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">
+                            Available
+                          </div>
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-400 text-sm">
+                        No investment type configured for this project
                       </div>
                     )}
                   </div>
+
+                  {/* Payment Methods */}
+                  {project.payment_methods && project.payment_methods.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-gray-400">Accepted Payment Methods</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {project.payment_methods.map((method, index) => (
+                          <Badge key={index} variant="outline" className="bg-gray-800/50">
+                            {method}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Investment Period */}
+                  {(project.investment_start || project.investment_end) && (
+                    <div className="space-y-2">
+                      <Label className="text-gray-400">Investment Period</Label>
+                      <div className="text-sm text-gray-300">
+                        {project.investment_start && (
+                          <span>Start: {new Date(project.investment_start).toLocaleDateString()}</span>
+                        )}
+                        {project.investment_start && project.investment_end && <span className="mx-2">-</span>}
+                        {project.investment_end && (
+                          <span>End: {new Date(project.investment_end).toLocaleDateString()}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Investment Form */}
                   <div className="space-y-4">
@@ -429,13 +486,44 @@ function InvestorDashboardContent() {
                         type="number"
                         value={investmentAmount}
                         onChange={(e) => setInvestmentAmount(e.target.value)}
-                        placeholder="Enter amount"
+                        placeholder={
+                          project.min_investment 
+                            ? `Min: $${project.min_investment.toLocaleString()}${project.max_investment ? `, Max: $${project.max_investment.toLocaleString()}` : ''}`
+                            : "Enter amount"
+                        }
+                        min={project.min_investment || undefined}
+                        max={project.max_investment || undefined}
                         className="mt-1"
                       />
+                      {project.min_investment && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Minimum: ${project.min_investment.toLocaleString()}
+                          {project.max_investment && ` • Maximum: $${project.max_investment.toLocaleString()}`}
+                        </p>
+                      )}
                     </div>
-                    <div className="flex items-center text-yellow-500 text-sm">
-                      <AlertCircle className="w-4 h-4 mr-2" />
-                      <span>Funding goal: ${project.funding_goal?.toLocaleString()}</span>
+                    <div className="space-y-2">
+                      {project.funding_goal && (
+                        <div className="flex items-center text-yellow-500 text-sm">
+                          <AlertCircle className="w-4 h-4 mr-2" />
+                          <span>Funding goal: ${project.funding_goal.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {project.max_investors && (
+                        <div className="flex items-center text-blue-500 text-sm">
+                          <AlertCircle className="w-4 h-4 mr-2" />
+                          <span>Max investors: {project.max_investors}</span>
+                          {project.enable_waitlist && (
+                            <span className="ml-2 text-xs">(Waitlist enabled)</span>
+                          )}
+                        </div>
+                      )}
+                      {project.accredited_only && (
+                        <div className="flex items-center text-orange-500 text-sm">
+                          <AlertCircle className="w-4 h-4 mr-2" />
+                          <span>Accredited investors only</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -452,9 +540,11 @@ function InvestorDashboardContent() {
                       Cancel
                     </Button>
                     <Button
-                      onClick={() => router.push(`/invest/${selectedProject}?type=${selectedInvestmentType}`)}
+                      onClick={() => router.push(`/invest/${selectedProject}?type=${project.investment_type || selectedInvestmentType}`)}
                       className="bg-blue-600 hover:bg-blue-700"
-                      disabled={!selectedInvestmentType}
+                      disabled={!project.investment_type || !investmentAmount || 
+                        (project.min_investment && parseFloat(investmentAmount) < project.min_investment) ||
+                        (project.max_investment && parseFloat(investmentAmount) > project.max_investment)}
                     >
                       View Investment Details
                     </Button>

@@ -22,37 +22,119 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false })
 
     if (error) {
+      console.error('[DEBUG] GET /api/corporate-tasks - Error fetching tasks:', error)
       return NextResponse.json({ message: 'Failed to fetch tasks', error }, { status: 500 })
     }
 
-    // Get organization staff for assignment details
-    const { data: staffData } = await supabase
-      .from('organization_staff')
-      .select(`
-        id,
-        user:users(name, email),
-        profile:profiles(avatar_url)
-      `)
-      .eq('organization_id', organizationId)
+    console.log('[DEBUG] GET /api/corporate-tasks - Fetched tasks count:', data?.length || 0)
 
-    // Transform the data to match frontend expectations
-    const transformedData = data?.map(task => ({
-      ...task,
-      assigned_users: task.assigned_to?.map(staffId => {
-        const staff = staffData?.find(s => s.id === staffId);
-        return {
-          id: staffId,
-          name: staff?.user?.name || staff?.user?.email || 'Unknown',
-          email: staff?.user?.email || '',
-          avatar_url: staff?.profile?.avatar_url || '',
-          status: 'assigned',
-          notes: '',
-          assigned_at: task.created_at
-        };
-      }) || [],
+    if (!data || data.length === 0) {
+      return NextResponse.json([])
+    }
+
+    // Get all unique staff IDs from assigned_to arrays (uuid[])
+    const allStaffIds = data
+      .filter(task => task.assigned_to && Array.isArray(task.assigned_to) && task.assigned_to.length > 0)
+      .flatMap(task => task.assigned_to)
+      .filter((id, index, self) => self.indexOf(id) === index) // Remove duplicates
+    
+    console.log('[DEBUG] GET /api/corporate-tasks - Unique staff IDs from assigned_to arrays:', allStaffIds)
+    
+    // Fetch staff and user details
+    let assignedUsersMap: Map<string, any> = new Map()
+    
+    if (allStaffIds.length > 0) {
+      // Since organization_staff RLS is off, we can query directly
+      const { data: staffData, error: staffError } = await supabase
+        .from('organization_staff')
+        .select('id, user_id')
+        .in('id', allStaffIds)
+        .eq('organization_id', organizationId)
+
+      console.log('[DEBUG] GET /api/corporate-tasks - Staff data fetched:', staffData?.length || 0, 'Error:', staffError)
+
+      if (staffData && staffData.length > 0) {
+        const userIds = staffData.map(s => s.user_id).filter(Boolean)
+        console.log('[DEBUG] GET /api/corporate-tasks - User IDs to fetch:', userIds)
+        console.log('[DEBUG] GET /api/corporate-tasks - Staff data details:', staffData.map(s => ({ id: s.id, user_id: s.user_id })))
+        
+        if (userIds.length === 0) {
+          console.log('[DEBUG] GET /api/corporate-tasks - WARNING: Staff records have null user_id values!')
+        }
+        
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, name, email')
+          .in('id', userIds)
+
+        console.log('[DEBUG] GET /api/corporate-tasks - Users data fetched:', usersData?.length || 0, 'Error:', usersError)
+        if (usersError) {
+          console.error('[DEBUG] GET /api/corporate-tasks - Users error details:', JSON.stringify(usersError, null, 2))
+        }
+        if (usersData && usersData.length > 0) {
+          console.log('[DEBUG] GET /api/corporate-tasks - Sample user data:', usersData[0])
+        }
+
+        // Fetch profiles separately
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, avatar_url')
+          .in('user_id', userIds)
+
+        if (usersData && usersData.length > 0) {
+          staffData.forEach(staff => {
+            const user = usersData.find(u => u.id === staff.user_id)
+            const profile = profilesData?.find(p => p.user_id === staff.user_id)
+            const userData = {
+              id: staff.id,
+              name: user?.name || 'Unknown',
+              email: user?.email || 'Unknown',
+              avatar_url: profile?.avatar_url || ''
+            }
+            assignedUsersMap.set(staff.id, userData)
+            console.log('[DEBUG] GET /api/corporate-tasks - Mapped staff:', staff.id, 'user_id:', staff.user_id, 'to user:', userData.name, userData.email)
+          })
+        } else {
+          console.log('[DEBUG] GET /api/corporate-tasks - No users data found for staff IDs:', allStaffIds)
+        }
+      } else {
+        console.log('[DEBUG] GET /api/corporate-tasks - No staff data found for staff IDs:', allStaffIds)
+        if (staffError) {
+          console.error('[DEBUG] GET /api/corporate-tasks - Staff error details:', JSON.stringify(staffError, null, 2))
+        }
+      }
+    } else {
+      console.log('[DEBUG] GET /api/corporate-tasks - No staff IDs found in assigned_to arrays')
+    }
+
+    // Transform the data to include multiple assigned users from assigned_to array
+    const transformedData = data.map(task => {
+      // Get assigned users from the assigned_to uuid[] array
+      const staffIds = task.assigned_to && Array.isArray(task.assigned_to) ? task.assigned_to : []
+      const assignedUsers = staffIds
+        .map((staffId: string) => assignedUsersMap.get(staffId))
+        .filter(Boolean)
+
+      console.log('[DEBUG] GET /api/corporate-tasks - Task:', task.id, 'assigned_to array:', staffIds, 'Assigned users:', assignedUsers.length, assignedUsers.map(u => ({ name: u.name, email: u.email })))
+
       // Keep backward compatibility with single assignment
-      assigned_to: task.assigned_to?.[0] || null
-    })) || []
+      const assignedUser = assignedUsers.length > 0 ? assignedUsers[0] : null
+
+      return {
+        ...task,
+        assigned_users: assignedUsers,
+        assigned_user: assignedUser, // For backward compatibility
+        assigned_to: staffIds // Keep the original array for backward compatibility
+      }
+    })
+
+    console.log('[DEBUG] GET /api/corporate-tasks - Transformed data sample:', transformedData[0] ? {
+      id: transformedData[0].id,
+      title: transformedData[0].title,
+      assigned_to: transformedData[0].assigned_to,
+      assigned_users_count: transformedData[0].assigned_users?.length || 0,
+      assigned_users: transformedData[0].assigned_users?.map((u: any) => ({ name: u.name, email: u.email })) || []
+    } : 'No tasks')
 
     return NextResponse.json(transformedData)
   } catch (error) {
@@ -159,9 +241,12 @@ export async function POST(request: Request) {
       )
     }
 
-    // Handle multiple assignments - update the task with assigned_users array
+    // Handle multiple assignments using assigned_to uuid[] array
     const staffIds = assigned_users || (assigned_to ? [assigned_to] : [])
     
+    console.log('[DEBUG] POST /api/corporate-tasks - Staff IDs to assign:', staffIds)
+    
+    // Update the task with the assigned_to array
     if (staffIds.length > 0) {
       const { error: updateError } = await supabase
         .from('corporate_tasks')
@@ -169,12 +254,58 @@ export async function POST(request: Request) {
         .eq('id', taskData.id)
 
       if (updateError) {
-        console.error('Error updating task assignments:', updateError)
-        // Don't fail the entire operation, just log the error
+        console.error('[DEBUG] POST /api/corporate-tasks - Error updating task assigned_to:', updateError)
+      } else {
+        console.log('[DEBUG] POST /api/corporate-tasks - Updated assigned_to array:', staffIds.length, 'staff IDs')
+        // Update taskData with the new assigned_to
+        taskData.assigned_to = staffIds
       }
     }
 
-    return NextResponse.json(taskData)
+    // Fetch staff and user details to return complete data
+    let assignedUsers: any[] = []
+    if (staffIds.length > 0) {
+      const { data: assignmentStaffData, error: staffError } = await supabase
+        .from('organization_staff')
+        .select('id, user_id')
+        .in('id', staffIds)
+        .eq('organization_id', organization_id)
+
+      console.log('[DEBUG] POST /api/corporate-tasks - Staff data fetched:', assignmentStaffData?.length || 0, 'Error:', staffError)
+
+      if (assignmentStaffData && assignmentStaffData.length > 0) {
+        const userIds = assignmentStaffData.map(s => s.user_id).filter(Boolean)
+        console.log('[DEBUG] POST /api/corporate-tasks - User IDs to fetch:', userIds)
+        
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, name, email')
+          .in('id', userIds)
+
+        console.log('[DEBUG] POST /api/corporate-tasks - Users data fetched:', usersData?.length || 0, 'Error:', usersError)
+
+        if (usersData && usersData.length > 0) {
+          assignedUsers = assignmentStaffData.map(staff => {
+            const user = usersData.find(u => u.id === staff.user_id)
+            return {
+              id: staff.id,
+              name: user?.name || 'Unknown',
+              email: user?.email || 'Unknown'
+            }
+          })
+          console.log('[DEBUG] POST /api/corporate-tasks - Mapped assigned users:', assignedUsers.map(u => ({ name: u.name, email: u.email })))
+        }
+      }
+    }
+
+    console.log('[DEBUG] POST /api/corporate-tasks - Returning task with assigned_users:', assignedUsers.length)
+
+    return NextResponse.json({
+      ...taskData,
+      assigned_users: assignedUsers,
+      assigned_user: assignedUsers.length > 0 ? assignedUsers[0] : null,
+      assigned_to: staffIds // Return the array of staff IDs
+    })
   } catch (error) {
     console.error('Unexpected error in corporate task creation:', error)
     return NextResponse.json(
@@ -244,10 +375,23 @@ export async function PUT(request: Request) {
       }
     }
 
+    // Clean up the update data - remove assigned_to and assigned_users as we'll handle them separately
+    const cleanedUpdateData: any = { ...updateData }
+    delete cleanedUpdateData.assigned_to // Remove assigned_to, we use junction table
+    delete cleanedUpdateData.assigned_users // Remove assigned_users, we use junction table
+    
+    // Handle project_id field - convert 'no-project' to null
+    if (cleanedUpdateData.project_id === 'no-project') {
+      cleanedUpdateData.project_id = null
+    }
+
+    console.log('[DEBUG] PUT /api/corporate-tasks - Cleaning update data, removing assigned_to and assigned_users')
+    console.log('[DEBUG] PUT /api/corporate-tasks - Cleaned update data:', cleanedUpdateData)
+
     const { data, error } = await supabase
       .from('corporate_tasks')
       .update({
-        ...updateData,
+        ...cleanedUpdateData,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -255,28 +399,82 @@ export async function PUT(request: Request) {
       .single()
 
     if (error) {
-      console.error('Error updating corporate task:', error)
+      console.error('[DEBUG] PUT /api/corporate-tasks - Error updating corporate task:', error)
+      console.error('[DEBUG] PUT /api/corporate-tasks - Update data that failed:', cleanedUpdateData)
       return NextResponse.json(
-        { message: 'Failed to update task' },
+        { message: 'Failed to update task', error: error.message, details: error.details },
         { status: 500 }
       )
     }
 
-    // Handle assignment updates if provided
+    // Handle assignment updates if provided - update assigned_to uuid[] array
     if (assigned_users !== undefined) {
-      // Update the task with new assigned_users array
+      console.log('[DEBUG] PUT /api/corporate-tasks - Updating assigned_to array for task:', id, 'New assignments:', assigned_users)
+      
+      // Update the task with the new assigned_to array
       const { error: assignmentError } = await supabase
         .from('corporate_tasks')
         .update({ assigned_to: assigned_users })
         .eq('id', id)
 
       if (assignmentError) {
-        console.error('Error updating task assignments:', assignmentError)
+        console.error('[DEBUG] PUT /api/corporate-tasks - Error updating task assigned_to:', assignmentError)
         // Don't fail the entire operation, just log the error
+      } else {
+        console.log('[DEBUG] PUT /api/corporate-tasks - Updated assigned_to array:', assigned_users.length, 'staff IDs')
+        // Update data with the new assigned_to
+        data.assigned_to = assigned_users
       }
     }
 
-    return NextResponse.json(data)
+    // Fetch staff and user details to return complete data
+    const staffIds = data.assigned_to && Array.isArray(data.assigned_to) ? data.assigned_to : []
+    let assignedUsers: any[] = []
+    
+    if (staffIds.length > 0) {
+      console.log('[DEBUG] PUT /api/corporate-tasks - Fetching staff data for:', staffIds)
+      
+      const { data: staffData, error: staffError } = await supabase
+        .from('organization_staff')
+        .select('id, user_id')
+        .in('id', staffIds)
+        .eq('organization_id', existingTask.organization_id)
+
+      console.log('[DEBUG] PUT /api/corporate-tasks - Staff data fetched:', staffData?.length || 0, 'Error:', staffError)
+
+      if (staffData && staffData.length > 0) {
+        const userIds = staffData.map(s => s.user_id).filter(Boolean)
+        console.log('[DEBUG] PUT /api/corporate-tasks - User IDs to fetch:', userIds)
+        
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, name, email')
+          .in('id', userIds)
+
+        console.log('[DEBUG] PUT /api/corporate-tasks - Users data fetched:', usersData?.length || 0, 'Error:', usersError)
+
+        if (usersData && usersData.length > 0) {
+          assignedUsers = staffData.map(staff => {
+            const user = usersData.find(u => u.id === staff.user_id)
+            return {
+              id: staff.id,
+              name: user?.name || 'Unknown',
+              email: user?.email || 'Unknown'
+            }
+          })
+          console.log('[DEBUG] PUT /api/corporate-tasks - Mapped assigned users:', assignedUsers.map(u => ({ name: u.name, email: u.email })))
+        }
+      }
+    }
+
+    console.log('[DEBUG] PUT /api/corporate-tasks - Returning task with assigned_users:', assignedUsers.length)
+
+    return NextResponse.json({
+      ...data,
+      assigned_users: assignedUsers,
+      assigned_user: assignedUsers.length > 0 ? assignedUsers[0] : null,
+      assigned_to: staffIds // Return the array of staff IDs
+    })
   } catch (error) {
     console.error('Error in corporate task update:', error)
     return NextResponse.json(

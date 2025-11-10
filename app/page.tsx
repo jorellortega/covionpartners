@@ -545,7 +545,7 @@ export default function Home() {
             {/* Promotional Sign-up Section */}
             <div className="mt-24 mb-16">
               <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-purple-500/10 border border-purple-500/20">
-                <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]"></div>
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-purple-500/5 to-transparent"></div>
                 <div className="relative px-6 py-16 sm:px-12 sm:py-20">
                   <div className="text-center">
                     <h2 className="text-3xl font-bold text-white mb-4">Ready to Get Started?</h2>

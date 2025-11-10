@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +24,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Calendar as CalendarIcon, CheckCircle, Clock, Target, Users, TrendingUp, AlertCircle, Plus, Edit, Trash2, Calendar as CalendarIcon2, CalendarDays, CalendarRange, Eye, ListTodo } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle, Clock, Target, Users, TrendingUp, AlertCircle, Plus, Edit, Trash2, Calendar as CalendarIcon2, CalendarDays, CalendarRange, Eye, ListTodo, Search } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 
@@ -90,6 +91,11 @@ interface GoalSubtask {
     name: string;
     email: string;
   };
+  assigned_users?: {
+    id: string;
+    name: string;
+    email: string;
+  }[];
 }
 
 export default function CorporatePage() {
@@ -122,6 +128,10 @@ export default function CorporatePage() {
   const [editingSubtask, setEditingSubtask] = useState<GoalSubtask | null>(null);
   const [deletingSubtask, setDeletingSubtask] = useState<GoalSubtask | null>(null);
   const [selectedGoalForSubtasks, setSelectedGoalForSubtasks] = useState<OrganizationGoal | null>(null);
+  const [projectSearchGoal, setProjectSearchGoal] = useState<string>("");
+  const [projectSearchGoalEdit, setProjectSearchGoalEdit] = useState<string>("");
+  const [projectSearchTask, setProjectSearchTask] = useState<string>("");
+  const [projectSearchTaskEdit, setProjectSearchTaskEdit] = useState<string>("");
 
   const [newTask, setNewTask] = useState({
     title: "",
@@ -150,7 +160,7 @@ export default function CorporatePage() {
     title: "",
     description: "",
     priority: "medium" as const,
-    assigned_to: "unassigned",
+    assigned_users: [] as string[],
     due_date: ""
   });
 
@@ -158,6 +168,29 @@ export default function CorporatePage() {
 
   // Check if user has permission to manage corporate tasks
   const canManageCorporate = isOwner || userAccessLevel >= 4;
+
+  // Filter projects based on search query
+  // Always includes the currently selected project (if any) even if it doesn't match the search
+  const getFilteredProjects = (searchQuery: string, selectedProjectId?: string | null) => {
+    if (!searchQuery.trim()) {
+      return projects;
+    }
+    const query = searchQuery.toLowerCase();
+    const filtered = projects.filter(project => 
+      project.name?.toLowerCase().includes(query) ||
+      project.description?.toLowerCase().includes(query)
+    );
+    
+    // If there's a selected project and it's not in the filtered results, add it
+    if (selectedProjectId && selectedProjectId !== 'no-project') {
+      const selectedProject = projects.find(p => p.id === selectedProjectId);
+      if (selectedProject && !filtered.find(p => p.id === selectedProjectId)) {
+        return [selectedProject, ...filtered];
+      }
+    }
+    
+    return filtered;
+  };
 
   // Fetch organizations from the database
   useEffect(() => {
@@ -240,6 +273,16 @@ export default function CorporatePage() {
         }
         
         const data = await response.json();
+        console.log('[DEBUG] Corporate - Tasks received:', data?.length || 0);
+        if (data && data.length > 0) {
+          console.log('[DEBUG] Corporate - Sample task:', {
+            id: data[0].id,
+            title: data[0].title,
+            assigned_users_count: data[0].assigned_users?.length || 0,
+            assigned_users: data[0].assigned_users?.map((u: any) => ({ name: u.name, email: u.email })) || [],
+            assigned_to: data[0].assigned_to
+          });
+        }
         setTasks(data || []);
       } catch (error) {
         console.log("Error fetching tasks (tables may not exist yet):", error);
@@ -255,19 +298,34 @@ export default function CorporatePage() {
 
   // Fetch projects for the organization
   useEffect(() => {
-    if (!selectedOrg) return;
+    if (!selectedOrg) {
+      console.log('[DEBUG] Corporate - No selectedOrg, skipping project fetch');
+      return;
+    }
+    
+    console.log('[DEBUG] Corporate - Fetching projects for organization:', selectedOrg);
     
     const fetchProjects = async () => {
       try {
-        const response = await fetch(`/api/projects?organizationId=${selectedOrg}`);
+        const url = `/api/projects?organizationId=${selectedOrg}`;
+        console.log('[DEBUG] Corporate - Fetching from URL:', url);
+        
+        const response = await fetch(url);
+        console.log('[DEBUG] Corporate - Response status:', response.status, response.statusText);
+        
         if (response.ok) {
           const data = await response.json();
+          console.log('[DEBUG] Corporate - Projects received:', data?.length || 0);
+          console.log('[DEBUG] Corporate - Projects data:', data?.map((p: any) => ({ id: p.id, name: p.name })));
           setProjects(data || []);
         } else {
+          const errorText = await response.text();
+          console.error('[DEBUG] Corporate - Error response:', response.status, errorText);
           console.log("No projects found or API not available yet");
           setProjects([]);
         }
       } catch (error) {
+        console.error('[DEBUG] Corporate - Exception fetching projects:', error);
         console.log("Error fetching projects (tables may not exist yet):", error);
         setProjects([]);
       }
@@ -344,6 +402,18 @@ export default function CorporatePage() {
         }
         
         const data = await response.json();
+        console.log('[DEBUG] Corporate - Goals received:', data?.length || 0);
+        if (data && data.length > 0) {
+          console.log('[DEBUG] Corporate - Sample goal:', {
+            id: data[0].id,
+            title: data[0].title,
+            project_id: data[0].project_id,
+            project: data[0].project,
+            assigned_users_count: data[0].assigned_users?.length || 0,
+            assigned_users: data[0].assigned_users?.map((u: any) => ({ name: u.name, email: u.email })) || [],
+            assigned_to: data[0].assigned_to
+          });
+        }
         setGoals(data || []);
       } catch (error) {
         console.log("Error fetching goals (tables may not exist yet):", error);
@@ -564,8 +634,7 @@ export default function CorporatePage() {
       category: updatedGoal.category,
       goal_type: updatedGoal.goal_type,
       organization_id: updatedGoal.organization_id,
-      assigned_to: updatedGoal.assigned_to === 'unassigned' ? null : updatedGoal.assigned_to,
-      assigned_users: updatedGoal.assigned_users?.map(u => u.id) || [],
+      assigned_users: updatedGoal.assigned_users?.map(u => u.id) || [], // Only send assigned_users, not assigned_to
       project_id: updatedGoal.project_id === 'no-project' ? null : updatedGoal.project_id,
     };
     
@@ -586,8 +655,11 @@ export default function CorporatePage() {
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
+      const data = await response.json();
+      console.log('DEBUG: Goal update response:', data);
+      
       setGoals(prev => prev.map(goal => 
-        goal.id === updatedGoal.id ? updatedGoal : goal
+        goal.id === updatedGoal.id ? data : goal
       ));
       setEditingGoal(null);
     } catch (error) {
@@ -624,7 +696,7 @@ export default function CorporatePage() {
         body: JSON.stringify({
           goalId: selectedGoalForSubtasks.id,
           ...newSubtask,
-          assigned_to: newSubtask.assigned_to === 'unassigned' ? null : newSubtask.assigned_to,
+          assigned_users: newSubtask.assigned_users,
         }),
       });
 
@@ -639,7 +711,7 @@ export default function CorporatePage() {
         title: "",
         description: "",
         priority: "medium",
-        assigned_to: "unassigned",
+        assigned_users: [],
         due_date: ""
       });
       
@@ -663,7 +735,7 @@ export default function CorporatePage() {
         },
         body: JSON.stringify({
           ...updatedSubtask,
-          assigned_to: updatedSubtask.assigned_to === 'unassigned' ? null : updatedSubtask.assigned_to,
+          assigned_users: updatedSubtask.assigned_users?.map(u => u.id) || [],
         }),
       });
 
@@ -671,8 +743,9 @@ export default function CorporatePage() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
+      const data = await response.json();
       setSubtasks(prev => prev.map(subtask => 
-        subtask.id === updatedSubtask.id ? updatedSubtask : subtask
+        subtask.id === updatedSubtask.id ? data : subtask
       ));
       setEditingSubtask(null);
       
@@ -820,6 +893,30 @@ export default function CorporatePage() {
                 <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 text-white flex-shrink-0" />
                 <span>Target: {goal.target_date ? new Date(goal.target_date + 'T00:00:00').toLocaleDateString() : '--'}</span>
               </div>
+              {goal.project && goal.project.id && (
+                <div className="flex items-center gap-1 mb-2 flex-wrap">
+                  <span className="text-xs text-gray-400">Project:</span>
+                  <Link 
+                    href={`/projects/${goal.project.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-block"
+                  >
+                    <Badge className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30 hover:bg-blue-600/30 transition-colors cursor-pointer">
+                      {goal.project.name}
+                    </Badge>
+                  </Link>
+                </div>
+              )}
+              {goal.assigned_users && goal.assigned_users.length > 0 && (
+                <div className="flex items-center gap-1 mb-2 flex-wrap">
+                  <span className="text-xs text-gray-400">Assigned to:</span>
+                  {goal.assigned_users.map((assignedUser, index) => (
+                    <Badge key={index} className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
+                      {assignedUser.name}
+                    </Badge>
+                  ))}
+                </div>
+              )}
               {goal.description && (
                 <div className="text-xs text-gray-400 leading-relaxed">
                   {goal.description}
@@ -1050,7 +1147,12 @@ export default function CorporatePage() {
           {/* Action Buttons */}
           {canManageCorporate && (
             <div className="flex gap-2">
-              <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
+              <Dialog open={showAddTask} onOpenChange={(open) => {
+                setShowAddTask(open);
+                if (!open) {
+                  setProjectSearchTask(""); // Clear search when dialog closes
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
@@ -1119,25 +1221,72 @@ export default function CorporatePage() {
                         className="w-full calendar-picker-white"
                       />
                     </div>
-                    <Select value={newTask.project_id} onValueChange={(value) => setNewTask(prev => ({ ...prev, project_id: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Project (Optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no-project">No Project</SelectItem>
-                        {projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={handleAddTask} className="w-full">Add Task</Button>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Project (Optional)</label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                          placeholder="Search projects..."
+                          value={projectSearchTask}
+                          onChange={(e) => setProjectSearchTask(e.target.value)}
+                          className="pl-10 mb-2"
+                        />
+                      </div>
+                      <Select value={newTask.project_id} onValueChange={(value) => {
+                        console.log('[DEBUG] Corporate - Task project selected:', value);
+                        setNewTask(prev => ({ ...prev, project_id: value }));
+                        if (value !== 'no-project') {
+                          setProjectSearchTask(""); // Clear search when project is selected
+                        }
+                      }}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Project (Optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="no-project">No Project</SelectItem>
+                          {(() => {
+                            const filteredProjects = getFilteredProjects(projectSearchTask, newTask.project_id);
+                            return filteredProjects.length > 0 ? (
+                              filteredProjects.map((project) => (
+                                <SelectItem key={project.id} value={project.id}>
+                                  {project.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-projects" disabled>
+                                {projects.length === 0 
+                                  ? "No projects available (check console)"
+                                  : `No projects match "${projectSearchTask}"`
+                                }
+                              </SelectItem>
+                            );
+                          })()}
+                        </SelectContent>
+                      </Select>
+                      {projects.length === 0 && (
+                        <p className="text-xs text-yellow-400">⚠️ Debug: No projects found. Check browser console and server logs for details.</p>
+                      )}
+                      {projects.length > 0 && (
+                        <p className="text-xs text-gray-400">
+                          Showing {getFilteredProjects(projectSearchTask, newTask.project_id).length} of {projects.length} project(s)
+                          {projectSearchTask && ` matching "${projectSearchTask}"`}
+                        </p>
+                      )}
+                    </div>
+                    <Button onClick={() => {
+                      handleAddTask();
+                      setProjectSearchTask(""); // Clear search after adding
+                    }} className="w-full">Add Task</Button>
                   </div>
                 </DialogContent>
               </Dialog>
 
-              <Dialog open={showAddGoal} onOpenChange={setShowAddGoal}>
+              <Dialog open={showAddGoal} onOpenChange={(open) => {
+                setShowAddGoal(open);
+                if (!open) {
+                  setProjectSearchGoal(""); // Clear search when dialog closes
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button variant="outline">
                     <Target className="h-4 w-4 mr-2" />
@@ -1213,20 +1362,62 @@ export default function CorporatePage() {
                         className="w-full calendar-picker-white"
                       />
                     </div>
-                    <Select value={newGoal.project_id} onValueChange={(value) => setNewGoal(prev => ({ ...prev, project_id: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Project (Optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no-project">No Project</SelectItem>
-                        {projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={handleAddGoal} className="w-full">Add Goal</Button>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Project (Optional)</label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                          placeholder="Search projects..."
+                          value={projectSearchGoal}
+                          onChange={(e) => setProjectSearchGoal(e.target.value)}
+                          className="pl-10 mb-2"
+                        />
+                      </div>
+                      <Select value={newGoal.project_id} onValueChange={(value) => {
+                        console.log('[DEBUG] Corporate - Goal project selected:', value);
+                        setNewGoal(prev => ({ ...prev, project_id: value }));
+                        if (value !== 'no-project') {
+                          setProjectSearchGoal(""); // Clear search when project is selected
+                        }
+                      }}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Project (Optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="no-project">No Project</SelectItem>
+                          {(() => {
+                            const filteredProjects = getFilteredProjects(projectSearchGoal, newGoal.project_id);
+                            return filteredProjects.length > 0 ? (
+                              filteredProjects.map((project) => (
+                                <SelectItem key={project.id} value={project.id}>
+                                  {project.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-projects" disabled>
+                                {projects.length === 0 
+                                  ? "No projects available (check console)"
+                                  : `No projects match "${projectSearchGoal}"`
+                                }
+                              </SelectItem>
+                            );
+                          })()}
+                        </SelectContent>
+                      </Select>
+                      {projects.length === 0 && (
+                        <p className="text-xs text-yellow-400">⚠️ Debug: No projects found. Check browser console and server logs for details.</p>
+                      )}
+                      {projects.length > 0 && (
+                        <p className="text-xs text-gray-400">
+                          Showing {getFilteredProjects(projectSearchGoal, newGoal.project_id).length} of {projects.length} project(s)
+                          {projectSearchGoal && ` matching "${projectSearchGoal}"`}
+                        </p>
+                      )}
+                    </div>
+                    <Button onClick={() => {
+                      handleAddGoal();
+                      setProjectSearchGoal(""); // Clear search after adding
+                    }} className="w-full">Add Goal</Button>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -1457,7 +1648,12 @@ export default function CorporatePage() {
       </AlertDialog>
 
       {/* Edit Task Dialog */}
-      <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
+      <Dialog open={!!editingTask} onOpenChange={(open) => {
+        if (!open) {
+          setEditingTask(null);
+          setProjectSearchTaskEdit(""); // Clear search when dialog closes
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
@@ -1531,29 +1727,81 @@ export default function CorporatePage() {
                 className="w-full calendar-picker-white"
               />
             </div>
-            <Select value={editingTask?.project_id || 'no-project'} onValueChange={(value) => setEditingTask(prev => prev ? { ...prev, project_id: value } : null)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select Project (Optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="no-project">No Project</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Project (Optional)</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search projects..."
+                  value={projectSearchTaskEdit}
+                  onChange={(e) => setProjectSearchTaskEdit(e.target.value)}
+                  className="pl-10 mb-2"
+                />
+              </div>
+              <Select value={editingTask?.project_id || 'no-project'} onValueChange={(value) => {
+                console.log('[DEBUG] Corporate - Editing task project selected:', value);
+                setEditingTask(prev => prev ? { ...prev, project_id: value } : null);
+                if (value !== 'no-project') {
+                  setProjectSearchTaskEdit(""); // Clear search when project is selected
+                }
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Project (Optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no-project">No Project</SelectItem>
+                  {(() => {
+                    const filteredProjects = getFilteredProjects(projectSearchTaskEdit, editingTask?.project_id);
+                    return filteredProjects.length > 0 ? (
+                      filteredProjects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-projects" disabled>
+                        {projects.length === 0 
+                          ? "No projects available (check console)"
+                          : `No projects match "${projectSearchTaskEdit}"`
+                        }
+                      </SelectItem>
+                    );
+                  })()}
+                </SelectContent>
+              </Select>
+              {projects.length === 0 && (
+                <p className="text-xs text-yellow-400">⚠️ Debug: No projects found. Check browser console and server logs for details.</p>
+              )}
+              {projects.length > 0 && (
+                <p className="text-xs text-gray-400">
+                  Showing {getFilteredProjects(projectSearchTaskEdit, editingTask?.project_id).length} of {projects.length} project(s)
+                  {projectSearchTaskEdit && ` matching "${projectSearchTaskEdit}"`}
+                </p>
+              )}
+            </div>
             <div className="flex gap-2">
-              <Button onClick={() => setEditingTask(null)} variant="outline" className="flex-1">Cancel</Button>
-              <Button onClick={() => editingTask && handleUpdateTask(editingTask)} className="flex-1">Update Task</Button>
+              <Button onClick={() => {
+                setEditingTask(null);
+                setProjectSearchTaskEdit(""); // Clear search when canceling
+              }} variant="outline" className="flex-1">Cancel</Button>
+              <Button onClick={() => {
+                if (editingTask) {
+                  handleUpdateTask(editingTask);
+                  setProjectSearchTaskEdit(""); // Clear search after updating
+                }
+              }} className="flex-1">Update Task</Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Edit Goal Dialog */}
-      <Dialog open={!!editingGoal} onOpenChange={() => setEditingGoal(null)}>
+      <Dialog open={!!editingGoal} onOpenChange={(open) => {
+        if (!open) {
+          setEditingGoal(null);
+          setProjectSearchGoalEdit(""); // Clear search when dialog closes
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Goal</DialogTitle>
@@ -1634,22 +1882,69 @@ export default function CorporatePage() {
                 className="w-full calendar-picker-white"
               />
             </div>
-            <Select value={editingGoal?.project_id || 'no-project'} onValueChange={(value) => setEditingGoal(prev => prev ? { ...prev, project_id: value } : null)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select Project (Optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="no-project">No Project</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Project (Optional)</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search projects..."
+                  value={projectSearchGoalEdit}
+                  onChange={(e) => setProjectSearchGoalEdit(e.target.value)}
+                  className="pl-10 mb-2"
+                />
+              </div>
+              <Select value={editingGoal?.project_id || 'no-project'} onValueChange={(value) => {
+                console.log('[DEBUG] Corporate - Editing goal project selected:', value);
+                setEditingGoal(prev => prev ? { ...prev, project_id: value } : null);
+                if (value !== 'no-project') {
+                  setProjectSearchGoalEdit(""); // Clear search when project is selected
+                }
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Project (Optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no-project">No Project</SelectItem>
+                  {(() => {
+                    const filteredProjects = getFilteredProjects(projectSearchGoalEdit, editingGoal?.project_id);
+                    return filteredProjects.length > 0 ? (
+                      filteredProjects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-projects" disabled>
+                        {projects.length === 0 
+                          ? "No projects available (check console)"
+                          : `No projects match "${projectSearchGoalEdit}"`
+                        }
+                      </SelectItem>
+                    );
+                  })()}
+                </SelectContent>
+              </Select>
+              {projects.length === 0 && (
+                <p className="text-xs text-yellow-400">⚠️ Debug: No projects found. Check browser console and server logs for details.</p>
+              )}
+              {projects.length > 0 && (
+                <p className="text-xs text-gray-400">
+                  Showing {getFilteredProjects(projectSearchGoalEdit, editingGoal?.project_id).length} of {projects.length} project(s)
+                  {projectSearchGoalEdit && ` matching "${projectSearchGoalEdit}"`}
+                </p>
+              )}
+            </div>
             <div className="flex gap-2">
-              <Button onClick={() => setEditingGoal(null)} variant="outline" className="flex-1">Cancel</Button>
-              <Button onClick={() => editingGoal && handleUpdateGoal(editingGoal)} className="flex-1">Update Goal</Button>
+              <Button onClick={() => {
+                setEditingGoal(null);
+                setProjectSearchGoalEdit(""); // Clear search when canceling
+              }} variant="outline" className="flex-1">Cancel</Button>
+              <Button onClick={() => {
+                if (editingGoal) {
+                  handleUpdateGoal(editingGoal);
+                  setProjectSearchGoalEdit(""); // Clear search after updating
+                }
+              }} className="flex-1">Update Goal</Button>
             </div>
           </div>
         </DialogContent>
@@ -1772,11 +2067,21 @@ export default function CorporatePage() {
               </div>
             </div>
             
-            {viewingGoal?.project && (
+            {viewingGoal?.project && viewingGoal.project.id && (
               <div>
                 <h4 className="text-sm font-semibold text-gray-300 mb-2">Associated Project</h4>
                 <div className="bg-gray-800 p-3 rounded-lg">
-                  <p className="text-gray-300 font-medium">{viewingGoal.project.name}</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs text-gray-400">Project:</span>
+                    <Link 
+                      href={`/projects/${viewingGoal.project.id}`}
+                      className="inline-block"
+                    >
+                      <Badge className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30 hover:bg-blue-600/30 transition-colors cursor-pointer">
+                        {viewingGoal.project.name}
+                      </Badge>
+                    </Link>
+                  </div>
                   {viewingGoal.project.description && (
                     <p className="text-gray-400 text-sm mt-1">{viewingGoal.project.description}</p>
                   )}
@@ -1855,7 +2160,17 @@ export default function CorporatePage() {
                       )}
                       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-xs text-gray-400">
                         <span className="text-gray-400/25 hover:text-gray-400 transition-colors">Due: {subtask.due_date ? new Date(subtask.due_date + 'T00:00:00').toLocaleDateString() : 'No due date'}</span>
-                        {subtask.assigned_user && (
+                        {subtask.assigned_users && subtask.assigned_users.length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span>Assigned to:</span>
+                            {subtask.assigned_users.map((user, idx) => (
+                              <Badge key={idx} className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
+                                {user.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {(!subtask.assigned_users || subtask.assigned_users.length === 0) && subtask.assigned_user && (
                           <span>Assigned to: {subtask.assigned_user.name}</span>
                         )}
                       </div>
@@ -1932,19 +2247,18 @@ export default function CorporatePage() {
                 <SelectItem value="high">High</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={newSubtask.assigned_to} onValueChange={(value) => setNewSubtask(prev => ({ ...prev, assigned_to: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Assign To (Optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
-                {organizationStaff.map((staff) => (
-                  <SelectItem key={staff.id} value={staff.id}>
-                    {staff.user?.name || staff.user?.email || 'Unknown'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Assign To (Optional)</label>
+              <MultiSelect
+                options={organizationStaff.map(staff => ({
+                  value: staff.id,
+                  label: staff.user?.name || staff.user?.email || 'Unknown'
+                }))}
+                value={newSubtask.assigned_users}
+                onChange={(values) => setNewSubtask(prev => ({ ...prev, assigned_users: values }))}
+                placeholder="Select team members"
+              />
+            </div>
             <Input
               type="date"
               placeholder="Due Date"
@@ -1988,19 +2302,28 @@ export default function CorporatePage() {
                 <SelectItem value="high">High</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={editingSubtask?.assigned_to || 'unassigned'} onValueChange={(value) => setEditingSubtask(prev => prev ? { ...prev, assigned_to: value } : null)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Assign To (Optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
-                {organizationStaff.map((staff) => (
-                  <SelectItem key={staff.id} value={staff.id}>
-                    {staff.user?.name || staff.user?.email || 'Unknown'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Assign To (Optional)</label>
+              <MultiSelect
+                options={organizationStaff.map(staff => ({
+                  value: staff.id,
+                  label: staff.user?.name || staff.user?.email || 'Unknown'
+                }))}
+                value={editingSubtask?.assigned_users?.map(u => u.id) || []}
+                onChange={(values) => setEditingSubtask(prev => prev ? {
+                  ...prev,
+                  assigned_users: values.map(id => {
+                    const staff = organizationStaff.find(s => s.id === id);
+                    return {
+                      id,
+                      name: staff?.user?.name || staff?.user?.email || 'Unknown',
+                      email: staff?.user?.email || ''
+                    };
+                  })
+                } : null)}
+                placeholder="Select team members"
+              />
+            </div>
             <Input
               type="date"
               placeholder="Due Date"

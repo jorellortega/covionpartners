@@ -19,9 +19,9 @@ export default function ProjectInvestSettingsPage() {
   const [projects, setProjects] = useState<any[]>([])
   const [selectedProject, setSelectedProject] = useState<string>("")
   const [settings, setSettings] = useState({
-    funding_goal: "10000",
-    min_investment: "100",
-    max_investment: "5000",
+    funding_goal: "",
+    min_investment: "",
+    max_investment: "",
     visibility: "public",
     allow_public: true,
     allow_investors: true,
@@ -39,8 +39,11 @@ export default function ProjectInvestSettingsPage() {
     accredited_only: false,
     contact_email: user?.email || "",
     pitch_deck: null,
+    terms_file_url: null,
   })
   const [loadingProjects, setLoadingProjects] = useState(true)
+  const [loadingSettings, setLoadingSettings] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -62,9 +65,215 @@ export default function ProjectInvestSettingsPage() {
     fetchProjects()
   }, [user])
 
-  const handleSave = () => {
-    // Here you would save the settings to the database
-    toast.success("Investment settings saved (mock)")
+  // Load settings when project is selected
+  useEffect(() => {
+    if (!selectedProject || !user) return
+    
+    const loadSettings = async () => {
+      setLoadingSettings(true)
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select(`
+            funding_goal,
+            min_investment,
+            max_investment,
+            visibility,
+            allow_public_investments,
+            allow_investor_investments,
+            investment_start,
+            investment_end,
+            payment_methods,
+            investment_type,
+            investment_pitch,
+            investment_terms,
+            auto_approve_investments,
+            max_investors,
+            enable_waitlist,
+            investment_perks,
+            country_restrictions,
+            accredited_only,
+            investment_contact_email
+          `)
+          .eq('id', selectedProject)
+          .eq('owner_id', user.id)
+          .single()
+
+        if (error) throw error
+
+        if (data) {
+          setSettings({
+            funding_goal: data.funding_goal?.toString() || "",
+            min_investment: data.min_investment?.toString() || "",
+            max_investment: data.max_investment?.toString() || "",
+            visibility: data.visibility || "public",
+            allow_public: data.allow_public_investments ?? true,
+            allow_investors: data.allow_investor_investments ?? true,
+            investment_start: data.investment_start ? new Date(data.investment_start).toISOString().split('T')[0] : "",
+            investment_end: data.investment_end ? new Date(data.investment_end).toISOString().split('T')[0] : "",
+            payment_methods: data.payment_methods || [],
+            investment_type: data.investment_type || "equity",
+            pitch: data.investment_pitch || "",
+            terms: data.investment_terms || "",
+            auto_approve: data.auto_approve_investments || false,
+            max_investors: data.max_investors?.toString() || "",
+            waitlist: data.enable_waitlist || false,
+            perks: data.investment_perks || "",
+            country_restrictions: data.country_restrictions || [],
+            accredited_only: data.accredited_only || false,
+            contact_email: data.investment_contact_email || user.email || "",
+            pitch_deck: null,
+            terms_file_url: data.investment_terms_file_url || null,
+          })
+        }
+      } catch (err) {
+        console.error("Error loading settings:", err)
+        toast.error("Failed to load project settings")
+      } finally {
+        setLoadingSettings(false)
+      }
+    }
+
+    loadSettings()
+  }, [selectedProject, user])
+
+  const handleSave = async () => {
+    if (!selectedProject) {
+      toast.error("Please select a project first")
+      return
+    }
+
+    if (!user) {
+      toast.error("You must be logged in to save settings")
+      return
+    }
+
+    setSaving(true)
+    try {
+      // Handle file upload for terms file if provided (do this first)
+      let termsFileUrl = settings.terms_file_url || null
+      if (settings.pitch_deck) {
+        try {
+          console.log("Uploading terms file:", settings.pitch_deck.name)
+          const fileExt = settings.pitch_deck.name.split('.').pop()
+          const storageFileName = `investment-terms/${selectedProject}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+          
+          // Upload file to Supabase Storage
+          const { error: uploadError } = await supabase.storage
+            .from('partnerfiles')
+            .upload(storageFileName, settings.pitch_deck)
+          
+          if (uploadError) {
+            console.error("File upload error:", uploadError)
+            throw new Error(`Failed to upload file: ${uploadError.message}`)
+          }
+          
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('partnerfiles')
+            .getPublicUrl(storageFileName)
+          
+          termsFileUrl = publicUrl
+          console.log("Terms file uploaded successfully:", publicUrl)
+          toast.success("Terms file uploaded successfully")
+        } catch (fileError: any) {
+          console.error("Error uploading terms file:", fileError)
+          toast.error(`Failed to upload terms file: ${fileError.message}`)
+          // Continue with saving other settings even if file upload fails
+        }
+      }
+
+      // Prepare update data (after file upload)
+      const updateData: any = {
+        funding_goal: settings.funding_goal ? parseFloat(settings.funding_goal) : null,
+        min_investment: settings.min_investment ? parseFloat(settings.min_investment) : null,
+        max_investment: settings.max_investment ? parseFloat(settings.max_investment) : null,
+        visibility: settings.visibility,
+        allow_public_investments: settings.allow_public,
+        allow_investor_investments: settings.allow_investors,
+        investment_start: settings.investment_start || null,
+        investment_end: settings.investment_end || null,
+        payment_methods: settings.payment_methods || [],
+        investment_type: settings.investment_type || "equity",
+        investment_pitch: settings.pitch || null,
+        investment_terms: settings.terms || null,
+        auto_approve_investments: settings.auto_approve,
+        max_investors: settings.max_investors ? parseInt(settings.max_investors) : null,
+        enable_waitlist: settings.waitlist,
+        investment_perks: settings.perks || null,
+        country_restrictions: settings.country_restrictions || [],
+        accredited_only: settings.accredited_only,
+        investment_contact_email: settings.contact_email || null,
+        investment_terms_file_url: termsFileUrl,
+      }
+
+      console.log("Saving investment settings:", { selectedProject, updateData, userId: user.id })
+
+      const { data, error } = await supabase
+        .from('projects')
+        .update(updateData)
+        .eq('id', selectedProject)
+        .eq('owner_id', user.id)
+        .select()
+
+      if (error) {
+        console.error("Supabase error:", error)
+        throw error
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error("No rows were updated. Please check that you are the project owner.")
+      }
+
+      console.log("Settings saved successfully:", data[0])
+      toast.success("Investment settings saved successfully!")
+      
+      // Reload settings to confirm they were saved
+      const { data: updatedData, error: reloadError } = await supabase
+        .from('projects')
+        .select(`
+          funding_goal,
+          min_investment,
+          max_investment,
+          visibility,
+          allow_public_investments,
+          allow_investor_investments,
+          investment_start,
+          investment_end,
+          payment_methods,
+          investment_type,
+          investment_pitch,
+          investment_terms,
+          auto_approve_investments,
+          max_investors,
+          enable_waitlist,
+            investment_perks,
+            country_restrictions,
+            accredited_only,
+            investment_contact_email,
+            investment_terms_file_url
+          `)
+          .eq('id', selectedProject)
+          .single()
+
+      if (!reloadError && updatedData) {
+        console.log("Verified saved settings:", updatedData)
+        // Update the settings state to reflect the saved file URL
+        if (updatedData.investment_terms_file_url) {
+          setSettings(prev => ({
+            ...prev,
+            terms_file_url: updatedData.investment_terms_file_url,
+            pitch_deck: null, // Clear the file input after successful upload
+          }))
+        }
+      }
+    } catch (err: any) {
+      console.error("Error saving settings:", err)
+      const errorMessage = err.message || err.details || "Failed to save investment settings"
+      toast.error(`Error: ${errorMessage}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (authLoading) {
@@ -88,7 +297,7 @@ export default function ProjectInvestSettingsPage() {
                 <Select
                   value={selectedProject}
                   onValueChange={setSelectedProject}
-                  disabled={loadingProjects}
+                  disabled={loadingProjects || loadingSettings}
                 >
                   <SelectTrigger id="project" className="bg-gray-800 border-gray-700 text-white">
                     <SelectValue placeholder="Select your project" />
@@ -99,6 +308,9 @@ export default function ProjectInvestSettingsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {loadingSettings && (
+                  <p className="text-sm text-gray-400 mt-2">Loading settings...</p>
+                )}
               </div>
               <div>
                 <Label htmlFor="funding_goal">Funding Goal ($)</Label>
@@ -237,11 +449,26 @@ export default function ProjectInvestSettingsPage() {
                   placeholder="Enter terms or upload a file below"
                   className="bg-gray-800 border-gray-700 text-white"
                 />
-                <Input
-                  type="file"
-                  className="mt-2"
-                  onChange={e => setSettings(s => ({ ...s, pitch_deck: e.target.files?.[0] || null }))}
-                />
+                <div className="mt-2 space-y-2">
+                  <Input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt"
+                    onChange={e => setSettings(s => ({ ...s, pitch_deck: e.target.files?.[0] || null }))}
+                  />
+                  {settings.terms_file_url && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-gray-400">Current file:</span>
+                      <a 
+                        href={settings.terms_file_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-purple-400 hover:text-purple-300 underline"
+                      >
+                        View terms file
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex gap-4">
                 <div className="flex items-center gap-2">
@@ -315,7 +542,13 @@ export default function ProjectInvestSettingsPage() {
                 </div>
               </div>
               <div className="flex justify-end">
-                <Button onClick={handleSave} className="gradient-button">Save Settings</Button>
+                <Button 
+                  onClick={handleSave} 
+                  className="gradient-button"
+                  disabled={saving || !selectedProject || loadingSettings}
+                >
+                  {saving ? "Saving..." : "Save Settings"}
+                </Button>
               </div>
             </div>
           </CardContent>

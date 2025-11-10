@@ -79,13 +79,8 @@ export default function InvestmentDetailsPage({ params }: { params: Promise<{ id
   const resolvedParams = use(params)
   const project = projects?.find(p => p.id === resolvedParams.id)
 
-  // Check if user has access to this page
-  useEffect(() => {
-    if (user && !["investor", "partner", "admin"].includes(user.role)) {
-      router.push("/")
-      toast.error("You don't have access to this page")
-    }
-  }, [user, router])
+  // Note: This page is accessible to all users for viewing investment details
+  // Authentication will be required when actually submitting an investment
 
   // Calculate ROI when investment amount or years change
   useEffect(() => {
@@ -119,6 +114,19 @@ export default function InvestmentDetailsPage({ params }: { params: Promise<{ id
   }
 
   const handleInvest = async () => {
+    // Check if user is authenticated
+    if (!user) {
+      toast.error("Please log in to make an investment")
+      router.push("/login")
+      return
+    }
+
+    // Check if user has permission to invest
+    if (!["investor", "partner", "admin"].includes(user.role)) {
+      toast.error("You need to have an investor account to make investments")
+      return
+    }
+
     if (!investmentAmount || isNaN(Number(investmentAmount)) || Number(investmentAmount) <= 0) {
       toast.error("Please enter a valid investment amount")
       return
