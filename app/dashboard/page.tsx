@@ -2096,7 +2096,11 @@ export default function PartnerDashboard() {
 
 
 
-const renderAIView = () => (
+const renderAIView = () => {
+    // Check if conversation has started (has user messages)
+    const conversationStarted = aiConversation.some(msg => msg.role === 'user')
+
+    return (
     <div className="max-w-3xl mx-auto pt-8 space-y-6">
       <div className="text-center space-y-3">
         <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
@@ -2105,7 +2109,6 @@ const renderAIView = () => (
         <div>
           <Link href="https://www.infinitoagi.com/" target="_blank" rel="noopener noreferrer" className="text-3xl font-bold text-white inline-flex items-center gap-2 hover:text-cyan-300 transition-colors">
             Infinito AI
-            <span className="text-cyan-300">∞</span>
           </Link>
           <p className="text-gray-400">Ask about projects, investors, funding tasks, or platform workflows.</p>
         </div>
@@ -2125,43 +2128,58 @@ const renderAIView = () => (
         )}
       </div>
 
-      <div className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-900/60 to-gray-950/80 p-6">
-        <div ref={aiConversationRef} className="h-[420px] overflow-y-auto space-y-5 pr-1">
-          {aiConversation.map((message, index) => (
-            <div key={`${message.role}-${index}-${message.timestamp}`} className={`flex ${message.role === 'assistant' ? 'justify-start' : 'justify-end'}`}>
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 border ${
-                  message.role === 'assistant'
-                    ? 'bg-gray-900/80 border-gray-700 text-gray-100'
-                    : 'bg-gradient-to-r from-purple-500 to-blue-500 border-transparent text-white'
-                }`}
-              >
+      {/* Conversation area - only show expanded view if conversation has started */}
+      {conversationStarted ? (
+        <div className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-900/60 to-gray-950/80 p-6">
+          <div ref={aiConversationRef} className="h-[420px] overflow-y-auto space-y-5 pr-1">
+            {aiConversation.map((message, index) => (
+              <div key={`${message.role}-${index}-${message.timestamp}`} className={`flex ${message.role === 'assistant' ? 'justify-start' : 'justify-end'}`}>
                 <div
-                  className="text-sm leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: formatAiContent(message.content) }}
-                />
-                {message.timestamp && (
-                  <p className={`mt-2 text-xs ${message.role === 'assistant' ? 'text-gray-400' : 'text-purple-100/80'}`}>
-                    {new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                  </p>
-                )}
-              </div>
-            </div>
-          ))}
-          {isAiLoading && (
-            <div className="flex justify-start">
-              <div className="max-w-[80%] rounded-2xl px-4 py-3 border bg-gray-900/60 border-gray-700 text-gray-300">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:-0.2s]"></span>
-                  <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce"></span>
-                  <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]"></span>
-                  <span className="text-sm">Infinito AI is thinking…</span>
+                  className={`max-w-[80%] rounded-2xl px-4 py-3 border ${
+                    message.role === 'assistant'
+                      ? 'bg-gray-900/80 border-gray-700 text-gray-100'
+                      : 'bg-gradient-to-r from-purple-500 to-blue-500 border-transparent text-white'
+                  }`}
+                >
+                  <div
+                    className="text-sm leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: formatAiContent(message.content) }}
+                  />
+                  {message.timestamp && (
+                    <p className={`mt-2 text-xs ${message.role === 'assistant' ? 'text-gray-400' : 'text-purple-100/80'}`}>
+                      {new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    </p>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
+            ))}
+            {isAiLoading && (
+              <div className="flex justify-start">
+                <div className="max-w-[80%] rounded-2xl px-4 py-3 border bg-gray-900/60 border-gray-700 text-gray-300">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:-0.2s]"></span>
+                    <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce"></span>
+                    <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]"></span>
+                    <span className="text-sm">Infinito AI is thinking…</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        // Initial compact view - just show greeting in a smaller, simpler format
+        <div className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-900/60 to-gray-950/80 p-4">
+          <div className="text-center py-8">
+            <div className="inline-block max-w-md rounded-2xl px-5 py-4 bg-gray-900/80 border border-gray-700 text-gray-100">
+              <div
+                className="text-sm leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: formatAiContent(aiConversation[0]?.content || '') }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {aiError && (
         <div className="text-sm text-red-400 bg-red-900/20 border border-red-800/50 rounded-lg px-4 py-3">
@@ -2169,37 +2187,72 @@ const renderAIView = () => (
         </div>
       )}
 
-      <div className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-900/60 to-gray-950/80 p-6 space-y-4">
-        <textarea
-          placeholder="Ask me anything about your Covion workspace..."
-          value={aiPrompt}
-          onChange={(event) => setAiPrompt(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault()
-              handleAI()
-            }
-          }}
-          className="flex min-h-[120px] w-full rounded-lg border border-gray-700 bg-gray-900/60 px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 resize-none"
-          disabled={isAiLoading}
-        />
-        <div className="flex justify-end">
-          <Button
-            onClick={handleAI}
-            disabled={isAiLoading || !aiPrompt.trim()}
-            className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-6 h-12 inline-flex items-center gap-2"
-          >
-            {isAiLoading ? (
-              <span className="h-5 w-5 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Send className="w-5 h-5" />
-            )}
-            <span>{isAiLoading ? 'Working' : 'Send'}</span>
-          </Button>
+      {/* Input area - show compact version initially, full version after conversation starts */}
+      {conversationStarted ? (
+        <div className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-900/60 to-gray-950/80 p-6 space-y-4">
+          <textarea
+            placeholder="Ask me anything about your Covion workspace..."
+            value={aiPrompt}
+            onChange={(event) => setAiPrompt(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                handleAI()
+              }
+            }}
+            className="flex min-h-[120px] w-full rounded-lg border border-gray-700 bg-gray-900/60 px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 resize-none"
+            disabled={isAiLoading}
+          />
+          <div className="flex justify-end">
+            <Button
+              onClick={handleAI}
+              disabled={isAiLoading || !aiPrompt.trim()}
+              className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-6 h-12 inline-flex items-center gap-2"
+            >
+              {isAiLoading ? (
+                <span className="h-5 w-5 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Send className="w-5 h-5" />
+              )}
+              <span>{isAiLoading ? 'Working' : 'Send'}</span>
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : (
+        // Compact input area for initial state
+        <div className="leonardo-card border-gray-800 bg-gradient-to-br from-gray-900/60 to-gray-950/80 p-4">
+          <div className="flex gap-3">
+            <input
+              type="text"
+              placeholder="Ask me anything about your Covion workspace..."
+              value={aiPrompt}
+              onChange={(event) => setAiPrompt(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  handleAI()
+                }
+              }}
+              className="flex-1 rounded-lg border border-gray-700 bg-gray-900/60 px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+              disabled={isAiLoading}
+            />
+            <Button
+              onClick={handleAI}
+              disabled={isAiLoading || !aiPrompt.trim()}
+              className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-6 h-12 inline-flex items-center gap-2"
+            >
+              {isAiLoading ? (
+                <span className="h-5 w-5 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Send className="w-5 h-5" />
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
+  }
 
   return (
     <div className="min-h-screen bg-gray-950">
