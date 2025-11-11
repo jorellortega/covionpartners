@@ -247,7 +247,7 @@ function formatAiContent(content: string) {
 
 const DASHBOARD_AI_GREETING: AIMessage = {
   role: "assistant",
-  content: "Hi! I'm Covion Intelligence. Ask about projects, investors, or workflows and I'll guide you to the right tools.",
+  content: "Hi! I'm Infinito AI. Ask about projects, investors, or workflows and I'll guide you to the right tools.",
   timestamp: new Date().toISOString()
 }
 
@@ -1252,7 +1252,7 @@ export default function PartnerDashboard() {
 
       if (!response.ok) {
         const { error } = await response.json()
-        throw new Error(error || 'Failed to connect to Covion Intelligence')
+        throw new Error(error || 'Failed to connect to Infinito AI')
       }
 
       const data = await response.json()

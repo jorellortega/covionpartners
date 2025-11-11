@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowRight, BarChart2, Briefcase, Zap, FolderKanban, Handshake, Users, Lock, FileText, Globe, DollarSign, Shield, Building2, Leaf, Clock, Check, Target, Heart, MessageSquare } from "lucide-react"
+import { ArrowRight, BarChart2, Briefcase, Zap, FolderKanban, Handshake, Users, Lock, FileText, Globe, DollarSign, Shield, Building2, Leaf, Clock, Check, Target, Heart, MessageSquare, Infinity } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { toast } from "sonner"
 import { useProjects } from "@/hooks/useProjects"
@@ -172,11 +172,12 @@ export default function Home() {
                     href="https://www.infinitoagi.com/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-lg font-semibold text-white hover:text-cyan-300 transition-colors"
+                    className="text-lg font-semibold text-white hover:text-cyan-300 transition-colors inline-flex items-center gap-2"
                   >
                     Infinito AI
+                    <span className="text-cyan-300">∞</span>
                   </a>
-                  <p className="text-sm text-gray-400">Ask the assistant anything about Covion.</p>
+                  <p className="text-sm text-gray-400">Ask the assistant anything about Covion Partners.</p>
                 </div>
                 <div className="space-y-4">
                   <Textarea

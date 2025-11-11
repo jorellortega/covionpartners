@@ -26,7 +26,7 @@ function formatLinks(content: string) {
 
 const INITIAL_ASSISTANT_MESSAGE: AIMessage = {
   role: "assistant",
-  content: "Hi! I\'m Covion Intelligence. Ask me about your projects, partners, and funding workflows, and I\'ll steer you toward the right tools.",
+  content: "Hi! I\'m Infinito AI. Ask me about your projects, partners, and funding workflows, and I\'ll steer you toward the right tools.",
   timestamp: new Date().toISOString()
 }
 
@@ -96,7 +96,7 @@ export default function InfinitoAIPage() {
 
       if (!response.ok) {
         const { error: apiError } = await response.json()
-        throw new Error(apiError || "Failed to reach Covion Intelligence")
+        throw new Error(apiError || "Failed to reach Infinito AI")
       }
 
       const data = await response.json()
