@@ -2204,9 +2204,9 @@ const renderAIView = () => (
   return (
     <div className="min-h-screen bg-gray-950">
             <header className={`leonardo-header transition-all duration-500 ${dashboardView === 'ai' ? 'opacity-100' : 'opacity-100'}`}>
-        <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
           {dashboardView === 'ai' ? (
-            <>
+            <div className="flex flex-row justify-between items-center gap-4">
               {/* AI view: Logo, title, and controls */}
               <div className="flex items-center">
                 <h1 className="text-2xl sm:text-3xl font-bold flex items-center">
@@ -2229,36 +2229,119 @@ const renderAIView = () => (
                   <User className="w-6 h-6 text-white" />
                 </div>
               </div>
-            </>
+            </div>
           ) : dashboardView !== 'compact' ? (
             <>
-              <div className="flex items-center">
-                <h1 className="text-2xl sm:text-3xl font-bold flex items-center">
-                  <span 
-                    className="bg-gradient-to-r from-purple-500 to-purple-900 rounded-full p-1.5 mr-3 cursor-pointer hover:scale-105 transition-transform"
-                    onClick={() => router.push('/')}
-                  >
-                    <Handshake className="w-6 h-6 text-white" />
-                  </span>
-                  <span className="hidden sm:inline">Dashboard</span>
-                </h1>
-                <Badge className="ml-3 bg-gray-800/30 text-gray-300 border-gray-700 flex items-center justify-center h-7 px-3">
-                  {getTierName(user?.role || '')}
-                </Badge>
+              {/* Mobile: Top row with logo and user */}
+              <div className="flex items-center justify-between mb-3 sm:mb-0">
+                <div className="flex items-center">
+                  <h1 className="text-xl sm:text-3xl font-bold flex items-center">
+                    <span 
+                      className="bg-gradient-to-r from-purple-500 to-purple-900 rounded-full p-1.5 mr-2 sm:mr-3 cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => router.push('/')}
+                    >
+                      <Handshake className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    </span>
+                    <span className="hidden sm:inline">Dashboard</span>
+                  </h1>
+                  <Badge className="ml-2 sm:ml-3 bg-gray-800/30 text-gray-300 border-gray-700 flex items-center justify-center h-6 sm:h-7 px-2 sm:px-3 text-xs sm:text-sm">
+                    {getTierName(user?.role || '')}
+                  </Badge>
+                </div>
+                
+                {/* Welcome Banner - Mobile optimized */}
+                <div className="flex items-center space-x-2 sm:space-x-3 group cursor-pointer" onClick={() => router.push(`/profile/${user?.id}`)}>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center transition-transform group-hover:scale-105">
+                    <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <div className="hidden sm:block">
+                    <h2 className="text-lg font-bold group-hover:text-purple-400 transition-colors">Welcome, {user?.name || user?.email}!</h2>
+                  </div>
+                </div>
               </div>
               
-              {/* Welcome Banner moved to header */}
-              <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => router.push(`/profile/${user?.id}`)}>
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center transition-transform group-hover:scale-105">
-                  <User className="w-6 h-6 text-white" />
+              {/* Mobile: Bottom row with view buttons and logout */}
+              <div className="flex items-center justify-between gap-2 sm:gap-4">
+                {/* Dashboard View Selector */}
+                <div className="flex items-center gap-1 sm:gap-2 bg-gray-800/30 rounded-lg p-1 border border-gray-700">
+                  <Button
+                    variant={dashboardView === 'default' ? 'default' : 'ghost'}
+                    size="sm"
+                    className={`h-8 px-2 sm:px-3 text-xs sm:text-sm ${dashboardView === 'default' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-700/50'}`}
+                    onClick={() => changeViewAndLock('default')}
+                  >
+                    <Layout className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                    <span className="hidden xs:inline sm:inline">Default</span>
+                    {isViewLocked && dashboardView === 'default' && <Lock className="w-3 h-3 ml-1" />}
+                  </Button>
+                  <Button
+                    variant={dashboardView === 'compact' ? 'default' : 'ghost'}
+                    size="sm"
+                    className={`h-8 px-2 sm:px-3 text-xs sm:text-sm ${dashboardView === 'compact' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-700/50'}`}
+                    onClick={() => changeViewAndLock('compact')}
+                  >
+                    <List className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                    <span className="hidden xs:inline sm:inline">Compact</span>
+                    {isViewLocked && dashboardView === 'compact' && <Lock className="w-3 h-3 ml-1" />}
+                  </Button>
+                  
+                  <Button
+                    variant={dashboardView === 'ai' ? 'default' : 'ghost'}
+                    size="sm"
+                    className={`h-8 px-2 sm:px-3 text-xs sm:text-sm ${dashboardView === 'ai' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-700/50'}`}
+                    onClick={() => changeViewAndLock('ai')}
+                  >
+                    <Bot className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                    <span className="hidden xs:inline sm:inline">AI</span>
+                    {isViewLocked && dashboardView === 'ai' && <Lock className="w-3 h-3 ml-1" />}
+                  </Button>
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold group-hover:text-purple-400 transition-colors">Welcome, {user?.name || user?.email}!</h2>
-                </div>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="border-gray-700 bg-gray-800/30 text-white hover:bg-red-900/20 hover:text-red-400 h-8 px-3 sm:px-4"
+                  onClick={async () => {
+                    try {
+                      // Clear all local storage and session storage
+                      if (typeof window !== 'undefined') {
+                        window.localStorage.clear()
+                        window.sessionStorage.clear()
+                        // Clear all cookies
+                        document.cookie.split(";").forEach(function(c) { 
+                          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                        })
+                      }
+                      
+                      // Sign out from Supabase
+                      const { error } = await supabase.auth.signOut()
+                      if (error) throw error
+                      
+                      // Clear any remaining auth state
+                      await supabase.auth.setSession({
+                        access_token: '',
+                        refresh_token: ''
+                      })
+                      
+                      // Force a hard redirect to login page with cache busting
+                      window.location.href = '/login?' + new Date().getTime()
+                    } catch (error) {
+                      console.error('Error signing out:', error)
+                      toast({
+                        title: 'Error',
+                        description: 'Failed to sign out',
+                        variant: 'destructive'
+                      })
+                    }
+                  }}
+                >
+                  <LogOut className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Logout</span>
+                </Button>
               </div>
             </>
           ) : (
-            <>
+            <div className="flex items-center justify-between">
               {/* Compact view: Just logo and account icon */}
               <div className="flex items-center">
                 <span 
@@ -2275,85 +2358,8 @@ const renderAIView = () => (
                   <User className="w-6 h-6 text-white" />
                 </div>
               </div>
-            </>
-          )}
-          
-          <div className="flex flex-wrap gap-2 sm:gap-4 w-full sm:w-auto">
-            {/* Dashboard View Selector */}
-            <div className="flex items-center gap-2 bg-gray-800/30 rounded-lg p-1 border border-gray-700">
-              <Button
-                variant={dashboardView === 'default' ? 'default' : 'ghost'}
-                size="sm"
-                className={`h-8 px-3 ${dashboardView === 'default' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-700/50'}`}
-                onClick={() => changeViewAndLock('default')}
-              >
-                <Layout className="w-4 h-4 mr-1" />
-                Default
-                {isViewLocked && dashboardView === 'default' && <Lock className="w-3 h-3 ml-1" />}
-              </Button>
-              <Button
-                variant={dashboardView === 'compact' ? 'default' : 'ghost'}
-                size="sm"
-                className={`h-8 px-3 ${dashboardView === 'compact' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-700/50'}`}
-                onClick={() => changeViewAndLock('compact')}
-              >
-                <List className="w-4 h-4 mr-1" />
-                Compact
-                {isViewLocked && dashboardView === 'compact' && <Lock className="w-3 h-3 ml-1" />}
-              </Button>
-              
-              <Button
-                variant={dashboardView === 'ai' ? 'default' : 'ghost'}
-                size="sm"
-                className={`h-8 px-3 ${dashboardView === 'ai' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-700/50'}`}
-                onClick={() => changeViewAndLock('ai')}
-              >
-                <Bot className="w-4 h-4 mr-1" />
-                AI
-                {isViewLocked && dashboardView === 'ai' && <Lock className="w-3 h-3 ml-1" />}
-              </Button>
             </div>
-            
-            <Button 
-              variant="outline" 
-              className="border-gray-700 bg-gray-800/30 text-white hover:bg-red-900/20 hover:text-red-400 w-full sm:w-auto"
-              onClick={async () => {
-                try {
-                  // Clear all local storage and session storage
-                  if (typeof window !== 'undefined') {
-                    window.localStorage.clear()
-                    window.sessionStorage.clear()
-                    // Clear all cookies
-                    document.cookie.split(";").forEach(function(c) { 
-                      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-                    })
-                  }
-                  
-                  // Sign out from Supabase
-                  const { error } = await supabase.auth.signOut()
-                  if (error) throw error
-                  
-                  // Clear any remaining auth state
-                  await supabase.auth.setSession({
-                    access_token: '',
-                    refresh_token: ''
-                  })
-                  
-                  // Force a hard redirect to login page with cache busting
-                  window.location.href = '/login?' + new Date().getTime()
-                } catch (error) {
-                  console.error('Error signing out:', error)
-                  toast({
-                    title: 'Error',
-                    description: 'Failed to sign out',
-                    variant: 'destructive'
-                  })
-                }
-              }}
-            >
-              Logout
-            </Button>
-          </div>
+          )}
         </div>
       </header>
 

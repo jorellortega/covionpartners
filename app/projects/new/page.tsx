@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Home, ArrowLeft, Save, Calendar, Users, DollarSign, Copy, Upload, FileText, Trash2, Loader2 } from "lucide-react"
+import { Home, ArrowLeft, Save, Calendar, Users, DollarSign, Copy, Upload, FileText, Trash2, Loader2, Sparkles } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/hooks/useUser"
 import { toast } from "sonner"
@@ -32,6 +32,7 @@ export default function NewProjectPage() {
   const [isUploadingMedia, setIsUploadingMedia] = useState(false)
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [enhancingDescription, setEnhancingDescription] = useState(false)
   const [projectData, setProjectData] = useState({
     name: "",
     description: "",
@@ -66,6 +67,37 @@ export default function NewProjectPage() {
 
   const handleSelectChange = (name: string, value: string) => {
     setProjectData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleEnhanceDescription = async () => {
+    const currentDescription = projectData.description.trim()
+    if (!currentDescription) {
+      toast.error('Please enter a description to enhance')
+      return
+    }
+
+    setEnhancingDescription(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentDescription })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      setProjectData((prev) => ({ ...prev, description: data.message }))
+      toast.success('Description enhanced with AI')
+    } catch (error: any) {
+      console.error('Description enhancement error:', error)
+      toast.error(error?.message || 'Failed to enhance description')
+    } finally {
+      setEnhancingDescription(false)
+    }
   }
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -307,14 +339,31 @@ export default function NewProjectPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={projectData.description}
-                  onChange={handleChange}
-                  className="leonardo-input min-h-[120px]"
-                  placeholder="Describe the project goals and scope"
-                />
+                <div className="relative">
+                  <Textarea
+                    id="description"
+                    name="description"
+                    value={projectData.description}
+                    onChange={handleChange}
+                    className="leonardo-input min-h-[120px] pr-10"
+                    placeholder="Describe the project goals and scope"
+                  />
+                  {projectData.description.trim() && (
+                    <button
+                      type="button"
+                      onClick={handleEnhanceDescription}
+                      disabled={enhancingDescription}
+                      className="absolute bottom-3 right-3 p-2 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Enhance with AI"
+                    >
+                      {enhancingDescription ? (
+                        <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 text-purple-400" />
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -530,7 +579,7 @@ export default function NewProjectPage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" className="gradient-button" disabled={isSubmitting}>
+              <Button type="submit" className="gradient-button" disabled={isSubmitting || enhancingDescription}>
                 <Save className="w-5 h-5 mr-2" />
                 {isSubmitting ? "Creating..." : "Create Project"}
               </Button>

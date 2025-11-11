@@ -11,9 +11,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Home, ArrowLeft, Save, Calendar, Users, DollarSign, AlertCircle } from "lucide-react"
+import { Home, ArrowLeft, Save, Calendar, Users, DollarSign, AlertCircle, Sparkles, Loader2 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
 
 export default function EditProjectPage() {
   const router = useRouter()
@@ -24,6 +25,7 @@ export default function EditProjectPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [enhancingDescription, setEnhancingDescription] = useState(false)
   const [projectData, setProjectData] = useState({
     name: "",
     description: "",
@@ -95,6 +97,37 @@ export default function EditProjectPage() {
 
   const handleSelectChange = (name: string, value: string) => {
     setProjectData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleEnhanceDescription = async () => {
+    const currentDescription = projectData.description.trim()
+    if (!currentDescription) {
+      toast.error('Please enter a description to enhance')
+      return
+    }
+
+    setEnhancingDescription(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentDescription })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      setProjectData((prev) => ({ ...prev, description: data.message }))
+      toast.success('Description enhanced with AI')
+    } catch (error: any) {
+      console.error('Description enhancement error:', error)
+      toast.error(error?.message || 'Failed to enhance description')
+    } finally {
+      setEnhancingDescription(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -214,14 +247,31 @@ export default function EditProjectPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    placeholder="Describe the project goals and scope"
-                    className="leonardo-input min-h-[120px]"
-                    value={projectData.description}
-                    onChange={handleChange}
-                  />
+                  <div className="relative">
+                    <Textarea
+                      id="description"
+                      name="description"
+                      placeholder="Describe the project goals and scope"
+                      className="leonardo-input min-h-[120px] pr-10"
+                      value={projectData.description}
+                      onChange={handleChange}
+                    />
+                    {projectData.description.trim() && (
+                      <button
+                        type="button"
+                        onClick={handleEnhanceDescription}
+                        disabled={enhancingDescription}
+                        className="absolute bottom-3 right-3 p-2 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Enhance with AI"
+                      >
+                        {enhancingDescription ? (
+                          <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-4 h-4 text-purple-400" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -351,7 +401,7 @@ export default function EditProjectPage() {
                 <Button 
                   type="submit"
                   className="gradient-button"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || enhancingDescription}
                 >
                   {isSubmitting ? (
                     <>

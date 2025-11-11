@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Handshake, ArrowLeft, Search, Briefcase, Lock } from "lucide-react"
+import { Handshake, ArrowLeft, Search, Briefcase, Lock, Sparkles, Loader2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { useToast } from "@/components/ui/use-toast"
@@ -42,6 +42,7 @@ function MakeDealPageContent() {
   const [searchingUser, setSearchingUser] = useState(false)
   const [foundUser, setFoundUser] = useState<any>(null)
   const [selectedUsers, setSelectedUsers] = useState<any[]>([])
+  const [enhancingDescription, setEnhancingDescription] = useState(false)
 
   // Fetch project if ID is provided in URL
   useEffect(() => {
@@ -76,6 +77,48 @@ function MakeDealPageContent() {
     setDealData(prev => ({ ...prev, project_id: project.id }))
     setSearchQuery("") // Clear search query
     setProjectKey("") // Clear project key
+  }
+
+  const handleEnhanceDescription = async () => {
+    const currentDescription = dealData.description.trim()
+    if (!currentDescription) {
+      toast({
+        title: "Error",
+        description: "Please enter a description to enhance",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setEnhancingDescription(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentDescription })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      setDealData(prev => ({ ...prev, description: data.message }))
+      toast({
+        title: "Success",
+        description: "Description enhanced with AI"
+      })
+    } catch (error: any) {
+      console.error('Description enhancement error:', error)
+      toast({
+        title: "Error",
+        description: error?.message || 'Failed to enhance description',
+        variant: "destructive"
+      })
+    } finally {
+      setEnhancingDescription(false)
+    }
   }
 
   const handlePrivateProjectSearch = async () => {
@@ -501,12 +544,30 @@ function MakeDealPageContent() {
 
                   <div>
                     <Label>Description</Label>
-                    <Textarea
-                      placeholder="Describe the deal"
-                      value={dealData.description}
-                      onChange={(e) => setDealData({ ...dealData, description: e.target.value })}
-                      required
-                    />
+                    <div className="relative">
+                      <Textarea
+                        placeholder="Describe the deal"
+                        value={dealData.description}
+                        onChange={(e) => setDealData({ ...dealData, description: e.target.value })}
+                        className="pr-10"
+                        required
+                      />
+                      {dealData.description.trim() && (
+                        <button
+                          type="button"
+                          onClick={handleEnhanceDescription}
+                          disabled={enhancingDescription}
+                          className="absolute bottom-3 right-3 p-2 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Enhance with AI"
+                        >
+                          {enhancingDescription ? (
+                            <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-4 h-4 text-purple-400" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -657,7 +718,7 @@ function MakeDealPageContent() {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full gradient-button" disabled={loading}>
+                <Button type="submit" className="w-full gradient-button" disabled={loading || enhancingDescription}>
                   {loading ? "Creating Deal..." : "Create Deal"}
                 </Button>
               </form>

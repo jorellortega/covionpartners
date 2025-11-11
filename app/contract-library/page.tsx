@@ -49,7 +49,9 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
-  Ban
+  Ban,
+  Sparkles,
+  Loader2
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -97,6 +99,8 @@ export default function ContractLibraryPage() {
   // Signature fields state
   const [signatureFields, setSignatureFields] = useState<any[]>([])
   const [showSignatureFieldsDialog, setShowSignatureFieldsDialog] = useState(false)
+  const [enhancingContractText, setEnhancingContractText] = useState(false)
+  const [enhancingDescription, setEnhancingDescription] = useState(false)
 
   const [uploadForm, setUploadForm] = useState({
     title: '',
@@ -164,6 +168,90 @@ export default function ContractLibraryPage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleEnhanceContractText = async () => {
+    const currentText = contractForm.contract_text.trim()
+    if (!currentText) {
+      toast({
+        title: "Error",
+        description: "Please enter contract text to enhance",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setEnhancingContractText(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentText })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      setContractForm(prev => ({ ...prev, contract_text: data.message }))
+      toast({
+        title: "Success",
+        description: "Contract text enhanced with AI"
+      })
+    } catch (error: any) {
+      console.error('Contract text enhancement error:', error)
+      toast({
+        title: "Error",
+        description: error?.message || 'Failed to enhance contract text',
+        variant: "destructive"
+      })
+    } finally {
+      setEnhancingContractText(false)
+    }
+  }
+
+  const handleEnhanceDescription = async () => {
+    const currentDescription = contractForm.description.trim()
+    if (!currentDescription) {
+      toast({
+        title: "Error",
+        description: "Please enter a description to enhance",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setEnhancingDescription(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentDescription })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      setContractForm(prev => ({ ...prev, description: data.message }))
+      toast({
+        title: "Success",
+        description: "Description enhanced with AI"
+      })
+    } catch (error: any) {
+      console.error('Description enhancement error:', error)
+      toast({
+        title: "Error",
+        description: error?.message || 'Failed to enhance description',
+        variant: "destructive"
+      })
+    } finally {
+      setEnhancingDescription(false)
     }
   }
 
@@ -744,13 +832,30 @@ export default function ContractLibraryPage() {
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
-              <Textarea
-                placeholder="Contract description"
-                value={contractForm.description}
-                onChange={(e) => setContractForm({ ...contractForm, description: e.target.value })}
-                rows={3}
-                className="bg-gray-800/30 border-gray-700 text-white"
-              />
+              <div className="relative">
+                <Textarea
+                  placeholder="Contract description"
+                  value={contractForm.description}
+                  onChange={(e) => setContractForm({ ...contractForm, description: e.target.value })}
+                  rows={3}
+                  className="bg-gray-800/30 border-gray-700 text-white pr-10"
+                />
+                {contractForm.description.trim() && (
+                  <button
+                    type="button"
+                    onClick={handleEnhanceDescription}
+                    disabled={enhancingDescription}
+                    className="absolute bottom-3 right-3 p-2 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Enhance with AI"
+                  >
+                    {enhancingDescription ? (
+                      <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Category</Label>
@@ -772,13 +877,30 @@ export default function ContractLibraryPage() {
             </div>
             <div className="space-y-2">
               <Label>Contract Text</Label>
-              <Textarea
-                placeholder="Paste your contract text here... You can use variables like {{user_name}}, {{date}}, {{company_name}} etc."
-                value={contractForm.contract_text}
-                onChange={(e) => setContractForm({ ...contractForm, contract_text: e.target.value })}
-                rows={15}
-                className="bg-gray-800/30 border-gray-700 text-white"
-              />
+              <div className="relative">
+                <Textarea
+                  placeholder="Paste your contract text here... You can use variables like {{user_name}}, {{date}}, {{company_name}} etc."
+                  value={contractForm.contract_text}
+                  onChange={(e) => setContractForm({ ...contractForm, contract_text: e.target.value })}
+                  rows={15}
+                  className="bg-gray-800/30 border-gray-700 text-white pr-10"
+                />
+                {contractForm.contract_text.trim() && (
+                  <button
+                    type="button"
+                    onClick={handleEnhanceContractText}
+                    disabled={enhancingContractText}
+                    className="absolute bottom-3 right-3 p-2 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Enhance with AI"
+                  >
+                    {enhancingContractText ? (
+                      <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Expiration Date (Optional)</Label>
@@ -899,7 +1021,7 @@ export default function ContractLibraryPage() {
             <Button variant="outline" onClick={() => setShowCreateContract(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateContract} className="gradient-button hover:bg-purple-700">
+            <Button onClick={handleCreateContract} className="gradient-button hover:bg-purple-700" disabled={enhancingContractText || enhancingDescription}>
               Create Contract
             </Button>
           </DialogFooter>

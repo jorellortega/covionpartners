@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Send } from "lucide-react"
+import { ArrowLeft, Send, Sparkles, Loader2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
@@ -56,6 +56,7 @@ export default function NewMessageForm() {
   const [parentId, setParentId] = useState<string | null>(null);
   const [parentProject, setParentProject] = useState<any>(null);
   const [parentRecipient, setParentRecipient] = useState<any>(null);
+  const [enhancingMessage, setEnhancingMessage] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -270,6 +271,37 @@ export default function NewMessageForm() {
     }
   }
 
+  const handleEnhanceMessage = async () => {
+    const currentMessage = formData.content.trim()
+    if (!currentMessage) {
+      toast.error('Please enter a message to enhance')
+      return
+    }
+
+    setEnhancingMessage(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentMessage })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      setFormData(prev => ({ ...prev, content: data.message }))
+      toast.success('Message enhanced with AI')
+    } catch (error: any) {
+      console.error('Message enhancement error:', error)
+      toast.error(error?.message || 'Failed to enhance message')
+    } finally {
+      setEnhancingMessage(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.receiver_id || !formData.subject.trim() || !formData.content.trim()) {
@@ -381,12 +413,29 @@ export default function NewMessageForm() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-200">Message:</label>
-                <Textarea
-                  value={formData.content}
-                  onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                  placeholder="Type your message here..."
-                  className="min-h-[200px] bg-gray-800 border-gray-700 text-white"
-                />
+                <div className="relative">
+                  <Textarea
+                    value={formData.content}
+                    onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                    placeholder="Type your message here..."
+                    className="min-h-[200px] bg-gray-800 border-gray-700 text-white pr-10"
+                  />
+                  {formData.content.trim() && (
+                    <button
+                      type="button"
+                      onClick={handleEnhanceMessage}
+                      disabled={enhancingMessage}
+                      className="absolute bottom-3 right-3 p-2 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Enhance with AI"
+                    >
+                      {enhancingMessage ? (
+                        <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 text-purple-400" />
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="flex gap-2 items-center">
                 <button
@@ -420,7 +469,7 @@ export default function NewMessageForm() {
                 <Button
                   type="submit"
                   className="w-full bg-purple-600 text-white hover:bg-purple-700"
-                  disabled={sending}
+                  disabled={sending || enhancingMessage}
                 >
                   <Send className="h-4 w-4 mr-2" />
                   {sending ? 'Sending...' : 'Send Message'}

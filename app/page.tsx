@@ -166,11 +166,7 @@ export default function Home() {
                 />
               </div>
               <h2 className="text-5xl font-extrabold gradient-text m-0 -mt-6">PARTNERS</h2>
-              <p className="text-xl text-gray-300 mt-4 mb-6 max-w-3xl mx-auto">
-                Business Community and Management Platform for project collaboration, deal making, and business growth. 
-                Connect with partners, manage projects, and build successful ventures together.
-              </p>
-              <div className="w-full max-w-2xl mx-auto bg-gray-900/70 border border-gray-800 rounded-2xl p-6 shadow-lg">
+              <div className="w-full max-w-2xl mx-auto bg-gray-900/70 border border-gray-800 rounded-2xl p-6 shadow-lg mt-4 mb-6">
                 <div className="mb-3 text-left">
                   <a
                     href="https://www.infinitoagi.com/"
@@ -599,6 +595,18 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Promo Card */}
+            <div className="mt-16 mb-8">
+              <Card className="bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-purple-500/10 border-purple-500/20 hover:border-purple-500/40 transition-all">
+                <CardContent className="p-8 text-center">
+                  <p className="text-xl text-gray-200 max-w-3xl mx-auto leading-relaxed">
+                    Business Community and Management Platform for project collaboration, deal making, and business growth. 
+                    Connect with partners, manage projects, and build successful ventures together.
+                  </p>
+                </CardContent>
+              </Card>
             </div>
           </div>
 

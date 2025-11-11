@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { User, Users, Clock, MessageCircle, FileText, StickyNote, FolderKanban, CheckCircle, Activity, Plus, RefreshCw, Target, Calendar, TrendingUp, Download, Eye, MoreHorizontal, Flag, Zap, AlertCircle, Crown, Code, Palette, Shield, Server, Edit, Trash2, Send, Save, X, Lock, Unlock, Link as LinkIcon, Clipboard, Search, Package, MoreHorizontal as MoreIcon, Upload } from "lucide-react"
+import { User, Users, Clock, MessageCircle, FileText, StickyNote, FolderKanban, CheckCircle, Activity, Plus, RefreshCw, Target, Calendar, TrendingUp, Download, Eye, MoreHorizontal, Flag, Zap, AlertCircle, Crown, Code, Palette, Shield, Server, Edit, Trash2, Send, Save, X, Lock, Unlock, Link as LinkIcon, Clipboard, Search, Package, MoreHorizontal as MoreIcon, Upload, Sparkles, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -173,6 +173,7 @@ function WorkModeContent() {
   const [messages, setMessages] = useState<any[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [newMessage, setNewMessage] = useState('')
+  const [enhancingMessage, setEnhancingMessage] = useState(false)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editMessageContent, setEditMessageContent] = useState('')
   const [groupChats, setGroupChats] = useState<any[]>([])
@@ -221,6 +222,7 @@ function WorkModeContent() {
   const [newProjectNote, setNewProjectNote] = useState("")
   const [newProjectNoteTitle, setNewProjectNoteTitle] = useState("")
   const [creatingNote, setCreatingNote] = useState(false)
+  const [enhancingNote, setEnhancingNote] = useState(false)
   const [showNoteForm, setShowNoteForm] = useState(false)
   const [editingNote, setEditingNote] = useState<any>(null)
   const [editNoteContent, setEditNoteContent] = useState("")
@@ -676,6 +678,37 @@ function WorkModeContent() {
     setMessages(data || [])
   }
 
+  const handleEnhanceMessage = async () => {
+    const currentMessage = newMessage.trim()
+    if (!currentMessage) {
+      toast.error('Please enter a message to enhance')
+      return
+    }
+
+    setEnhancingMessage(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentMessage })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      setNewMessage(data.message)
+      toast.success('Message enhanced with AI')
+    } catch (error: any) {
+      console.error('Message enhancement error:', error)
+      toast.error(error?.message || 'Failed to enhance message')
+    } finally {
+      setEnhancingMessage(false)
+    }
+  }
+
   const handleEditMessage = (msg: any) => {
     setEditingMessageId(msg.id)
     setEditMessageContent(msg.content)
@@ -1086,6 +1119,37 @@ function WorkModeContent() {
       setCreatingNote(false);
     }
   };
+
+  const handleEnhanceNote = async () => {
+    const currentNote = newProjectNote.trim()
+    if (!currentNote) {
+      toast.error('Please enter note content to enhance')
+      return
+    }
+
+    setEnhancingNote(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentNote })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      setNewProjectNote(data.message)
+      toast.success('Note enhanced with AI')
+    } catch (error: any) {
+      console.error('Note enhancement error:', error)
+      toast.error(error?.message || 'Failed to enhance note')
+    } finally {
+      setEnhancingNote(false)
+    }
+  }
 
   const handleEditNote = async () => {
     if (!editingNote || !editNoteContent.trim() || !currentProject?.id || !user) {
@@ -2356,8 +2420,42 @@ function WorkModeContent() {
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-2 sm:mt-4">
-                          <Input placeholder="Type a message..." value={newMessage} onChange={e => setNewMessage(e.target.value)} className="flex-1 bg-gray-800 border-gray-700 text-white text-xs sm:text-base" onKeyDown={e => e.key === 'Enter' && handleSendMessage()} />
-                          <Button className="bg-gradient-to-r from-cyan-500 to-emerald-500 px-3 py-2 sm:px-4 sm:py-2" onClick={handleSendMessage}><Send className="w-4 h-4" /></Button>
+                          <div className="flex-1 relative">
+                            <Input 
+                              placeholder="Type a message..." 
+                              value={newMessage} 
+                              onChange={e => setNewMessage(e.target.value)} 
+                              className="flex-1 bg-gray-800 border-gray-700 text-white text-xs sm:text-base pr-10" 
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                                  e.preventDefault()
+                                  handleSendMessage()
+                                }
+                              }} 
+                            />
+                            {newMessage.trim() && (
+                              <button
+                                type="button"
+                                onClick={handleEnhanceMessage}
+                                disabled={enhancingMessage}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Enhance with AI"
+                              >
+                                {enhancingMessage ? (
+                                  <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                                ) : (
+                                  <Sparkles className="w-4 h-4 text-purple-400" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                          <Button 
+                            className="bg-gradient-to-r from-cyan-500 to-emerald-500 px-3 py-2 sm:px-4 sm:py-2" 
+                            onClick={handleSendMessage}
+                            disabled={enhancingMessage}
+                          >
+                            <Send className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
                     ) : r.id === 'tasks' ? (
@@ -2558,16 +2656,33 @@ function WorkModeContent() {
                               style={{ backgroundColor: '#141414' }}
                             />
                             <div className="flex items-center gap-2">
-                              <Input 
-                                placeholder="Type a note..." 
-                                value={newProjectNote} 
-                                onChange={e => setNewProjectNote(e.target.value)} 
-                                className="flex-1 border-gray-600 text-white text-xs sm:text-base" 
-                                style={{ backgroundColor: '#141414' }}
-                              />
+                              <div className="flex-1 relative">
+                                <Input 
+                                  placeholder="Type a note..." 
+                                  value={newProjectNote} 
+                                  onChange={e => setNewProjectNote(e.target.value)} 
+                                  className="flex-1 border-gray-600 text-white text-xs sm:text-base pr-10" 
+                                  style={{ backgroundColor: '#141414' }}
+                                />
+                                {newProjectNote.trim() && (
+                                  <button
+                                    type="button"
+                                    onClick={handleEnhanceNote}
+                                    disabled={enhancingNote || creatingNote}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Enhance with AI"
+                                  >
+                                    {enhancingNote ? (
+                                      <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                                    ) : (
+                                      <Sparkles className="w-4 h-4 text-purple-400" />
+                                    )}
+                                  </button>
+                                )}
+                              </div>
                               <Button 
                                 onClick={handleCreateProjectNote}
-                                disabled={!newProjectNote.trim() || creatingNote}
+                                disabled={!newProjectNote.trim() || creatingNote || enhancingNote}
                                 className="bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-2 sm:px-4 sm:py-2"
                               >
                                 {creatingNote ? 'Creating...' : 'Send'}

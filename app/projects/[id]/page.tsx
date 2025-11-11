@@ -54,6 +54,7 @@ import {
   List,
   Grid,
   AlignJustify,
+  Sparkles,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useProjects } from "@/hooks/useProjects"
@@ -616,6 +617,7 @@ export default function ProjectDetails() {
     };
   }>>([])
   const [newComment, setNewComment] = useState('')
+  const [enhancingComment, setEnhancingComment] = useState(false)
   const [isDeletingComment, setIsDeletingComment] = useState(false)
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null)
   const [isRenamingFile, setIsRenamingFile] = useState(false)
@@ -734,6 +736,7 @@ export default function ProjectDetails() {
   const [newNote, setNewNote] = useState("")
   const [newNoteTitle, setNewNoteTitle] = useState("")
   const [loadingNotes, setLoadingNotes] = useState(false)
+  const [enhancingNote, setEnhancingNote] = useState(false)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editingNoteTitle, setEditingNoteTitle] = useState("")
   const [editingNoteContent, setEditingNoteContent] = useState("")
@@ -1086,12 +1089,13 @@ export default function ProjectDetails() {
       if (!projectId) return;
       
       try {
-        // First fetch comments
+        // First fetch comments (get newest first, then reverse to show oldest first with newest near input)
         const { data: commentsData, error: commentsError } = await supabase
           .from('project_comments')
           .select('*')
           .eq('project_id', projectId)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(50);
 
         if (commentsError) throw commentsError;
 
@@ -1119,7 +1123,9 @@ export default function ProjectDetails() {
           })
         );
         
-        setComments(commentsWithUsers);
+        // Reverse to show oldest first (newest near input)
+        const reversedComments = commentsWithUsers.reverse();
+        setComments(reversedComments);
       } catch (error) {
         console.error('Error fetching comments:', error);
         toast.error('Failed to load comments');
@@ -1194,6 +1200,37 @@ export default function ProjectDetails() {
       setNotes(prev => [data, ...prev])
       setNewNote("")
       setNewNoteTitle("")
+    }
+  }
+
+  const handleEnhanceNote = async () => {
+    const currentNote = newNote.trim()
+    if (!currentNote) {
+      toast.error('Please enter note content to enhance')
+      return
+    }
+
+    setEnhancingNote(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentNote })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      setNewNote(data.message)
+      toast.success('Note enhanced with AI')
+    } catch (error: any) {
+      console.error('Note enhancement error:', error)
+      toast.error(error?.message || 'Failed to enhance note')
+    } finally {
+      setEnhancingNote(false)
     }
   }
   const handleDeleteNote = async (noteId: string) => {
@@ -1823,7 +1860,8 @@ export default function ProjectDetails() {
         user: userData || { name: user.email, email: user.email }
       };
 
-      setComments(prev => [commentWithUser, ...prev]);
+      // Add comment at the end (since we display oldest first)
+      setComments(prev => [...prev, commentWithUser]);
       setNewComment('');
       toast.success('Comment added successfully');
     } catch (error: any) {
@@ -1831,6 +1869,37 @@ export default function ProjectDetails() {
       toast.error(error.message || 'Failed to add comment. Please try again.');
     }
   };
+
+  const handleEnhanceComment = async () => {
+    const currentMessage = newComment.trim()
+    if (!currentMessage) {
+      toast.error('Please enter a message to enhance')
+      return
+    }
+
+    setEnhancingComment(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentMessage })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      setNewComment(data.message)
+      toast.success('Comment enhanced with AI')
+    } catch (error: any) {
+      console.error('Comment enhancement error:', error)
+      toast.error(error?.message || 'Failed to enhance comment')
+    } finally {
+      setEnhancingComment(false)
+    }
+  }
 
   const handleDeleteComment = async (commentId: string) => {
     try {
@@ -3858,15 +3927,32 @@ export default function ProjectDetails() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Textarea
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Add a comment..."
-                        className="flex-1 min-h-[80px] bg-gray-800/30"
-                      />
+                      <div className="flex-1 relative">
+                        <Textarea
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          placeholder="Add a comment..."
+                          className="flex-1 min-h-[80px] bg-gray-800/30 pr-10"
+                        />
+                        {newComment.trim() && (
+                          <button
+                            type="button"
+                            onClick={handleEnhanceComment}
+                            disabled={enhancingComment}
+                            className="absolute bottom-3 right-3 p-2 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Enhance with AI"
+                          >
+                            {enhancingComment ? (
+                              <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-4 h-4 text-purple-400" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                       <Button
                         onClick={handleAddComment}
-                        disabled={!newComment.trim()}
+                        disabled={!newComment.trim() || enhancingComment}
                         className="gradient-button self-end"
                       >
                         <Send className="w-4 h-4" />
@@ -4108,16 +4194,33 @@ export default function ProjectDetails() {
                         className="flex-1 bg-gray-800/30"
                         disabled={loadingNotes}
                       />
-                      <Textarea
-                        value={newNote}
-                        onChange={e => setNewNote(e.target.value)}
-                        placeholder="Add a note..."
-                        className="flex-1 min-h-[60px] bg-gray-800/30"
-                        disabled={loadingNotes}
-                      />
+                      <div className="flex-1 relative">
+                        <Textarea
+                          value={newNote}
+                          onChange={e => setNewNote(e.target.value)}
+                          placeholder="Add a note..."
+                          className="flex-1 min-h-[60px] bg-gray-800/30 pr-10"
+                          disabled={loadingNotes}
+                        />
+                        {newNote.trim() && (
+                          <button
+                            type="button"
+                            onClick={handleEnhanceNote}
+                            disabled={enhancingNote || loadingNotes}
+                            className="absolute bottom-3 right-3 p-2 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Enhance with AI"
+                          >
+                            {enhancingNote ? (
+                              <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-4 h-4 text-purple-400" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                       <Button
                         onClick={handleAddNote}
-                        disabled={(!newNote.trim() && !newNoteTitle.trim()) || loadingNotes}
+                        disabled={(!newNote.trim() && !newNoteTitle.trim()) || loadingNotes || enhancingNote}
                         className="gradient-button self-end"
                       >
                         Add

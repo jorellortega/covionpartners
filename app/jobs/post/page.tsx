@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { X, Plus, ArrowLeft } from "lucide-react"
+import { X, Plus, ArrowLeft, Sparkles, Loader2 } from "lucide-react"
 import supabase from "@/utils/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/useAuth"
@@ -70,6 +70,9 @@ export default function PostJobPage() {
   const [organizations, setOrganizations] = useState<any[]>([])
   const [selectedOrgId, setSelectedOrgId] = useState<string>("")
   const [showOrgDialog, setShowOrgDialog] = useState(false)
+  const [enhancingDescription, setEnhancingDescription] = useState(false)
+  const [enhancingRequirements, setEnhancingRequirements] = useState(false)
+  const [enhancingBenefits, setEnhancingBenefits] = useState(false)
 
   useEffect(() => {
     checkUser()
@@ -124,6 +127,132 @@ export default function PostJobPage() {
       ...prev,
       skills: prev.skills.filter(skill => skill !== skillToRemove)
     }))
+  }
+
+  const handleEnhanceDescription = async () => {
+    const currentDescription = formData.description.trim()
+    if (!currentDescription) {
+      toast({
+        title: "Error",
+        description: "Please enter a job description to enhance",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setEnhancingDescription(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentDescription })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      handleInputChange('description', data.message)
+      toast({
+        title: "Success",
+        description: "Job description enhanced with AI"
+      })
+    } catch (error: any) {
+      console.error('Description enhancement error:', error)
+      toast({
+        title: "Error",
+        description: error?.message || 'Failed to enhance description',
+        variant: "destructive"
+      })
+    } finally {
+      setEnhancingDescription(false)
+    }
+  }
+
+  const handleEnhanceRequirements = async () => {
+    const currentRequirements = formData.requirements.trim()
+    if (!currentRequirements) {
+      toast({
+        title: "Error",
+        description: "Please enter requirements to enhance",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setEnhancingRequirements(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentRequirements })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      handleInputChange('requirements', data.message)
+      toast({
+        title: "Success",
+        description: "Requirements enhanced with AI"
+      })
+    } catch (error: any) {
+      console.error('Requirements enhancement error:', error)
+      toast({
+        title: "Error",
+        description: error?.message || 'Failed to enhance requirements',
+        variant: "destructive"
+      })
+    } finally {
+      setEnhancingRequirements(false)
+    }
+  }
+
+  const handleEnhanceBenefits = async () => {
+    const currentBenefits = formData.benefits.trim()
+    if (!currentBenefits) {
+      toast({
+        title: "Error",
+        description: "Please enter benefits to enhance",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setEnhancingBenefits(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentBenefits })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      handleInputChange('benefits', data.message)
+      toast({
+        title: "Success",
+        description: "Benefits enhanced with AI"
+      })
+    } catch (error: any) {
+      console.error('Benefits enhancement error:', error)
+      toast({
+        title: "Error",
+        description: error?.message || 'Failed to enhance benefits',
+        variant: "destructive"
+      })
+    } finally {
+      setEnhancingBenefits(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -320,36 +449,90 @@ export default function PostJobPage() {
                 <CardContent className="space-y-4">
                   <div>
                     <Label htmlFor="description">Job Description *</Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => handleInputChange('description', e.target.value)}
-                      placeholder="Describe the role, responsibilities, and what makes this position exciting..."
-                      rows={6}
-                      required
-                    />
+                    <div className="relative">
+                      <Textarea
+                        id="description"
+                        value={formData.description}
+                        onChange={(e) => handleInputChange('description', e.target.value)}
+                        placeholder="Describe the role, responsibilities, and what makes this position exciting..."
+                        rows={6}
+                        className="pr-10"
+                        required
+                      />
+                      {formData.description.trim() && (
+                        <button
+                          type="button"
+                          onClick={handleEnhanceDescription}
+                          disabled={enhancingDescription}
+                          className="absolute bottom-3 right-3 p-2 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Enhance with AI"
+                        >
+                          {enhancingDescription ? (
+                            <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-4 h-4 text-purple-400" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div>
                     <Label htmlFor="requirements">Requirements & Qualifications</Label>
-                    <Textarea
-                      id="requirements"
-                      value={formData.requirements}
-                      onChange={(e) => handleInputChange('requirements', e.target.value)}
-                      placeholder="List the key requirements, qualifications, and experience needed..."
-                      rows={4}
-                    />
+                    <div className="relative">
+                      <Textarea
+                        id="requirements"
+                        value={formData.requirements}
+                        onChange={(e) => handleInputChange('requirements', e.target.value)}
+                        placeholder="List the key requirements, qualifications, and experience needed..."
+                        rows={4}
+                        className="pr-10"
+                      />
+                      {formData.requirements.trim() && (
+                        <button
+                          type="button"
+                          onClick={handleEnhanceRequirements}
+                          disabled={enhancingRequirements}
+                          className="absolute bottom-3 right-3 p-2 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Enhance with AI"
+                        >
+                          {enhancingRequirements ? (
+                            <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-4 h-4 text-purple-400" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div>
                     <Label htmlFor="benefits">Benefits & Perks</Label>
-                    <Textarea
-                      id="benefits"
-                      value={formData.benefits}
-                      onChange={(e) => handleInputChange('benefits', e.target.value)}
-                      placeholder="Describe the benefits, perks, and what makes your company great to work for..."
-                      rows={4}
-                    />
+                    <div className="relative">
+                      <Textarea
+                        id="benefits"
+                        value={formData.benefits}
+                        onChange={(e) => handleInputChange('benefits', e.target.value)}
+                        placeholder="Describe the benefits, perks, and what makes your company great to work for..."
+                        rows={4}
+                        className="pr-10"
+                      />
+                      {formData.benefits.trim() && (
+                        <button
+                          type="button"
+                          onClick={handleEnhanceBenefits}
+                          disabled={enhancingBenefits}
+                          className="absolute bottom-3 right-3 p-2 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Enhance with AI"
+                        >
+                          {enhancingBenefits ? (
+                            <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-4 h-4 text-purple-400" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -555,7 +738,7 @@ export default function PostJobPage() {
                   <Button
                     type="submit"
                     className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                    disabled={loading}
+                    disabled={loading || enhancingDescription || enhancingRequirements || enhancingBenefits}
                   >
                     {loading ? "Posting Job..." : "Post Job"}
                   </Button>

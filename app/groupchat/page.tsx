@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { MessageSquare, Send, Users, Plus, Bell, Edit, Trash2, Save, X } from 'lucide-react'
+import { MessageSquare, Send, Users, Plus, Bell, Edit, Trash2, Save, X, Sparkles, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import {
   Dialog,
@@ -65,6 +65,7 @@ export default function GroupChatPage() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editMessageContent, setEditMessageContent] = useState('')
   const [groupFiles, setGroupFiles] = useState<any[]>([])
+  const [enhancingMessage, setEnhancingMessage] = useState(false)
 
   const fetchGroupChats = async () => {
     if (!user) return;
@@ -250,6 +251,37 @@ export default function GroupChatPage() {
       fetchMessages();
     }
   };
+
+  const handleEnhanceMessage = async () => {
+    const currentMessage = newMessage.trim()
+    if (!currentMessage) {
+      toast.error('Please enter a message to enhance')
+      return
+    }
+
+    setEnhancingMessage(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentMessage })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      setNewMessage(data.message)
+      toast.success('Message enhanced with AI')
+    } catch (error: any) {
+      console.error('Message enhancement error:', error)
+      toast.error(error?.message || 'Failed to enhance message')
+    } finally {
+      setEnhancingMessage(false)
+    }
+  }
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1027,17 +1059,39 @@ export default function GroupChatPage() {
 
               {/* Message Input */}
               <div className="flex gap-2">
-                <Input
-                  placeholder="Type your message..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  className="flex-1 bg-gray-800/50 border-gray-700 text-white"
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                />
+                <div className="flex-1 relative">
+                  <Input
+                    placeholder="Type your message..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    className="flex-1 bg-gray-800/50 border-gray-700 text-white pr-10"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                        e.preventDefault()
+                        handleSendMessage()
+                      }
+                    }}
+                  />
+                  {newMessage.trim() && (
+                    <button
+                      type="button"
+                      onClick={handleEnhanceMessage}
+                      disabled={enhancingMessage}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Enhance with AI"
+                    >
+                      {enhancingMessage ? (
+                        <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 text-purple-400" />
+                      )}
+                    </button>
+                  )}
+                </div>
                 <Button 
                   className="bg-cyan-600 hover:bg-cyan-700"
                   onClick={handleSendMessage}
-                  disabled={uploading || (!newMessage.trim() && !attachmentUrl)}
+                  disabled={uploading || enhancingMessage || (!newMessage.trim() && !attachmentUrl)}
                 >
                   <Send className="w-4 h-4" />
                 </Button>

@@ -32,7 +32,9 @@ import {
   Hand,
   Image,
   Video,
-  File
+  File,
+  Sparkles,
+  Loader2
 } from 'lucide-react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useUser } from '@/hooks/useUser'
@@ -47,6 +49,7 @@ import {
   DialogClose
 } from "@/components/ui/dialog"
 import { AdsenseAd } from '@/components/AdsenseAd'
+import { toast } from 'sonner'
 
 interface PostInteraction {
   type: string;
@@ -100,6 +103,7 @@ export default function FeedPage() {
   const [mediaFiles, setMediaFiles] = useState<File[]>([])
   const [uploadingMedia, setUploadingMedia] = useState(false)
   const [mediaPreview, setMediaPreview] = useState<string[]>([])
+  const [enhancingPost, setEnhancingPost] = useState(false)
 
   useEffect(() => {
     fetchPosts()
@@ -203,6 +207,37 @@ export default function FeedPage() {
       console.error('Error fetching posts:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleEnhancePost = async () => {
+    const currentContent = newPost.content.trim()
+    if (!currentContent) {
+      toast.error('Please enter post content to enhance')
+      return
+    }
+
+    setEnhancingPost(true)
+    try {
+      const response = await fetch('/api/enhance-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentContent })
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Enhancement failed')
+      }
+
+      const data = await response.json()
+      setNewPost({ ...newPost, content: data.message })
+      toast.success('Post content enhanced with AI')
+    } catch (error: any) {
+      console.error('Post enhancement error:', error)
+      toast.error(error?.message || 'Failed to enhance post content')
+    } finally {
+      setEnhancingPost(false)
     }
   }
 
@@ -647,13 +682,30 @@ export default function FeedPage() {
                     </div>
                     <div>
                     <label className="block text-sm font-medium mb-1">Content</label>
-                    <textarea
-                      className="w-full rounded border-gray-700 bg-gray-900 text-white p-2 min-h-[80px]"
-                        value={newPost.content}
-                      onChange={e => setNewPost({ ...newPost, content: e.target.value })}
-                      placeholder="What's on your mind?"
-                        required
+                    <div className="relative">
+                      <textarea
+                        className="w-full rounded border-gray-700 bg-gray-900 text-white p-2 min-h-[80px] pr-10"
+                          value={newPost.content}
+                        onChange={e => setNewPost({ ...newPost, content: e.target.value })}
+                        placeholder="What's on your mind?"
+                          required
                       />
+                      {newPost.content.trim() && (
+                        <button
+                          type="button"
+                          onClick={handleEnhancePost}
+                          disabled={enhancingPost}
+                          className="absolute bottom-3 right-3 p-1.5 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Enhance with AI"
+                        >
+                          {enhancingPost ? (
+                            <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-4 h-4 text-purple-400" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                     </div>
                         <div>
                     <label className="block text-sm font-medium mb-1">Media (optional)</label>
@@ -686,7 +738,7 @@ export default function FeedPage() {
                       )}
                     </div>
                   <DialogFooter>
-                    <Button type="submit" className="gradient-button w-full" disabled={uploadingMedia}>
+                    <Button type="submit" className="gradient-button w-full" disabled={uploadingMedia || enhancingPost}>
                       {uploadingMedia ? 'Posting...' : 'Post'}
                       </Button>
                     <DialogClose asChild>
