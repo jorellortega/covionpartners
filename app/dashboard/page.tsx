@@ -2475,8 +2475,8 @@ const renderAIView = () => {
               </div>
             </>
           ) : (
-            <div className="flex items-center justify-between">
-              {/* Compact view: Just logo and account icon */}
+            <div className="flex items-center justify-between w-full">
+              {/* Compact view: Logo, view selector, and account icon */}
               <div className="flex items-center">
                 <span 
                   className="bg-gradient-to-r from-purple-500 to-purple-900 rounded-full p-1.5 mr-3 cursor-pointer hover:scale-105 transition-transform"
@@ -2484,6 +2484,41 @@ const renderAIView = () => {
                 >
                   <Handshake className="w-6 h-6 text-white" />
                 </span>
+              </div>
+              
+              {/* Dashboard View Selector for compact view */}
+              <div className="flex items-center gap-1 sm:gap-2 bg-gray-800/30 rounded-lg p-1 border border-gray-700">
+                <Button
+                  variant={dashboardView === 'default' ? 'default' : 'ghost'}
+                  size="sm"
+                  className={`h-8 px-2 sm:px-3 text-xs sm:text-sm ${dashboardView === 'default' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-700/50'}`}
+                  onClick={() => changeViewAndLock('default')}
+                >
+                  <Layout className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                  <span className="hidden xs:inline sm:inline">Default</span>
+                  {isViewLocked && dashboardView === 'default' && <Lock className="w-3 h-3 ml-1" />}
+                </Button>
+                <Button
+                  variant={dashboardView === 'compact' ? 'default' : 'ghost'}
+                  size="sm"
+                  className={`h-8 px-2 sm:px-3 text-xs sm:text-sm ${dashboardView === 'compact' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-700/50'}`}
+                  onClick={() => changeViewAndLock('compact')}
+                >
+                  <List className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                  <span className="hidden xs:inline sm:inline">Compact</span>
+                  {isViewLocked && dashboardView === 'compact' && <Lock className="w-3 h-3 ml-1" />}
+                </Button>
+                
+                <Button
+                  variant={dashboardView === 'ai' ? 'default' : 'ghost'}
+                  size="sm"
+                  className={`h-8 px-2 sm:px-3 text-xs sm:text-sm ${dashboardView === 'ai' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-700/50'}`}
+                  onClick={() => changeViewAndLock('ai')}
+                >
+                  <Bot className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                  <span className="hidden xs:inline sm:inline">AI</span>
+                  {isViewLocked && dashboardView === 'ai' && <Lock className="w-3 h-3 ml-1" />}
+                </Button>
               </div>
               
               {/* Account icon for compact view */}
