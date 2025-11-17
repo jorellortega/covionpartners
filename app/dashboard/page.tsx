@@ -2927,6 +2927,11 @@ const renderAIView = () => {
                       <Handshake className="w-4 h-4 mr-2" /> Partners Overview
                     </Button>
                   </Link>
+                  <Link href="/my-partners">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <Users className="w-4 h-4 mr-2" /> My Partners
+                    </Button>
+                  </Link>
                   <Link href="/work-submission">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
                       <PenSquare className="w-4 h-4 mr-2" /> Work for Hire Submission

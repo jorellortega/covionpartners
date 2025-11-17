@@ -30,6 +30,7 @@ import {
   Mail,
   MessageSquare,
   Send,
+  ExternalLink,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
@@ -137,6 +138,35 @@ interface ProjectComment {
   }
 }
 
+interface PublicProject {
+  id: string
+  name: string
+  description?: string
+  status: string
+  progress?: number
+  visibility: string
+  project_key?: string | null
+}
+
+interface PartnerNote {
+  id: string
+  partner_invitation_id: string
+  project_id?: string
+  title: string
+  content: string
+  content_type: string
+  linked_project_ids?: string[]
+  attachments?: Array<{
+    type: string
+    url: string
+    name: string
+  }>
+  created_by: string
+  created_at: string
+  updated_at: string
+  linked_projects?: PublicProject[]
+}
+
 export default function PartnersOverviewPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
@@ -156,6 +186,9 @@ export default function PartnersOverviewPage() {
   const [loadingComments, setLoadingComments] = useState<Record<string, boolean>>({})
   const [newComment, setNewComment] = useState<Record<string, string>>({})
   const [isProjectInfoExpanded, setIsProjectInfoExpanded] = useState(false)
+  const [partnerNotes, setPartnerNotes] = useState<Record<string, PartnerNote[]>>({})
+  const [loadingNotes, setLoadingNotes] = useState<Record<string, boolean>>({})
+  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({})
 
   // Define fetch functions with useCallback
   const fetchProjectUpdates = useCallback(async (projectId: string, invitationId: string) => {
@@ -284,6 +317,56 @@ export default function PartnersOverviewPage() {
       setLoadingTeamMembers(prev => ({ ...prev, [projectId]: false }))
     }
   }, [partnerSettings])
+
+  const fetchPartnerNotes = useCallback(async (invitationId: string) => {
+    setLoadingNotes(prev => ({ ...prev, [invitationId]: true }))
+    try {
+      const { data, error } = await supabase
+        .from('partner_notes')
+        .select('*')
+        .eq('partner_invitation_id', invitationId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        // Fetch linked project details (both public and private)
+        const linkedProjectIds = data
+          .flatMap(note => note.linked_project_ids || [])
+          .filter((id, index, self) => self.indexOf(id) === index)
+
+        let linkedProjectsMap: Record<string, PublicProject> = {}
+        if (linkedProjectIds.length > 0) {
+          const { data: projectsData } = await supabase
+            .from('projects')
+            .select('id, name, description, status, progress, visibility, project_key')
+            .in('id', linkedProjectIds)
+            .in('visibility', ['public', 'private'])
+
+          if (projectsData) {
+            projectsData.forEach(project => {
+              linkedProjectsMap[project.id] = project
+            })
+          }
+        }
+
+        const notesWithProjects: PartnerNote[] = data.map(note => ({
+          ...note,
+          linked_projects: (note.linked_project_ids || [])
+            .map(id => linkedProjectsMap[id])
+            .filter(Boolean)
+        }))
+
+        setPartnerNotes(prev => ({ ...prev, [invitationId]: notesWithProjects }))
+      } else {
+        setPartnerNotes(prev => ({ ...prev, [invitationId]: [] }))
+      }
+    } catch (error) {
+      console.error('Error fetching partner notes:', error)
+    } finally {
+      setLoadingNotes(prev => ({ ...prev, [invitationId]: false }))
+    }
+  }, [])
 
   const fetchProjectComments = useCallback(async (projectId: string, invitationId: string) => {
     const settings = partnerSettings[invitationId]
@@ -516,6 +599,7 @@ export default function PartnersOverviewPage() {
     if (settings.can_see_updates) {
       fetchProjectUpdates(project.id, invitationId)
       fetchProjectComments(project.id, invitationId)
+      fetchPartnerNotes(invitationId)
     }
     if (settings.can_see_expenses) {
       fetchProjectExpenses(project.id, invitationId)
@@ -530,7 +614,8 @@ export default function PartnersOverviewPage() {
     fetchProjectUpdates,
     fetchProjectExpenses,
     fetchProjectTeamMembers,
-    fetchProjectComments
+    fetchProjectComments,
+    fetchPartnerNotes
   ])
 
   const handleAcceptInvitation = async () => {
@@ -924,6 +1009,126 @@ export default function PartnersOverviewPage() {
                         <div className="text-center py-12">
                           <FileText className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                           <p className="text-gray-400">No updates available</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Partner Notes */}
+                {partnerSettings[selectedProject.partner_invitation_id]?.can_see_updates && (
+                  <Card className="bg-[#141414] border border-black shadow-xl hover:shadow-2xl transition-all duration-300">
+                    <CardHeader className="border-b border-black">
+                      <CardTitle className="text-xl text-white flex items-center gap-3">
+                        <div className="p-2 bg-blue-500/20 rounded-lg">
+                          <FileText className="w-5 h-5 text-blue-400" />
+                        </div>
+                        Partner Notes
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      {loadingNotes[selectedProject.partner_invitation_id] ? (
+                        <div className="flex justify-center py-12">
+                          <LoadingSpinner />
+                        </div>
+                      ) : partnerNotes[selectedProject.partner_invitation_id]?.length > 0 ? (
+                        <div className="space-y-4">
+                          {partnerNotes[selectedProject.partner_invitation_id].map((note) => {
+                            const isExpanded = expandedNotes[note.id] || false
+                            return (
+                              <Card key={note.id} className="bg-[#141414] border border-[#141414]">
+                                <CardHeader className="pb-3">
+                                  <div 
+                                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => setExpandedNotes(prev => ({ ...prev, [note.id]: !isExpanded }))}
+                                  >
+                                    <CardTitle className="text-lg text-white">{note.title}</CardTitle>
+                                    {isExpanded ? (
+                                      <ChevronUp className="w-4 h-4 text-gray-400" />
+                                    ) : (
+                                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                                    )}
+                                  </div>
+                                  <CardDescription className="text-gray-400 text-xs mt-1">
+                                    {formatDate(note.created_at)}
+                                  </CardDescription>
+                                </CardHeader>
+                                {isExpanded && (
+                                  <CardContent>
+                                <div className="prose prose-invert max-w-none">
+                                  <div className="text-gray-300 whitespace-pre-wrap leading-relaxed">
+                                    {note.content}
+                                  </div>
+                                </div>
+                                {note.linked_projects && note.linked_projects.length > 0 && (
+                                  <div className="mt-4 pt-4 border-t border-black">
+                                    <Label className="text-gray-400 text-sm font-medium mb-2 block">Linked Projects (Sub-Projects):</Label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                      {note.linked_projects.map((project) => (
+                                        <Card key={project.id} className="bg-gray-900/50 border-gray-700 hover:border-purple-500/50 transition-colors cursor-pointer" onClick={() => router.push(`/publicprojects/${project.id}`)}>
+                                          <CardContent className="p-4">
+                                            <div className="flex items-start justify-between">
+                                              <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                  <Building2 className="w-4 h-4 text-purple-400" />
+                                                  <span className="text-white font-semibold">{project.name}</span>
+                                                  {project.visibility === 'private' && (
+                                                    <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30 text-xs">
+                                                      Private
+                                                    </Badge>
+                                                  )}
+                                                </div>
+                                                {project.description && (
+                                                  <p className="text-gray-400 text-xs line-clamp-2">{project.description}</p>
+                                                )}
+                                                <div className="space-y-2 mt-2">
+                                                  <div className="flex items-center gap-2">
+                                                    <Badge
+                                                      variant="outline"
+                                                      className={
+                                                        project.status === 'active'
+                                                          ? 'bg-green-500/10 text-green-400 border-green-500/30 text-xs'
+                                                          : project.status === 'completed'
+                                                          ? 'bg-blue-500/10 text-blue-400 border-blue-500/30 text-xs'
+                                                          : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30 text-xs'
+                                                      }
+                                                    >
+                                                      {project.status}
+                                                    </Badge>
+                                                    {project.progress !== undefined && (
+                                                      <span className="text-gray-400 text-xs">{project.progress}%</span>
+                                                    )}
+                                                  </div>
+                                                  {project.progress !== undefined && (
+                                                    <div className="w-full">
+                                                      <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                                                        <div 
+                                                          className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-500"
+                                                          style={{ width: `${Math.min(project.progress, 100)}%` }}
+                                                        />
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              <ExternalLink className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                                            </div>
+                                          </CardContent>
+                                        </Card>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              </CardContent>
+                                )}
+                              </Card>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12">
+                          <FileText className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                          <p className="text-gray-400">No notes available</p>
                         </div>
                       )}
                     </CardContent>

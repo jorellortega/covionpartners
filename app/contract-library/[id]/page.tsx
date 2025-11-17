@@ -36,10 +36,18 @@ import {
   X,
   Key,
   Share2,
-  Plus
+  Plus,
+  Save,
+  Edit3
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { PDFDocument } from 'pdf-lib'
+import { Document, Page, pdfjs } from 'react-pdf'
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css'
+import 'react-pdf/dist/esm/Page/TextLayer.css'
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
 
 interface Contract {
   id: string
@@ -89,6 +97,15 @@ export default function ContractViewPage() {
   const [hasEditAccess, setHasEditAccess] = useState(false)
   const [signatures, setSignatures] = useState<any[]>([])
   const [deletingSignature, setDeletingSignature] = useState<string | null>(null)
+  
+  // Form field values state
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
+  const [savingFields, setSavingFields] = useState(false)
+  const [showFieldsForm, setShowFieldsForm] = useState(false)
+  const [pdfFormFields, setPdfFormFields] = useState<Array<{name: string, type: string}>>([])
+  const [extractingFields, setExtractingFields] = useState(false)
+  const [numPages, setNumPages] = useState<number>(0)
+  const [useReactPdf, setUseReactPdf] = useState(false)
 
   // CRUD states
   const [showEditDialog, setShowEditDialog] = useState(false)
@@ -139,6 +156,17 @@ export default function ContractViewPage() {
       fetchContract()
     }
   }, [params.id, user])
+
+  // Auto-extract PDF form fields when contract is loaded
+  useEffect(() => {
+    if (contract?.file_url && (contract.file_type === 'application/pdf' || contract.file_name?.toLowerCase().endsWith('.pdf')) && pdfFormFields.length === 0 && !extractingFields) {
+      // Small delay to ensure contract is fully loaded
+      const timer = setTimeout(() => {
+        extractPdfFormFields()
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [contract?.file_url, contract?.file_type, contract?.file_name])
 
   // Check user's access level and ownership for the contract's organization
   useEffect(() => {
@@ -256,6 +284,10 @@ export default function ContractViewPage() {
       
       if (response.ok && data.contract) {
         setContract(data.contract)
+        // Load saved field values from contract variables
+        if (data.contract.variables && typeof data.contract.variables === 'object') {
+          setFieldValues(data.contract.variables as Record<string, string>)
+        }
         // Fetch organization details
         if (data.contract.organization_id) {
           const { data: org } = await supabase
@@ -528,6 +560,325 @@ export default function ContractViewPage() {
         description: "Failed to copy link to clipboard",
         variant: "destructive"
       })
+    }
+  }
+
+  // Save filled field values
+  const saveFieldValues = async () => {
+    if (!contract?.id) return
+    
+    try {
+      setSavingFields(true)
+      const response = await fetch(`/api/contracts?id=${contract.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          variables: fieldValues
+        })
+      })
+      
+      if (response.ok) {
+        toast({
+          title: "Saved",
+          description: "Field values have been saved and will be included when sending for signature"
+        })
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to save')
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save field values",
+        variant: "destructive"
+      })
+    } finally {
+      setSavingFields(false)
+    }
+  }
+
+  const updateFieldValue = (fieldId: string, value: string) => {
+    setFieldValues(prev => ({
+      ...prev,
+      [fieldId]: value
+    }))
+  }
+
+  // Extract PDF form fields
+  const extractPdfFormFields = async () => {
+    if (!contract?.file_url) return
+    
+    try {
+      setExtractingFields(true)
+      const response = await fetch(contract.file_url)
+      const arrayBuffer = await response.arrayBuffer()
+      const pdfDoc = await PDFDocument.load(arrayBuffer)
+      
+      const form = pdfDoc.getForm()
+      const fields: Array<{name: string, type: string}> = []
+      
+      // Get all form fields
+      const fieldNames = form.getFields().map(field => {
+        const fieldName = field.getName()
+        let fieldType = 'text'
+        
+        try {
+          if (field.constructor.name.includes('TextField')) {
+            fieldType = 'text'
+          } else if (field.constructor.name.includes('CheckBox')) {
+            fieldType = 'checkbox'
+          } else if (field.constructor.name.includes('Dropdown')) {
+            fieldType = 'select'
+          } else if (field.constructor.name.includes('RadioGroup')) {
+            fieldType = 'radio'
+          }
+        } catch (e) {
+          // Default to text
+        }
+        
+        return { name: fieldName, type: fieldType }
+      })
+      
+      setPdfFormFields(fieldNames)
+      
+      // Load existing values from saved variables
+      if (contract.variables && typeof contract.variables === 'object') {
+        const savedValues = contract.variables as Record<string, any>
+        const loadedValues: Record<string, string> = {}
+        fieldNames.forEach(field => {
+          if (savedValues[field.name]) {
+            loadedValues[field.name] = String(savedValues[field.name])
+          }
+        })
+        setFieldValues(loadedValues)
+      }
+      
+      toast({
+        title: "PDF Fields Extracted",
+        description: `Found ${fieldNames.length} form field(s) in the PDF`
+      })
+    } catch (error) {
+      console.error('Error extracting PDF fields:', error)
+      toast({
+        title: "Error",
+        description: "Could not extract PDF form fields. You can still use the generic fields below.",
+        variant: "destructive"
+      })
+    } finally {
+      setExtractingFields(false)
+    }
+  }
+
+  // Read current PDF form field values and save them
+  // Note: This reads from the PDF file, not from the iframe viewer
+  // Values typed in the iframe are only in browser memory, not in the PDF file
+  const capturePdfFormData = async () => {
+    if (!contract?.file_url) return
+    
+    try {
+      setSavingFields(true)
+      
+      // Fetch the PDF
+      const response = await fetch(contract.file_url)
+      const arrayBuffer = await response.arrayBuffer()
+      const pdfDoc = await PDFDocument.load(arrayBuffer)
+      
+      const form = pdfDoc.getForm()
+      const capturedValues: Record<string, string> = {}
+      
+      // Read all form field values from the PDF
+      form.getFields().forEach(field => {
+        try {
+          const fieldName = field.getName()
+          let value = ''
+          
+          try {
+            const textField = form.getTextField(fieldName)
+            value = textField.getText()
+          } catch (e) {
+            try {
+              const checkBox = form.getCheckBox(fieldName)
+              value = checkBox.isChecked() ? 'checked' : ''
+            } catch (e2) {
+              try {
+                const dropdown = form.getDropdown(fieldName)
+                value = dropdown.getSelected() || ''
+              } catch (e3) {
+                // Field type not supported or error reading
+              }
+            }
+          }
+          
+          if (value) {
+            capturedValues[fieldName] = value
+          }
+        } catch (e) {
+          // Skip this field
+        }
+      })
+      
+      // If no values found, try to use the form fields we have
+      if (Object.keys(capturedValues).length === 0 && Object.keys(fieldValues).length > 0) {
+        // Use the values from our form
+        Object.assign(capturedValues, fieldValues)
+      }
+      
+      // Update field values state
+      setFieldValues(prev => ({ ...prev, ...capturedValues }))
+      
+      // Fill PDF with captured values and save
+      Object.keys(capturedValues).forEach(fieldName => {
+        try {
+          const field = form.getTextField(fieldName)
+          field.setText(capturedValues[fieldName])
+        } catch (e) {
+          try {
+            const field = form.getCheckBox(fieldName)
+            if (capturedValues[fieldName] === 'checked' || capturedValues[fieldName] === 'true') {
+              field.check()
+            }
+          } catch (e2) {
+            // Skip
+          }
+        }
+      })
+      
+      // Save the filled PDF
+      const pdfBytes = await pdfDoc.save()
+      
+      // Upload the filled PDF back to storage
+      const fileName = `filled-${Date.now()}-${contract.file_name}`
+      const { error: uploadError } = await supabase.storage
+        .from('contracts')
+        .upload(fileName, pdfBytes, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: 'application/pdf'
+        })
+      
+      if (uploadError) throw uploadError
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('contracts')
+        .getPublicUrl(fileName)
+      
+      // Update contract with filled PDF URL and save field values
+      const updateResponse = await fetch(`/api/contracts?id=${contract.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          variables: capturedValues,
+          file_url: publicUrl // Update to filled PDF
+        })
+      })
+      
+      if (updateResponse.ok) {
+        toast({
+          title: "Saved",
+          description: `Saved ${Object.keys(capturedValues).length} form field value(s). The filled PDF has been updated.`
+        })
+        // Refresh contract to show new PDF
+        fetchContract()
+      } else {
+        throw new Error('Failed to update contract')
+      }
+    } catch (error: any) {
+      console.error('Error capturing PDF form data:', error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to capture PDF form data. Make sure you've filled the form fields above first.",
+        variant: "destructive"
+      })
+    } finally {
+      setSavingFields(false)
+    }
+  }
+
+  // Save filled PDF form fields back to PDF
+  const saveFilledPdf = async () => {
+    if (!contract?.file_url) return
+    
+    try {
+      setSavingFields(true)
+      
+      // Fetch the PDF
+      const response = await fetch(contract.file_url)
+      const arrayBuffer = await response.arrayBuffer()
+      const pdfDoc = await PDFDocument.load(arrayBuffer)
+      
+      const form = pdfDoc.getForm()
+      
+      // Fill in all the form fields
+      Object.keys(fieldValues).forEach(fieldName => {
+        try {
+          const field = form.getTextField(fieldName)
+          field.setText(fieldValues[fieldName])
+        } catch (e) {
+          // Try checkbox
+          try {
+            const field = form.getCheckBox(fieldName)
+            if (fieldValues[fieldName] === 'true' || fieldValues[fieldName] === 'checked') {
+              field.check()
+            } else {
+              field.uncheck()
+            }
+          } catch (e2) {
+            // Field might not exist or be different type, skip
+            console.log(`Could not fill field: ${fieldName}`)
+          }
+        }
+      })
+      
+      // Save the filled PDF
+      const pdfBytes = await pdfDoc.save()
+      
+      // Upload the filled PDF back to storage
+      const fileName = `filled-${Date.now()}-${contract.file_name}`
+      const { error: uploadError } = await supabase.storage
+        .from('contracts')
+        .upload(fileName, pdfBytes, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: 'application/pdf'
+        })
+      
+      if (uploadError) throw uploadError
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('contracts')
+        .getPublicUrl(fileName)
+      
+      // Update contract with filled PDF URL and save field values
+      const updateResponse = await fetch(`/api/contracts?id=${contract.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          variables: fieldValues,
+          file_url: publicUrl // Update to filled PDF
+        })
+      })
+      
+      if (updateResponse.ok) {
+        toast({
+          title: "Saved",
+          description: "PDF form fields have been filled and saved. The filled PDF is now available."
+        })
+        // Refresh contract to show new PDF
+        fetchContract()
+      } else {
+        throw new Error('Failed to update contract')
+      }
+    } catch (error: any) {
+      console.error('Error saving filled PDF:', error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save filled PDF",
+        variant: "destructive"
+      })
+    } finally {
+      setSavingFields(false)
     }
   }
 
@@ -1166,21 +1517,350 @@ export default function ContractViewPage() {
               
               {contract.file_url ? (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <FileText className="w-4 h-4" />
-                    <span>This contract has an uploaded file</span>
-                  </div>
-                  <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4">
-                    <p className="text-white mb-2">File: {contract.file_name}</p>
-                    <p className="text-gray-400 text-sm mb-4">Type: {contract.file_type}</p>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <FileText className="w-4 h-4" />
+                      <span>This contract has an uploaded file</span>
+                    </div>
                     <Button
                       onClick={() => window.open(contract.file_url, '_blank')}
-                      className="gradient-button hover:bg-purple-700"
+                      variant="outline"
+                      size="sm"
+                      className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
                     >
                       <Download className="w-4 h-4 mr-2" />
-                      Download File
+                      Download
                     </Button>
                   </div>
+                  
+                  {/* PDF Viewer */}
+                  {contract.file_type === 'application/pdf' || contract.file_name?.toLowerCase().endsWith('.pdf') ? (
+                    <div className="space-y-4">
+                      {/* Form Fields Section - Always show for PDFs */}
+                      <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <Edit3 className="w-4 h-4 text-gray-400" />
+                            <h3 className="text-lg font-semibold text-white">Fill PDF Form Fields</h3>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {!pdfFormFields.length && (
+                              <Button
+                                onClick={extractPdfFormFields}
+                                disabled={extractingFields}
+                                variant="outline"
+                                size="sm"
+                                className="border-gray-700 bg-gray-800/30 text-white hover:bg-green-900/20 hover:text-green-400"
+                              >
+                                {extractingFields ? 'Extracting...' : 'Extract PDF Fields'}
+                              </Button>
+                            )}
+                            {savingFields && (
+                              <span className="text-xs text-gray-400 flex items-center gap-1">
+                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                Saving...
+                              </span>
+                            )}
+                            <Button
+                              onClick={pdfFormFields.length > 0 ? saveFilledPdf : saveFieldValues}
+                              disabled={savingFields || Object.keys(fieldValues).filter(k => fieldValues[k]?.trim()).length === 0}
+                              variant="outline"
+                              size="sm"
+                              className="border-gray-700 bg-gray-800/30 text-white hover:bg-blue-900/20 hover:text-blue-400 disabled:opacity-50"
+                            >
+                              <Save className="w-4 h-4 mr-2" />
+                              {savingFields ? 'Saving...' : 'Save & Fill PDF'}
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {pdfFormFields.length > 0 && (
+                          <div className="mb-4 p-3 bg-green-900/20 border border-green-700 rounded-lg">
+                            <p className="text-sm text-green-300">
+                              ✓ Found {pdfFormFields.length} PDF form field(s). Fill them below and click "Save & Fill PDF" to save the filled PDF.
+                            </p>
+                          </div>
+                        )}
+                        {pdfFormFields.length === 0 && (
+                          <div className="mb-4 p-3 bg-yellow-900/20 border border-yellow-700 rounded-lg">
+                            <p className="text-sm text-yellow-300">
+                              ⚠️ No PDF form fields detected. Click "Extract PDF Fields" to scan for fillable fields, or use the generic fields below.
+                            </p>
+                          </div>
+                        )}
+                        
+                        {pdfFormFields.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {pdfFormFields.map((field, index) => (
+                              <div key={field.name || index} className="space-y-2">
+                                <Label className="text-sm text-gray-300">
+                                  {field.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </Label>
+                                {field.type === 'checkbox' ? (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={fieldValues[field.name] === 'true' || fieldValues[field.name] === 'checked'}
+                                      onChange={(e) => updateFieldValue(field.name, e.target.checked ? 'checked' : '')}
+                                      className="w-4 h-4"
+                                    />
+                                    <span className="text-sm text-gray-400">Check this field</span>
+                                  </div>
+                                ) : (
+                                  <Input
+                                    type="text"
+                                    value={fieldValues[field.name] || ''}
+                                    onChange={(e) => updateFieldValue(field.name, e.target.value)}
+                                    placeholder={`Enter ${field.name.replace(/_/g, ' ')}`}
+                                    className="bg-gray-800/30 border-gray-700 text-white"
+                                  />
+                                )}
+                                <p className="text-xs text-gray-500">
+                                  PDF Field: {field.name} • Type: {field.type}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : contract.signature_fields && contract.signature_fields.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {contract.signature_fields.map((field: any, index: number) => (
+                              <div key={field.id || index} className="space-y-2">
+                                <Label className="text-sm text-gray-300">
+                                  {field.label || `Field ${index + 1}`}
+                                  {field.required && <span className="text-red-400 ml-1">*</span>}
+                                </Label>
+                                {field.type === 'date' ? (
+                                  <Input
+                                    type="date"
+                                    value={fieldValues[field.id] || ''}
+                                    onChange={(e) => updateFieldValue(field.id, e.target.value)}
+                                    className="bg-gray-800/30 border-gray-700 text-white"
+                                  />
+                                ) : field.type === 'signature' ? (
+                                  <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-3">
+                                    <p className="text-sm text-gray-400">
+                                      Signature will be collected when signing
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <Input
+                                    type={field.type === 'email' ? 'email' : 'text'}
+                                    value={fieldValues[field.id] || ''}
+                                    onChange={(e) => updateFieldValue(field.id, e.target.value)}
+                                    placeholder={field.placeholder_text || `Enter ${field.label || field.type}`}
+                                    className="bg-gray-800/30 border-gray-700 text-white"
+                                  />
+                                )}
+                                <p className="text-xs text-gray-500">
+                                  Type: {field.type} • Page: {field.position?.page || 1}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="p-3 bg-yellow-900/20 border border-yellow-700 rounded-lg">
+                              <p className="text-sm text-yellow-300 mb-3">
+                                💡 No form fields defined yet. Add fields below to fill in the PDF, or use the generic fields.
+                              </p>
+                            </div>
+                            
+                            {/* Generic common fields */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="text-sm text-gray-300">Full Name (Last)</Label>
+                                <Input
+                                  type="text"
+                                  value={fieldValues['last_name'] || ''}
+                                  onChange={(e) => updateFieldValue('last_name', e.target.value)}
+                                  placeholder="Enter last name"
+                                  className="bg-gray-800/30 border-gray-700 text-white"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm text-gray-300">First Name</Label>
+                                <Input
+                                  type="text"
+                                  value={fieldValues['first_name'] || ''}
+                                  onChange={(e) => updateFieldValue('first_name', e.target.value)}
+                                  placeholder="Enter first name"
+                                  className="bg-gray-800/30 border-gray-700 text-white"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm text-gray-300">Middle Name</Label>
+                                <Input
+                                  type="text"
+                                  value={fieldValues['middle_name'] || ''}
+                                  onChange={(e) => updateFieldValue('middle_name', e.target.value)}
+                                  placeholder="Enter middle name"
+                                  className="bg-gray-800/30 border-gray-700 text-white"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm text-gray-300">Business/Company Name</Label>
+                                <Input
+                                  type="text"
+                                  value={fieldValues['business_name'] || ''}
+                                  onChange={(e) => updateFieldValue('business_name', e.target.value)}
+                                  placeholder="Enter business name"
+                                  className="bg-gray-800/30 border-gray-700 text-white"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm text-gray-300">Street Address</Label>
+                                <Input
+                                  type="text"
+                                  value={fieldValues['street_address'] || ''}
+                                  onChange={(e) => updateFieldValue('street_address', e.target.value)}
+                                  placeholder="Enter street address"
+                                  className="bg-gray-800/30 border-gray-700 text-white"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm text-gray-300">City</Label>
+                                <Input
+                                  type="text"
+                                  value={fieldValues['city'] || ''}
+                                  onChange={(e) => updateFieldValue('city', e.target.value)}
+                                  placeholder="Enter city"
+                                  className="bg-gray-800/30 border-gray-700 text-white"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm text-gray-300">State</Label>
+                                <Input
+                                  type="text"
+                                  value={fieldValues['state'] || ''}
+                                  onChange={(e) => updateFieldValue('state', e.target.value)}
+                                  placeholder="Enter state"
+                                  className="bg-gray-800/30 border-gray-700 text-white"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm text-gray-300">ZIP Code</Label>
+                                <Input
+                                  type="text"
+                                  value={fieldValues['zip_code'] || ''}
+                                  onChange={(e) => updateFieldValue('zip_code', e.target.value)}
+                                  placeholder="Enter ZIP code"
+                                  className="bg-gray-800/30 border-gray-700 text-white"
+                                />
+                              </div>
+                            </div>
+                            
+                            {/* Custom field input */}
+                            <div className="mt-4 p-3 bg-gray-900/50 border border-gray-700 rounded-lg">
+                              <Label className="text-sm text-gray-300 mb-2 block">Add Custom Field</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  type="text"
+                                  placeholder="Field name (e.g., Phone Number)"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      const fieldName = e.currentTarget.value.trim()
+                                      if (fieldName) {
+                                        updateFieldValue(fieldName.toLowerCase().replace(/\s+/g, '_'), '')
+                                        e.currentTarget.value = ''
+                                      }
+                                    }
+                                  }}
+                                  className="bg-gray-800/30 border-gray-700 text-white flex-1"
+                                />
+                              </div>
+                              <p className="text-xs text-gray-500 mt-2">
+                                Type a field name and press Enter to add it
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {Object.keys(fieldValues).length > 0 && (
+                          <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700 rounded-lg">
+                            <p className="text-sm text-blue-300">
+                              💡 {Object.keys(fieldValues).filter(k => fieldValues[k]).length} field(s) filled. Click "Save" to preserve these values for when sending for signature.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-white text-sm">File: {contract.file_name}</p>
+                          <Badge variant="outline" className="border-gray-600 text-gray-300 bg-gray-800/30">
+                            PDF Document
+                          </Badge>
+                        </div>
+                        <div className="mt-4 border border-gray-700 rounded-lg overflow-hidden relative">
+                          <div className="absolute top-2 right-2 z-10 flex gap-2">
+                            <Button
+                              onClick={saveFilledPdf}
+                              disabled={savingFields || Object.keys(fieldValues).filter(k => fieldValues[k]?.trim()).length === 0}
+                              size="sm"
+                              className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg disabled:opacity-50"
+                            >
+                              <Save className="w-4 h-4 mr-2" />
+                              {savingFields ? 'Saving...' : 'Save & Fill PDF'}
+                            </Button>
+                          </div>
+                          {useReactPdf ? (
+                            <div className="bg-gray-50 p-4 overflow-auto" style={{ maxHeight: '800px' }}>
+                              <Document
+                                file={contract.file_url}
+                                onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                                onLoadError={(error) => {
+                                  console.error('PDF load error:', error)
+                                  toast({
+                                    title: "Error",
+                                    description: "Failed to load PDF. Using browser viewer instead.",
+                                    variant: "destructive"
+                                  })
+                                  setUseReactPdf(false)
+                                }}
+                                loading={<div className="text-center py-8 text-gray-400">Loading PDF...</div>}
+                              >
+                                {Array.from(new Array(numPages), (el, index) => (
+                                  <Page
+                                    key={`page_${index + 1}`}
+                                    pageNumber={index + 1}
+                                    width={800}
+                                    renderTextLayer={true}
+                                    renderAnnotationLayer={true}
+                                    className="mb-4"
+                                  />
+                                ))}
+                              </Document>
+                            </div>
+                          ) : (
+                            <iframe
+                              src={`${contract.file_url}#toolbar=1&navpanes=1&scrollbar=1`}
+                              className="w-full h-[600px] md:h-[800px]"
+                              title="Contract PDF"
+                              style={{ minHeight: '600px' }}
+                            />
+                          )}
+                        </div>
+                        <div className="mt-2 p-2 bg-blue-900/20 border border-blue-700 rounded-lg">
+                          <p className="text-xs text-blue-300">
+                            💡 <strong>How to save:</strong> Fill in the form fields above, then click "Save & Fill PDF" button. This will fill the PDF with your data and save it. The PDF viewer will then show the filled PDF with all your entries.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4">
+                      <p className="text-white mb-2">File: {contract.file_name}</p>
+                      <p className="text-gray-400 text-sm mb-4">Type: {contract.file_type}</p>
+                      <Button
+                        onClick={() => window.open(contract.file_url, '_blank')}
+                        className="gradient-button hover:bg-purple-700"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download File
+                      </Button>
+                    </div>
+                  )}
+                  
                   {contract.contract_text && contract.contract_text !== `Uploaded file: ${contract.file_name}` && (
                     <div>
                       <h4 className="text-md font-semibold text-white mb-2">Additional Notes</h4>

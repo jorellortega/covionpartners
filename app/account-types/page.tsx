@@ -45,14 +45,14 @@ const features = [
     public: true,
     investor: false,
     partner: false,
-    enterprise: false
+    enterprise: true
   },
   {
     name: "Project Management",
     public: true,
     investor: false,
     partner: false,
-    enterprise: false
+    enterprise: true
   },
   {
     name: "Basic Analytics",
@@ -76,17 +76,24 @@ const features = [
     enterprise: true
   },
   {
-    name: "Custom Reports",
-    public: false,
-    investor: false,
-    partner: false,
-    enterprise: true
-  },
-  {
     name: "Create Projects (Unlimited)",
     public: false,
     investor: false,
     partner: true,
+    enterprise: true
+  },
+  {
+    name: "Deal Making & Negotiations",
+    public: false,
+    investor: false,
+    partner: true,
+    enterprise: true
+  },
+  {
+    name: "Contract Library Access",
+    public: false,
+    investor: false,
+    partner: false,
     enterprise: true
   },
   {
@@ -97,6 +104,20 @@ const features = [
     enterprise: true
   },
   {
+    name: "Organization Management",
+    public: false,
+    investor: false,
+    partner: true,
+    enterprise: true
+  },
+  {
+    name: "Guest Account System",
+    public: false,
+    investor: false,
+    partner: false,
+    enterprise: true
+  },
+  {
     name: "Priority Support",
     public: false,
     investor: false,
@@ -104,10 +125,24 @@ const features = [
     enterprise: true
   },
   {
-    name: "API Access",
+    name: "Advanced Financial Tools",
     public: false,
     investor: false,
     partner: false,
+    enterprise: true
+  },
+  {
+    name: "Job Posting (Unlimited)",
+    public: false,
+    investor: false,
+    partner: false,
+    enterprise: true
+  },
+  {
+    name: "File Management & Storage",
+    public: false,
+    investor: false,
+    partner: true,
     enterprise: true
   },
   {
@@ -118,7 +153,7 @@ const features = [
     enterprise: true
   },
   {
-    name: "Workflow",
+    name: "Workflow Automation",
     public: true,
     investor: true,
     partner: true,
@@ -131,6 +166,27 @@ const features = [
     partner: true,
     enterprise: true
   },
+  {
+    name: "Messaging System",
+    public: true,
+    investor: true,
+    partner: true,
+    enterprise: true
+  },
+  {
+    name: "Notifications & Updates",
+    public: true,
+    investor: true,
+    partner: true,
+    enterprise: true
+  },
+  {
+    name: "Cloud Services Integration",
+    public: false,
+    investor: false,
+    partner: false,
+    enterprise: true
+  },
 ]
 
 const tiers = [
@@ -138,6 +194,7 @@ const tiers = [
     name: "Public Account",
     description: "Free account to try our features. Join projects with a key from a project owner.",
     price: "Free",
+    priceDetail: "15% Platform fee",
     icon: Users,
     features: features.filter(f => f.public),
     cta: "Sign Up Now",
@@ -172,6 +229,7 @@ const tiers = [
     name: "Business Account",
     description: "Full platform access with advanced features",
     price: "$45/month",
+    priceDetail: "4% Platform fee",
     icon: Building2,
     features: features.filter(f => f.enterprise),
     cta: "Start Free Trial",
@@ -388,12 +446,11 @@ export default function AccountTypesPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {tiers.map((tier) => {
-            const isBusiness = tier.name === "Business Account";
             const isPartner = tier.name === "Partner Account";
             return (
             <Card 
               key={tier.name}
-                className={`leonardo-card border-gray-800 ${tier.popular ? 'border-purple-500/50' : ''} ${isBusiness || isPartner ? 'opacity-50 pointer-events-none relative' : ''}`}
+                className={`leonardo-card border-gray-800 ${tier.popular ? 'border-purple-500/50' : ''} ${isPartner ? 'opacity-50 pointer-events-none relative' : ''}`}
             >
               <CardHeader className="pb-4 pt-6">
                 <div className="flex items-center gap-3">
@@ -447,7 +504,7 @@ export default function AccountTypesPage() {
                   )}
                 </div>
               </CardFooter>
-                {(isBusiness || isPartner) && (
+                {isPartner && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-lg">
                     <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 text-transparent bg-clip-text">Under Development</span>
                   </div>

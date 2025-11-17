@@ -108,6 +108,7 @@ export default function ContractLibraryPage() {
     category: 'general',
     file: null as File | null
   })
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -305,44 +306,56 @@ export default function ContractLibraryPage() {
       return
     }
 
+    if (!uploadForm.title.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a title for the contract",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain'
+    ]
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt']
+    const fileExt = uploadForm.file.name.toLowerCase().split('.').pop()
+    
+    const isValidType = allowedTypes.includes(uploadForm.file.type) || 
+                        allowedExtensions.includes(`.${fileExt}`)
+    
+    if (!isValidType) {
+      toast({
+        title: "Error",
+        description: "Please upload a PDF or Word document (.pdf, .doc, .docx, .txt)",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setUploading(true)
+
     try {
-      // First, try to create the storage bucket if it doesn't exist
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets()
-      if (bucketsError) {
-        console.error('Error listing buckets:', bucketsError)
-      }
-
-      const contractsBucket = buckets?.find(bucket => bucket.name === 'contracts')
-      if (!contractsBucket) {
-        // Try to create the bucket
-        const { error: createError } = await supabase.storage.createBucket('contracts', {
-          public: true,
-          allowedMimeTypes: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
-        })
-        if (createError) {
-          console.error('Error creating bucket:', createError)
-          toast({
-            title: "Error",
-            description: "Failed to create storage bucket. Please contact support.",
-            variant: "destructive"
-          })
-          return
-        }
-      }
-
       // Upload file to Supabase storage
-      const fileExt = uploadForm.file.name.split('.').pop()
-      const fileName = `${Date.now()}-${uploadForm.file.name}`
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}-${uploadForm.file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('contracts')
         .upload(fileName, uploadForm.file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: false,
+          contentType: uploadForm.file.type || 'application/octet-stream'
         })
 
       if (uploadError) {
         console.error('Upload error:', uploadError)
+        if (uploadError.message?.includes('Bucket not found') || uploadError.message?.includes('not found')) {
+          throw new Error('Storage bucket not configured. Please run the database migration to set up the contracts bucket.')
+        }
         throw new Error(`Upload failed: ${uploadError.message}`)
       }
 
@@ -358,12 +371,12 @@ export default function ContractLibraryPage() {
         body: JSON.stringify({
           organization_id: selectedOrganization,
           title: uploadForm.title,
-          description: uploadForm.description,
+          description: uploadForm.description || '',
           contract_text: `Uploaded file: ${uploadForm.file.name}`,
           category: uploadForm.category,
           file_url: publicUrl,
           file_name: uploadForm.file.name,
-          file_type: uploadForm.file.type
+          file_type: uploadForm.file.type || `application/${fileExt}`
         })
       })
 
@@ -383,7 +396,7 @@ export default function ContractLibraryPage() {
         })
         fetchContracts()
       } else {
-        throw new Error(data.error)
+        throw new Error(data.error || 'Failed to create contract record')
       }
     } catch (error: any) {
       console.error('Upload error:', error)
@@ -392,6 +405,8 @@ export default function ContractLibraryPage() {
         description: error.message || "Failed to upload file",
         variant: "destructive"
       })
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -681,18 +696,46 @@ export default function ContractLibraryPage() {
                         <Label>File</Label>
                         <Input
                           type="file"
-                          accept=".pdf,.doc,.docx,.txt"
+                          accept=".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
                           onChange={(e) => setUploadForm({ ...uploadForm, file: e.target.files?.[0] || null })}
                           className="bg-gray-800/30 border-gray-700 text-white"
+                          disabled={uploading}
                         />
+                        {uploadForm.file && (
+                          <p className="text-sm text-gray-400 mt-1">
+                            Selected: {uploadForm.file.name} ({(uploadForm.file.size / 1024 / 1024).toFixed(2)} MB)
+                          </p>
+                        )}
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button variant="outline" onClick={() => setShowUploadDialog(false)}>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setShowUploadDialog(false)
+                          setUploadForm({
+                            title: '',
+                            description: '',
+                            category: 'general',
+                            file: null
+                          })
+                        }}
+                        disabled={uploading}
+                      >
                         Cancel
                       </Button>
-                      <Button onClick={handleUploadFile}>
-                        Upload File
+                      <Button onClick={handleUploadFile} disabled={uploading}>
+                        {uploading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4 mr-2" />
+                            Upload File
+                          </>
+                        )}
                       </Button>
                     </DialogFooter>
                   </DialogContent>

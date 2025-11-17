@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { Contract, ContractSignature, ContractStatus } from '@/types/contract-library'
 import jsPDF from 'jspdf'
+import { PDFDocument, rgb } from 'pdf-lib'
 
 interface Placeholder {
   id: string
@@ -62,6 +63,7 @@ function SignContractContent() {
   // Placeholder management
   const [placeholders, setPlaceholders] = useState<Placeholder[]>([])
   const [processedText, setProcessedText] = useState<string>('')
+  const [savingDraft, setSavingDraft] = useState(false)
   
   // Signature form
   const [signatureForm, setSignatureForm] = useState({
@@ -96,6 +98,15 @@ function SignContractContent() {
   useEffect(() => {
     if (contract?.contract_text) {
       processContractText(contract.contract_text)
+      // Load saved field values from contract variables
+      if (contract.variables && typeof contract.variables === 'object') {
+        const savedValues = contract.variables as Record<string, any>
+        setPlaceholders(prev => prev.map(p => {
+          // Try to find saved value by placeholder ID or original text
+          const savedValue = savedValues[p.id] || savedValues[p.original] || ''
+          return { ...p, value: savedValue || p.value }
+        }))
+      }
     }
   }, [contract])
 
@@ -184,10 +195,73 @@ function SignContractContent() {
     }
   }
 
+  // Debounce timer for auto-save
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   const updatePlaceholder = (id: string, value: string) => {
     setPlaceholders(prev => prev.map(p => 
       p.id === id ? { ...p, value } : p
     ))
+    // Auto-save draft values with debounce
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+    }
+    saveTimerRef.current = setTimeout(() => {
+      saveDraftValues()
+    }, 1000) // Wait 1 second after last change
+  }
+
+  // Save filled values to contract
+  const saveDraftValues = async (showToast = false) => {
+    if (!contract?.id || !user) return
+    
+    try {
+      setSavingDraft(true)
+      const fieldValues: Record<string, any> = {}
+      placeholders.forEach(p => {
+        if (p.value) {
+          fieldValues[p.id] = p.value
+          fieldValues[p.original] = p.value // Also save by original text for compatibility
+        }
+      })
+      
+      const response = await fetch(`/api/contracts?id=${contract.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          variables: fieldValues
+        })
+      })
+      
+      if (response.ok) {
+        if (showToast) {
+          toast({
+            title: "Draft Saved",
+            description: "Your filled information has been saved and will be included when sending for signature",
+          })
+        }
+      } else {
+        console.error('Failed to save draft values')
+        if (showToast) {
+          toast({
+            title: "Error",
+            description: "Failed to save draft values",
+            variant: "destructive"
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error saving draft values:', error)
+      if (showToast) {
+        toast({
+          title: "Error",
+          description: "Failed to save draft values",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setSavingDraft(false)
+    }
   }
 
   const autoFillAll = () => {
@@ -420,10 +494,16 @@ function SignContractContent() {
       return
     }
 
-
-
     try {
       const finalContractText = getFinalContractText()
+      
+      // Prepare signature field values from placeholders
+      const signatureFieldValues: Record<string, any> = {}
+      placeholders.forEach(p => {
+        if (p.value) {
+          signatureFieldValues[p.id] = p.value
+        }
+      })
       
       const response = await fetch('/api/contract-signatures', {
         method: 'POST',
@@ -433,7 +513,8 @@ function SignContractContent() {
           signer_name: signatureForm.signer_name,
           signer_email: signatureForm.signer_email,
           signature_data: signatureForm.signature_data,
-          filled_contract_text: finalContractText
+          filled_contract_text: finalContractText,
+          signature_field_values: signatureFieldValues
         })
       })
 
@@ -608,11 +689,148 @@ function SignContractContent() {
   }
 
   // Download contract with signatures
-  const downloadContract = () => {
+  const downloadContract = async () => {
     if (!contract) {
       return
     }
 
+    // Handle PDF files
+    if (contract.file_url && (contract.file_type === 'application/pdf' || contract.file_name?.toLowerCase().endsWith('.pdf'))) {
+      try {
+        // Fetch the PDF
+        const response = await fetch(contract.file_url)
+        const arrayBuffer = await response.arrayBuffer()
+        
+        // Load the PDF
+        const pdfDoc = await PDFDocument.load(arrayBuffer)
+        const pages = pdfDoc.getPages()
+        const firstPage = pages[0]
+        const { width, height } = firstPage.getSize()
+        
+        // Apply filled field values to the PDF (if contract has signature fields)
+        if (contract.signature_fields && contract.signature_fields.length > 0) {
+          // Get filled values from placeholders or contract variables
+          const filledValues: Record<string, any> = {}
+          placeholders.forEach(p => {
+            if (p.value) {
+              filledValues[p.id] = p.value
+            }
+          })
+          
+          // Also check contract variables for saved values
+          if (contract.variables && typeof contract.variables === 'object') {
+            Object.assign(filledValues, contract.variables)
+          }
+          
+          // Apply filled values to signature fields
+          contract.signature_fields.forEach((field: any) => {
+            const value = filledValues[field.id] || filledValues[field.placeholder] || ''
+            if (value && field.position) {
+              const pageIndex = (field.position.page || 1) - 1
+              if (pageIndex >= 0 && pageIndex < pages.length) {
+                const page = pages[pageIndex]
+                const x = field.position.x || 50
+                const y = height - (field.position.y || 100) // PDF coordinates are from bottom
+                
+                // Draw the filled value
+                page.drawText(String(value), {
+                  x: x,
+                  y: y,
+                  size: field.type === 'signature' ? 10 : 12,
+                })
+              }
+            }
+          })
+        }
+        
+        // Add signatures to the PDF
+        if (signatures.length > 0) {
+          let currentPageIndex = pages.length - 1
+          let yOffset = 100
+          
+          for (let index = 0; index < signatures.length; index++) {
+            const signature = signatures[index]
+            if (signature.signature_data && signature.signature_data.startsWith('data:image')) {
+              try {
+                // Extract base64 data
+                const base64Data = signature.signature_data.split(',')[1]
+                const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
+                
+                // Embed the signature image
+                const signatureImage = await pdfDoc.embedPng(imageBytes)
+                const signatureDims = signatureImage.scale(0.3) // Scale signature to 30% of original size
+                
+                // Get current page
+                let page = pages[currentPageIndex]
+                let yPosition = height - yOffset
+                
+                // Check if we need a new page
+                if (yPosition < 150) {
+                  page = pdfDoc.addPage([width, height])
+                  pages.push(page)
+                  currentPageIndex = pages.length - 1
+                  yOffset = 100
+                  yPosition = height - yOffset
+                }
+                
+                // Draw signature image
+                page.drawImage(signatureImage, {
+                  x: 50,
+                  y: yPosition,
+                  width: signatureDims.width,
+                  height: signatureDims.height,
+                })
+                
+                // Add signature text
+                page.drawText(`${signature.signer_name}`, {
+                  x: 50,
+                  y: yPosition - 20,
+                  size: 12,
+                })
+                page.drawText(`Signed: ${new Date(signature.signed_at).toLocaleString()}`, {
+                  x: 50,
+                  y: yPosition - 35,
+                  size: 10,
+                })
+                
+                // Update offset for next signature
+                yOffset += 100
+              } catch (error) {
+                console.error('Error embedding signature:', error)
+              }
+            }
+          }
+        }
+        
+        // Save the PDF
+        const pdfBytes = await pdfDoc.save()
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `${contract.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_signed_${new Date().toISOString().split('T')[0]}.pdf`
+        link.click()
+        URL.revokeObjectURL(url)
+        
+        toast({
+          title: "Contract Downloaded",
+          description: `Signed PDF with ${signatures.length} signature(s) has been downloaded`
+        })
+        return
+      } catch (error) {
+        console.error('Error processing PDF:', error)
+        toast({
+          title: "Error",
+          description: "Failed to process PDF. Downloading original file instead.",
+          variant: "destructive"
+        })
+        // Fallback to downloading original
+        window.open(contract.file_url, '_blank')
+        return
+      }
+    }
+
+    // Original text-based contract handling
     const doc = new jsPDF()
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
@@ -982,35 +1200,93 @@ function SignContractContent() {
           <div className="mt-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold text-white">Contract Content</h3>
-              {placeholders.length > 0 && (
-                <Button 
-                  onClick={() => setShowPlaceholderDialog(true)}
-                  variant="outline" 
-                  size="sm"
-                  className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
-                >
-                  <Edit3 className="w-4 h-4 mr-2" />
-                  Fill Placeholders ({placeholders.length})
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {savingDraft && (
+                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    Saving...
+                  </span>
+                )}
+                {placeholders.length > 0 && (
+                  <Button 
+                    onClick={() => setShowPlaceholderDialog(true)}
+                    variant="outline" 
+                    size="sm"
+                    className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                  >
+                    <Edit3 className="w-4 h-4 mr-2" />
+                    Fill Placeholders ({placeholders.filter(p => p.value).length}/{placeholders.length})
+                  </Button>
+                )}
+                {placeholders.some(p => p.value) && user && (
+                  <Button 
+                    onClick={() => saveDraftValues(true)}
+                    variant="outline" 
+                    size="sm"
+                    disabled={savingDraft}
+                    className="border-gray-700 bg-gray-800/30 text-white hover:bg-blue-900/20 hover:text-blue-400"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {savingDraft ? 'Saving...' : 'Save Draft'}
+                  </Button>
+                )}
+              </div>
             </div>
             {contract.file_url ? (
               <div className="space-y-4">
-                <div className="flex items-center gap-2 text-gray-400">
-                  <FileText className="w-4 h-4" />
-                  <span>This contract has an uploaded file</span>
-                </div>
-                <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4">
-                  <p className="text-white mb-2">File: {contract.file_name}</p>
-                  <p className="text-gray-400 text-sm mb-4">Type: {contract.file_type}</p>
-                  <Button
-                    onClick={() => window.open(contract.file_url, '_blank')}
-                    className="gradient-button hover:bg-purple-700"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download File
-                  </Button>
-                </div>
+                {/* PDF Viewer for PDF files */}
+                {(contract.file_type === 'application/pdf' || contract.file_name?.toLowerCase().endsWith('.pdf')) ? (
+                  <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <p className="text-white mb-1">File: {contract.file_name}</p>
+                        <Badge variant="outline" className="border-gray-600 text-gray-300 bg-gray-800/30">
+                          PDF Document
+                        </Badge>
+                      </div>
+                      <Button
+                        onClick={() => window.open(contract.file_url, '_blank')}
+                        variant="outline"
+                        size="sm"
+                        className="border-gray-700 bg-gray-800/30 text-white hover:bg-purple-900/20 hover:text-purple-400"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download
+                      </Button>
+                    </div>
+                    <div className="border border-gray-700 rounded-lg overflow-hidden">
+                      <iframe
+                        src={`${contract.file_url}#toolbar=1&navpanes=1&scrollbar=1`}
+                        className="w-full h-[600px] md:h-[800px]"
+                        title="Contract PDF"
+                        style={{ minHeight: '600px' }}
+                      />
+                    </div>
+                    <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700 rounded-lg">
+                      <p className="text-blue-300 text-sm">
+                        💡 You can sign this PDF contract below. Your signature will be embedded into the PDF.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <FileText className="w-4 h-4" />
+                      <span>This contract has an uploaded file</span>
+                    </div>
+                    <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4">
+                      <p className="text-white mb-2">File: {contract.file_name}</p>
+                      <p className="text-gray-400 text-sm mb-4">Type: {contract.file_type}</p>
+                      <Button
+                        onClick={() => window.open(contract.file_url, '_blank')}
+                        className="gradient-button hover:bg-purple-700"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download File
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 {contract.contract_text && contract.contract_text !== `Uploaded file: ${contract.file_name}` && (
                   <div>
                     <h4 className="text-md font-semibold text-white mb-2">Additional Notes</h4>
