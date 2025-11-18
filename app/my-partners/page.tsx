@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -102,6 +102,7 @@ interface PartnerInfo {
   access: PartnerAccess[]
   invitationId: string
   organizationName: string
+  organizationId?: string
 }
 
 interface ProjectComment {
@@ -150,6 +151,7 @@ interface PartnerNote {
 
 export default function MyPartnersPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [selectedOrg, setSelectedOrg] = useState<string | null>(null)
@@ -419,7 +421,8 @@ export default function MyPartnersPage() {
             user: userDetail,
             access: accessList,
             invitationId: firstAccess.partner_invitation_id,
-            organizationName: firstAccess.partner_invitations.organizations?.name || 'Organization'
+            organizationName: firstAccess.partner_invitations.organizations?.name || 'Organization',
+            organizationId: firstAccess.partner_invitations.organizations?.id
           })
         }
       })
@@ -439,6 +442,63 @@ export default function MyPartnersPage() {
       fetchPublicProjects()
     }
   }, [selectedOrg, fetchPublicProjects, fetchPartners])
+
+  // Auto-select partner from URL query parameter
+  useEffect(() => {
+    const partnerInvitationId = searchParams.get('invitation')
+    const partnerUserId = searchParams.get('partner')
+    
+    if (!partnerInvitationId && !partnerUserId) return
+    
+    if (partners.length > 0 && !selectedPartner) {
+      if (partnerInvitationId) {
+        const partner = partners.find(p => p.invitationId === partnerInvitationId)
+        if (partner) {
+          // Make sure the correct organization is selected first
+          if (partner.organizationId && selectedOrg !== partner.organizationId) {
+            setSelectedOrg(partner.organizationId)
+            // Partner selection will happen in next effect after org changes
+            return
+          }
+          setSelectedPartner(partner)
+        }
+      } else if (partnerUserId) {
+        const partner = partners.find(p => p.user.id === partnerUserId)
+        if (partner) {
+          // Make sure the correct organization is selected first
+          if (partner.organizationId && selectedOrg !== partner.organizationId) {
+            setSelectedOrg(partner.organizationId)
+            // Partner selection will happen in next effect after org changes
+            return
+          }
+          setSelectedPartner(partner)
+        }
+      }
+    }
+  }, [partners, searchParams, selectedPartner, selectedOrg])
+  
+  // Auto-select partner after organization changes (when triggered by query param)
+  useEffect(() => {
+    const partnerInvitationId = searchParams.get('invitation')
+    const partnerUserId = searchParams.get('partner')
+    
+    if (!partnerInvitationId && !partnerUserId) return
+    
+    // Only auto-select if we just changed org due to query param and partner isn't selected yet
+    if (partners.length > 0 && !selectedPartner && selectedOrg) {
+      if (partnerInvitationId) {
+        const partner = partners.find(p => p.invitationId === partnerInvitationId)
+        if (partner && partner.organizationId === selectedOrg) {
+          setSelectedPartner(partner)
+        }
+      } else if (partnerUserId) {
+        const partner = partners.find(p => p.user.id === partnerUserId)
+        if (partner && partner.organizationId === selectedOrg) {
+          setSelectedPartner(partner)
+        }
+      }
+    }
+  }, [partners, selectedOrg, searchParams, selectedPartner])
 
   useEffect(() => {
     if (selectedPartner) {
@@ -533,6 +593,42 @@ export default function MyPartnersPage() {
           ...prev,
           [projectId]: (prev[projectId] || []).map(c => c.id === tempId ? realComment : c)
         }))
+
+        // Create notification for the partner when organization owner comments
+        if (selectedPartner) {
+          try {
+            // Get project name
+            const project = selectedPartner.access.find(a => a.projects?.id === projectId)?.projects
+            
+            const { error: notificationError } = await supabase
+              .from('notifications')
+              .insert({
+                user_id: selectedPartner.user.id,
+                type: 'partner_project_comment',
+                title: 'New Comment on Project',
+                content: `${user?.name || 'Organization owner'} commented on project: "${project?.name || 'Project'}"`,
+                metadata: {
+                  comment_id: data.id,
+                  project_id: projectId,
+                  project_name: project?.name || 'Project',
+                  partner_invitation_id: selectedPartner.invitationId,
+                  organization_name: selectedPartner.organizationName,
+                  commenter_id: user.id,
+                  commenter_name: user?.name || 'Organization owner',
+                  comment_content: commentContent.substring(0, 100) // First 100 chars
+                },
+                read: false
+              })
+
+            if (notificationError) {
+              console.error('Error creating notification:', notificationError)
+              // Don't throw error, just log it so the main operation still succeeds
+            }
+          } catch (notifyError) {
+            console.error('Error creating notification:', notifyError)
+            // Don't throw error, just log it
+          }
+        }
       }
 
       toast.success('Comment added successfully')
@@ -712,6 +808,35 @@ export default function MyPartnersPage() {
 
       if (error) throw error
 
+      // Create notification for the partner
+      try {
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: selectedPartner.user.id,
+            type: 'partner_note_created',
+            title: 'New Partner Note',
+            content: `${user?.name || 'Organization owner'} shared a new note: "${newNote.title.trim()}"`,
+            metadata: {
+              note_id: data.id,
+              note_title: newNote.title.trim(),
+              partner_invitation_id: selectedPartner.invitationId,
+              organization_name: selectedPartner.organizationName,
+              created_by: user.id,
+              created_by_name: user?.name || 'Organization owner'
+            },
+            read: false
+          })
+
+        if (notificationError) {
+          console.error('Error creating notification:', notificationError)
+          // Don't throw error, just log it so the main operation still succeeds
+        }
+      } catch (notifyError) {
+        console.error('Error creating notification:', notifyError)
+        // Don't throw error, just log it
+      }
+
       toast.success('Note created successfully')
       setIsNoteDialogOpen(false)
       setNewNote({ title: '', content: '', project_id: 'none', linked_project_ids: [] })
@@ -764,6 +889,35 @@ export default function MyPartnersPage() {
         .eq('id', editingNoteId)
 
       if (error) throw error
+
+      // Create notification for the partner
+      try {
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: selectedPartner.user.id,
+            type: 'partner_note_updated',
+            title: 'Partner Note Updated',
+            content: `${user?.name || 'Organization owner'} updated the note: "${editNote.title.trim()}"`,
+            metadata: {
+              note_id: editingNoteId,
+              note_title: editNote.title.trim(),
+              partner_invitation_id: selectedPartner.invitationId,
+              organization_name: selectedPartner.organizationName,
+              updated_by: user.id,
+              updated_by_name: user?.name || 'Organization owner'
+            },
+            read: false
+          })
+
+        if (notificationError) {
+          console.error('Error creating notification:', notificationError)
+          // Don't throw error, just log it so the main operation still succeeds
+        }
+      } catch (notifyError) {
+        console.error('Error creating notification:', notifyError)
+        // Don't throw error, just log it
+      }
 
       toast.success('Note updated successfully')
       setEditingNoteId(null)

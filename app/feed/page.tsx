@@ -34,7 +34,8 @@ import {
   Video,
   File,
   Sparkles,
-  Loader2
+  Loader2,
+  Handshake
 } from 'lucide-react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useUser } from '@/hooks/useUser'
@@ -79,6 +80,7 @@ export default function FeedPage() {
       fundingGoal: '',
       deadline: ''
     },
+    showSupport: false,
     deal: {
       value: '',
       status: 'In Progress',
@@ -89,6 +91,7 @@ export default function FeedPage() {
       achievement: '',
       target: ''
     },
+    job: {},
     partnership: {
       newPartners: [''],
       focus: ''
@@ -104,10 +107,53 @@ export default function FeedPage() {
   const [uploadingMedia, setUploadingMedia] = useState(false)
   const [mediaPreview, setMediaPreview] = useState<string[]>([])
   const [enhancingPost, setEnhancingPost] = useState(false)
+  const [publicProjects, setPublicProjects] = useState<any[]>([])
+  const [loadingProjects, setLoadingProjects] = useState(false)
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('')
+  const [publicDeals, setPublicDeals] = useState<any[]>([])
+  const [loadingDeals, setLoadingDeals] = useState(false)
+  const [selectedDealId, setSelectedDealId] = useState<string>('')
+  const [userJobs, setUserJobs] = useState<any[]>([])
+  const [loadingJobs, setLoadingJobs] = useState(false)
+  const [selectedJobId, setSelectedJobId] = useState<string>('')
+  const [projectSupportInfo, setProjectSupportInfo] = useState<{ [projectId: string]: { accepts_support: boolean; funding_goal?: number; current_funding?: number } }>({})
 
   useEffect(() => {
     fetchPosts()
   }, [activeTab])
+
+  // Fetch public projects when type is "project"
+  useEffect(() => {
+    if (newPost.type === 'project' && user?.id) {
+      fetchPublicProjects()
+    } else {
+      setPublicProjects([])
+      setSelectedProjectId('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newPost.type, user?.id])
+
+  // Fetch public deals when type is "deal"
+  useEffect(() => {
+    if (newPost.type === 'deal' && user?.id) {
+      fetchPublicDeals()
+    } else {
+      setPublicDeals([])
+      setSelectedDealId('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newPost.type, user?.id])
+
+  // Fetch user jobs when type is "job"
+  useEffect(() => {
+    if (newPost.type === 'job' && user?.id) {
+      fetchUserJobs()
+    } else {
+      setUserJobs([])
+      setSelectedJobId('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newPost.type, user?.id])
 
   const fetchPosts = async () => {
     try {
@@ -203,10 +249,103 @@ export default function FeedPage() {
 
       setPosts(transformedPosts)
       console.log('Transformed posts:', transformedPosts)
+
+      // Fetch project support info only for posts that have showSupport: true
+      const postsWithSupport = transformedPosts.filter((post: any) => 
+        post.type === 'project' && post.projectId && post.showSupport
+      )
+      const projectIds = postsWithSupport.map((post: any) => post.projectId)
+      
+      if (projectIds.length > 0) {
+        const { data: projectsData, error: projectsError } = await supabase
+          .from('projects')
+          .select('id, accepts_support, funding_goal, current_funding')
+          .in('id', projectIds)
+        
+        if (!projectsError && projectsData) {
+          const supportInfoMap: { [key: string]: { accepts_support: boolean; funding_goal?: number; current_funding?: number } } = {}
+          projectsData.forEach((project: any) => {
+            supportInfoMap[project.id] = {
+              accepts_support: project.accepts_support || false,
+              funding_goal: project.funding_goal,
+              current_funding: project.current_funding
+            }
+          })
+          setProjectSupportInfo(supportInfoMap)
+        }
+      } else {
+        setProjectSupportInfo({})
+      }
     } catch (error) {
       console.error('Error fetching posts:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPublicProjects = async () => {
+    if (!user?.id) return
+    
+    try {
+      setLoadingProjects(true)
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, description, visibility')
+        .eq('owner_id', user.id)
+        .eq('visibility', 'public')
+        .order('name')
+
+      if (error) throw error
+      setPublicProjects(data || [])
+    } catch (error) {
+      console.error('Error fetching public projects:', error)
+      toast.error('Failed to load projects')
+    } finally {
+      setLoadingProjects(false)
+    }
+  }
+
+  const fetchPublicDeals = async () => {
+    if (!user?.id) return
+    
+    try {
+      setLoadingDeals(true)
+      const { data, error } = await supabase
+        .from('deals')
+        .select('id, title, description, confidentiality_level')
+        .eq('initiator_id', user.id)
+        .eq('confidentiality_level', 'public')
+        .order('title')
+
+      if (error) throw error
+      setPublicDeals(data || [])
+    } catch (error) {
+      console.error('Error fetching public deals:', error)
+      toast.error('Failed to load deals')
+    } finally {
+      setLoadingDeals(false)
+    }
+  }
+
+  const fetchUserJobs = async () => {
+    if (!user?.id) return
+    
+    try {
+      setLoadingJobs(true)
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, title, company, is_active')
+        .eq('employer_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setUserJobs(data || [])
+    } catch (error) {
+      console.error('Error fetching user jobs:', error)
+      toast.error('Failed to load jobs')
+    } finally {
+      setLoadingJobs(false)
     }
   }
 
@@ -308,7 +447,11 @@ export default function FeedPage() {
         type: newPost.type,
         data: {
           ...(newPost[newPost.type as keyof typeof newPost] as Record<string, any>),
-          media_urls: mediaUrls
+          media_urls: mediaUrls,
+          ...(selectedProjectId && newPost.type === 'project' ? { projectId: selectedProjectId } : {}),
+          ...(selectedDealId && newPost.type === 'deal' ? { dealId: selectedDealId } : {}),
+          ...(selectedJobId && newPost.type === 'job' ? { jobId: selectedJobId } : {}),
+          ...(newPost.type === 'project' && newPost.showSupport ? { showSupport: true } : {})
         }
       }
 
@@ -345,13 +488,18 @@ export default function FeedPage() {
         achievement: '',
         target: ''
       },
+      job: {},
       partnership: {
         newPartners: [''],
         focus: ''
-      }
+      },
+      showSupport: false
     })
       setMediaFiles([])
       setMediaPreview([])
+      setSelectedProjectId('')
+      setSelectedDealId('')
+      setSelectedJobId('')
     setShowCreateForm(false)
       fetchPosts()
     } catch (error) {
@@ -450,6 +598,8 @@ export default function FeedPage() {
         return <DollarSign className="w-5 h-5 text-green-400" />
       case 'milestone':
         return <Target className="w-5 h-5 text-purple-400" />
+      case 'job':
+        return <Briefcase className="w-5 h-5 text-orange-400" />
       case 'partnership':
         return <Users className="w-5 h-5 text-yellow-400" />
       default:
@@ -664,6 +814,9 @@ export default function FeedPage() {
               <DialogContent className="max-w-lg w-full">
                 <DialogHeader>
                   <DialogTitle>Create New Post</DialogTitle>
+                  <DialogDescription>
+                    Share your projects, deals, milestones, or jobs with the community.
+                  </DialogDescription>
                 </DialogHeader>
                   <form onSubmit={handleCreatePost} className="space-y-4">
                     <div>
@@ -677,9 +830,92 @@ export default function FeedPage() {
                       <option value="project">Project</option>
                       <option value="deal">Deal</option>
                       <option value="milestone">Milestone</option>
-                      <option value="partnership">Partnership</option>
+                      <option value="job">Job</option>
                     </select>
                     </div>
+                    {newPost.type === 'project' && publicProjects.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Link to Project (optional)</label>
+                        <select
+                          className="w-full rounded border-gray-700 bg-gray-900 text-white p-2"
+                          value={selectedProjectId}
+                          onChange={e => setSelectedProjectId(e.target.value)}
+                        >
+                          <option value="">None</option>
+                          {publicProjects.map((project) => (
+                            <option key={project.id} value={project.id}>
+                              {project.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {newPost.type === 'project' && loadingProjects && (
+                      <div className="text-sm text-gray-400">Loading your projects...</div>
+                    )}
+                    {newPost.type === 'project' && !loadingProjects && publicProjects.length === 0 && user?.id && (
+                      <div className="text-sm text-gray-400">No public projects found. Create a public project to link it here.</div>
+                    )}
+                    {newPost.type === 'project' && selectedProjectId && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="showSupport"
+                          checked={newPost.showSupport}
+                          onChange={e => setNewPost({ ...newPost, showSupport: e.target.checked })}
+                          className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-purple-500 focus:ring-purple-500"
+                        />
+                        <label htmlFor="showSupport" className="text-sm text-gray-300 cursor-pointer">
+                          Include Support Button
+                        </label>
+                      </div>
+                    )}
+                    {newPost.type === 'deal' && publicDeals.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Link to Deal (optional)</label>
+                        <select
+                          className="w-full rounded border-gray-700 bg-gray-900 text-white p-2"
+                          value={selectedDealId}
+                          onChange={e => setSelectedDealId(e.target.value)}
+                        >
+                          <option value="">None</option>
+                          {publicDeals.map((deal) => (
+                            <option key={deal.id} value={deal.id}>
+                              {deal.title}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {newPost.type === 'deal' && loadingDeals && (
+                      <div className="text-sm text-gray-400">Loading your deals...</div>
+                    )}
+                    {newPost.type === 'deal' && !loadingDeals && publicDeals.length === 0 && user?.id && (
+                      <div className="text-sm text-gray-400">No public deals found. Create a public deal to link it here.</div>
+                    )}
+                    {newPost.type === 'job' && userJobs.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Link to Job (optional)</label>
+                        <select
+                          className="w-full rounded border-gray-700 bg-gray-900 text-white p-2"
+                          value={selectedJobId}
+                          onChange={e => setSelectedJobId(e.target.value)}
+                        >
+                          <option value="">None</option>
+                          {userJobs.map((job) => (
+                            <option key={job.id} value={job.id}>
+                              {job.title} - {job.company}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {newPost.type === 'job' && loadingJobs && (
+                      <div className="text-sm text-gray-400">Loading your jobs...</div>
+                    )}
+                    {newPost.type === 'job' && !loadingJobs && userJobs.length === 0 && user?.id && (
+                      <div className="text-sm text-gray-400">No active jobs found. Create a job to link it here.</div>
+                    )}
                     <div>
                     <label className="block text-sm font-medium mb-1">Content</label>
                     <div className="relative">
@@ -754,9 +990,9 @@ export default function FeedPage() {
         <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-4 mb-8">
               <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="project" disabled style={{ opacity: 0.5, pointerEvents: 'none', cursor: 'not-allowed' }}>Projects</TabsTrigger>
-              <TabsTrigger value="deal" disabled style={{ opacity: 0.5, pointerEvents: 'none', cursor: 'not-allowed' }}>Deals</TabsTrigger>
-              <TabsTrigger value="partnership" disabled style={{ opacity: 0.5, pointerEvents: 'none', cursor: 'not-allowed' }}>Partnerships</TabsTrigger>
+              <TabsTrigger value="project">Projects</TabsTrigger>
+              <TabsTrigger value="deal">Deals</TabsTrigger>
+              <TabsTrigger value="job">Jobs</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="space-y-6">
@@ -830,92 +1066,156 @@ export default function FeedPage() {
                     
                     {/* Project Details */}
                     {item.type === 'project' && (
-                      (item.name || item.description || item.fundingGoal || item.currentFunding || (item.deadline && !isNaN(new Date(item.deadline).getTime())) || (item.team && item.team.length > 0)) && (
-                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                          {item.name && (
-                        <h3 className="font-semibold text-white mb-2">{item.name}</h3>
-                          )}
-                          {item.description && (
-                        <p className="text-gray-400 text-sm mb-3">{item.description}</p>
-                          )}
-                        <div className="space-y-2">
-                            {item.fundingGoal && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-400">Funding Goal</span>
-                            <span className="text-white">${Number(item.fundingGoal).toLocaleString()}</span>
-                          </div>
+                      <>
+                        {(item.name || item.description || item.fundingGoal || item.currentFunding || (item.deadline && !isNaN(new Date(item.deadline).getTime())) || (item.team && item.team.length > 0)) && (
+                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                            {item.name && (
+                          <h3 className="font-semibold text-white mb-2">{item.name}</h3>
                             )}
-                            {item.currentFunding && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-400">Current Funding</span>
-                                <span className="text-white">${Number(item.currentFunding).toLocaleString()}</span>
-                          </div>
+                            {item.description && (
+                          <p className="text-gray-400 text-sm mb-3">{item.description}</p>
                             )}
-                            {item.deadline && !isNaN(new Date(item.deadline).getTime()) && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-400">Deadline</span>
-                            <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
-                          </div>
-                            )}
-                            {item.team && item.team.length > 0 && (
-                            <div className="mt-4">
-                              <span className="text-gray-400 text-sm">Team Members:</span>
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                {item.team.map((member: any) => (
-                                  <Button
-                                    key={member.id}
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs"
-                                    onClick={() => router.push(`/profile/${member.id}`)}
-                                  >
-                                    {member.name}
-                                  </Button>
-                                ))}
-                              </div>
+                          <div className="space-y-2">
+                              {item.fundingGoal && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-400">Funding Goal</span>
+                              <span className="text-white">${Number(item.fundingGoal).toLocaleString()}</span>
                             </div>
-                          )}
+                              )}
+                              {item.currentFunding && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-400">Current Funding</span>
+                                  <span className="text-white">${Number(item.currentFunding).toLocaleString()}</span>
+                            </div>
+                              )}
+                              {item.deadline && !isNaN(new Date(item.deadline).getTime()) && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-400">Deadline</span>
+                              <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
+                            </div>
+                              )}
+                              {item.team && item.team.length > 0 && (
+                              <div className="mt-4">
+                                <span className="text-gray-400 text-sm">Team Members:</span>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {item.team.map((member: any) => (
+                                    <Button
+                                      key={member.id}
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-xs"
+                                      onClick={() => router.push(`/profile/${member.id}`)}
+                                    >
+                                      {member.name}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      )
+                        )}
+                        {item.projectId && (
+                          <div className="mb-4 space-y-2">
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => router.push(`/publicprojects/${item.projectId}`)}
+                            >
+                              <Globe className="w-4 h-4 mr-2" />
+                              View Project Page
+                            </Button>
+                            {item.showSupport && projectSupportInfo[item.projectId]?.accepts_support && (
+                              <div className="bg-pink-500/10 rounded-lg p-4">
+                                {(projectSupportInfo[item.projectId].funding_goal || projectSupportInfo[item.projectId].current_funding) && (
+                                  <div className="mb-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div className="flex items-center text-pink-400">
+                                        <Heart className="w-4 h-4 mr-2" />
+                                        <span className="text-sm">Support Received</span>
+                                      </div>
+                                      <span className="text-white font-medium text-sm">
+                                        ${(projectSupportInfo[item.projectId].current_funding || 0).toLocaleString()} / ${(projectSupportInfo[item.projectId].funding_goal || 0).toLocaleString()}
+                                      </span>
+                                    </div>
+                                    {projectSupportInfo[item.projectId].funding_goal && (
+                                      <div className="w-full bg-gray-700 rounded-full h-2">
+                                        <div
+                                          className="bg-pink-500 h-2 rounded-full"
+                                          style={{ 
+                                            width: `${projectSupportInfo[item.projectId].funding_goal && projectSupportInfo[item.projectId].current_funding 
+                                              ? Math.min((projectSupportInfo[item.projectId].current_funding! / projectSupportInfo[item.projectId].funding_goal! * 100), 100).toFixed(0) 
+                                              : 0}%` 
+                                          }}
+                                        ></div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                <Button
+                                  className="w-full bg-pink-600 hover:bg-pink-700"
+                                  onClick={() => router.push(`/purchase2support/${item.projectId}`)}
+                                >
+                                  <Heart className="w-4 h-4 mr-2" />
+                                  Support This Project
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {/* Deal Details */}
                     {item.type === 'deal' && (
-                      (item.value || item.status || (item.partners && item.partners.length > 0)) && (
-                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                        {item.value && (
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-gray-400">Deal Value</span>
-                          <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
-                        </div>
-                        )}
-                        {item.status && (
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-gray-400">Status</span>
-                          <Badge variant="secondary">{item.status}</Badge>
-                        </div>
-                        )}
-                        {item.partners && item.partners.length > 0 && (
-                        <div className="mt-2">
-                          <span className="text-gray-400">Partners:</span>
-                          <div className="flex gap-2 mt-1">
-                              {item.partners.map((partner: any) => (
-                              <Button
-                                key={partner.id}
-                                variant="outline"
-                                size="sm"
-                                className="text-xs"
-                                onClick={() => router.push(`/profile/${partner.id}`)}
-                              >
-                                {partner.name}
-                              </Button>
-                            ))}
+                      <>
+                        {!item.dealId && (item.value || item.status || (item.partners && item.partners.length > 0)) && (
+                        <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                          {item.value && (
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-gray-400">Deal Value</span>
+                            <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
                           </div>
+                          )}
+                          {item.status && (
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-gray-400">Status</span>
+                            <Badge variant="secondary">{item.status}</Badge>
+                          </div>
+                          )}
+                          {item.partners && item.partners.length > 0 && (
+                          <div className="mt-2">
+                            <span className="text-gray-400">Partners:</span>
+                            <div className="flex gap-2 mt-1">
+                                {item.partners.map((partner: any, idx: number) => (
+                                <Button
+                                  key={typeof partner === 'string' ? `partner-${idx}-${partner}` : partner.id || `partner-${idx}`}
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={() => router.push(`/profile/${typeof partner === 'object' ? partner.id : partner}`)}
+                                >
+                                  {typeof partner === 'object' ? partner.name : partner}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                          )}
                         </div>
                         )}
-                      </div>
-                    )
+                        {item.dealId && (
+                          <div className="mb-4">
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => router.push(`/deals/${item.dealId}`)}
+                            >
+                              <Handshake className="w-4 h-4 mr-2" />
+                              View Deal Page
+                            </Button>
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {/* Milestone Details */}
@@ -956,6 +1256,20 @@ export default function FeedPage() {
                       )
                     )}
 
+                    {/* Job Details */}
+                    {item.type === 'job' && item.jobId && (
+                      <div className="mb-4">
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => router.push(`/jobs/${item.jobId}`)}
+                        >
+                          <Briefcase className="w-4 h-4 mr-2" />
+                          View Job Page
+                        </Button>
+                      </div>
+                    )}
+
                     {/* Partnership Details */}
                     {item.type === 'partnership' && (
                       ((item.newPartners && item.newPartners.length > 0 && item.newPartners[0]) || item.focus) && (
@@ -964,15 +1278,15 @@ export default function FeedPage() {
                         <div className="mb-2">
                           <span className="text-gray-400">New Partners:</span>
                           <div className="flex flex-wrap gap-2 mt-1">
-                            {item.newPartners.map((partner: any) => (
+                            {item.newPartners.map((partner: any, idx: number) => (
                               <Button
-                                key={partner.id}
+                                key={typeof partner === 'string' ? `newpartner-${idx}-${partner}` : partner.id || `newpartner-${idx}`}
                                 variant="outline"
                                 size="sm"
                                 className="text-xs"
-                                onClick={() => router.push(`/profile/${partner.id}`)}
+                                onClick={() => router.push(`/profile/${typeof partner === 'object' ? partner.id : partner}`)}
                               >
-                                {partner.name}
+                                {typeof partner === 'object' ? partner.name : partner}
                               </Button>
                             ))}
                           </div>
@@ -1192,55 +1506,105 @@ export default function FeedPage() {
                   
                   {/* Project Details */}
                   {item.type === 'project' && (
-                    (item.name || item.description || item.fundingGoal || item.currentFunding || (item.deadline && !isNaN(new Date(item.deadline).getTime())) || (item.team && item.team.length > 0)) && (
-                    <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                        {item.name && (
-                      <h3 className="font-semibold text-white mb-2">{item.name}</h3>
-                        )}
-                        {item.description && (
-                      <p className="text-gray-400 text-sm mb-3">{item.description}</p>
-                        )}
-                      <div className="space-y-2">
-                          {item.fundingGoal && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-400">Funding Goal</span>
-                          <span className="text-white">${Number(item.fundingGoal).toLocaleString()}</span>
-                        </div>
+                    <>
+                      {(item.name || item.description || item.fundingGoal || item.currentFunding || (item.deadline && !isNaN(new Date(item.deadline).getTime())) || (item.team && item.team.length > 0)) && (
+                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                          {item.name && (
+                        <h3 className="font-semibold text-white mb-2">{item.name}</h3>
                           )}
-                          {item.currentFunding && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-400">Current Funding</span>
-                                <span className="text-white">${Number(item.currentFunding).toLocaleString()}</span>
-                        </div>
-                            )}
-                            {item.deadline && !isNaN(new Date(item.deadline).getTime()) && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-400">Deadline</span>
-                          <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
-                        </div>
-                            )}
-                            {item.team && item.team.length > 0 && (
-                          <div className="mt-4">
-                            <span className="text-gray-400 text-sm">Team Members:</span>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {item.team.map((member: any) => (
-                                <Button
-                                  key={member.id}
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-xs"
-                                  onClick={() => router.push(`/profile/${member.id}`)}
-                                >
-                                  {member.name}
-                                </Button>
-                              ))}
-                            </div>
+                          {item.description && (
+                        <p className="text-gray-400 text-sm mb-3">{item.description}</p>
+                          )}
+                        <div className="space-y-2">
+                            {item.fundingGoal && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Funding Goal</span>
+                            <span className="text-white">${Number(item.fundingGoal).toLocaleString()}</span>
                           </div>
-                        )}
+                            )}
+                            {item.currentFunding && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Current Funding</span>
+                                  <span className="text-white">${Number(item.currentFunding).toLocaleString()}</span>
+                          </div>
+                              )}
+                              {item.deadline && !isNaN(new Date(item.deadline).getTime()) && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Deadline</span>
+                            <span className="text-white">{new Date(item.deadline).toLocaleDateString()}</span>
+                          </div>
+                              )}
+                              {item.team && item.team.length > 0 && (
+                            <div className="mt-4">
+                              <span className="text-gray-400 text-sm">Team Members:</span>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {item.team.map((member: any) => (
+                                  <Button
+                                    key={member.id}
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs"
+                                    onClick={() => router.push(`/profile/${member.id}`)}
+                                  >
+                                    {member.name}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          </div>
                         </div>
-                      </div>
-                    )
-                    )}
+                      )}
+                      {item.projectId && (
+                        <div className="mb-4 space-y-2">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => router.push(`/publicprojects/${item.projectId}`)}
+                          >
+                            <Globe className="w-4 h-4 mr-2" />
+                            View Project Page
+                          </Button>
+                          {item.showSupport && projectSupportInfo[item.projectId]?.accepts_support && (
+                            <div className="bg-pink-500/10 rounded-lg p-4">
+                              {(projectSupportInfo[item.projectId].funding_goal || projectSupportInfo[item.projectId].current_funding) && (
+                                <div className="mb-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center text-pink-400">
+                                      <Heart className="w-4 h-4 mr-2" />
+                                      <span className="text-sm">Support Received</span>
+                                    </div>
+                                    <span className="text-white font-medium text-sm">
+                                      ${(projectSupportInfo[item.projectId].current_funding || 0).toLocaleString()} / ${(projectSupportInfo[item.projectId].funding_goal || 0).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {projectSupportInfo[item.projectId].funding_goal && (
+                                    <div className="w-full bg-gray-700 rounded-full h-2">
+                                      <div
+                                        className="bg-pink-500 h-2 rounded-full"
+                                        style={{ 
+                                          width: `${projectSupportInfo[item.projectId].funding_goal && projectSupportInfo[item.projectId].current_funding 
+                                            ? Math.min((projectSupportInfo[item.projectId].current_funding! / projectSupportInfo[item.projectId].funding_goal! * 100), 100).toFixed(0) 
+                                            : 0}%` 
+                                        }}
+                                      ></div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              <Button
+                                className="w-full bg-pink-600 hover:bg-pink-700"
+                                onClick={() => router.push(`/purchase2support/${item.projectId}`)}
+                              >
+                                <Heart className="w-4 h-4 mr-2" />
+                                Support This Project
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
 
                     {/* Interaction Buttons */}
                     <div className="flex items-center gap-6 mt-4 pt-4 border-t border-gray-800">
@@ -1359,40 +1723,54 @@ export default function FeedPage() {
                   
                   {/* Deal Details */}
                   {item.type === 'deal' && (
-                    (item.value || item.status || (item.partners && item.partners.length > 0)) && (
-                    <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                        {item.value && (
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-400">Deal Value</span>
-                        <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
-                      </div>
-                        )}
-                        {item.status && (
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-400">Status</span>
-                        <Badge variant="secondary">{item.status}</Badge>
-                      </div>
-                        )}
-                        {item.partners && item.partners.length > 0 && (
-                        <div className="mt-2">
-                          <span className="text-gray-400">Partners:</span>
-                          <div className="flex gap-2 mt-1">
-                              {item.partners.map((partner: any) => (
-                              <Button
-                                key={partner.id}
-                                variant="outline"
-                                size="sm"
-                                className="text-xs"
-                                onClick={() => router.push(`/profile/${partner.id}`)}
-                              >
-                                {partner.name}
-                              </Button>
-                            ))}
+                    <>
+                      {!item.dealId && (item.value || item.status || (item.partners && item.partners.length > 0)) && (
+                      <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                          {item.value && (
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-gray-400">Deal Value</span>
+                          <span className="text-white font-semibold">${Number(item.value).toLocaleString()}</span>
+                        </div>
+                          )}
+                          {item.status && (
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-gray-400">Status</span>
+                          <Badge variant="secondary">{item.status}</Badge>
+                        </div>
+                          )}
+                          {item.partners && item.partners.length > 0 && (
+                          <div className="mt-2">
+                            <span className="text-gray-400">Partners:</span>
+                            <div className="flex gap-2 mt-1">
+                                {item.partners.map((partner: any, idx: number) => (
+                                <Button
+                                  key={typeof partner === 'string' ? `partner-${idx}-${partner}` : partner.id || `partner-${idx}`}
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={() => router.push(`/profile/${typeof partner === 'object' ? partner.id : partner}`)}
+                                >
+                                  {typeof partner === 'object' ? partner.name : partner}
+                                </Button>
+                              ))}
+                            </div>
                           </div>
+                        )}
+                      </div>
+                      )}
+                      {item.dealId && (
+                        <div className="mb-4">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => router.push(`/deals/${item.dealId}`)}
+                          >
+                            <Handshake className="w-4 h-4 mr-2" />
+                            View Deal Page
+                          </Button>
                         </div>
                       )}
-                    </div>
-                    )
+                    </>
                   )}
 
                   {/* Interaction Buttons */}
@@ -1447,8 +1825,8 @@ export default function FeedPage() {
               ))}
             </TabsContent>
 
-          <TabsContent value="partnership" className="space-y-6">
-            {posts.filter(item => item.type === 'partnership').map((item) => (
+          <TabsContent value="job" className="space-y-6">
+            {posts.filter(item => item.type === 'job').map((item) => (
                 <Card key={item.id} className="leonardo-card border-gray-800">
                 <CardHeader className="flex flex-row items-center gap-4">
                   <button
@@ -1510,36 +1888,18 @@ export default function FeedPage() {
                     </div>
                   )}
                   
-                  {/* Partnership Details */}
-                  {item.type === 'partnership' && (
-                    ((item.newPartners && item.newPartners.length > 0 && item.newPartners[0]) || item.focus) && (
-                    <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-                        {item.newPartners && item.newPartners.length > 0 && item.newPartners[0] && (
-                      <div className="mb-2">
-                        <span className="text-gray-400">New Partners:</span>
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          {item.newPartners.map((partner: any) => (
-                            <Button
-                              key={partner.id}
-                              variant="outline"
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => router.push(`/profile/${partner.id}`)}
-                            >
-                              {partner.name}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                        )}
-                        {item.focus && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Focus Area</span>
-                        <span className="text-white">{item.focus}</span>
-                      </div>
-                        )}
+                  {/* Job Details */}
+                  {item.type === 'job' && item.jobId && (
+                    <div className="mb-4">
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => router.push(`/jobs/${item.jobId}`)}
+                      >
+                        <Briefcase className="w-4 h-4 mr-2" />
+                        View Job Page
+                      </Button>
                     </div>
-                    )
                   )}
 
                   {/* Interaction Buttons */}
@@ -1562,11 +1922,21 @@ export default function FeedPage() {
                       <ThumbsDown className={`w-4 h-4 mr-2 ${item.dislikedByCurrentUser ? "fill-blue-500" : ""}`} />
                       {Number(item.dislikes) || 0}
                     </Button>
-                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-gray-400 hover:text-white"
+                      onClick={() => handleShowCommentBox(item.id)}
+                    >
                       <MessageSquare className="w-4 h-4 mr-2" />
                       {Number(item.comments) || 0}
                     </Button>
-                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-gray-400 hover:text-white"
+                      onClick={() => handleInteraction(item.id, 'share')}
+                    >
                       <Share2 className="w-4 h-4 mr-2" />
                       {Number(item.shares) || 0}
                     </Button>
@@ -1589,10 +1959,85 @@ export default function FeedPage() {
                       {Number(item.trophy) || 0}
                     </Button>
                   </div>
+
+                  {/* Owner controls */}
+                  {user && user.id === item.user.id && (
+                    <div className="flex gap-2 ml-auto">
+                      {editingPostId === item.id ? (
+                        <>
+                          <Button size="icon" variant="ghost" onClick={() => handleSave(item)} title="Save">
+                            <Save className="w-4 h-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => { setEditingPostId(null); setEditContent('') }} title="Cancel">
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button size="icon" variant="ghost" onClick={() => handleEdit(item)} title="Edit">
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => handleDelete(item)} title="Delete">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Comment input and comments */}
+                  {showCommentBox[item.id] && (
+                    <div className="mt-4 border-t border-gray-800 pt-4">
+                      <div className="flex items-start gap-2 mb-4">
+                        <Avatar>
+                            <AvatarImage src={user?.user_metadata?.avatar_url || undefined} />
+                            <AvatarFallback>{user?.user_metadata?.name ? user.user_metadata.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'U'}</AvatarFallback>
+                        </Avatar>
+                        <Textarea
+                          value={commentInputs[item.id] || ''}
+                          onChange={e => handleCommentInput(item.id, e.target.value)}
+                          placeholder="Add a comment..."
+                          className="flex-1 min-h-[60px] bg-gray-900 border-gray-700"
+                          disabled={!user}
+                        />
+                        <Button
+                          onClick={() => handleCommentSubmit(item.id)}
+                          disabled={!user || !commentInputs[item.id]?.trim()}
+                          className="self-end"
+                        >
+                          Post
+                        </Button>
+                      </div>
+                      {loadingComments[item.id] ? (
+                        <div className="text-gray-400">Loading comments...</div>
+                      ) : (
+                        <div className="space-y-3">
+                          {(comments[item.id] || []).length === 0 ? (
+                            <div className="text-gray-500 text-sm">No comments yet.</div>
+                          ) : (
+                            comments[item.id].map((c: any) => (
+                              <div key={c.id} className="flex items-start gap-2">
+                                <Avatar>
+                                    <AvatarImage src={c.user.avatar || undefined} />
+                                    <AvatarFallback>{c.user.name ? c.user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'U'}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="text-sm font-semibold text-white">{c.user.name}</div>
+                                  <div className="text-gray-300 text-sm">{c.content}</div>
+                                  <div className="text-xs text-gray-500">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</div>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
+              </Card>
+            ))}
+          </TabsContent>
+
           </Tabs>
         </main>
     </div>

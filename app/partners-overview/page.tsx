@@ -475,6 +475,67 @@ export default function PartnersOverviewPage() {
           ...prev,
           [projectId]: (prev[projectId] || []).map(c => c.id === tempId ? realComment : c)
         }))
+
+        // Create notification for the organization owner when partner comments
+        if (selectedProject) {
+          try {
+            // Get organization owner from the partner_invitations
+            const { data: invitationData, error: inviteError } = await supabase
+              .from('partner_invitations')
+              .select(`
+                id,
+                organization_id,
+                organizations (
+                  id,
+                  name,
+                  owner_id
+                )
+              `)
+              .eq('id', selectedProject.partner_invitation_id)
+              .single()
+
+            if (!inviteError && invitationData) {
+              const organization = (invitationData.organizations as any)
+              if (organization?.owner_id) {
+                // Get partner user info
+                const { data: partnerUser } = await supabase
+                  .from('users')
+                  .select('id, name, email')
+                  .eq('id', user.id)
+                  .single()
+
+                const { error: notificationError } = await supabase
+                  .from('notifications')
+                  .insert({
+                    user_id: organization.owner_id,
+                    type: 'partner_project_comment',
+                    title: 'Partner Commented on Project',
+                    content: `${partnerUser?.name || user.email || 'A partner'} commented on project: "${selectedProject.projects.name}"`,
+                    metadata: {
+                      comment_id: data.id,
+                      project_id: projectId,
+                      project_name: selectedProject.projects.name,
+                      partner_invitation_id: selectedProject.partner_invitation_id,
+                      organization_id: organization.id,
+                      organization_name: organization.name || 'Organization',
+                      partner_user_id: user.id,
+                      partner_name: partnerUser?.name || user.email || 'Partner',
+                      comment_content: commentContent.substring(0, 100) // First 100 chars
+                    },
+                    read: false
+                  })
+
+                if (notificationError) {
+                  console.error('Error creating notification:', notificationError)
+                  // Don't throw error, just log it so the main operation still succeeds
+                }
+              }
+            }
+          } catch (notifyError) {
+            console.error('Error creating notification:', notifyError)
+            // Don't throw error, just log it
+          }
+        }
       }
 
       toast.success('Comment added successfully')
@@ -677,6 +738,45 @@ export default function PartnersOverviewPage() {
         .eq('id', invitation.id)
 
       if (updateInviteError) throw updateInviteError
+
+      // Get organization owner to notify them
+      const organization = invitation.organizations as any
+      if (organization?.owner_id) {
+        try {
+          // Get user info for notification
+          const { data: partnerUser } = await supabase
+            .from('users')
+            .select('id, name, email')
+            .eq('id', user.id)
+            .single()
+
+          const { error: notificationError } = await supabase
+            .from('notifications')
+            .insert({
+              user_id: organization.owner_id,
+              type: 'partner_invitation_accepted',
+              title: 'Partner Invitation Accepted',
+              content: `${partnerUser?.name || user.email || 'A partner'} has accepted your partner invitation`,
+              metadata: {
+                partner_invitation_id: invitation.id,
+                organization_id: invitation.organization_id,
+                organization_name: organization.name || 'Organization',
+                partner_user_id: user.id,
+                partner_name: partnerUser?.name || user.email || 'Partner',
+                partner_email: user.email || ''
+              },
+              read: false
+            })
+
+          if (notificationError) {
+            console.error('Error creating notification:', notificationError)
+            // Don't throw error, just log it so the main operation still succeeds
+          }
+        } catch (notifyError) {
+          console.error('Error creating notification:', notifyError)
+          // Don't throw error, just log it
+        }
+      }
 
       toast.success('Invitation accepted successfully!')
       setInvitationKey('')

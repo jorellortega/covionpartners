@@ -256,7 +256,7 @@ export default function Home() {
                   key={card.key}
                   className="leonardo-card p-6 cursor-pointer hover:shadow-lg transition-all"
                   onClick={() =>
-                    card.key === 'jobs' ? router.push('/jobs') :
+                    card.key === 'jobs' ? router.push('/jobs-info') :
                     card.key === 'deal' ? router.push('/deals-feature') :
                     card.key === 'project' ? router.push('/projectsinfo') :
                     card.key === 'finance' ? router.push('/financialhub') :

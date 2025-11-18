@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -396,13 +396,16 @@ export default function PartnerDashboard() {
 
   // Define available apps for quick access
   const getAppConfig = (appId: string) => {
+    // Count updates with status "new"
+    const newUpdatesCount = updates.filter(update => update.status === 'new').length
+    
     const configs = {
       updates: {
         icon: <Bell className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
         route: '/updates',
         label: 'Updates',
         className: 'bg-yellow-500/20 hover:bg-yellow-500/30 hover:text-yellow-400 border-yellow-500/30',
-        badge: unreadMessages > 0 ? unreadMessages : null
+        badge: newUpdatesCount > 0 ? newUpdatesCount : null
       },
       messages: {
         icon: <MessageSquare className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />,
@@ -933,16 +936,35 @@ export default function PartnerDashboard() {
     fetchProjects()
   }, [user, toast])
 
-  useEffect(() => {
-    if (user) {
-      fetchMessages()
-    }
-  }, [user])
-
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     try {
       setLoadingMessages(true)
-      // Step 1: Fetch messages without joins
+      
+      // First, count ALL unread messages (not just the first 5)
+      // Query for unread messages - handle both boolean false and null/undefined
+      const { data: unreadMessagesData, error: unreadError } = await supabase
+        .from('messages')
+        .select('id, subject, created_at, read, receiver_id')
+        .eq('receiver_id', user?.id)
+        .or('read.is.null,read.eq.false')
+
+      if (unreadError) {
+        console.error('Error counting unread messages:', unreadError)
+        setUnreadMessages(0)
+      } else {
+        // Filter to ensure we only count truly unread messages
+        const trulyUnread = unreadMessagesData?.filter(msg => 
+          msg.read === false || msg.read === null || msg.read === undefined || msg.read === 'false'
+        ) || []
+        const unreadCount = trulyUnread.length
+        setUnreadMessages(unreadCount)
+        console.log('Unread messages count:', unreadCount)
+        if (unreadCount > 0) {
+          console.log('Unread messages details:', JSON.stringify(trulyUnread, null, 2))
+        }
+      }
+
+      // Step 1: Fetch messages without joins (for display)
       const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
         .select('*')
@@ -951,10 +973,6 @@ export default function PartnerDashboard() {
         .limit(5)
 
       if (messagesError) throw messagesError
-
-      // Count unread messages where user is the receiver
-      const unread = messagesData?.filter(msg => !msg.read && msg.receiver_id === user?.id).length || 0
-      setUnreadMessages(unread)
 
       // Collect unique user IDs
       const userIds = new Set<string>()
@@ -987,7 +1005,56 @@ export default function PartnerDashboard() {
     } finally {
       setLoadingMessages(false)
     }
-  }
+  }, [user])
+
+  useEffect(() => {
+    if (user) {
+      fetchMessages()
+    }
+  }, [user, fetchMessages])
+
+  // Refresh messages count when page becomes visible (e.g., when navigating back from messages page)
+  useEffect(() => {
+    // Listen for custom event when messages are updated
+    const handleMessagesUpdated = () => {
+      if (user) {
+        fetchMessages()
+      }
+    }
+
+    // Listen for browser back/forward navigation
+    const handlePopState = () => {
+      if (window.location.pathname === '/dashboard' && user) {
+        fetchMessages()
+      }
+    }
+
+    // Listen for visibility changes (when tab becomes visible again)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && window.location.pathname === '/dashboard' && user) {
+        fetchMessages()
+      }
+    }
+
+    // Check on focus (when user switches back to the tab)
+    const checkAndRefresh = () => {
+      if (document.visibilityState === 'visible' && window.location.pathname === '/dashboard' && user) {
+        fetchMessages()
+      }
+    }
+
+    window.addEventListener('messagesUpdated', handleMessagesUpdated)
+    window.addEventListener('popstate', handlePopState)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', checkAndRefresh)
+
+    return () => {
+      window.removeEventListener('messagesUpdated', handleMessagesUpdated)
+      window.removeEventListener('popstate', handlePopState)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', checkAndRefresh)
+    }
+  }, [user, fetchMessages])
 
   const handleCreateUpdate = async () => {
     if (newUpdate.category === 'project' && !newUpdate.project_id) {

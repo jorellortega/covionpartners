@@ -144,6 +144,10 @@ export default function MessagesPage() {
         setMessages(messages.map(m => 
           m.id === message.id ? { ...m, read: true } : m
         ))
+        // Trigger a custom event to notify dashboard to refresh
+        window.dispatchEvent(new CustomEvent('messagesUpdated'))
+        // Refresh messages to update counts
+        fetchMessages()
       }
     }
     
@@ -151,21 +155,89 @@ export default function MessagesPage() {
     router.push(`/messages/${message.id}`)
   }
 
+  // Recursive function to delete a message and all its descendants
+  const deleteMessageRecursive = async (messageId: number): Promise<void> => {
+    // First, find all direct children
+    const { data: childMessages, error: fetchError } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('parent_id', messageId)
+
+    if (fetchError) {
+      console.error('Error fetching child messages:', fetchError)
+    }
+
+    // Recursively delete all children first
+    if (childMessages && childMessages.length > 0) {
+      for (const child of childMessages) {
+        await deleteMessageRecursive(child.id)
+      }
+    }
+
+    // Now delete this message (all children are already deleted)
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('id', messageId)
+
+    if (error) {
+      throw error
+    }
+  }
+
   const handleDeleteMessage = async (messageId: number) => {
     try {
+      // Use recursive deletion to handle nested replies
+      await deleteMessageRecursive(messageId)
+
+      // Update local state - remove the message and any replies
+      // We need to filter out the message and all its descendants
+      const messageIdsToRemove = new Set<number>([messageId])
+      
+      // Find all descendants recursively in local state
+      const findDescendants = (parentId: number) => {
+        messages.forEach(msg => {
+          if (msg.parent_id === parentId) {
+            messageIdsToRemove.add(msg.id)
+            findDescendants(msg.id)
+          }
+        })
+      }
+      findDescendants(messageId)
+
+      setMessages(messages.filter(m => !messageIdsToRemove.has(m.id)))
+      // Trigger a custom event to notify dashboard to refresh
+      window.dispatchEvent(new CustomEvent('messagesUpdated'))
+      // Refresh to update unread count
+      fetchMessages()
+      toast.success('Message deleted successfully')
+    } catch (error: any) {
+      console.error('Error deleting message:', error)
+      toast.error(`Failed to delete message: ${error.message || 'Unknown error'}`)
+    }
+  }
+
+  const handleClearAllMessages = async () => {
+    if (!user) return
+    
+    try {
+      // Delete all messages where user is sender or receiver
       const { error } = await supabase
         .from('messages')
         .delete()
-        .eq('id', messageId)
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
 
       if (error) throw error
 
-      // Update local state
-      setMessages(messages.filter(m => m.id !== messageId))
-      toast.success('Message deleted successfully')
+      setMessages([])
+      // Trigger a custom event to notify dashboard to refresh
+      window.dispatchEvent(new CustomEvent('messagesUpdated'))
+      // Refresh to update unread count
+      fetchMessages()
+      toast.success('All messages cleared successfully')
     } catch (error) {
-      console.error('Error deleting message:', error)
-      toast.error('Failed to delete message')
+      console.error('Error clearing messages:', error)
+      toast.error('Failed to clear messages')
     }
   }
 
@@ -228,13 +300,45 @@ export default function MessagesPage() {
               </Button>
               <h1 className="text-xl sm:text-3xl font-bold text-white">Messages</h1>
             </div>
-            <Button
-              onClick={() => router.push('/messages/new')}
-              className="w-full sm:w-auto bg-purple-600 text-white hover:bg-purple-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New Message
-            </Button>
+            <div className="flex gap-2">
+              {rootMessages.length > 0 && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full sm:w-auto border-red-500/50 text-red-400 hover:bg-red-500/10"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Clear All
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Clear All Messages</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete all your messages? This action cannot be undone and will delete all messages you've sent or received.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-red-500 hover:bg-red-600"
+                        onClick={handleClearAllMessages}
+                      >
+                        Clear All
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              <Button
+                onClick={() => router.push('/messages/new')}
+                className="w-full sm:w-auto bg-purple-600 text-white hover:bg-purple-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Message
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -391,16 +495,18 @@ export default function MessagesPage() {
                       <div className="text-xs text-gray-500">
                         {new Date(message.created_at).toLocaleDateString()}
                       </div>
-                      {message.sender_id === user?.id && !editingMessage && (
+                      {!editingMessage && (
                         <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-gray-400 hover:text-blue-400 hover:bg-blue-400/10"
-                            onClick={() => handleEditMessage(message)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          {message.sender_id === user?.id && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-gray-400 hover:text-blue-400 hover:bg-blue-400/10"
+                              onClick={() => handleEditMessage(message)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button

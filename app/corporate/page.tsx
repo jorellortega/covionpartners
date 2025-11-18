@@ -24,8 +24,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Calendar as CalendarIcon, CheckCircle, Clock, Target, Users, TrendingUp, AlertCircle, Plus, Edit, Trash2, Calendar as CalendarIcon2, CalendarDays, CalendarRange, Eye, ListTodo, Search } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle, Clock, Target, Users, TrendingUp, AlertCircle, Plus, Edit, Trash2, Calendar as CalendarIcon2, CalendarDays, CalendarRange, Eye, ListTodo, Search, ChevronDown } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format } from 'date-fns';
 
 const supabase = createClientComponentClient();
@@ -132,6 +133,8 @@ export default function CorporatePage() {
   const [projectSearchGoalEdit, setProjectSearchGoalEdit] = useState<string>("");
   const [projectSearchTask, setProjectSearchTask] = useState<string>("");
   const [projectSearchTaskEdit, setProjectSearchTaskEdit] = useState<string>("");
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
 
   const [newTask, setNewTask] = useState({
     title: "",
@@ -845,7 +848,40 @@ export default function CorporatePage() {
       if (filterProject !== 'no-project' && task.project_id !== filterProject) return false;
     }
     return true;
-  }) || []);
+  }) || []).sort((a, b) => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    // Get due dates, defaulting to far future if no due date
+    const getDueDate = (task: CorporateTask): Date => {
+      if (!task.due_date) return new Date('9999-12-31');
+      try {
+        const date = new Date(task.due_date + 'T00:00:00');
+        return isNaN(date.getTime()) ? new Date('9999-12-31') : date;
+      } catch {
+        return new Date('9999-12-31');
+      }
+    };
+    
+    const dateA = getDueDate(a);
+    const dateB = getDueDate(b);
+    
+    // Check if dates are upcoming (in the future)
+    const aIsUpcoming = dateA > now;
+    const bIsUpcoming = dateB > now;
+    
+    // Upcoming tasks come first
+    if (aIsUpcoming && !bIsUpcoming) return -1;
+    if (!aIsUpcoming && bIsUpcoming) return 1;
+    
+    // If both are upcoming or both are not, sort by due date (earliest first)
+    if (aIsUpcoming && bIsUpcoming) {
+      return dateA.getTime() - dateB.getTime();
+    }
+    
+    // For non-upcoming tasks, sort by due date (most recent first)
+    return dateB.getTime() - dateA.getTime();
+  });
 
   const filteredGoals = (goals?.filter(goal => {
     if (filterProject !== 'all') {
@@ -854,7 +890,40 @@ export default function CorporatePage() {
     }
     if (filterGoalType !== 'all' && goal.goal_type !== filterGoalType) return false;
     return true;
-  }) || []);
+  }) || []).sort((a, b) => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    // Get target dates, defaulting to far future if no target date
+    const getTargetDate = (goal: OrganizationGoal): Date => {
+      if (!goal.target_date) return new Date('9999-12-31');
+      try {
+        const date = new Date(goal.target_date + 'T00:00:00');
+        return isNaN(date.getTime()) ? new Date('9999-12-31') : date;
+      } catch {
+        return new Date('9999-12-31');
+      }
+    };
+    
+    const dateA = getTargetDate(a);
+    const dateB = getTargetDate(b);
+    
+    // Check if dates are upcoming (in the future)
+    const aIsUpcoming = dateA > now;
+    const bIsUpcoming = dateB > now;
+    
+    // Upcoming goals come first
+    if (aIsUpcoming && !bIsUpcoming) return -1;
+    if (!aIsUpcoming && bIsUpcoming) return 1;
+    
+    // If both are upcoming or both are not, sort by target date (earliest first)
+    if (aIsUpcoming && bIsUpcoming) {
+      return dateA.getTime() - dateB.getTime();
+    }
+    
+    // For non-upcoming goals, sort by target date (most recent first)
+    return dateB.getTime() - dateA.getTime();
+  });
 
   // Separate goals by type for tabs
   const weeklyGoals = (goals?.filter(goal => goal.goal_type === 'weekly') || []);
@@ -866,6 +935,46 @@ export default function CorporatePage() {
   const inProgressTasks = (tasks?.filter(t => t.status === 'in_progress') || []).length;
   const completedTasks = (tasks?.filter(t => t.status === 'completed') || []).length;
   const activeGoals = (goals?.filter(g => g.status === 'active') || []).length;
+  
+  // Calculate upcoming tasks and goals
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  
+  const upcomingTask = (tasks?.filter(task => {
+    if (!task.due_date) return false;
+    try {
+      const dueDate = new Date(task.due_date + 'T00:00:00');
+      return !isNaN(dueDate.getTime()) && dueDate > now;
+    } catch {
+      return false;
+    }
+  }) || []).sort((a, b) => {
+    try {
+      const dateA = new Date(a.due_date + 'T00:00:00');
+      const dateB = new Date(b.due_date + 'T00:00:00');
+      return dateA.getTime() - dateB.getTime();
+    } catch {
+      return 0;
+    }
+  })[0]; // Show only the next upcoming task
+  
+  const upcomingGoal = (goals?.filter(goal => {
+    if (!goal.target_date) return false;
+    try {
+      const targetDate = new Date(goal.target_date + 'T00:00:00');
+      return !isNaN(targetDate.getTime()) && targetDate > now;
+    } catch {
+      return false;
+    }
+  }) || []).sort((a, b) => {
+    try {
+      const dateA = new Date(a.target_date + 'T00:00:00');
+      const dateB = new Date(b.target_date + 'T00:00:00');
+      return dateA.getTime() - dateB.getTime();
+    } catch {
+      return 0;
+    }
+  })[0]; // Show only the next upcoming goal
 
   // Helper function to render goals list
   const renderGoalsList = (goalsList: OrganizationGoal[]) => {
@@ -879,114 +988,157 @@ export default function CorporatePage() {
 
     return (
       <div className="space-y-2">
-        {goalsList.map((goal) => (
-          <div
-            key={goal.id}
-            className="flex flex-col sm:flex-row items-start gap-3 rounded-lg p-3 sm:p-4 mb-3 cursor-pointer hover:bg-gray-800 transition border border-gray-700"
-            style={{ backgroundColor: '#000000' }}
-          >
-            <div className="flex-1 w-full sm:w-auto">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="font-semibold text-white text-sm sm:text-base">{goal.title}</div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-3 mb-2 text-xs text-gray-400/25 hover:text-gray-400 transition-colors">
-                <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 text-white flex-shrink-0" />
-                <span>Target: {goal.target_date ? new Date(goal.target_date + 'T00:00:00').toLocaleDateString() : '--'}</span>
-              </div>
-              {goal.project && goal.project.id && (
-                <div className="flex items-center gap-1 mb-2 flex-wrap">
-                  <span className="text-xs text-gray-400">Project:</span>
-                  <Link 
-                    href={`/projects/${goal.project.id}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="inline-block"
-                  >
-                    <Badge className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30 hover:bg-blue-600/30 transition-colors cursor-pointer">
-                      {goal.project.name}
-                    </Badge>
-                  </Link>
-                </div>
-              )}
-              {goal.assigned_users && goal.assigned_users.length > 0 && (
-                <div className="flex items-center gap-1 mb-2 flex-wrap">
-                  <span className="text-xs text-gray-400">Assigned to:</span>
-                  {goal.assigned_users.map((assignedUser, index) => (
-                    <Badge key={index} className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
-                      {assignedUser.name}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              {goal.description && (
-                <div className="text-xs text-gray-400 leading-relaxed">
-                  {goal.description}
-                </div>
-              )}
-            </div>
-            {canManageCorporate && (
-              <div className="w-full sm:w-auto flex flex-col sm:flex-col gap-3">
-                <Select value={goal.status} onValueChange={(value) => handleUpdateGoalStatus(goal.id, value)}>
-                  <SelectTrigger className="w-full sm:w-32 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="paused">Paused</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex gap-2 sm:gap-1 flex-wrap sm:flex-nowrap">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-green-600/20 border-green-500/30 text-green-300 hover:bg-green-600/30 flex-1 sm:flex-1 min-w-0"
-                    onClick={() => setViewingGoal(goal)}
-                  >
-                    <Eye className="w-3 h-3 mr-0 sm:mr-1" />
-                    <span className="hidden sm:inline">View</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 flex-1 sm:flex-1 min-w-0 overflow-hidden"
-                    onClick={() => {
-                      setSelectedGoalForSubtasks(goal);
-                      fetchSubtasks(goal.id);
-                    }}
-                  >
-                    <div className="flex items-center gap-1 sm:gap-1 min-w-0">
-                      <ListTodo className="w-3 h-3 flex-shrink-0" />
-                      <span className="hidden sm:inline flex-shrink-0">Subtasks</span>
-                      {goal.subtasks_total && goal.subtasks_total > 0 && (
-                        <span className="bg-purple-500/30 px-1 rounded text-xs hidden sm:inline flex-shrink-0">
-                          {goal.subtasks_completed || 0}/{goal.subtasks_total}
-                        </span>
+        {goalsList.map((goal) => {
+          const isExpanded = expandedGoals.has(goal.id);
+          return (
+            <Collapsible
+              key={goal.id}
+              open={isExpanded}
+              onOpenChange={(open) => {
+                const newSet = new Set(expandedGoals);
+                if (open) {
+                  newSet.add(goal.id);
+                } else {
+                  newSet.delete(goal.id);
+                }
+                setExpandedGoals(newSet);
+              }}
+            >
+              <div
+                className="rounded-lg p-3 sm:p-4 mb-3 border border-gray-700"
+                style={{ backgroundColor: '#000000' }}
+              >
+                <CollapsibleTrigger className="w-full">
+                  <div className="flex items-center gap-2 w-full">
+                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    <div className="font-semibold text-white text-sm sm:text-base">{goal.title}</div>
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="flex flex-col sm:flex-row items-start gap-3 mt-3 pt-3 border-t border-gray-700">
+                    <div className="flex-1 w-full sm:w-auto">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-2 text-xs text-gray-400/25 hover:text-gray-400 transition-colors">
+                        <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 text-white flex-shrink-0" />
+                        <span>Target: {goal.target_date ? (() => {
+                          try {
+                            const date = new Date(goal.target_date + 'T00:00:00');
+                            return isNaN(date.getTime()) ? '--' : date.toLocaleDateString();
+                          } catch {
+                            return '--';
+                          }
+                        })() : '--'}</span>
+                      </div>
+                      {goal.project && goal.project.id && (
+                        <div className="flex items-center gap-1 mb-2 flex-wrap">
+                          <span className="text-xs text-gray-400">Project:</span>
+                          <Link 
+                            href={`/projects/${goal.project.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-block"
+                          >
+                            <Badge className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30 hover:bg-blue-600/30 transition-colors cursor-pointer">
+                              {goal.project.name}
+                            </Badge>
+                          </Link>
+                        </div>
+                      )}
+                      {goal.assigned_users && goal.assigned_users.length > 0 && (
+                        <div className="flex items-center gap-1 mb-2 flex-wrap">
+                          <span className="text-xs text-gray-400">Assigned to:</span>
+                          {goal.assigned_users.map((assignedUser, index) => (
+                            <Badge key={index} className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
+                              {assignedUser.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {goal.description && (
+                        <div className="text-xs text-gray-400 leading-relaxed">
+                          {goal.description}
+                        </div>
                       )}
                     </div>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 flex-1 sm:flex-1 min-w-0"
-                    onClick={() => setEditingGoal(goal)}
-                  >
-                    <Edit className="w-3 h-3 mr-0 sm:mr-1" />
-                    <span className="hidden sm:inline">Edit</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30 flex-1 sm:flex-1 min-w-0"
-                    onClick={() => setDeletingGoal(goal)}
-                  >
-                    <Trash2 className="w-3 h-3 mr-0 sm:mr-1" />
-                    <span className="hidden sm:inline">Delete</span>
-                  </Button>
-                </div>
+                    {canManageCorporate && (
+                      <div className="w-full sm:w-auto flex flex-col sm:flex-col gap-3">
+                        <Select value={goal.status} onValueChange={(value) => handleUpdateGoalStatus(goal.id, value)}>
+                          <SelectTrigger className="w-full sm:w-32 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="paused">Paused</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <div className="flex gap-2 sm:gap-1 flex-wrap sm:flex-nowrap">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-green-600/20 border-green-500/30 text-green-300 hover:bg-green-600/30 flex-1 sm:flex-1 min-w-0"
+                            onClick={() => setViewingGoal(goal)}
+                          >
+                            <Eye className="w-3 h-3 mr-0 sm:mr-1" />
+                            <span className="hidden sm:inline">View</span>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 flex-1 sm:flex-1 min-w-0 overflow-hidden"
+                            onClick={() => {
+                              setSelectedGoalForSubtasks(goal);
+                              fetchSubtasks(goal.id);
+                            }}
+                          >
+                            <div className="flex items-center gap-1 sm:gap-1 min-w-0">
+                              <ListTodo className="w-3 h-3 flex-shrink-0" />
+                              <span className="hidden sm:inline flex-shrink-0">Subtasks</span>
+                              {goal.subtasks_total && goal.subtasks_total > 0 && (() => {
+                                const completed = Number.isFinite(goal.subtasks_completed) ? goal.subtasks_completed : 0;
+                                const total = Number.isFinite(goal.subtasks_total) ? goal.subtasks_total : 0;
+                                if (isNaN(completed) || isNaN(total)) {
+                                  console.log('[DEBUG] NaN detected in subtasks display:', { 
+                                    goalId: goal.id, 
+                                    completed: goal.subtasks_completed, 
+                                    total: goal.subtasks_total,
+                                    completedType: typeof goal.subtasks_completed,
+                                    totalType: typeof goal.subtasks_total
+                                  });
+                                }
+                                return (
+                                  <span className="bg-purple-500/30 px-1 rounded text-xs hidden sm:inline flex-shrink-0">
+                                    {String(completed)}/{String(total)}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 flex-1 sm:flex-1 min-w-0"
+                            onClick={() => setEditingGoal(goal)}
+                          >
+                            <Edit className="w-3 h-3 mr-0 sm:mr-1" />
+                            <span className="hidden sm:inline">Edit</span>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs px-3 py-2 sm:px-2 sm:py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30 flex-1 sm:flex-1 min-w-0"
+                            onClick={() => setDeletingGoal(goal)}
+                          >
+                            <Trash2 className="w-3 h-3 mr-0 sm:mr-1" />
+                            <span className="hidden sm:inline">Delete</span>
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleContent>
               </div>
-            )}
-          </div>
-        ))}
+            </Collapsible>
+          );
+        })}
       </div>
     );
   };
@@ -1029,44 +1181,78 @@ export default function CorporatePage() {
       {selectedOrg && (
         <>
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Upcoming Tasks</CardTitle>
+                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{pendingTasks}</div>
+                {!upcomingTask ? (
+                  <p className="text-sm text-gray-500">No upcoming tasks</p>
+                ) : (() => {
+                  const dueDate = upcomingTask.due_date ? (() => {
+                    try {
+                      const date = new Date(upcomingTask.due_date + 'T00:00:00');
+                      return isNaN(date.getTime()) ? null : date;
+                    } catch {
+                      return null;
+                    }
+                  })() : null;
+                  
+                  return (
+                    <div
+                      className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800 transition cursor-pointer"
+                      onClick={() => setViewingTask(upcomingTask)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{upcomingTask.title}</p>
+                        {dueDate && (
+                          <p className="text-xs text-gray-400">
+                            Due: {dueDate.toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{inProgressTasks}</div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Completed</CardTitle>
-                <CheckCircle className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{completedTasks}</div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Goals</CardTitle>
+                <CardTitle className="text-sm font-medium">Upcoming Goals</CardTitle>
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{activeGoals}</div>
+                {!upcomingGoal ? (
+                  <p className="text-sm text-gray-500">No upcoming goals</p>
+                ) : (() => {
+                  const targetDate = upcomingGoal.target_date ? (() => {
+                    try {
+                      const date = new Date(upcomingGoal.target_date + 'T00:00:00');
+                      return isNaN(date.getTime()) ? null : date;
+                    } catch {
+                      return null;
+                    }
+                  })() : null;
+                  
+                  return (
+                    <div
+                      className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800 transition cursor-pointer"
+                      onClick={() => setViewingGoal(upcomingGoal)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{upcomingGoal.title}</p>
+                        {targetDate && (
+                          <p className="text-xs text-gray-400">
+                            Target: {targetDate.toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           </div>
@@ -1448,92 +1634,124 @@ export default function CorporatePage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {filteredTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-start gap-2 sm:gap-3 rounded-lg p-2 sm:p-3 mb-2 cursor-pointer hover:bg-gray-800 transition border border-gray-700"
-                      style={{ backgroundColor: '#000000' }}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <div className="font-semibold text-white text-xs sm:text-base">{task.title}</div>
+                  {filteredTasks.map((task) => {
+                    const isExpanded = expandedTasks.has(task.id);
+                    return (
+                      <Collapsible
+                        key={task.id}
+                        open={isExpanded}
+                        onOpenChange={(open) => {
+                          const newSet = new Set(expandedTasks);
+                          if (open) {
+                            newSet.add(task.id);
+                          } else {
+                            newSet.delete(task.id);
+                          }
+                          setExpandedTasks(newSet);
+                        }}
+                      >
+                        <div
+                          className="rounded-lg p-2 sm:p-3 mb-2 border border-gray-700"
+                          style={{ backgroundColor: '#000000' }}
+                        >
+                          <CollapsibleTrigger className="w-full">
+                            <div className="flex items-start gap-2 sm:gap-3 w-full">
+                              <div className="flex-1 flex items-center gap-2">
+                                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                <div className="font-semibold text-white text-xs sm:text-base">{task.title}</div>
+                              </div>
+                            </div>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="flex items-start gap-2 sm:gap-3 mt-3 pt-3 border-t border-gray-700">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 sm:gap-3 mt-1 text-xs text-gray-400">
+                                  <span>Status: <span className="font-medium">{task.status}</span></span>
+                                  <span>Due: {task.due_date ? (() => {
+                                    try {
+                                      const date = new Date(task.due_date + 'T00:00:00');
+                                      return isNaN(date.getTime()) ? '--' : date.toLocaleDateString();
+                                    } catch {
+                                      return '--';
+                                    }
+                                  })() : '--'}</span>
+                                  <span>Priority: <span className="font-medium">{task.priority}</span></span>
+                                  <span>Category: <span className="font-medium">{task.category}</span></span>
+                                </div>
+                                {task.description && (
+                                  <div className="mt-1 text-xs text-gray-400">
+                                    {task.description}
+                                  </div>
+                                )}
+                                {task.project && (
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <span className="text-xs text-gray-400">Project:</span>
+                                    <Badge className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30">
+                                      {task.project.name}
+                                    </Badge>
+                                  </div>
+                                )}
+                                {task.assigned_users && task.assigned_users.length > 0 && (
+                                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                    <span className="text-xs text-gray-400">Assigned to:</span>
+                                    {task.assigned_users.map((assignedUser, index) => (
+                                      <Badge key={index} className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
+                                        {assignedUser.name}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              {canManageCorporate && (
+                                <div className="flex flex-col gap-2 mt-2">
+                                  <Select value={task.status} onValueChange={(value) => handleUpdateTaskStatus(task.id, value)}>
+                                    <SelectTrigger className="w-full text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="pending">Pending</SelectItem>
+                                      <SelectItem value="in_progress">In Progress</SelectItem>
+                                      <SelectItem value="completed">Completed</SelectItem>
+                                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <div className="flex gap-1 flex-wrap">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs px-2 py-1 bg-green-600/20 border-green-500/30 text-green-300 hover:bg-green-600/30 flex-1 min-w-0"
+                                      onClick={() => setViewingTask(task)}
+                                    >
+                                      <Eye className="w-3 h-3 mr-1" />
+                                      View
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 flex-1 min-w-0"
+                                      onClick={() => setEditingTask(task)}
+                                    >
+                                      <Edit className="w-3 h-3 mr-1" />
+                                      Edit
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30 flex-1 min-w-0"
+                                      onClick={() => setDeletingTask(task)}
+                                    >
+                                      <Trash2 className="w-3 h-3 mr-1" />
+                                      Delete
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </CollapsibleContent>
                         </div>
-                        <div className="flex items-center gap-2 sm:gap-3 mt-1 text-xs text-gray-400">
-                          <span>Status: <span className="font-medium">{task.status}</span></span>
-                          <span>Due: {task.due_date ? new Date(task.due_date + 'T00:00:00').toLocaleDateString() : '--'}</span>
-                          <span>Priority: <span className="font-medium">{task.priority}</span></span>
-                          <span>Category: <span className="font-medium">{task.category}</span></span>
-                        </div>
-                        {task.description && (
-                          <div className="mt-1 text-xs text-gray-400">
-                            {task.description}
-                          </div>
-                        )}
-                        {task.project && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <span className="text-xs text-gray-400">Project:</span>
-                            <Badge className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30">
-                              {task.project.name}
-                            </Badge>
-                          </div>
-                        )}
-                        {task.assigned_users && task.assigned_users.length > 0 && (
-                          <div className="flex items-center gap-1 mt-1 flex-wrap">
-                            <span className="text-xs text-gray-400">Assigned to:</span>
-                            {task.assigned_users.map((assignedUser, index) => (
-                              <Badge key={index} className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
-                                {assignedUser.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      {canManageCorporate && (
-                        <div className="flex flex-col gap-2 mt-2">
-                          <Select value={task.status} onValueChange={(value) => handleUpdateTaskStatus(task.id, value)}>
-                            <SelectTrigger className="w-full text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="in_progress">In Progress</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <div className="flex gap-1 flex-wrap">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs px-2 py-1 bg-green-600/20 border-green-500/30 text-green-300 hover:bg-green-600/30 flex-1 min-w-0"
-                              onClick={() => setViewingTask(task)}
-                            >
-                              <Eye className="w-3 h-3 mr-1" />
-                              View
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs px-2 py-1 bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 flex-1 min-w-0"
-                              onClick={() => setEditingTask(task)}
-                            >
-                              <Edit className="w-3 h-3 mr-1" />
-                              Edit
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs px-2 py-1 bg-red-600/20 border-red-500/30 text-red-300 hover:bg-red-600/30 flex-1 min-w-0"
-                              onClick={() => setDeletingTask(task)}
-                            >
-                              <Trash2 className="w-3 h-3 mr-1" />
-                              Delete
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                      </Collapsible>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -1972,7 +2190,10 @@ export default function CorporatePage() {
       </AlertDialog>
 
       {/* View Task Dialog */}
-      <Dialog open={!!viewingTask} onOpenChange={() => setViewingTask(null)}>
+      <Dialog open={!!viewingTask} onOpenChange={() => {
+        console.log('[DEBUG] View Task Dialog closing, viewingTask:', viewingTask);
+        setViewingTask(null);
+      }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">{viewingTask?.title}</DialogTitle>
@@ -1985,14 +2206,37 @@ export default function CorporatePage() {
             )}
             
             <div className="text-sm text-gray-400/25">
-              <strong>Due Date:</strong> {viewingTask?.due_date ? new Date(viewingTask.due_date + 'T00:00:00').toLocaleDateString() : 'No due date'}
+              <strong>Due Date:</strong> {viewingTask?.due_date ? (() => {
+                try {
+                  const date = new Date(viewingTask.due_date + 'T00:00:00');
+                  const isValid = !isNaN(date.getTime());
+                  if (!isValid) {
+                    console.log('[DEBUG] Invalid date in viewingTask:', viewingTask.due_date);
+                  }
+                  return isValid ? date.toLocaleDateString() : 'Invalid date';
+                } catch (e) {
+                  console.log('[DEBUG] Error parsing date in viewingTask:', viewingTask.due_date, e);
+                  return 'Invalid date';
+                }
+              })() : 'No due date'}
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* View Goal Dialog */}
-      <Dialog open={!!viewingGoal} onOpenChange={() => setViewingGoal(null)}>
+      <Dialog open={!!viewingGoal} onOpenChange={() => {
+        console.log('[DEBUG] View Goal Dialog closing, viewingGoal:', viewingGoal);
+        if (viewingGoal) {
+          console.log('[DEBUG] viewingGoal subtasks_completed:', viewingGoal.subtasks_completed, 'type:', typeof viewingGoal.subtasks_completed);
+          console.log('[DEBUG] viewingGoal subtasks_total:', viewingGoal.subtasks_total, 'type:', typeof viewingGoal.subtasks_total);
+          console.log('[DEBUG] isNaN checks:', {
+            completed: isNaN(Number(viewingGoal.subtasks_completed)),
+            total: isNaN(Number(viewingGoal.subtasks_total))
+          });
+        }
+        setViewingGoal(null);
+      }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">{viewingGoal?.title}</DialogTitle>
@@ -2054,14 +2298,38 @@ export default function CorporatePage() {
                 <div>
                   <h4 className="text-sm font-semibold text-gray-300 mb-1">Target Date</h4>
                   <p className="text-gray-300">
-                    {viewingGoal?.target_date ? new Date(viewingGoal.target_date + 'T00:00:00').toLocaleDateString() : 'No target date set'}
+                    {viewingGoal?.target_date ? (() => {
+                      try {
+                        const date = new Date(viewingGoal.target_date + 'T00:00:00');
+                        const isValid = !isNaN(date.getTime());
+                        if (!isValid) {
+                          console.log('[DEBUG] Invalid target_date in viewingGoal:', viewingGoal.target_date);
+                        }
+                        return isValid ? date.toLocaleDateString() : 'Invalid date';
+                      } catch (e) {
+                        console.log('[DEBUG] Error parsing target_date in viewingGoal:', viewingGoal.target_date, e);
+                        return 'Invalid date';
+                      }
+                    })() : 'No target date set'}
                   </p>
                 </div>
                 
                 <div className="hover:text-gray-300 transition-colors">
                   <h4 className="text-sm font-semibold text-gray-300/25 hover:text-gray-300 transition-colors mb-1">Created</h4>
                   <p className="text-gray-300/25 hover:text-gray-300 transition-colors">
-                    {viewingGoal?.created_at ? new Date(viewingGoal.created_at).toLocaleDateString() : 'Unknown'}
+                    {viewingGoal?.created_at ? (() => {
+                      try {
+                        const date = new Date(viewingGoal.created_at);
+                        const isValid = !isNaN(date.getTime());
+                        if (!isValid) {
+                          console.log('[DEBUG] Invalid created_at in viewingGoal:', viewingGoal.created_at);
+                        }
+                        return isValid ? date.toLocaleDateString() : 'Unknown';
+                      } catch (e) {
+                        console.log('[DEBUG] Error parsing created_at in viewingGoal:', viewingGoal.created_at, e);
+                        return 'Unknown';
+                      }
+                    })() : 'Unknown'}
                   </p>
                 </div>
               </div>
@@ -2159,7 +2427,14 @@ export default function CorporatePage() {
                         <div className="text-xs text-gray-400 mb-2 leading-relaxed">{subtask.description}</div>
                       )}
                       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-xs text-gray-400">
-                        <span className="text-gray-400/25 hover:text-gray-400 transition-colors">Due: {subtask.due_date ? new Date(subtask.due_date + 'T00:00:00').toLocaleDateString() : 'No due date'}</span>
+                        <span className="text-gray-400/25 hover:text-gray-400 transition-colors">Due: {subtask.due_date ? (() => {
+                          try {
+                            const date = new Date(subtask.due_date + 'T00:00:00');
+                            return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleDateString();
+                          } catch {
+                            return 'Invalid date';
+                          }
+                        })() : 'No due date'}</span>
                         {subtask.assigned_users && subtask.assigned_users.length > 0 && (
                           <div className="flex items-center gap-1 flex-wrap">
                             <span>Assigned to:</span>

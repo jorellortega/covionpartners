@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useUpdates } from '@/hooks/useUpdates'
-import { Home, Search, RefreshCw, ArrowRight, Plus, Edit, Trash2, Loader2, UserPlus, Check, X, Briefcase, CheckCircle2, XCircle } from 'lucide-react'
+import { Home, Search, RefreshCw, ArrowRight, Plus, Edit, Trash2, Loader2, UserPlus, Check, X, Briefcase, CheckCircle2, XCircle, FileText, MessageSquare } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -78,10 +78,14 @@ export default function UpdatesPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [updateToDeleteId, setUpdateToDeleteId] = useState<number | null>(null)
+  const [notificationToDeleteId, setNotificationToDeleteId] = useState<string | null>(null)
+  const [showDeleteNotificationConfirm, setShowDeleteNotificationConfirm] = useState(false)
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([])
   const [loadingJoinRequests, setLoadingJoinRequests] = useState(true)
   const [applicationNotifications, setApplicationNotifications] = useState<any[]>([])
   const [loadingApplicationNotifications, setLoadingApplicationNotifications] = useState(true)
+  const [partnerNotifications, setPartnerNotifications] = useState<any[]>([])
+  const [loadingPartnerNotifications, setLoadingPartnerNotifications] = useState(true)
   const [projects, setProjects] = useState<Project[]>([])
   const [loadingProjects, setLoadingProjects] = useState(true)
   const [newUpdate, setNewUpdate] = useState({
@@ -95,6 +99,41 @@ export default function UpdatesPage() {
     project_name: ''
   })
   const [activeTab, setActiveTab] = useState('all-updates')
+
+  // Refresh updates when navigating back to this page (e.g., from details page)
+  useEffect(() => {
+    // Listen for browser back/forward navigation
+    const handlePopState = () => {
+      if (window.location.pathname === '/updates') {
+        refreshUpdates()
+      }
+    }
+
+    // Listen for visibility changes (when tab becomes visible again)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshUpdates()
+      }
+    }
+
+    // Also refresh when component becomes visible (handles client-side navigation)
+    const checkAndRefresh = () => {
+      if (document.visibilityState === 'visible' && window.location.pathname === '/updates') {
+        refreshUpdates()
+      }
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    // Check on focus (when user switches back to the tab)
+    window.addEventListener('focus', checkAndRefresh)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', checkAndRefresh)
+    }
+  }, [refreshUpdates])
 
   // Fetch join requests
   useEffect(() => {
@@ -239,6 +278,67 @@ export default function UpdatesPage() {
     fetchApplicationNotifications()
   }, [user])
 
+  // Fetch partner notifications
+  useEffect(() => {
+    const fetchPartnerNotifications = async () => {
+      if (!user) return
+      
+      setLoadingPartnerNotifications(true)
+      try {
+        console.log('Fetching partner notifications for user:', user.id)
+        
+        // Fetch partner-related notifications
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .in('type', ['partner_note_created', 'partner_note_updated', 'partner_invitation_accepted', 'partner_project_comment'])
+          .order('created_at', { ascending: false })
+        
+        if (error) {
+          console.error('Error fetching partner notifications:', error)
+          throw error
+        }
+        
+        if (!data) {
+          setPartnerNotifications([])
+          return
+        }
+        
+        // Parse the metadata JSON string for each notification
+        const parsedData = data.map(item => {
+          try {
+            return {
+              ...item,
+              metadata: typeof item.metadata === 'string' 
+                ? JSON.parse(item.metadata) 
+                : item.metadata
+            }
+          } catch (parseError) {
+            console.error('Error parsing metadata for item:', item, parseError)
+            return {
+              ...item,
+              metadata: {
+                error: 'Failed to parse metadata',
+                raw: item.metadata
+              }
+            }
+          }
+        })
+        
+        console.log('Processed partner notifications:', parsedData)
+        setPartnerNotifications(parsedData)
+      } catch (err: any) {
+        console.error('Error fetching partner notifications:', err)
+        toast.error(`Failed to load partner notifications: ${err.message || 'Unknown error'}`)
+      } finally {
+        setLoadingPartnerNotifications(false)
+      }
+    }
+    
+    fetchPartnerNotifications()
+  }, [user])
+
   // Function to mark notification as read
   const markNotificationAsRead = async (notificationId: string) => {
     try {
@@ -250,6 +350,22 @@ export default function UpdatesPage() {
       if (error) throw error
       
       // Update local state
+      setApplicationNotifications(prev => 
+        prev.map(notification => 
+          notification.id === notificationId 
+            ? { ...notification, read: true }
+            : notification
+        )
+      )
+      
+      setPartnerNotifications(prev => 
+        prev.map(notification => 
+          notification.id === notificationId 
+            ? { ...notification, read: true }
+            : notification
+        )
+      )
+      
       setApplicationNotifications(prev => 
         prev.map(notification => 
           notification.id === notificationId 
@@ -378,26 +494,82 @@ export default function UpdatesPage() {
     }
   }
 
-  const filteredUpdates = updates.filter(update => {
+  // Combine updates with partner notifications and application notifications for "All Updates" tab
+  const allItems = useMemo(() => {
+    const updateItems = updates.map(update => ({
+      ...update,
+      itemType: 'update' as const,
+      displayDate: update.date || update.created_at
+    }))
+    
+    // Transform partner notifications to match update format
+    const partnerNotificationItems = partnerNotifications.map(notification => ({
+      id: notification.id,
+      title: notification.title,
+      description: notification.content,
+      category: 'partner',
+      status: notification.read ? 'read' : 'new',
+      date: notification.created_at,
+      created_at: notification.created_at,
+      created_by: notification.metadata?.created_by || notification.metadata?.partner_user_id || notification.metadata?.commenter_id || '',
+      user_name: notification.metadata?.created_by_name || notification.metadata?.partner_name || notification.metadata?.commenter_name || 'Unknown',
+      projects: notification.metadata?.project_name ? { name: notification.metadata.project_name } : null,
+      itemType: 'partner_notification' as const,
+      notificationType: notification.type,
+      notificationMetadata: notification.metadata,
+      read: notification.read,
+      displayDate: notification.created_at
+    }))
+    
+    // Transform application notifications to match update format
+    const applicationNotificationItems = applicationNotifications.map(notification => ({
+      id: notification.id,
+      title: notification.title,
+      description: notification.content,
+      category: 'application_status',
+      status: notification.metadata?.status || 'pending',
+      date: notification.created_at,
+      created_at: notification.created_at,
+      created_by: notification.metadata?.updated_by || '',
+      user_name: 'System',
+      projects: notification.metadata?.project_name ? { name: notification.metadata.project_name } : null,
+      itemType: 'application_notification' as const,
+      notificationType: notification.type,
+      notificationMetadata: notification.metadata,
+      read: notification.read,
+      displayDate: notification.created_at
+    }))
+    
+    // Combine and sort by date (newest first)
+    const combined = [...updateItems, ...partnerNotificationItems, ...applicationNotificationItems].sort((a, b) => {
+      const dateA = new Date(a.displayDate).getTime()
+      const dateB = new Date(b.displayDate).getTime()
+      return dateB - dateA
+    })
+    
+    return combined
+  }, [updates, partnerNotifications, applicationNotifications])
+
+  const filteredUpdates = allItems.filter(item => {
     const matchesSearch = 
-      update.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      update.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      update.category.toLowerCase().includes(searchQuery.toLowerCase())
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchQuery.toLowerCase())
 
     if (activeTab === 'all-updates') {
-      return matchesSearch // Show all updates
+      return matchesSearch // Show all updates and partner notifications
     }
     
     if (activeTab === 'project-updates') {
-      return matchesSearch && update.category.toLowerCase() === 'project'
+      return matchesSearch && item.category.toLowerCase() === 'project'
     }
     
     if (activeTab === 'join-requests') {
-      return matchesSearch && update.category.toLowerCase() === 'join_request'
+      return matchesSearch && item.category.toLowerCase() === 'join_request'
     }
     
     if (activeTab === 'application-status') {
-      return matchesSearch && update.category.toLowerCase() === 'application_status'
+      return matchesSearch && item.category.toLowerCase() === 'application_status'
     }
     
     return matchesSearch
@@ -455,6 +627,120 @@ export default function UpdatesPage() {
   const handleDeleteClick = (id: number) => {
     setUpdateToDeleteId(id);
     setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteNotificationClick = (id: string) => {
+    setNotificationToDeleteId(id);
+    setShowDeleteNotificationConfirm(true);
+  };
+
+  const confirmDeleteNotification = async () => {
+    if (!notificationToDeleteId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationToDeleteId);
+      
+      if (error) throw error;
+      
+      // Remove from local state
+      setPartnerNotifications(prev => prev.filter(n => n.id !== notificationToDeleteId));
+      setApplicationNotifications(prev => prev.filter(n => n.id !== notificationToDeleteId));
+      
+      // Also refresh the lists to update the "All Updates" tab
+      const fetchPartnerNotifications = async () => {
+        if (!user) return
+        
+        try {
+          const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', user.id)
+            .in('type', ['partner_note_created', 'partner_note_updated', 'partner_invitation_accepted', 'partner_project_comment'])
+            .order('created_at', { ascending: false })
+          
+          if (error) throw error
+          
+          if (data) {
+            const parsedData = data.map(item => {
+              try {
+                return {
+                  ...item,
+                  metadata: typeof item.metadata === 'string' 
+                    ? JSON.parse(item.metadata) 
+                    : item.metadata
+                }
+              } catch (parseError) {
+                return {
+                  ...item,
+                  metadata: {
+                    error: 'Failed to parse metadata',
+                    raw: item.metadata
+                  }
+                }
+              }
+            })
+            
+            setPartnerNotifications(parsedData)
+          }
+        } catch (err: any) {
+          console.error('Error refreshing partner notifications:', err)
+        }
+      }
+      
+      const fetchApplicationNotifications = async () => {
+        if (!user) return
+        
+        try {
+          const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', user.id)
+            .in('type', ['job_application', 'project_role_application'])
+            .order('created_at', { ascending: false })
+          
+          if (error) throw error
+          
+          if (data) {
+            const parsedData = data.map(item => {
+              try {
+                return {
+                  ...item,
+                  metadata: typeof item.metadata === 'string' 
+                    ? JSON.parse(item.metadata) 
+                    : item.metadata
+                }
+              } catch (parseError) {
+                return {
+                  ...item,
+                  metadata: {
+                    error: 'Failed to parse metadata',
+                    raw: item.metadata
+                  }
+                }
+              }
+            })
+            
+            setApplicationNotifications(parsedData)
+          }
+        } catch (err: any) {
+          console.error('Error refreshing application notifications:', err)
+        }
+      }
+      
+      fetchPartnerNotifications()
+      fetchApplicationNotifications()
+      
+      toast.success('Notification deleted successfully');
+    } catch (error: any) {
+      console.error('Error deleting notification:', error);
+      toast.error('Failed to delete notification');
+    } finally {
+      setNotificationToDeleteId(null);
+      setShowDeleteNotificationConfirm(false);
+    }
   };
 
   const canManageUpdates = user && ['partner', 'admin', 'ceo'].includes(user.role)
@@ -623,6 +909,12 @@ export default function UpdatesPage() {
                   <Badge className="ml-2 bg-blue-600" variant="secondary">{applicationNotifications.filter(n => !n.read).length}</Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="partner-notifications" className="relative">
+                Partner Updates
+                {partnerNotifications.filter(n => !n.read).length > 0 && (
+                  <Badge className="ml-2 bg-purple-600" variant="secondary">{partnerNotifications.filter(n => !n.read).length}</Badge>
+                )}
+              </TabsTrigger>
             </TabsList>
             
             <TabsContent value="all-updates">
@@ -648,98 +940,443 @@ export default function UpdatesPage() {
                 </Card>
               ) : (
                 <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredUpdates.map((update) => (
-                    <Card 
-                      key={update.id} 
-                      className="hover:shadow-lg transition-shadow p-4"
-                    >
-                      <CardHeader>
-                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                          <div>
-                            <CardTitle>{update.title}</CardTitle>
-                            {update.projects && (
-                              <p className="text-lg font-semibold text-purple-400 mt-1">
-                                {update.projects.name}
-                              </p>
-                            )}
-                          </div>
-                          <Badge variant={update.status === 'completed' ? 'default' : 'secondary'}>
-                            {update.status}
-                          </Badge>
-                        </div>
-                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
-                        <div className="flex gap-2">
-                          <Badge variant="outline">{update.category}</Badge>
-                          <span className="text-sm text-gray-500">
-                            {new Date(update.date).toLocaleDateString()}
-                          </span>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-gray-600 mb-4">{update.description}</p>
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
-                            <span className="text-white font-medium">
-                              {update.created_by === user?.id ? 
-                                (user?.name?.split(' ').map((n: string) => n[0]).join('') || 'U') : 
-                                (update.user_name?.split(' ').map((n: string) => n[0]).join('') || 'U')}
-                            </span>
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex justify-between items-center">
-                              <p className="text-sm font-medium">
-                                {update.created_by === user?.id ? user?.name || 'You' : update.user_name || 'Unknown User'}
-                              </p>
-                              <span className="text-xs text-gray-400">
-                                {new Date(update.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
+                  {filteredUpdates.map((item) => {
+                    // Handle application notifications
+                    if (item.itemType === 'application_notification') {
+                      const notification = item as any
+                      return (
+                        <Card 
+                          key={item.id} 
+                          className={`hover:shadow-lg transition-shadow p-4 cursor-pointer ${
+                            !notification.read ? 'ring-2 ring-blue-500/50 bg-blue-50/5' : ''
+                          }`}
+                          onClick={(e) => {
+                            // Don't navigate if clicking on buttons or interactive elements
+                            const target = e.target as HTMLElement
+                            if (target.closest('button') || target.closest('[role="dialog"]') || target.closest('[role="alertdialog"]') || showDeleteNotificationConfirm) {
+                              return
+                            }
+                            
+                            if (!notification.read) {
+                              markNotificationAsRead(item.id)
+                            }
+                            // Navigate to approved positions page if accepted, or stay on updates page
+                            if (notification.notificationMetadata?.status === 'accepted') {
+                              router.push('/approved-positions')
+                            }
+                          }}
+                        >
+                          <CardHeader>
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                              <div>
+                                <CardTitle className="flex items-center gap-2">
+                                  {notification.notificationType === 'job_application' ? (
+                                    <Briefcase className="h-4 w-4 text-blue-500" />
+                                  ) : (
+                                    <UserPlus className="h-4 w-4 text-purple-500" />
+                                  )}
+                                  {item.title}
+                                  {!notification.read && (
+                                    <Badge className="ml-2 bg-blue-600" variant="secondary">New</Badge>
+                                  )}
+                                </CardTitle>
+                                {item.projects && (
+                                  <p className="text-lg font-semibold text-blue-400 mt-1">
+                                    {item.projects.name}
+                                  </p>
+                                )}
+                              </div>
+                              <Badge variant={notification.status === 'accepted' ? 'default' : 
+                                           notification.status === 'rejected' ? 'destructive' : 'secondary'}>
+                                {notification.status}
+                              </Badge>
                             </div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
-                          <Button 
-                            variant="ghost" 
-                            onClick={() => router.push(`/updates/${update.id}`)}
-                            className="hover:bg-purple-500"
-                          >
-                            View Details
-                            <ArrowRight className="w-4 h-4 ml-2" />
-                          </Button>
-                          {canManageUpdates && (
-                            <div className="flex gap-2">
-                              <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
+                              <div className="flex gap-2">
+                                <Badge variant="outline">application</Badge>
+                                <span className="text-sm text-gray-500">
+                                  {new Date(item.date || item.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-gray-600 mb-4">{item.description}</p>
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
+                                <span className="text-white font-medium">
+                                  {(item.user_name || 'S').split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || 'S'}
+                                </span>
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex justify-between items-center">
+                                  <p className="text-sm font-medium">
+                                    {item.user_name || 'System'}
+                                  </p>
+                                  <span className="text-xs text-gray-400">
+                                    {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            {notification.notificationMetadata?.status === 'accepted' && (
+                              <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg mt-4">
+                                <CheckCircle2 className="h-4 w-4" />
+                                <span className="text-sm font-medium">Congratulations! Your application was accepted.</span>
+                              </div>
+                            )}
+                            {notification.notificationMetadata?.status === 'rejected' && (
+                              <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg mt-4">
+                                <XCircle className="h-4 w-4" />
+                                <span className="text-sm font-medium">Your application was not selected this time.</span>
+                              </div>
+                            )}
+                            {notification.notificationMetadata?.status === 'shortlisted' && (
+                              <div className="flex items-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-lg mt-4">
+                                <CheckCircle2 className="h-4 w-4" />
+                                <span className="text-sm font-medium">You've been shortlisted! Keep an eye out for next steps.</span>
+                              </div>
+                            )}
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
+                              {notification.notificationMetadata?.status === 'accepted' && (
+                                <Button 
+                                  variant="ghost" 
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    router.push('/approved-positions')
+                                  }}
+                                  className="hover:bg-blue-500"
+                                >
+                                  View Approved Position
+                                  <ArrowRight className="w-4 h-4 ml-2" />
+                                </Button>
+                              )}
+                              <AlertDialog open={showDeleteNotificationConfirm} onOpenChange={setShowDeleteNotificationConfirm}>
                                 <AlertDialogTrigger asChild>
                                   <Button
                                     variant="ghost"
                                     size="icon"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      handleDeleteNotificationClick(item.id)
+                                    }}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                    }}
                                     className="hover:bg-red-900/20 hover:text-red-400"
-                                    onClick={() => handleDeleteClick(update.id)}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </AlertDialogTrigger>
-                                <AlertDialogContent>
+                                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      This action cannot be undone. This will permanently delete the update.
+                                      This action cannot be undone. This will permanently delete the notification.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={confirmDeleteUpdate}>
+                                    <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={(e) => {
+                                      e.stopPropagation()
+                                      confirmDeleteNotification()
+                                    }}>
                                       Delete
                                     </AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
                             </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          </CardContent>
+                        </Card>
+                      )
+                    }
+                    
+                    // Handle partner notifications differently
+                    if (item.itemType === 'partner_notification') {
+                      const notification = item as any
+                      return (
+                        <Card 
+                          key={item.id} 
+                          className={`hover:shadow-lg transition-shadow p-4 cursor-pointer ${
+                            !notification.read ? 'ring-2 ring-purple-500/50 bg-purple-50/5' : ''
+                          }`}
+                          onClick={(e) => {
+                            // Don't navigate if clicking on buttons or interactive elements
+                            const target = e.target as HTMLElement
+                            if (target.closest('button') || target.closest('[role="dialog"]') || target.closest('[role="alertdialog"]') || showDeleteNotificationConfirm) {
+                              return
+                            }
+                            
+                            if (!notification.read) {
+                              markNotificationAsRead(item.id)
+                            }
+                            // Navigate based on notification type
+                            if (notification.notificationType === 'partner_note_created' || notification.notificationType === 'partner_note_updated') {
+                              router.push('/partners-overview')
+                            } else if (notification.notificationType === 'partner_invitation_accepted') {
+                              // Pass partner invitation ID to auto-select the partner
+                              const invitationId = notification.notificationMetadata?.partner_invitation_id
+                              if (invitationId) {
+                                router.push(`/my-partners?invitation=${invitationId}`)
+                              } else {
+                                router.push('/my-partners')
+                              }
+                            } else if (notification.notificationType === 'partner_project_comment') {
+                              // If title is "Partner Commented on Project", user is organization owner -> go to my-partners
+                              // If title is "New Comment on Project", user is partner -> go to partners-overview
+                              if (item.title === 'Partner Commented on Project') {
+                                const invitationId = notification.notificationMetadata?.partner_invitation_id
+                                const partnerUserId = notification.notificationMetadata?.partner_user_id
+                                if (invitationId) {
+                                  router.push(`/my-partners?invitation=${invitationId}`)
+                                } else if (partnerUserId) {
+                                  router.push(`/my-partners?partner=${partnerUserId}`)
+                                } else {
+                                  router.push('/my-partners')
+                                }
+                              } else {
+                                router.push('/partners-overview')
+                              }
+                            }
+                          }}
+                        >
+                          <CardHeader>
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                              <div>
+                                <CardTitle className="flex items-center gap-2">
+                                  {notification.notificationType === 'partner_invitation_accepted' ? (
+                                    <UserPlus className="h-4 w-4 text-green-500" />
+                                  ) : notification.notificationType === 'partner_project_comment' ? (
+                                    <MessageSquare className="h-4 w-4 text-blue-500" />
+                                  ) : (
+                                    <FileText className="h-4 w-4 text-blue-500" />
+                                  )}
+                                  {item.title}
+                                  {!notification.read && (
+                                    <Badge className="ml-2 bg-purple-600" variant="secondary">New</Badge>
+                                  )}
+                                </CardTitle>
+                                {item.projects && (
+                                  <p className="text-lg font-semibold text-purple-400 mt-1">
+                                    {item.projects.name}
+                                  </p>
+                                )}
+                              </div>
+                              <Badge variant="outline">Partner</Badge>
+                            </div>
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
+                              <div className="flex gap-2">
+                                <Badge variant="outline">partner</Badge>
+                                <span className="text-sm text-gray-500">
+                                  {new Date(item.date || item.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-gray-600 mb-4">{item.description}</p>
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
+                                <span className="text-white font-medium">
+                                  {(item.user_name || 'U').split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || 'U'}
+                                </span>
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex justify-between items-center">
+                                  <p className="text-sm font-medium">
+                                    {item.user_name || 'Unknown User'}
+                                  </p>
+                                  <span className="text-xs text-gray-400">
+                                    {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
+                              <Button 
+                                variant="ghost" 
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (notification.notificationType === 'partner_note_created' || notification.notificationType === 'partner_note_updated') {
+                                    router.push('/partners-overview')
+                                  } else if (notification.notificationType === 'partner_invitation_accepted') {
+                                    // Pass partner invitation ID to auto-select the partner
+                                    const invitationId = notification.notificationMetadata?.partner_invitation_id
+                                    if (invitationId) {
+                                      router.push(`/my-partners?invitation=${invitationId}`)
+                                    } else {
+                                      router.push('/my-partners')
+                                    }
+                                  } else if (notification.notificationType === 'partner_project_comment') {
+                                    // If title is "Partner Commented on Project", user is organization owner -> go to my-partners
+                                    // If title is "New Comment on Project", user is partner -> go to partners-overview
+                                    if (item.title === 'Partner Commented on Project') {
+                                      const invitationId = notification.notificationMetadata?.partner_invitation_id
+                                      const partnerUserId = notification.notificationMetadata?.partner_user_id
+                                      if (invitationId) {
+                                        router.push(`/my-partners?invitation=${invitationId}`)
+                                      } else if (partnerUserId) {
+                                        router.push(`/my-partners?partner=${partnerUserId}`)
+                                      } else {
+                                        router.push('/my-partners')
+                                      }
+                                    } else {
+                                      router.push('/partners-overview')
+                                    }
+                                  }
+                                }}
+                                className="hover:bg-purple-500"
+                              >
+                                View Details
+                                <ArrowRight className="w-4 h-4 ml-2" />
+                              </Button>
+                              <AlertDialog open={showDeleteNotificationConfirm} onOpenChange={setShowDeleteNotificationConfirm}>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      handleDeleteNotificationClick(item.id)
+                                    }}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                    }}
+                                    className="hover:bg-red-900/20 hover:text-red-400"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be undone. This will permanently delete the notification.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={(e) => {
+                                      e.stopPropagation()
+                                      confirmDeleteNotification()
+                                    }}>
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    }
+                    
+                    // Handle regular updates
+                    return (
+                      <Card 
+                        key={item.id} 
+                        className="hover:shadow-lg transition-shadow p-4"
+                      >
+                        <CardHeader>
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                            <div>
+                              <CardTitle className="flex items-center gap-2">
+                                {item.title}
+                                {item.status === 'new' && (
+                                  <Badge className="ml-2 bg-blue-600" variant="secondary">New</Badge>
+                                )}
+                              </CardTitle>
+                              {item.projects && (
+                                <p className="text-lg font-semibold text-purple-400 mt-1">
+                                  {item.projects.name}
+                                </p>
+                              )}
+                            </div>
+                            {item.status && item.status !== 'new' && item.status !== 'upcoming' && (
+                              <Badge variant={item.status === 'completed' ? 'default' : 'secondary'}>
+                                {item.status}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
+                          <div className="flex gap-2">
+                            <Badge variant="outline">{item.category}</Badge>
+                            <span className="text-sm text-gray-500">
+                              {new Date(item.date || item.created_at).toLocaleDateString()}
+                            </span>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-gray-600 mb-4">{item.description}</p>
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
+                              <span className="text-white font-medium">
+                                {item.created_by === user?.id ? 
+                                  (user?.name?.split(' ').map((n: string) => n[0]).join('') || 'U') : 
+                                  (item.user_name?.split(' ').map((n: string) => n[0]).join('') || 'U')}
+                              </span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex justify-between items-center">
+                                <p className="text-sm font-medium">
+                                  {item.created_by === user?.id ? user?.name || 'You' : item.user_name || 'Unknown User'}
+                                </p>
+                                <span className="text-xs text-gray-400">
+                                  {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
+                            <Button 
+                              variant="ghost" 
+                              onClick={() => router.push(`/updates/${item.id}`)}
+                              className="hover:bg-purple-500"
+                            >
+                              View Details
+                              <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                            {canManageUpdates && item.itemType === 'update' && (
+                              <div className="flex gap-2">
+                                <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="hover:bg-red-900/20 hover:text-red-400"
+                                      onClick={() => handleDeleteClick(item.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete the update.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={confirmDeleteUpdate}>
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
                 </div>
               )}
             </TabsContent>
@@ -775,16 +1412,23 @@ export default function UpdatesPage() {
                       <CardHeader>
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                           <div>
-                            <CardTitle>{update.title}</CardTitle>
+                            <CardTitle className="flex items-center gap-2">
+                              {update.title}
+                              {update.status === 'new' && (
+                                <Badge className="ml-2 bg-blue-600" variant="secondary">New</Badge>
+                              )}
+                            </CardTitle>
                             {update.projects && (
                               <p className="text-lg font-semibold text-purple-400 mt-1">
                                 {update.projects.name}
                               </p>
                             )}
                           </div>
-                          <Badge variant={update.status === 'completed' ? 'default' : 'secondary'}>
-                            {update.status}
-                          </Badge>
+                          {update.status && update.status !== 'new' && update.status !== 'upcoming' && (
+                            <Badge variant={update.status === 'completed' ? 'default' : 'secondary'}>
+                              {update.status}
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
                         <div className="flex gap-2">
@@ -1005,6 +1649,201 @@ export default function UpdatesPage() {
                               <span className="text-sm font-medium">You've been shortlisted! Keep an eye out for next steps.</span>
                             </div>
                           )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="partner-notifications">
+              {loadingPartnerNotifications ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : partnerNotifications.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8">
+                    <p className="text-gray-500 text-center">No partner notifications</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  {partnerNotifications.map((notification) => (
+                    <Card 
+                      key={notification.id} 
+                      className={`hover:shadow-lg transition-shadow cursor-pointer ${
+                        !notification.read ? 'ring-2 ring-purple-500/50 bg-purple-50/5' : ''
+                      }`}
+                      onClick={(e) => {
+                        // Don't navigate if clicking on buttons or interactive elements
+                        const target = e.target as HTMLElement
+                        if (target.closest('button') || target.closest('[role="dialog"]') || target.closest('[role="alertdialog"]') || showDeleteNotificationConfirm) {
+                          return
+                        }
+                        
+                        if (!notification.read) {
+                          markNotificationAsRead(notification.id)
+                        }
+                        // Navigate based on notification type
+                        if (notification.type === 'partner_note_created' || notification.type === 'partner_note_updated') {
+                          router.push('/partners-overview')
+                        } else if (notification.type === 'partner_invitation_accepted') {
+                          // Pass partner invitation ID to auto-select the partner
+                          const invitationId = notification.metadata?.partner_invitation_id
+                          if (invitationId) {
+                            router.push(`/my-partners?invitation=${invitationId}`)
+                          } else {
+                            router.push('/my-partners')
+                          }
+                        } else if (notification.type === 'partner_project_comment') {
+                          // If title is "Partner Commented on Project", user is organization owner -> go to my-partners
+                          // If title is "New Comment on Project", user is partner -> go to partners-overview
+                          if (notification.title === 'Partner Commented on Project') {
+                            const invitationId = notification.metadata?.partner_invitation_id
+                            const partnerUserId = notification.metadata?.partner_user_id
+                            if (invitationId) {
+                              router.push(`/my-partners?invitation=${invitationId}`)
+                            } else if (partnerUserId) {
+                              router.push(`/my-partners?partner=${partnerUserId}`)
+                            } else {
+                              router.push('/my-partners')
+                            }
+                          } else {
+                            router.push('/partners-overview')
+                          }
+                        }
+                      }}
+                    >
+                      <CardHeader>
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                          <CardTitle className="flex items-center gap-2">
+                            {notification.type === 'partner_invitation_accepted' ? (
+                              <UserPlus className="h-5 w-5 text-green-500" />
+                            ) : notification.type === 'partner_project_comment' ? (
+                              <MessageSquare className="h-5 w-5 text-blue-500" />
+                            ) : (
+                              <FileText className="h-5 w-5 text-blue-500" />
+                            )}
+                            {notification.type === 'partner_invitation_accepted' 
+                              ? 'Partner Invitation' 
+                              : notification.type === 'partner_note_created'
+                              ? 'New Partner Note'
+                              : notification.type === 'partner_note_updated'
+                              ? 'Partner Note Updated'
+                              : 'Project Comment'}
+                            {!notification.read && (
+                              <Badge className="ml-2 bg-purple-600" variant="secondary">New</Badge>
+                            )}
+                          </CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div>
+                            <h4 className="font-semibold text-lg">{notification.title}</h4>
+                            <p className="text-gray-600 mt-2">{notification.content}</p>
+                          </div>
+                          
+                          <div className="text-sm text-gray-500 space-y-1">
+                            {notification.metadata.organization_name && (
+                              <p>Organization: {notification.metadata.organization_name}</p>
+                            )}
+                            {notification.metadata.project_name && (
+                              <p>Project: {notification.metadata.project_name}</p>
+                            )}
+                            {notification.metadata.note_title && (
+                              <p>Note: {notification.metadata.note_title}</p>
+                            )}
+                            {notification.metadata.partner_name && (
+                              <p>Partner: {notification.metadata.partner_name}</p>
+                            )}
+                            {notification.metadata.commenter_name && (
+                              <p>Comment by: {notification.metadata.commenter_name}</p>
+                            )}
+                            {notification.metadata.comment_content && (
+                              <p className="text-gray-400 italic">"{notification.metadata.comment_content}..."</p>
+                            )}
+                            <p>Date: {new Date(notification.created_at).toLocaleString()}</p>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 mt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (notification.type === 'partner_note_created' || notification.type === 'partner_note_updated') {
+                                  router.push('/partners-overview')
+                                } else if (notification.type === 'partner_invitation_accepted') {
+                                  // Pass partner invitation ID to auto-select the partner
+                                  const invitationId = notification.metadata?.partner_invitation_id
+                                  if (invitationId) {
+                                    router.push(`/my-partners?invitation=${invitationId}`)
+                                  } else {
+                                    router.push('/my-partners')
+                                  }
+                                } else if (notification.type === 'partner_project_comment') {
+                                  // If title is "Partner Commented on Project", user is organization owner -> go to my-partners
+                                  // If title is "New Comment on Project", user is partner -> go to partners-overview
+                                  if (notification.title === 'Partner Commented on Project') {
+                                    const invitationId = notification.metadata?.partner_invitation_id
+                                    const partnerUserId = notification.metadata?.partner_user_id
+                                    if (invitationId) {
+                                      router.push(`/my-partners?invitation=${invitationId}`)
+                                    } else if (partnerUserId) {
+                                      router.push(`/my-partners?partner=${partnerUserId}`)
+                                    } else {
+                                      router.push('/my-partners')
+                                    }
+                                  } else {
+                                    router.push('/partners-overview')
+                                  }
+                                }
+                              }}
+                            >
+                              View Details
+                              <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                            <AlertDialog open={showDeleteNotificationConfirm} onOpenChange={setShowDeleteNotificationConfirm}>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    handleDeleteNotificationClick(notification.id)
+                                  }}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                  }}
+                                  className="hover:bg-red-900/20 hover:text-red-400"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This action cannot be undone. This will permanently delete the notification.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={(e) => {
+                                    e.stopPropagation()
+                                    confirmDeleteNotification()
+                                  }}>
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

@@ -83,6 +83,14 @@ export default function MessagePage({ params }: { params: { id: string } }) {
         .single()
 
       if (messageError) throw messageError
+      
+      console.log('Fetched message data:', {
+        id: messageData.id,
+        read: messageData.read,
+        readType: typeof messageData.read,
+        receiver_id: messageData.receiver_id,
+        user_id: user?.id
+      })
 
       // Fetch project info if project_id exists
       if (messageData.project_id) {
@@ -124,19 +132,7 @@ export default function MessagePage({ params }: { params: { id: string } }) {
 
       setMessage(messageWithUsers)
 
-      // If message is unread and current user is the receiver, mark as read
-      if (!messageData.read && messageData.receiver_id === user?.id) {
-        const { error: updateError } = await supabase
-          .from('messages')
-          .update({ read: true })
-          .eq('id', id)
-
-        if (updateError) {
-          console.error('Error marking message as read:', updateError)
-        }
-      }
-
-      // Find the root message of the thread
+      // Find the root message of the thread (needed for both marking as read and fetching thread)
       let rootMessageId = messageData.id
       let currentMessage = messageData
       while (currentMessage.parent_id) {
@@ -148,6 +144,58 @@ export default function MessagePage({ params }: { params: { id: string } }) {
         if (!parentData) break
         rootMessageId = parentData.id
         currentMessage = parentData
+      }
+
+      // Always mark all unread messages in this thread as read when viewing any message in the thread
+      // This ensures that viewing a parent message also marks unread replies as read
+      const isReceiver = messageData.receiver_id === user?.id || messageData.sender_id === user?.id
+      
+      if (isReceiver) {
+        console.log('Marking all unread messages in thread as read. Root message ID:', rootMessageId, 'Current message ID:', id)
+        
+        // First, get all messages in the thread that are unread
+        // We need to find messages that are:
+        // 1. Part of this thread (root message or replies)
+        // 2. Received by the current user
+        // 3. Unread (read is false or null)
+        const { data: allThreadMessages } = await supabase
+          .from('messages')
+          .select('id, read, receiver_id')
+          .or(`id.eq.${rootMessageId},parent_id.eq.${rootMessageId}`)
+        
+        // Filter in JavaScript to find unread messages received by the user
+        const unreadThreadMessages = allThreadMessages?.filter(msg => 
+          msg.receiver_id === user.id && 
+          (msg.read === false || msg.read === null || msg.read === undefined)
+        ) || []
+        
+        console.log('Unread thread messages found:', unreadThreadMessages.length, unreadThreadMessages)
+        
+        if (unreadThreadMessages && unreadThreadMessages.length > 0) {
+          // Mark all unread messages in this thread as read
+          const messageIds = unreadThreadMessages.map(m => m.id)
+          const { data: threadUpdateData, error: threadUpdateError } = await supabase
+            .from('messages')
+            .update({ read: true })
+            .in('id', messageIds)
+            .select('id, read, subject')
+          
+          if (threadUpdateError) {
+            console.error('Error marking thread messages as read:', threadUpdateError)
+          } else {
+            console.log('Thread messages marked as read:', threadUpdateData?.length || 0, threadUpdateData)
+            
+            // Trigger a custom event to notify dashboard to refresh
+            window.dispatchEvent(new CustomEvent('messagesUpdated'))
+            
+            // Also refresh after a short delay to ensure the update is persisted
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('messagesUpdated'))
+            }, 500)
+          }
+        } else {
+          console.log('No unread messages in thread to mark as read')
+        }
       }
 
       // Fetch all messages in the thread (root message and all replies)

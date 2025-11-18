@@ -22,13 +22,12 @@ import {
 
 // Update status badge component
 function StatusBadge({ status }: { status: string }) {
-  if (!status) return null;
+  // Don't show badge for "upcoming" as it's used internally to mark as read
+  if (!status || status === 'upcoming') return null;
   const getStatusStyles = () => {
     switch (status.toLowerCase()) {
       case "new":
         return "bg-green-500/20 text-green-400 border-green-500/50"
-      case "upcoming":
-        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/50"
       case "completed":
         return "bg-blue-500/20 text-blue-400 border-blue-500/50"
       default:
@@ -142,12 +141,20 @@ export default function UpdateDetailsPage() {
       if (updateError) throw updateError
       if (!updateData) throw new Error('Update not found in database.')
 
-      // If status is not null, set it to null
-      if (updateData.status !== null) {
-        await supabase
+      // If status is "new", set it to "upcoming" to mark as read
+      // (Database has CHECK constraint that only allows specific status values)
+      if (updateData.status === 'new') {
+        const { error: statusUpdateError } = await supabase
           .from('updates')
-          .update({ status: null })
+          .update({ status: 'upcoming' })
           .eq('id', params.id)
+        
+        if (statusUpdateError) {
+          console.error('Error updating status:', statusUpdateError)
+        } else {
+          // Update local state immediately
+          updateData.status = 'upcoming'
+        }
       }
 
       // Fetch user name for created_by
@@ -175,7 +182,7 @@ export default function UpdateDetailsPage() {
 
       setUpdate({
         ...updateData,
-        status: null, // reflect the change in local state
+        status: updateData.status || 'upcoming', // use 'upcoming' as default if status was cleared
         user_name: userName,
         documents: documentsData || []
       })

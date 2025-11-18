@@ -375,17 +375,32 @@ export async function PUT(request: Request) {
       }
     }
 
-    // Clean up the update data - remove assigned_to and assigned_users as we'll handle them separately
-    const cleanedUpdateData: any = { ...updateData }
-    delete cleanedUpdateData.assigned_to // Remove assigned_to, we use junction table
-    delete cleanedUpdateData.assigned_users // Remove assigned_users, we use junction table
+    // Clean up the update data - only include fields that can be updated
+    // Allowed fields: title, description, priority, status, due_date, category, project_id
+    const allowedFields = ['title', 'description', 'priority', 'status', 'due_date', 'category', 'project_id']
+    const cleanedUpdateData: any = {}
+    
+    // Only include allowed fields
+    for (const field of allowedFields) {
+      if (field in updateData) {
+        cleanedUpdateData[field] = updateData[field]
+      }
+    }
     
     // Handle project_id field - convert 'no-project' to null
     if (cleanedUpdateData.project_id === 'no-project') {
       cleanedUpdateData.project_id = null
     }
+    
+    // Handle due_date field - convert empty string to null
+    if (cleanedUpdateData.due_date === '' || cleanedUpdateData.due_date === null || cleanedUpdateData.due_date === undefined) {
+      cleanedUpdateData.due_date = null
+    }
 
-    console.log('[DEBUG] PUT /api/corporate-tasks - Cleaning update data, removing assigned_to and assigned_users')
+    console.log('[DEBUG] PUT /api/corporate-tasks - Cleaning update data, only including allowed fields')
+    console.log('[DEBUG] PUT /api/corporate-tasks - Original updateData:', updateData)
+    console.log('[DEBUG] PUT /api/corporate-tasks - Original due_date:', updateData.due_date)
+    console.log('[DEBUG] PUT /api/corporate-tasks - Cleaned due_date:', cleanedUpdateData.due_date)
     console.log('[DEBUG] PUT /api/corporate-tasks - Cleaned update data:', cleanedUpdateData)
 
     const { data, error } = await supabase
