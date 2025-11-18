@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -149,7 +149,7 @@ interface PartnerNote {
   linked_projects?: PublicProject[]
 }
 
-export default function MyPartnersPage() {
+function MyPartnersContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
@@ -1770,6 +1770,18 @@ export default function MyPartnersPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function MyPartnersPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <LoadingSpinner />
+      </div>
+    }>
+      <MyPartnersContent />
+    </Suspense>
   )
 }
 
