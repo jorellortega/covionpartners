@@ -2969,6 +2969,11 @@ const renderAIView = () => {
                       <Briefcase className="w-4 h-4 mr-2" /> Business Expenses
                     </Button>
                   </Link>
+                  <Link href="/manage-expenses">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <DollarSign className="w-4 h-4 mr-2" /> Manage Expenses
+                    </Button>
+                  </Link>
                   <Link href="/work-dashboard">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
                       <FolderKanban className="w-4 h-4 mr-2" /> Work Dashboard
@@ -2997,6 +3002,11 @@ const renderAIView = () => {
                   <Link href="/my-partners">
                     <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
                       <Users className="w-4 h-4 mr-2" /> My Partners
+                    </Button>
+                  </Link>
+                  <Link href="/partner-financials">
+                    <Button variant="outline" className="w-full border-gray-700 hover:bg-indigo-900/20 hover:text-indigo-400">
+                      <BarChart3 className="w-4 h-4 mr-2" /> Partner Financial Reports
                     </Button>
                   </Link>
                   <Link href="/work-submission">

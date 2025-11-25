@@ -635,6 +635,7 @@ export default function ProjectDetails() {
   const [isAddingLink, setIsAddingLink] = useState(false)
   const [isEditingLink, setIsEditingLink] = useState(false)
   const [editingLink, setEditingLink] = useState<any>(null)
+  const [editingLinkIndex, setEditingLinkIndex] = useState<number | null>(null)
   const [newLink, setNewLink] = useState({
     title: '',
     url: '',
@@ -2115,11 +2116,28 @@ export default function ProjectDetails() {
   }
 
   const handleUpdateLink = async () => {
-    if (!project || !editingLink) return
+    if (!project || editingLinkIndex === null) return
 
     try {
-      const updatedLinks = project.external_links?.map((link: any) =>
-        link.id === editingLink.id ? { ...editingLink, ...newLink } : link
+      let normalizedUrl = newLink.url.trim();
+      if (!normalizedUrl) {
+        toast.error('Please enter a URL');
+        return;
+      }
+      // Auto-prepend protocol if missing
+      if (!/^https?:\/\//i.test(normalizedUrl)) {
+        normalizedUrl = 'https://' + normalizedUrl;
+      }
+      // Validate URL format
+      try {
+        new URL(normalizedUrl);
+      } catch (e) {
+        toast.error('Please enter a valid URL');
+        return;
+      }
+
+      const updatedLinks = project.external_links?.map((link: any, idx: number) =>
+        idx === editingLinkIndex ? { ...newLink, url: normalizedUrl } : link
       ) || []
       // Update in Supabase
       const { error } = await supabase
@@ -2130,6 +2148,7 @@ export default function ProjectDetails() {
 
       setProject(prev => ({ ...prev!, external_links: updatedLinks }))
       setEditingLink(null)
+      setEditingLinkIndex(null)
       setNewLink({ title: '', url: '', description: '' })
       setIsEditingLink(false)
       toast.success('Link updated successfully')
@@ -2984,21 +3003,61 @@ export default function ProjectDetails() {
                       <div className="mt-6 border-t border-gray-800 pt-6">
                         <h4 className="text-sm font-medium text-gray-400 mb-4">External Links</h4>
                         <ul className="space-y-2">
-                          {project.external_links.map((link, idx) => (
-                            <li key={idx}>
-                              <a
-                                href={link.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-400 hover:underline"
-                              >
-                                {link.title || link.url}
-                              </a>
-                              {link.description && (
-                                <span className="ml-2 text-gray-400 text-xs">{link.description}</span>
-                              )}
-                            </li>
-                          ))}
+                          {project.external_links.map((link, idx) => {
+                            const isAbsoluteUrl = /^https?:\/\//i.test(link.url);
+                            const url = isAbsoluteUrl ? link.url : `https://${link.url}`;
+                            return (
+                              <li key={idx} className="flex items-center justify-between group hover:bg-gray-800/30 p-3 rounded-lg transition-colors">
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <Link className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  <div className="min-w-0 flex-1">
+                                    <a
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-400 hover:underline"
+                                    >
+                                      {link.title || link.url}
+                                    </a>
+                                    {link.description && (
+                                      <span className="ml-2 text-gray-400 text-xs">{link.description}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                {(isOwner || currentMember) && (
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-gray-400 hover:text-blue-400"
+                                      onClick={() => {
+                                        setEditingLink(link)
+                                        setEditingLinkIndex(idx)
+                                        setNewLink({
+                                          title: link.title || '',
+                                          url: link.url || '',
+                                          description: link.description || ''
+                                        })
+                                        setIsEditingLink(true)
+                                      }}
+                                      title="Edit link"
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-gray-400 hover:text-red-400"
+                                      onClick={() => handleDeleteLink(idx)}
+                                      title="Delete link"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </li>
+                            )
+                          })}
                         </ul>
                       </div>
                     )}
@@ -5224,6 +5283,7 @@ export default function ProjectDetails() {
           setIsAddingLink(false)
           setIsEditingLink(false)
           setEditingLink(null)
+          setEditingLinkIndex(null)
           setNewLink({
             title: '',
             url: '',
@@ -5243,13 +5303,9 @@ export default function ProjectDetails() {
               <Label htmlFor="title">Link Title</Label>
               <Input
                 id="title"
-                value={isEditingLink ? editingLink?.title : newLink.title}
+                value={newLink.title}
                 onChange={(e) => {
-                  if (isEditingLink) {
-                    setEditingLink({ ...editingLink, title: e.target.value })
-                  } else {
-                    setNewLink({ ...newLink, title: e.target.value })
-                  }
+                  setNewLink({ ...newLink, title: e.target.value })
                 }}
                 placeholder="Enter link title"
               />
@@ -5258,13 +5314,9 @@ export default function ProjectDetails() {
               <Label htmlFor="url">URL</Label>
               <Input
                 id="url"
-                value={isEditingLink ? editingLink?.url : newLink.url}
+                value={newLink.url}
                 onChange={(e) => {
-                  if (isEditingLink) {
-                    setEditingLink({ ...editingLink, url: e.target.value })
-                  } else {
-                    setNewLink({ ...newLink, url: e.target.value })
-                  }
+                  setNewLink({ ...newLink, url: e.target.value })
                 }}
                 placeholder="https://example.com"
               />
@@ -5273,13 +5325,9 @@ export default function ProjectDetails() {
               <Label htmlFor="description">Description (optional)</Label>
               <Input
                 id="description"
-                value={isEditingLink ? editingLink?.description : newLink.description}
+                value={newLink.description}
                 onChange={(e) => {
-                  if (isEditingLink) {
-                    setEditingLink({ ...editingLink, description: e.target.value })
-                  } else {
-                    setNewLink({ ...newLink, description: e.target.value })
-                  }
+                  setNewLink({ ...newLink, description: e.target.value })
                 }}
                 placeholder="Brief description of the link"
               />
@@ -5292,6 +5340,7 @@ export default function ProjectDetails() {
                 setIsAddingLink(false)
                 setIsEditingLink(false)
                 setEditingLink(null)
+                setEditingLinkIndex(null)
                 setNewLink({
                   title: '',
                   url: '',

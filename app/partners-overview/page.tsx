@@ -31,6 +31,8 @@ import {
   MessageSquare,
   Send,
   ExternalLink,
+  ArrowDownToLine,
+  Loader2,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
@@ -43,6 +45,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 
 interface PartnerAccess {
   id: string
@@ -87,6 +98,10 @@ interface PartnerSettings {
   can_see_team_members: boolean
   can_see_budget: boolean
   can_see_funding: boolean
+  can_see_roi: boolean
+  can_see_balance: boolean
+  can_see_revenue: boolean
+  can_see_monthly_reports: boolean
 }
 
 interface ProjectUpdate {
@@ -189,6 +204,13 @@ export default function PartnersOverviewPage() {
   const [partnerNotes, setPartnerNotes] = useState<Record<string, PartnerNote[]>>({})
   const [loadingNotes, setLoadingNotes] = useState<Record<string, boolean>>({})
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({})
+  const [financialReports, setFinancialReports] = useState<any[]>([])
+  const [loadingFinancialReports, setLoadingFinancialReports] = useState(false)
+  const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false)
+  const [selectedReportForWithdrawal, setSelectedReportForWithdrawal] = useState<any>(null)
+  const [withdrawalAmount, setWithdrawalAmount] = useState<string>("")
+  const [withdrawalNotes, setWithdrawalNotes] = useState<string>("")
+  const [requestingWithdrawal, setRequestingWithdrawal] = useState(false)
 
   // Define fetch functions with useCallback
   const fetchProjectUpdates = useCallback(async (projectId: string, invitationId: string) => {
@@ -365,6 +387,32 @@ export default function PartnersOverviewPage() {
       console.error('Error fetching partner notes:', error)
     } finally {
       setLoadingNotes(prev => ({ ...prev, [invitationId]: false }))
+    }
+  }, [])
+
+  const fetchFinancialReports = useCallback(async (invitationId: string) => {
+    setLoadingFinancialReports(true)
+    try {
+      console.log('🔍 Fetching financial reports for invitation:', invitationId)
+      const { data, error } = await supabase
+        .from('partner_financial_reports')
+        .select('*')
+        .eq('partner_invitation_id', invitationId)
+        .order('report_month', { ascending: false })
+        .limit(12)
+
+      if (error) {
+        console.error('❌ Error fetching financial reports:', error)
+        throw error
+      }
+      
+      console.log('✅ Financial reports fetched:', data?.length || 0, 'reports')
+      setFinancialReports(data || [])
+    } catch (error) {
+      console.error('Error fetching financial reports:', error)
+      toast.error('Failed to load financial reports')
+    } finally {
+      setLoadingFinancialReports(false)
     }
   }, [])
 
@@ -668,6 +716,9 @@ export default function PartnersOverviewPage() {
     if (settings.can_see_team_members) {
       fetchProjectTeamMembers(project.id, invitationId)
     }
+    if (settings.can_see_monthly_reports) {
+      fetchFinancialReports(invitationId)
+    }
   }, [
     selectedProject?.projects?.id,
     selectedProject?.partner_invitation_id,
@@ -676,7 +727,8 @@ export default function PartnersOverviewPage() {
     fetchProjectExpenses,
     fetchProjectTeamMembers,
     fetchProjectComments,
-    fetchPartnerNotes
+    fetchPartnerNotes,
+    fetchFinancialReports
   ])
 
   const handleAcceptInvitation = async () => {
@@ -804,6 +856,83 @@ export default function PartnersOverviewPage() {
       style: 'currency',
       currency: 'USD'
     }).format(amount)
+  }
+
+  const formatMonth = (monthStr: string | Date) => {
+    try {
+      // Handle both DATE format (YYYY-MM-DD) and month string format (YYYY-MM)
+      let date: Date
+      if (monthStr instanceof Date) {
+        date = monthStr
+      } else if (typeof monthStr === 'string') {
+        // If it's already a full date string (YYYY-MM-DD), parse it directly
+        if (monthStr.includes('T') || monthStr.match(/^\d{4}-\d{2}-\d{2}/)) {
+          date = new Date(monthStr)
+        } else {
+          // If it's just YYYY-MM, append -01
+          date = new Date(monthStr + '-01')
+        }
+      } else {
+        return 'Invalid date'
+      }
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+    } catch {
+      return 'Invalid date'
+    }
+  }
+
+  const handleRequestWithdrawal = async () => {
+    if (!selectedReportForWithdrawal || !selectedProject) return
+
+    const amount = parseFloat(withdrawalAmount)
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Please enter a valid withdrawal amount')
+      return
+    }
+
+    if (selectedReportForWithdrawal.partner_profit_share && amount > selectedReportForWithdrawal.partner_profit_share) {
+      toast.error(`Withdrawal amount cannot exceed your profit share of ${formatCurrency(selectedReportForWithdrawal.partner_profit_share)}`)
+      return
+    }
+
+    setRequestingWithdrawal(true)
+    try {
+      const response = await fetch('/api/partners/request-withdrawal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount,
+          partnerInvitationId: selectedProject.partner_invitation_id,
+          organizationId: selectedProject.partner_invitations.organization_id,
+          financialReportId: selectedReportForWithdrawal.id,
+          notes: withdrawalNotes || null,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to request withdrawal')
+      }
+
+      toast.success('Withdrawal request submitted successfully')
+      setWithdrawalDialogOpen(false)
+      setSelectedReportForWithdrawal(null)
+      setWithdrawalAmount("")
+      setWithdrawalNotes("")
+    } catch (error: any) {
+      console.error('Error requesting withdrawal:', error)
+      toast.error(error.message || 'Failed to request withdrawal')
+    } finally {
+      setRequestingWithdrawal(false)
+    }
+  }
+
+  const openWithdrawalDialog = (report: any) => {
+    setSelectedReportForWithdrawal(report)
+    setWithdrawalAmount(report.partner_profit_share?.toString() || "")
+    setWithdrawalNotes("")
+    setWithdrawalDialogOpen(true)
   }
 
   if (authLoading || loading) {
@@ -1471,6 +1600,141 @@ export default function PartnersOverviewPage() {
                   </Card>
                 )}
 
+                {/* Financial Reports */}
+                {partnerSettings[selectedProject.partner_invitation_id]?.can_see_monthly_reports && (
+                  <Card className="bg-[#141414] border border-black shadow-xl hover:shadow-2xl transition-all duration-300">
+                    <CardHeader className="border-b border-black">
+                      <CardTitle className="text-xl text-white flex items-center gap-3">
+                        <div className="p-2 bg-green-500/20 rounded-lg">
+                          <FileText className="w-5 h-5 text-green-400" />
+                        </div>
+                        Financial Reports
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      {loadingFinancialReports ? (
+                        <div className="flex justify-center py-12">
+                          <LoadingSpinner />
+                        </div>
+                      ) : financialReports.length > 0 ? (
+                        <div className="space-y-4">
+                          {financialReports.map((report) => (
+                            <div key={report.id} className="p-4 bg-black rounded-lg border border-black">
+                              <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-white font-semibold text-lg">
+                                  {formatMonth(report.report_month)}
+                                </h3>
+                                {report.sent_at && (
+                                  <span className="text-gray-400 text-xs">
+                                    Sent {new Date(report.sent_at).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {partnerSettings[selectedProject.partner_invitation_id]?.can_see_revenue && (
+                                  <div>
+                                    <div className="text-sm text-gray-400 mb-1">Revenue</div>
+                                    <div className="text-xl font-bold text-green-400">
+                                      {formatCurrency(report.total_revenue)}
+                                    </div>
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="text-sm text-gray-400 mb-1">Expenses</div>
+                                  <div className="text-xl font-bold text-red-400">
+                                    {formatCurrency(report.total_expenses)}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-sm text-gray-400 mb-1">Net Profit/Loss</div>
+                                  <div className={`text-xl font-bold ${report.net_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {formatCurrency(report.net_profit)}
+                                  </div>
+                                </div>
+                                {partnerSettings[selectedProject.partner_invitation_id]?.can_see_roi && report.roi_percentage !== null && (
+                                  <div>
+                                    <div className="text-sm text-gray-400 mb-1">Overall ROI</div>
+                                    <div className="text-xl font-bold text-purple-400">
+                                      {report.roi_percentage.toFixed(2)}%
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Partner-Specific Metrics */}
+                              {(report.partner_share_percentage && report.partner_share_percentage > 0) && (
+                                <div className="mt-4 pt-4 border-t border-gray-700">
+                                  <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                                    <Wallet className="w-4 h-4 text-purple-400" />
+                                    Your Investment Details
+                                  </h4>
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {report.partner_investment_amount && report.partner_investment_amount > 0 && (
+                                      <div>
+                                        <div className="text-sm text-gray-400 mb-1">Your Investment</div>
+                                        <div className="text-lg font-bold text-blue-400">
+                                          {formatCurrency(report.partner_investment_amount)}
+                                        </div>
+                                      </div>
+                                    )}
+                                    <div>
+                                      <div className="text-sm text-gray-400 mb-1">Your Share</div>
+                                      <div className="text-lg font-bold text-purple-400">
+                                        {report.partner_share_percentage.toFixed(2)}%
+                                      </div>
+                                    </div>
+                                    {report.partner_profit_share !== null && report.partner_profit_share !== undefined && (
+                                      <div>
+                                        <div className="text-sm text-gray-400 mb-1">Your Profit Share</div>
+                                        <div className={`text-lg font-bold ${report.partner_profit_share >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                          {formatCurrency(report.partner_profit_share)}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {partnerSettings[selectedProject.partner_invitation_id]?.can_see_roi && report.partner_roi_percentage !== null && (
+                                      <div>
+                                        <div className="text-sm text-gray-400 mb-1">Your ROI</div>
+                                        <div className={`text-lg font-bold ${report.partner_roi_percentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                          {report.partner_roi_percentage.toFixed(2)}%
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {report.partner_profit_share && report.partner_profit_share > 0 && (
+                                    <div className="mt-4">
+                                      <Button
+                                        onClick={() => openWithdrawalDialog(report)}
+                                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                                      >
+                                        <ArrowDownToLine className="w-4 h-4 mr-2" />
+                                        Request Withdrawal
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {report.net_profit < 0 && (
+                                <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                                  <p className="text-red-400 text-sm">
+                                    This month resulted in a loss. Expenses exceeded revenue.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12">
+                          <FileText className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                          <p className="text-gray-400">No financial reports available yet</p>
+                          <p className="text-gray-500 text-sm mt-1">Reports will appear here once sent by the organization</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Investment */}
                 {partnerSettings[selectedProject.partner_invitation_id]?.can_see_funding && selectedProject.projects.show_invest && (
                   <Card className="bg-[#141414] border border-black shadow-xl hover:shadow-2xl transition-all duration-300">
@@ -1615,6 +1879,98 @@ export default function PartnersOverviewPage() {
           </div>
         )}
       </div>
+
+      {/* Withdrawal Request Dialog */}
+      <Dialog open={withdrawalDialogOpen} onOpenChange={setWithdrawalDialogOpen}>
+        <DialogContent className="bg-[#1a1a1a] border border-gray-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-white">Request Withdrawal</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Request to withdraw your profit share from this financial report
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedReportForWithdrawal && (
+            <div className="space-y-4 py-4">
+              <div className="p-3 bg-black rounded-lg border border-gray-700">
+                <div className="text-sm text-gray-400 mb-1">Available Profit Share</div>
+                <div className="text-2xl font-bold text-green-400">
+                  {formatCurrency(selectedReportForWithdrawal.partner_profit_share)}
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="withdrawal-amount" className="text-white mb-2 block">
+                  Withdrawal Amount
+                </Label>
+                <Input
+                  id="withdrawal-amount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={selectedReportForWithdrawal.partner_profit_share}
+                  value={withdrawalAmount}
+                  onChange={(e) => setWithdrawalAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="bg-black border-gray-700 text-white"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Maximum: {formatCurrency(selectedReportForWithdrawal.partner_profit_share)}
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="withdrawal-notes" className="text-white mb-2 block">
+                  Notes (Optional)
+                </Label>
+                <Textarea
+                  id="withdrawal-notes"
+                  value={withdrawalNotes}
+                  onChange={(e) => setWithdrawalNotes(e.target.value)}
+                  placeholder="Add any notes about this withdrawal request..."
+                  className="bg-black border-gray-700 text-white min-h-[100px]"
+                />
+              </div>
+
+              <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <p className="text-sm text-blue-400">
+                  <Info className="w-4 h-4 inline mr-2" />
+                  Your withdrawal request will be sent to the organization owner for approval. 
+                  Once approved, funds will be transferred to your connected payment account.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setWithdrawalDialogOpen(false)}
+              disabled={requestingWithdrawal}
+              className="border-gray-700 text-gray-300 hover:bg-gray-800"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRequestWithdrawal}
+              disabled={requestingWithdrawal || !withdrawalAmount || parseFloat(withdrawalAmount) <= 0}
+              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+            >
+              {requestingWithdrawal ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <ArrowDownToLine className="w-4 h-4 mr-2" />
+                  Submit Request
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

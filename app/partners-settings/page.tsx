@@ -57,12 +57,38 @@ import {
   ChevronUp,
   Sparkles,
   Loader2,
+  BarChart3,
+  ArrowRight,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Textarea } from "@/components/ui/textarea"
+
+const INVESTMENT_TYPES = [
+  "Equity",
+  "Debt",
+  "Revenue Share",
+  "Convertible Note",
+  "SAFEs",
+  "Donation",
+  "Other",
+]
+
+const PARTNERSHIP_TYPES = [
+  "Strategic",
+  "Financial",
+  "Operational",
+  "Advisory",
+  "Joint Venture",
+  "Joint Partner",
+  "Silent Partner",
+  "Distribution",
+  "Technology",
+  "Marketing",
+  "Other",
+]
 
 interface Organization {
   id: string
@@ -79,6 +105,12 @@ interface PartnerInvitation {
   expires_at?: string
   created_at: string
   invited_by: string
+  investment_amount?: number
+  share_percentage?: number
+  investment_date?: string
+  investment_notes?: string
+  investment_type?: string
+  partnership_type?: string
 }
 
 interface PartnerAccess {
@@ -103,6 +135,12 @@ interface PartnerSettings {
   can_see_team_members: boolean
   can_see_budget: boolean
   can_see_funding: boolean
+  can_see_roi: boolean
+  can_see_balance: boolean
+  can_see_revenue: boolean
+  can_see_monthly_reports: boolean
+  can_receive_payments: boolean
+  can_send_payments: boolean
 }
 
 interface Project {
@@ -147,11 +185,27 @@ export default function PartnersSettingsPage() {
   const [newInvitation, setNewInvitation] = useState({
     email: '',
     expires_in_days: '30',
+    investment_amount: '',
+    share_percentage: '',
+    investment_date: '',
+    investment_notes: '',
+    investment_type: 'equity',
+    partnership_type: 'none',
   })
   const [editingSettings, setEditingSettings] = useState<PartnerSettings | null>(null)
   const [editingExpiration, setEditingExpiration] = useState<PartnerInvitation | null>(null)
   const [newExpiration, setNewExpiration] = useState<string>('')
   const [isExpirationDialogOpen, setIsExpirationDialogOpen] = useState(false)
+  const [isInvestmentDialogOpen, setIsInvestmentDialogOpen] = useState(false)
+  const [editingInvestment, setEditingInvestment] = useState<PartnerInvitation | null>(null)
+  const [investmentForm, setInvestmentForm] = useState({
+    investment_amount: '',
+    share_percentage: '',
+    investment_date: '',
+    investment_notes: '',
+    investment_type: 'equity',
+    partnership_type: 'none',
+  })
   const [projectComments, setProjectComments] = useState<Record<string, ProjectComment[]>>({})
   const [loadingComments, setLoadingComments] = useState<Record<string, boolean>>({})
   const [newComment, setNewComment] = useState<Record<string, string>>({})
@@ -482,6 +536,9 @@ export default function PartnersSettingsPage() {
         expiresAt.setDate(expiresAt.getDate() + parseInt(newInvitation.expires_in_days))
       }
       
+      // Parse investment amount (remove currency formatting)
+      const parsedAmount = parseCurrencyInput(newInvitation.investment_amount)
+      
       // Create invitation
       const { data: invitation, error: inviteError } = await supabase
         .from('partner_invitations')
@@ -491,7 +548,13 @@ export default function PartnersSettingsPage() {
           email: newInvitation.email || null,
           invited_by: user.id,
           expires_at: expiresAt ? expiresAt.toISOString() : null,
-          status: 'pending'
+          status: 'pending',
+          investment_amount: parsedAmount ? parseFloat(parsedAmount) : 0,
+          share_percentage: newInvitation.share_percentage ? parseFloat(newInvitation.share_percentage) : 0,
+          investment_date: newInvitation.investment_date || null,
+          investment_notes: newInvitation.investment_notes || null,
+          investment_type: newInvitation.investment_type || 'equity',
+          partnership_type: newInvitation.partnership_type === 'none' ? null : (newInvitation.partnership_type || null),
         })
         .select()
         .single()
@@ -512,6 +575,12 @@ export default function PartnersSettingsPage() {
           can_see_team_members: false,
           can_see_budget: false,
           can_see_funding: false,
+          can_see_roi: false,
+          can_see_balance: false,
+          can_see_revenue: false,
+          can_see_monthly_reports: false,
+          can_receive_payments: false,
+          can_send_payments: false,
         })
 
       if (settingsError) throw settingsError
@@ -532,7 +601,16 @@ export default function PartnersSettingsPage() {
 
       toast.success('Invitation created successfully!')
       setIsCreateDialogOpen(false)
-      setNewInvitation({ email: '', expires_in_days: '30' })
+      setNewInvitation({ 
+        email: '', 
+        expires_in_days: '30',
+        investment_amount: '',
+        share_percentage: '',
+        investment_date: '',
+        investment_notes: '',
+        investment_type: 'equity',
+        partnership_type: 'none',
+      })
       setSelectedProjects([])
       fetchInvitations()
     } catch (error: any) {
@@ -643,6 +721,90 @@ export default function PartnersSettingsPage() {
     }
   }
 
+  const handleOpenInvestmentEdit = (invitation: PartnerInvitation) => {
+    setEditingInvestment(invitation)
+    const formattedAmount = invitation.investment_amount 
+      ? new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2,
+        }).format(invitation.investment_amount)
+      : ''
+    setInvestmentForm({
+      investment_amount: formattedAmount,
+      share_percentage: invitation.share_percentage?.toString() || '',
+      investment_date: invitation.investment_date || '',
+      investment_notes: invitation.investment_notes || '',
+      investment_type: invitation.investment_type || 'equity',
+      partnership_type: invitation.partnership_type || 'none',
+    })
+    setIsInvestmentDialogOpen(true)
+  }
+
+  const formatCurrencyInput = (value: string): string => {
+    // Remove all non-digit characters except decimal point
+    const numericValue = value.replace(/[^\d.]/g, '')
+    if (!numericValue) return ''
+    
+    // Parse as number
+    const num = parseFloat(numericValue)
+    if (isNaN(num)) return ''
+    
+    // Format with commas and dollar sign
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(num)
+  }
+
+  const parseCurrencyInput = (value: string): string => {
+    // Remove currency formatting and return numeric string
+    return value.replace(/[^0-9.]/g, '')
+  }
+
+  const getInvestmentTypeLabel = (type: string | undefined) => {
+    if (!type) return ''
+    return INVESTMENT_TYPES.find(t => t.toLowerCase().replace(' ', '_') === type) || type
+  }
+
+  const getPartnershipTypeLabel = (type: string | undefined) => {
+    if (!type) return ''
+    return PARTNERSHIP_TYPES.find(t => t.toLowerCase().replace(' ', '_') === type) || type
+  }
+
+  const handleSaveInvestment = async () => {
+    if (!editingInvestment) return
+
+    try {
+      const parsedAmount = parseCurrencyInput(investmentForm.investment_amount)
+      const { error } = await supabase
+        .from('partner_invitations')
+        .update({ 
+          investment_amount: parsedAmount ? parseFloat(parsedAmount) : 0,
+          share_percentage: investmentForm.share_percentage ? parseFloat(investmentForm.share_percentage) : 0,
+          investment_date: investmentForm.investment_date || null,
+          investment_notes: investmentForm.investment_notes || null,
+          investment_type: investmentForm.investment_type || 'equity',
+          partnership_type: investmentForm.partnership_type === 'none' ? null : (investmentForm.partnership_type || null),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingInvestment.id)
+
+      if (error) throw error
+
+      toast.success('Investment details updated successfully!')
+      setIsInvestmentDialogOpen(false)
+      setEditingInvestment(null)
+      fetchInvitations()
+    } catch (error: any) {
+      console.error('Error updating investment:', error)
+      toast.error('Failed to update investment details')
+    }
+  }
+
   const handleOpenSettings = (invitation: PartnerInvitation) => {
     setSelectedInvitation(invitation)
     const settings = partnerSettings[invitation.id]
@@ -662,6 +824,12 @@ export default function PartnersSettingsPage() {
         can_see_team_members: false,
         can_see_budget: false,
         can_see_funding: false,
+        can_see_roi: false,
+        can_see_balance: false,
+        can_see_revenue: false,
+        can_see_monthly_reports: false,
+        can_receive_payments: false,
+        can_send_payments: false,
       })
     }
     setIsSettingsDialogOpen(true)
@@ -1036,6 +1204,105 @@ export default function PartnersSettingsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                {/* Investment Section */}
+                <div className="pt-4 border-t border-gray-700">
+                  <Label className="text-white font-medium flex items-center gap-2 mb-4">
+                    <DollarSign className="w-4 h-4 text-gray-400" />
+                    Investment Details (Optional - for ROI calculations)
+                  </Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-white text-sm">Investment Amount</Label>
+                      <Input
+                        type="text"
+                        value={newInvitation.investment_amount}
+                        onChange={(e) => {
+                          const formatted = formatCurrencyInput(e.target.value)
+                          setNewInvitation({ ...newInvitation, investment_amount: formatted })
+                        }}
+                        onBlur={(e) => {
+                          const formatted = formatCurrencyInput(e.target.value)
+                          setNewInvitation({ ...newInvitation, investment_amount: formatted })
+                        }}
+                        placeholder="$0.00"
+                        className="bg-gray-900/50 border-gray-700 text-white mt-2 h-12 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-white text-sm">Share Percentage (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={newInvitation.share_percentage}
+                        onChange={(e) => setNewInvitation({ ...newInvitation, share_percentage: e.target.value })}
+                        placeholder="0.00"
+                        className="bg-gray-900/50 border-gray-700 text-white mt-2 h-12 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <Label className="text-white text-sm">Investment Type</Label>
+                      <Select
+                        value={newInvitation.investment_type}
+                        onValueChange={(value) => setNewInvitation({ ...newInvitation, investment_type: value })}
+                      >
+                        <SelectTrigger className="bg-gray-900/50 border-gray-700 text-white mt-2 h-12 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-800 border-gray-700">
+                          {INVESTMENT_TYPES.map((type) => (
+                            <SelectItem key={type} value={type.toLowerCase().replace(' ', '_')} className="text-white">
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-white text-sm">Partnership Type</Label>
+                      <Select
+                        value={newInvitation.partnership_type}
+                        onValueChange={(value) => setNewInvitation({ ...newInvitation, partnership_type: value })}
+                      >
+                        <SelectTrigger className="bg-gray-900/50 border-gray-700 text-white mt-2 h-12 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all">
+                          <SelectValue placeholder="Select type (optional)" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-800 border-gray-700">
+                          <SelectItem value="none" className="text-white">None</SelectItem>
+                          {PARTNERSHIP_TYPES.map((type) => (
+                            <SelectItem key={type} value={type.toLowerCase().replace(' ', '_')} className="text-white">
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Label className="text-white text-sm">Investment Date</Label>
+                    <Input
+                      type="date"
+                      value={newInvitation.investment_date}
+                      onChange={(e) => setNewInvitation({ ...newInvitation, investment_date: e.target.value })}
+                      className="bg-gray-900/50 border-gray-700 text-white mt-2 h-12 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <Label className="text-white text-sm">Investment Notes</Label>
+                    <Textarea
+                      value={newInvitation.investment_notes}
+                      onChange={(e) => setNewInvitation({ ...newInvitation, investment_notes: e.target.value })}
+                      placeholder="Notes about the investment agreement..."
+                      className="bg-gray-900/50 border-gray-700 text-white mt-2 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <Label className="text-white font-medium flex items-center gap-2">
                     <FolderKanban className="w-4 h-4 text-gray-400" />
@@ -1136,6 +1403,28 @@ export default function PartnersSettingsPage() {
                             )}
                           </div>
                         </div>
+                        {(invitation.investment_amount && invitation.investment_amount > 0) && (
+                          <div className="mt-3 flex items-center gap-2 flex-wrap">
+                            <DollarSign className="w-4 h-4 text-green-500" />
+                            <span className="text-xs text-gray-500">Investment:</span>
+                            <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30 text-xs">
+                              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(invitation.investment_amount)}
+                              {invitation.share_percentage && invitation.share_percentage > 0 && (
+                                <span className="ml-1">({invitation.share_percentage}% share)</span>
+                              )}
+                            </Badge>
+                            {invitation.investment_type && (
+                              <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-xs">
+                                {getInvestmentTypeLabel(invitation.investment_type)}
+                              </Badge>
+                            )}
+                            {invitation.partnership_type && (
+                              <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30 text-xs">
+                                {getPartnershipTypeLabel(invitation.partnership_type)}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                         {assignedProjects.length > 0 && (
                           <div className="mt-3 flex items-center gap-2 flex-wrap">
                             <FolderKanban className="w-4 h-4 text-gray-500" />
@@ -1191,6 +1480,15 @@ export default function PartnersSettingsPage() {
                     >
                       <Pencil className="w-4 h-4 mr-2" />
                       Edit Expiration
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenInvestmentEdit(invitation)}
+                      className="border-black hover:border-purple-500/50 hover:bg-purple-500/10"
+                    >
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      Edit Investment
                     </Button>
                     <Dialog>
                       <DialogTrigger asChild>
@@ -1568,6 +1866,110 @@ export default function PartnersSettingsPage() {
                       }
                     />
                   </div>
+                  
+                  {/* Financial Visibility Section */}
+                  <div className="pt-4 mt-4 border-t border-gray-700">
+                    <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                      <DollarSign className="w-5 h-5 text-green-400" />
+                      Financial Visibility
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-4 bg-black rounded-lg border border-black hover:border-purple-500/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-green-500/20 rounded-lg">
+                            <TrendingUp className="w-5 h-5 text-green-400" />
+                          </div>
+                          <Label className="text-white font-medium">Revenue</Label>
+                        </div>
+                        <Switch
+                          checked={editingSettings.can_see_revenue}
+                          onCheckedChange={(checked) =>
+                            setEditingSettings({ ...editingSettings, can_see_revenue: checked })
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-black rounded-lg border border-black hover:border-purple-500/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-purple-500/20 rounded-lg">
+                            <BarChart3 className="w-5 h-5 text-purple-400" />
+                          </div>
+                          <Label className="text-white font-medium">ROI</Label>
+                        </div>
+                        <Switch
+                          checked={editingSettings.can_see_roi}
+                          onCheckedChange={(checked) =>
+                            setEditingSettings({ ...editingSettings, can_see_roi: checked })
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-black rounded-lg border border-black hover:border-purple-500/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-500/20 rounded-lg">
+                            <Wallet className="w-5 h-5 text-blue-400" />
+                          </div>
+                          <Label className="text-white font-medium">Balance</Label>
+                        </div>
+                        <Switch
+                          checked={editingSettings.can_see_balance}
+                          onCheckedChange={(checked) =>
+                            setEditingSettings({ ...editingSettings, can_see_balance: checked })
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-black rounded-lg border border-black hover:border-purple-500/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-orange-500/20 rounded-lg">
+                            <FileText className="w-5 h-5 text-orange-400" />
+                          </div>
+                          <Label className="text-white font-medium">Monthly Reports</Label>
+                        </div>
+                        <Switch
+                          checked={editingSettings.can_see_monthly_reports}
+                          onCheckedChange={(checked) =>
+                            setEditingSettings({ ...editingSettings, can_see_monthly_reports: checked })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Permissions Section */}
+                  <div className="pt-4 mt-4 border-t border-gray-700">
+                    <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                      <Wallet className="w-5 h-5 text-yellow-400" />
+                      Payment Permissions
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-4 bg-black rounded-lg border border-black hover:border-purple-500/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-green-500/20 rounded-lg">
+                            <ArrowRight className="w-5 h-5 text-green-400" />
+                          </div>
+                          <Label className="text-white font-medium">Can Receive Payments</Label>
+                        </div>
+                        <Switch
+                          checked={editingSettings.can_receive_payments}
+                          onCheckedChange={(checked) =>
+                            setEditingSettings({ ...editingSettings, can_receive_payments: checked })
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-black rounded-lg border border-black hover:border-purple-500/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-500/20 rounded-lg">
+                            <Send className="w-5 h-5 text-blue-400" />
+                          </div>
+                          <Label className="text-white font-medium">Can Send Payments</Label>
+                        </div>
+                        <Switch
+                          checked={editingSettings.can_send_payments}
+                          onCheckedChange={(checked) =>
+                            setEditingSettings({ ...editingSettings, can_send_payments: checked })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -1640,6 +2042,119 @@ export default function PartnersSettingsPage() {
             <DialogFooter className="mt-6">
               <Button variant="outline" onClick={() => setIsExpirationDialogOpen(false)} className="border-gray-700">Cancel</Button>
               <Button onClick={handleSaveExpiration} className="gradient-button">Save</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Investment Dialog */}
+        <Dialog open={isInvestmentDialogOpen} onOpenChange={setIsInvestmentDialogOpen}>
+          <DialogContent className="bg-gray-800 border-gray-700">
+            <DialogHeader>
+              <DialogTitle className="text-white text-2xl flex items-center gap-3">
+                <div className="p-2 bg-purple-500/20 rounded-lg">
+                  <DollarSign className="w-5 h-5 text-purple-400" />
+                </div>
+                Edit Investment Details
+              </DialogTitle>
+              <DialogDescription className="text-gray-300 mt-2">
+                Update investment amount and share percentage for ROI calculations
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-white font-medium">Investment Amount</Label>
+                  <Input
+                    type="text"
+                    value={investmentForm.investment_amount}
+                    onChange={(e) => {
+                      const formatted = formatCurrencyInput(e.target.value)
+                      setInvestmentForm({ ...investmentForm, investment_amount: formatted })
+                    }}
+                    onBlur={(e) => {
+                      const formatted = formatCurrencyInput(e.target.value)
+                      setInvestmentForm({ ...investmentForm, investment_amount: formatted })
+                    }}
+                    placeholder="$0.00"
+                    className="bg-gray-900/50 border-gray-700 text-white mt-2 h-12 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                  />
+                </div>
+                <div>
+                  <Label className="text-white font-medium">Share Percentage (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={investmentForm.share_percentage}
+                    onChange={(e) => setInvestmentForm({ ...investmentForm, share_percentage: e.target.value })}
+                    placeholder="0.00"
+                    className="bg-gray-900/50 border-gray-700 text-white mt-2 h-12 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-white font-medium">Investment Type</Label>
+                  <Select
+                    value={investmentForm.investment_type}
+                    onValueChange={(value) => setInvestmentForm({ ...investmentForm, investment_type: value })}
+                  >
+                    <SelectTrigger className="bg-gray-900/50 border-gray-700 text-white mt-2 h-12 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-gray-700">
+                      {INVESTMENT_TYPES.map((type) => (
+                        <SelectItem key={type} value={type.toLowerCase().replace(' ', '_')} className="text-white">
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-white font-medium">Partnership Type</Label>
+                  <Select
+                    value={investmentForm.partnership_type}
+                    onValueChange={(value) => setInvestmentForm({ ...investmentForm, partnership_type: value })}
+                  >
+                    <SelectTrigger className="bg-gray-900/50 border-gray-700 text-white mt-2 h-12 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all">
+                      <SelectValue placeholder="Select type (optional)" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-gray-700">
+                      <SelectItem value="none" className="text-white">None</SelectItem>
+                      {PARTNERSHIP_TYPES.map((type) => (
+                        <SelectItem key={type} value={type.toLowerCase().replace(' ', '_')} className="text-white">
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label className="text-white font-medium">Investment Date</Label>
+                <Input
+                  type="date"
+                  value={investmentForm.investment_date}
+                  onChange={(e) => setInvestmentForm({ ...investmentForm, investment_date: e.target.value })}
+                  className="bg-gray-900/50 border-gray-700 text-white mt-2 h-12 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                />
+              </div>
+              <div>
+                <Label className="text-white font-medium">Investment Notes</Label>
+                <Textarea
+                  value={investmentForm.investment_notes}
+                  onChange={(e) => setInvestmentForm({ ...investmentForm, investment_notes: e.target.value })}
+                  placeholder="Notes about the investment agreement..."
+                  className="bg-gray-900/50 border-gray-700 text-white mt-2 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter className="mt-6">
+              <Button variant="outline" onClick={() => setIsInvestmentDialogOpen(false)} className="border-gray-700">Cancel</Button>
+              <Button onClick={handleSaveInvestment} className="gradient-button">Save Investment</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
