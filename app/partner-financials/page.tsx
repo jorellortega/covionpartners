@@ -356,7 +356,9 @@ export default function PartnerFinancialsPage() {
       
       const startDateStr = startDate.toISOString()
       const endDateStr = endDate.toISOString()
-      const reportMonthDate = startDate.toISOString().split('T')[0] // YYYY-MM-DD format
+      // Construct report month date directly from year and month to avoid timezone issues
+      // Format: YYYY-MM-01 (always the 1st day of the month)
+      const reportMonthDate = `${year}-${String(month).padStart(2, '0')}-01`
 
       // Get all projects for this organization
       const { data: orgProjects } = await supabase
@@ -683,14 +685,23 @@ export default function PartnerFinancialsPage() {
   }
 
   const formatMonth = (monthStr: string) => {
-    // Handle both DATE format (YYYY-MM-DD) and month string format (YYYY-MM)
-    const dateStr = monthStr.includes('-') ? monthStr.split('T')[0] : monthStr
-    const parts = dateStr.split('-')
-    if (parts.length >= 2) {
-      const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1)
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+    try {
+      // Handle both DATE format (YYYY-MM-DD) and month string format (YYYY-MM)
+      // Remove timezone info if present (split on 'T' or space)
+      const dateStr = monthStr.includes('T') ? monthStr.split('T')[0] : monthStr.split(' ')[0]
+      const parts = dateStr.split('-')
+      if (parts.length >= 2) {
+        // Parse year and month directly to avoid timezone conversion issues
+        const year = parseInt(parts[0], 10)
+        const month = parseInt(parts[1], 10)
+        // Create date in local timezone to avoid UTC conversion issues
+        const date = new Date(year, month - 1, 1)
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+      }
+      return monthStr
+    } catch {
+      return monthStr
     }
-    return monthStr
   }
 
   if (authLoading || loading) {

@@ -102,6 +102,9 @@ interface PartnerSettings {
   can_see_balance: boolean
   can_see_revenue: boolean
   can_see_monthly_reports: boolean
+  can_see_expenses_in_reports?: boolean
+  can_see_net_profit_in_reports?: boolean
+  can_see_overall_roi_in_reports?: boolean
 }
 
 interface ProjectUpdate {
@@ -211,6 +214,7 @@ export default function PartnersOverviewPage() {
   const [withdrawalAmount, setWithdrawalAmount] = useState<string>("")
   const [withdrawalNotes, setWithdrawalNotes] = useState<string>("")
   const [requestingWithdrawal, setRequestingWithdrawal] = useState(false)
+  const [stripeOnboardingStatus, setStripeOnboardingStatus] = useState<Record<string, { completed: boolean; url?: string }>>({})
 
   // Define fetch functions with useCallback
   const fetchProjectUpdates = useCallback(async (projectId: string, invitationId: string) => {
@@ -667,6 +671,24 @@ export default function PartnersOverviewPage() {
         })
         
         setPartnerSettings(settingsMap)
+
+        // Fetch Stripe Connect onboarding status for each invitation
+        const onboardingStatusMap: Record<string, { completed: boolean; url?: string }> = {}
+        for (const invId of invitationIds) {
+          const { data: invitation } = await supabase
+            .from('partner_invitations')
+            .select('stripe_connect_onboarding_completed, stripe_connect_onboarding_url')
+            .eq('id', invId)
+            .single()
+          
+          if (invitation) {
+            onboardingStatusMap[invId] = {
+              completed: invitation.stripe_connect_onboarding_completed || false,
+              url: invitation.stripe_connect_onboarding_url || 'https://connect.stripe.com/setup/e/acct_1SXGEs9jVu4EeqMr/o2uHo472w1Fx'
+            }
+          }
+        }
+        setStripeOnboardingStatus(onboardingStatusMap)
       }
     } catch (error: any) {
       console.error('Error fetching partner access:', error)
@@ -865,12 +887,18 @@ export default function PartnersOverviewPage() {
       if (monthStr instanceof Date) {
         date = monthStr
       } else if (typeof monthStr === 'string') {
-        // If it's already a full date string (YYYY-MM-DD), parse it directly
-        if (monthStr.includes('T') || monthStr.match(/^\d{4}-\d{2}-\d{2}/)) {
-          date = new Date(monthStr)
+        // Remove timezone info if present (split on 'T' or space)
+        const dateStr = monthStr.includes('T') ? monthStr.split('T')[0] : monthStr.split(' ')[0]
+        const parts = dateStr.split('-')
+        
+        if (parts.length >= 2) {
+          // Parse year and month directly to avoid timezone conversion issues
+          const year = parseInt(parts[0], 10)
+          const month = parseInt(parts[1], 10)
+          // Create date in local timezone to avoid UTC conversion issues
+          date = new Date(year, month - 1, 1)
         } else {
-          // If it's just YYYY-MM, append -01
-          date = new Date(monthStr + '-01')
+          return 'Invalid date'
         }
       } else {
         return 'Invalid date'
@@ -912,6 +940,18 @@ export default function PartnersOverviewPage() {
       const data = await response.json()
 
       if (!response.ok) {
+        // Check if Stripe Connect onboarding is required
+        if (data.requiresOnboarding) {
+          toast.error('Stripe Connect onboarding required', {
+            description: 'Please complete Stripe Connect onboarding to request withdrawals',
+            action: {
+              label: 'Complete Onboarding',
+              onClick: () => window.open(data.onboardingUrl || 'https://connect.stripe.com/setup/e/acct_1SXGEs9jVu4EeqMr/o2uHo472w1Fx', '_blank')
+            },
+            duration: 8000
+          })
+          return
+        }
         throw new Error(data.error || 'Failed to request withdrawal')
       }
 
@@ -1639,19 +1679,25 @@ export default function PartnersOverviewPage() {
                                     </div>
                                   </div>
                                 )}
-                                <div>
-                                  <div className="text-sm text-gray-400 mb-1">Expenses</div>
-                                  <div className="text-xl font-bold text-red-400">
-                                    {formatCurrency(report.total_expenses)}
+                                {partnerSettings[selectedProject.partner_invitation_id]?.can_see_expenses_in_reports !== false && (
+                                  <div>
+                                    <div className="text-sm text-gray-400 mb-1">Expenses</div>
+                                    <div className="text-xl font-bold text-red-400">
+                                      {formatCurrency(report.total_expenses)}
+                                    </div>
                                   </div>
-                                </div>
-                                <div>
-                                  <div className="text-sm text-gray-400 mb-1">Net Profit/Loss</div>
-                                  <div className={`text-xl font-bold ${report.net_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {formatCurrency(report.net_profit)}
+                                )}
+                                {partnerSettings[selectedProject.partner_invitation_id]?.can_see_net_profit_in_reports !== false && (
+                                  <div>
+                                    <div className="text-sm text-gray-400 mb-1">Net Profit/Loss</div>
+                                    <div className={`text-xl font-bold ${report.net_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                      {formatCurrency(report.net_profit)}
+                                    </div>
                                   </div>
-                                </div>
-                                {partnerSettings[selectedProject.partner_invitation_id]?.can_see_roi && report.roi_percentage !== null && (
+                                )}
+                                {partnerSettings[selectedProject.partner_invitation_id]?.can_see_overall_roi_in_reports !== false && 
+                                 partnerSettings[selectedProject.partner_invitation_id]?.can_see_roi && 
+                                 report.roi_percentage !== null && (
                                   <div>
                                     <div className="text-sm text-gray-400 mb-1">Overall ROI</div>
                                     <div className="text-xl font-bold text-purple-400">
@@ -1702,13 +1748,35 @@ export default function PartnersOverviewPage() {
                                   </div>
                                   {report.partner_profit_share && report.partner_profit_share > 0 && (
                                     <div className="mt-4">
-                                      <Button
-                                        onClick={() => openWithdrawalDialog(report)}
-                                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
-                                      >
-                                        <ArrowDownToLine className="w-4 h-4 mr-2" />
-                                        Request Withdrawal
-                                      </Button>
+                                      {stripeOnboardingStatus[selectedProject.partner_invitation_id]?.completed ? (
+                                        <Button
+                                          onClick={() => openWithdrawalDialog(report)}
+                                          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                                        >
+                                          <ArrowDownToLine className="w-4 h-4 mr-2" />
+                                          Request Withdrawal
+                                        </Button>
+                                      ) : (
+                                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                                          <div className="flex items-start gap-3">
+                                            <Info className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                                            <div className="flex-1">
+                                              <p className="text-yellow-400 font-semibold mb-2">
+                                                Stripe Connect Onboarding Required
+                                              </p>
+                                              <p className="text-yellow-300 text-sm mb-3">
+                                                You must complete Stripe Connect onboarding before you can request withdrawals. This allows us to securely transfer your profit share to your account.
+                                              </p>
+                                              <Button
+                                                onClick={() => window.open(stripeOnboardingStatus[selectedProject.partner_invitation_id]?.url || 'https://connect.stripe.com/setup/e/acct_1SXGEs9jVu4EeqMr/o2uHo472w1Fx', '_blank')}
+                                                className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                                              >
+                                                Complete Onboarding
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </div>

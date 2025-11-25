@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     // Verify partner has access
     const { data: partnerAccess, error: accessError } = await supabase
       .from('partner_access')
-      .select('user_id, partner_invitation_id, partner_invitations!inner(organization_id, status)')
+      .select('user_id, partner_invitation_id, partner_invitations!inner(organization_id, status, stripe_connect_onboarding_completed, stripe_connect_onboarding_url)')
       .eq('partner_invitation_id', partnerInvitationId)
       .eq('user_id', user.id)
       .single()
@@ -47,6 +47,18 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Partner invitation not accepted' },
         { status: 403 }
+      )
+    }
+
+    // Check if Stripe Connect onboarding is completed
+    if (!partnerAccess.partner_invitations.stripe_connect_onboarding_completed) {
+      return NextResponse.json(
+        { 
+          error: 'Stripe Connect onboarding required',
+          requiresOnboarding: true,
+          onboardingUrl: partnerAccess.partner_invitations.stripe_connect_onboarding_url || 'https://connect.stripe.com/setup/e/acct_1SXGEs9jVu4EeqMr/o2uHo472w1Fx'
+        },
+        { status: 400 }
       )
     }
 

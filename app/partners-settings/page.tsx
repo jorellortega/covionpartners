@@ -43,6 +43,7 @@ import {
   DollarSign,
   FileText,
   TrendingUp,
+  TrendingDown,
   Users,
   Info,
   CheckCircle,
@@ -141,6 +142,9 @@ interface PartnerSettings {
   can_see_monthly_reports: boolean
   can_receive_payments: boolean
   can_send_payments: boolean
+  can_see_expenses_in_reports?: boolean
+  can_see_net_profit_in_reports?: boolean
+  can_see_overall_roi_in_reports?: boolean
 }
 
 interface Project {
@@ -581,6 +585,9 @@ export default function PartnersSettingsPage() {
           can_see_monthly_reports: false,
           can_receive_payments: false,
           can_send_payments: false,
+          can_see_expenses_in_reports: true,
+          can_see_net_profit_in_reports: true,
+          can_see_overall_roi_in_reports: true,
         })
 
       if (settingsError) throw settingsError
@@ -830,6 +837,9 @@ export default function PartnersSettingsPage() {
         can_see_monthly_reports: false,
         can_receive_payments: false,
         can_send_payments: false,
+        can_see_expenses_in_reports: true,
+        can_see_net_profit_in_reports: true,
+        can_see_overall_roi_in_reports: true,
       })
     }
     setIsSettingsDialogOpen(true)
@@ -1931,6 +1941,72 @@ export default function PartnersSettingsPage() {
                         />
                       </div>
                     </div>
+                    
+                    {/* Granular Report Visibility Section */}
+                    {editingSettings.can_see_monthly_reports && (
+                      <div className="pt-4 mt-4 border-t border-gray-700">
+                        <h4 className="text-gray-300 font-semibold mb-3 flex items-center gap-2 text-sm">
+                          <Info className="w-4 h-4 text-gray-400" />
+                          Report Details Visibility
+                        </h4>
+                        <p className="text-gray-400 text-xs mb-4">
+                          Control which specific metrics appear in financial reports
+                        </p>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg border border-gray-800 hover:border-purple-500/50 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-red-500/20 rounded-lg">
+                                <TrendingDown className="w-4 h-4 text-red-400" />
+                              </div>
+                              <div>
+                                <Label className="text-white font-medium text-sm">Expenses in Reports</Label>
+                                <p className="text-gray-400 text-xs">Show/hide expenses in financial reports</p>
+                              </div>
+                            </div>
+                            <Switch
+                              checked={editingSettings.can_see_expenses_in_reports !== false}
+                              onCheckedChange={(checked) =>
+                                setEditingSettings({ ...editingSettings, can_see_expenses_in_reports: checked })
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg border border-gray-800 hover:border-purple-500/50 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-green-500/20 rounded-lg">
+                                <BarChart3 className="w-4 h-4 text-green-400" />
+                              </div>
+                              <div>
+                                <Label className="text-white font-medium text-sm">Net Profit/Loss in Reports</Label>
+                                <p className="text-gray-400 text-xs">Show/hide net profit or loss in financial reports</p>
+                              </div>
+                            </div>
+                            <Switch
+                              checked={editingSettings.can_see_net_profit_in_reports !== false}
+                              onCheckedChange={(checked) =>
+                                setEditingSettings({ ...editingSettings, can_see_net_profit_in_reports: checked })
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg border border-gray-800 hover:border-purple-500/50 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-purple-500/20 rounded-lg">
+                                <TrendingUp className="w-4 h-4 text-purple-400" />
+                              </div>
+                              <div>
+                                <Label className="text-white font-medium text-sm">Overall ROI in Reports</Label>
+                                <p className="text-gray-400 text-xs">Show/hide company overall ROI (separate from partner ROI)</p>
+                              </div>
+                            </div>
+                            <Switch
+                              checked={editingSettings.can_see_overall_roi_in_reports !== false}
+                              onCheckedChange={(checked) =>
+                                setEditingSettings({ ...editingSettings, can_see_overall_roi_in_reports: checked })
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Payment Permissions Section */}
