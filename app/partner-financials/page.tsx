@@ -260,8 +260,8 @@ export default function PartnerFinancialsPage() {
         const startDateStr = startDate.toISOString()
         const endDateStr = endDate.toISOString()
         
-        // Fetch revenue (transactions with positive amounts) for organization's projects
-        let revenue = 0
+        // Fetch revenue from transactions (for organization's projects)
+        let transactionRevenue = 0
         if (projectIds.length > 0) {
           const { data: revenueData } = await supabase
             .from('transactions')
@@ -272,8 +272,21 @@ export default function PartnerFinancialsPage() {
             .lt('created_at', endDateStr)
             .gt('amount', 0)
 
-          revenue = revenueData?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0
+          transactionRevenue = revenueData?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0
         }
+
+        // Fetch manual revenue entries from revenue table
+        const { data: manualRevenueData } = await supabase
+          .from('revenue')
+          .select('amount')
+          .eq('organization_id', selectedOrg)
+          .gte('created_at', startDateStr)
+          .lt('created_at', endDateStr)
+
+        const manualRevenue = manualRevenueData?.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0) || 0
+        
+        // Total revenue = transaction revenue + manual revenue
+        const revenue = transactionRevenue + manualRevenue
 
         // Fetch expenses
         const { data: expenseData } = await supabase
@@ -353,8 +366,8 @@ export default function PartnerFinancialsPage() {
 
       const projectIds = orgProjects?.map(p => p.id) || []
 
-      // Fetch revenue (transactions with positive amounts) for organization's projects
-      let revenueData: any[] = []
+      // Fetch revenue from transactions (for organization's projects)
+      let transactionRevenueData: any[] = []
       if (projectIds.length > 0) {
         const { data: revenueDataResult, error: revenueError } = await supabase
           .from('transactions')
@@ -366,11 +379,29 @@ export default function PartnerFinancialsPage() {
           .gt('amount', 0)
 
         if (revenueError) {
-          console.error('Error fetching revenue:', revenueError)
+          console.error('Error fetching transaction revenue:', revenueError)
         } else {
-          revenueData = revenueDataResult || []
+          transactionRevenueData = revenueDataResult || []
         }
       }
+
+      // Fetch manual revenue entries from revenue table
+      const { data: manualRevenueData, error: manualRevenueError } = await supabase
+        .from('revenue')
+        .select('*')
+        .eq('organization_id', selectedOrg)
+        .gte('created_at', startDateStr)
+        .lt('created_at', endDateStr)
+
+      if (manualRevenueError) {
+        console.error('Error fetching manual revenue:', manualRevenueError)
+      }
+
+      // Combine both revenue sources
+      const revenueData = [
+        ...transactionRevenueData,
+        ...(manualRevenueData || [])
+      ]
 
       // Fetch expenses
       const { data: expenseData, error: expenseError } = await supabase
@@ -385,7 +416,10 @@ export default function PartnerFinancialsPage() {
         console.error('Error fetching expenses:', expenseError)
       }
 
-      const totalRevenue = revenueData?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0
+      // Calculate total revenue from both sources
+      const transactionRevenue = transactionRevenueData?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0
+      const manualRevenue = manualRevenueData?.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0) || 0
+      const totalRevenue = transactionRevenue + manualRevenue
       const totalExpenses = expenseData?.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0) || 0
       const netProfit = totalRevenue - totalExpenses
       const roiPercentage = totalExpenses > 0 ? ((netProfit / totalExpenses) * 100) : null
