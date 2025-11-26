@@ -1,10 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useParams, useRouter } from "next/navigation"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Download, UploadCloud, FileText, FileImage, FileArchive, File } from "lucide-react"
+import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/hooks/useAuth"
 
 // Mock document data
 const mockDocuments = [
@@ -63,8 +66,118 @@ function getFileIcon(type: string) {
 }
 
 export default function OrganizationDocumentsPage() {
+  const params = useParams()
+  const router = useRouter()
+  const { user } = useAuth()
+  const slug = params?.slug as string
+  const [organization, setOrganization] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [hasAccess, setHasAccess] = useState(false)
+  const [accessError, setAccessError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
+
+  // Verify user has access to this organization
+  useEffect(() => {
+    const verifyAccess = async () => {
+      if (!slug) {
+        setAccessError("Invalid organization")
+        setLoading(false)
+        return
+      }
+
+      if (!user) {
+        setAccessError("Please log in to access documents")
+        setLoading(false)
+        return
+      }
+
+      try {
+        let org: any = null
+
+        // Handle special "my" slug - find user's first accessible organization
+        if (slug === 'my') {
+          // Get organizations where user is owner
+          const { data: ownedOrgs, error: ownedError } = await supabase
+            .from('organizations')
+            .select('id, name, owner_id, slug')
+            .eq('owner_id', user.id)
+            .limit(1)
+            .single()
+
+          if (!ownedError && ownedOrgs) {
+            org = ownedOrgs
+          } else {
+            // If not owner, check if user is staff member
+            const { data: staffOrgs, error: staffError } = await supabase
+              .from('organization_staff')
+              .select('organization_id, organization:organizations(id, name, owner_id, slug)')
+              .eq('user_id', user.id)
+              .limit(1)
+              .single()
+
+            if (!staffError && staffOrgs?.organization) {
+              org = staffOrgs.organization
+            }
+          }
+
+          if (!org) {
+            setAccessError("You are not a member of any organizations")
+            setLoading(false)
+            return
+          }
+
+          // Redirect to the actual organization slug for better URL
+          if (org.slug && org.slug !== 'my') {
+            router.replace(`/company/${org.slug}/documents`)
+            return
+          }
+        } else {
+          // Fetch organization by slug
+          const { data: fetchedOrg, error: orgError } = await supabase
+            .from('organizations')
+            .select('id, name, owner_id, slug')
+            .eq('slug', slug)
+            .single()
+
+          if (orgError || !fetchedOrg) {
+            setAccessError("Organization not found")
+            setLoading(false)
+            return
+          }
+
+          org = fetchedOrg
+        }
+
+        setOrganization(org)
+
+        // Check if user is owner
+        const isOwner = org.owner_id === user.id
+
+        // Check if user is a staff member
+        const { data: staffMember, error: staffError } = await supabase
+          .from('organization_staff')
+          .select('id')
+          .eq('organization_id', org.id)
+          .eq('user_id', user.id)
+          .single()
+
+        if (isOwner || (!staffError && staffMember)) {
+          setHasAccess(true)
+        } else {
+          setAccessError("You do not have access to this organization's documents")
+        }
+      } catch (error) {
+        console.error('Error verifying access:', error)
+        setAccessError("An error occurred while verifying access")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    verifyAccess()
+  }, [slug, user])
+
   const filteredDocs = mockDocuments.filter(doc =>
     doc.name.toLowerCase().includes(search.toLowerCase()) &&
     (selectedCategory === "all" || doc.type === selectedCategory)
@@ -85,6 +198,32 @@ export default function OrganizationDocumentsPage() {
     { key: "archive", label: "Archives" },
     { key: "text", label: "Text Files" },
   ]
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-950 py-10 px-4 flex items-center justify-center">
+        <div className="text-center text-gray-400">Loading...</div>
+      </div>
+    )
+  }
+
+  if (accessError || !hasAccess) {
+    return (
+      <div className="min-h-screen bg-gray-950 py-10 px-4 flex items-center justify-center">
+        <Card className="bg-gray-900/50 border-gray-800 max-w-md">
+          <CardHeader>
+            <CardTitle className="text-red-400">Access Denied</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-300 mb-4">{accessError || "You do not have access to this organization's documents"}</p>
+            <Button onClick={() => router.push('/dashboard')} variant="outline">
+              Return to Dashboard
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 py-10 px-4">
@@ -136,6 +275,9 @@ export default function OrganizationDocumentsPage() {
               <CardTitle className="text-2xl flex items-center gap-2">
                 <UploadCloud className="w-6 h-6 text-indigo-400" /> Organization Document Portal
               </CardTitle>
+              {organization && (
+                <p className="text-sm text-gray-400 mt-1">{organization.name}</p>
+              )}
             </CardHeader>
             <CardContent>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">

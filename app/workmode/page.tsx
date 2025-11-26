@@ -315,50 +315,100 @@ function WorkModeContent() {
   const currentProject = projects.find(p => p.id === currentFocusId) || projects[0]
   const { teamMembers, refreshTeamMembers } = useTeamMembers(currentProject?.id || "")
 
-  // Fetch the 'General' group on mount
-  useEffect(() => {
-    const fetchGroup = async () => {
-      const { data, error } = await supabase
-        .from('group_chats')
-        .select('*')
-        .ilike('name', 'general')
-        .maybeSingle()
-      if (data) setGroup(data)
-    }
-    fetchGroup()
-  }, [])
-
-  // Fetch all group chats for the user
+  // Fetch all group chats for the user (only groups they are members of)
   useEffect(() => {
     if (!user) return;
+    
     const fetchGroupChats = async () => {
+      // First, get all groups where the user is a member
+      const { data: memberGroups, error: memberError } = await supabase
+        .from('group_chat_members')
+        .select('group_chat_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+      
+      if (memberError) {
+        console.error('Error fetching member groups:', memberError)
+        setGroupChats([])
+        return
+      }
+      
+      if (!memberGroups || memberGroups.length === 0) {
+        setGroupChats([])
+        return
+      }
+      
+      // Get the group IDs where user is a member
+      const groupIds = memberGroups.map(mg => mg.group_chat_id)
+      
+      // Fetch the actual group data for groups where user is a member
       const { data, error } = await supabase
         .from('group_chats')
         .select('*')
+        .in('id', groupIds)
         .order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error('Error fetching group chats:', error)
+        setGroupChats([])
+        return
+      }
+      
       if (data) {
         setGroupChats(data)
-        if (!group && data.length > 0) setGroup(data[0])
+        
+        // Try to find and set the 'General' group if user is a member
+        const generalGroup = data.find(g => g.name?.toLowerCase() === 'general')
+        if (generalGroup) {
+          setGroup(generalGroup)
+        } else if (!group && data.length > 0) {
+          setGroup(data[0])
+        }
       }
     }
+    
     fetchGroupChats()
   }, [user])
 
-  // Fetch messages for the group
+  // Fetch messages for the group (only if user is a member)
   useEffect(() => {
-    if (!group) return
+    if (!group || !user) return
+    
     setMessagesLoading(true)
     const fetchMessages = async () => {
+      // First check if user is a member of this group
+      const { data: membership, error: membershipError } = await supabase
+        .from('group_chat_members')
+        .select('id')
+        .eq('group_chat_id', group.id)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle()
+      
+      if (membershipError || !membership) {
+        console.error('User is not a member of this group')
+        setMessages([])
+        setMessagesLoading(false)
+        return
+      }
+      
+      // User is a member, fetch messages
       const { data, error } = await supabase
         .from('group_chat_messages')
         .select('id, content, created_at, sender_id, sender:sender_id (name, email, avatar_url)')
         .eq('group_chat_id', group.id)
         .order('created_at', { ascending: true })
-      setMessages(data || [])
+      
+      if (error) {
+        console.error('Error fetching messages:', error)
+        setMessages([])
+      } else {
+        setMessages(data || [])
+      }
       setMessagesLoading(false)
     }
     fetchMessages()
-  }, [group])
+  }, [group, user])
 
   // Fetch project files for the current project from both tables
   useEffect(() => {
@@ -663,11 +713,32 @@ function WorkModeContent() {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !group || !user) return
-    await supabase.from('group_chat_messages').insert({
+    
+    // Verify user is a member of this group
+    const { data: membership, error: membershipError } = await supabase
+      .from('group_chat_members')
+      .select('id')
+      .eq('group_chat_id', group.id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    
+    if (membershipError || !membership) {
+      toast.error('You do not have permission to send messages in this group')
+      return
+    }
+    
+    const { error } = await supabase.from('group_chat_messages').insert({
       group_chat_id: group.id,
       sender_id: user.id,
       content: newMessage.trim(),
     })
+    
+    if (error) {
+      toast.error('Failed to send message')
+      return
+    }
+    
     setNewMessage('')
     // Refetch messages
     const { data } = await supabase
@@ -718,8 +789,35 @@ function WorkModeContent() {
     setEditMessageContent('')
   }
   const handleSaveEdit = async (msg: any) => {
-    if (!editMessageContent.trim()) return
-    await supabase.from('group_chat_messages').update({ content: editMessageContent.trim() }).eq('id', msg.id)
+    if (!editMessageContent.trim() || !user || !group) return
+    
+    // Verify user is the sender of this message
+    if (msg.sender_id !== user.id) {
+      toast.error('You can only edit your own messages')
+      return
+    }
+    
+    // Verify user is still a member of this group
+    const { data: membership, error: membershipError } = await supabase
+      .from('group_chat_members')
+      .select('id')
+      .eq('group_chat_id', group.id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    
+    if (membershipError || !membership) {
+      toast.error('You do not have permission to edit messages in this group')
+      return
+    }
+    
+    const { error } = await supabase.from('group_chat_messages').update({ content: editMessageContent.trim() }).eq('id', msg.id)
+    
+    if (error) {
+      toast.error('Failed to update message')
+      return
+    }
+    
     setEditingMessageId(null)
     setEditMessageContent('')
     // Refetch messages
@@ -730,8 +828,37 @@ function WorkModeContent() {
       .order('created_at', { ascending: true })
     setMessages(data || [])
   }
+  
   const handleDeleteMessage = async (msg: any) => {
-    await supabase.from('group_chat_messages').delete().eq('id', msg.id)
+    if (!user || !group) return
+    
+    // Verify user is the sender of this message
+    if (msg.sender_id !== user.id) {
+      toast.error('You can only delete your own messages')
+      return
+    }
+    
+    // Verify user is still a member of this group
+    const { data: membership, error: membershipError } = await supabase
+      .from('group_chat_members')
+      .select('id')
+      .eq('group_chat_id', group.id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    
+    if (membershipError || !membership) {
+      toast.error('You do not have permission to delete messages in this group')
+      return
+    }
+    
+    const { error } = await supabase.from('group_chat_messages').delete().eq('id', msg.id)
+    
+    if (error) {
+      toast.error('Failed to delete message')
+      return
+    }
+    
     // Refetch messages
     const { data } = await supabase
       .from('group_chat_messages')

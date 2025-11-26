@@ -76,20 +76,53 @@ export default function OrganizationStaffPage() {
   // Check if user has permission to edit access levels
   const canEditAccessLevels = isOwner || userAccessLevel === 5;
 
-  // Fetch organizations from the database
+  // Fetch organizations from the database - only those the user has access to
   useEffect(() => {
     const fetchOrgs = async () => {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id, name, owner_id")
-        .order("created_at", { ascending: false });
-      if (!error && Array.isArray(data)) {
-        setOrganizations(data);
-        if (data.length > 0) setSelectedOrg(data[0].id);
+      if (!user) return;
+      
+      try {
+        // Get organizations where user is staff
+        const { data: staffOrgs, error: staffError } = await supabase
+          .from("organization_staff")
+          .select("organization_id, access_level")
+          .eq("user_id", user.id);
+        
+        if (staffError) throw staffError;
+        
+        // Get organizations where user is owner
+        const { data: ownedOrgs, error: ownedError } = await supabase
+          .from("organizations")
+          .select("id, name, owner_id")
+          .eq("owner_id", user.id);
+          
+        if (ownedError) throw ownedError;
+        
+        // Combine and get full org details
+        const allOrgIds = new Set([
+          ...(staffOrgs?.map(s => s.organization_id) || []),
+          ...(ownedOrgs?.map(o => o.id) || [])
+        ]);
+        
+        if (allOrgIds.size > 0) {
+          const { data: orgDetails, error: detailsError } = await supabase
+            .from("organizations")
+            .select("id, name, owner_id")
+            .in("id", Array.from(allOrgIds));
+            
+          if (detailsError) throw detailsError;
+          
+          if (orgDetails && Array.isArray(orgDetails)) {
+            setOrganizations(orgDetails);
+            if (orgDetails.length > 0) setSelectedOrg(orgDetails[0].id);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching organizations:", error);
       }
     };
     fetchOrgs();
-  }, []);
+  }, [user]);
 
   // Check user's access level and ownership for selected organization
   useEffect(() => {
