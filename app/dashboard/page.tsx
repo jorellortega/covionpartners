@@ -658,21 +658,47 @@ export default function PartnerDashboard() {
     try {
       // Search through projects, deals, updates, etc.
       const results = []
+      const searchLower = query.toLowerCase()
       
-      // Search projects
+      // Search user's projects
       if (myProjects && myProjects.length > 0) {
         const projectResults = myProjects.filter(project => 
-          project.name.toLowerCase().includes(query.toLowerCase()) ||
-          project.description?.toLowerCase().includes(query.toLowerCase())
+          project.name.toLowerCase().includes(searchLower) ||
+          project.description?.toLowerCase().includes(searchLower)
         ).map(project => ({ ...project, type: 'project' }))
         results.push(...projectResults)
+      }
+      
+      // Search public projects
+      try {
+        const { data: publicProjects, error: publicError } = await supabase
+          .from('projects')
+          .select('id, name, description, visibility')
+          .eq('visibility', 'public')
+          .ilike('name', `%${query}%`)
+          .limit(10)
+        
+        if (!publicError && publicProjects) {
+          // Filter out projects already in myProjects to avoid duplicates
+          const myProjectIds = new Set(myProjects?.map(p => p.id) || [])
+          const uniquePublicProjects = publicProjects
+            .filter(project => !myProjectIds.has(project.id))
+            .filter(project => 
+              project.name.toLowerCase().includes(searchLower) ||
+              project.description?.toLowerCase().includes(searchLower)
+            )
+            .map(project => ({ ...project, type: 'project' }))
+          results.push(...uniquePublicProjects)
+        }
+      } catch (publicError) {
+        console.error('Error searching public projects:', publicError)
       }
       
       // Search deals
       if (deals && deals.length > 0) {
         const dealResults = deals.filter(deal => 
-          deal.title.toLowerCase().includes(query.toLowerCase()) ||
-          deal.description?.toLowerCase().includes(query.toLowerCase())
+          deal.title.toLowerCase().includes(searchLower) ||
+          deal.description?.toLowerCase().includes(searchLower)
         ).map(deal => ({ ...deal, type: 'deal' }))
         results.push(...dealResults)
       }
@@ -680,10 +706,185 @@ export default function PartnerDashboard() {
       // Search updates
       if (updates && updates.length > 0) {
         const updateResults = updates.filter(update => 
-          update.title.toLowerCase().includes(query.toLowerCase()) ||
-          update.description.toLowerCase().includes(query.toLowerCase())
+          update.title.toLowerCase().includes(searchLower) ||
+          update.description.toLowerCase().includes(searchLower)
         ).map(update => ({ ...update, type: 'update' }))
         results.push(...updateResults)
+      }
+      
+      // Search messages
+      if (user?.id) {
+        try {
+          const { data: messages, error: messagesError } = await supabase
+            .from('messages')
+            .select('id, subject, content, sender_id, receiver_id')
+            .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+            .or(`subject.ilike.%${query}%,content.ilike.%${query}%`)
+            .limit(10)
+          
+          if (!messagesError && messages) {
+            const messageResults = messages.map(msg => ({
+              id: msg.id,
+              name: msg.subject || 'No subject',
+              description: msg.content?.substring(0, 100) || '',
+              type: 'message'
+            }))
+            results.push(...messageResults)
+          }
+        } catch (messagesError) {
+          console.error('Error searching messages:', messagesError)
+        }
+      }
+      
+      // Search contracts
+      if (user?.id) {
+        try {
+          const { data: contracts, error: contractsError } = await supabase
+            .from('contracts')
+            .select('id, title, description, status')
+            .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
+            .limit(10)
+          
+          if (!contractsError && contracts) {
+            const contractResults = contracts.map(contract => ({
+              id: contract.id,
+              name: contract.title,
+              description: contract.description || '',
+              type: 'contract'
+            }))
+            results.push(...contractResults)
+          }
+        } catch (contractsError) {
+          console.error('Error searching contracts:', contractsError)
+        }
+      }
+      
+      // Search jobs/open roles
+      try {
+        const { data: jobs, error: jobsError } = await supabase
+          .from('jobs')
+          .select('id, title, description, status')
+          .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
+          .limit(10)
+        
+        if (!jobsError && jobs) {
+          const jobResults = jobs.map(job => ({
+            id: job.id,
+            name: job.title,
+            description: job.description || '',
+            type: 'job'
+          }))
+          results.push(...jobResults)
+        }
+      } catch (jobsError) {
+        console.error('Error searching jobs:', jobsError)
+      }
+      
+      // Search tasks
+      if (user?.id) {
+        try {
+          const { data: tasks, error: tasksError } = await supabase
+            .from('tasks')
+            .select('id, title, description, status')
+            .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
+            .limit(10)
+          
+          if (!tasksError && tasks) {
+            const taskResults = tasks.map(task => ({
+              id: task.id,
+              name: task.title,
+              description: task.description || '',
+              type: 'task'
+            }))
+            results.push(...taskResults)
+          }
+        } catch (tasksError) {
+          console.error('Error searching tasks:', tasksError)
+        }
+      }
+      
+      // Search team members/users
+      try {
+        const { data: users, error: usersError } = await supabase
+          .from('users')
+          .select('id, name, email')
+          .or(`name.ilike.%${query}%,email.ilike.%${query}%`)
+          .limit(10)
+        
+        if (!usersError && users) {
+          const userResults = users
+            .filter(u => u.id !== user?.id) // Exclude current user
+            .map(u => ({
+              id: u.id,
+              name: u.name || u.email,
+              description: u.email || '',
+              type: 'user'
+            }))
+          results.push(...userResults)
+        }
+      } catch (usersError) {
+        console.error('Error searching users:', usersError)
+      }
+      
+      // Search organizations
+      if (user?.id) {
+        try {
+          const { data: orgs, error: orgsError } = await supabase
+            .from('organizations')
+            .select('id, name, description')
+            .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
+            .limit(10)
+          
+          if (!orgsError && orgs) {
+            const orgResults = orgs.map(org => ({
+              id: org.id,
+              name: org.name,
+              description: org.description || '',
+              type: 'organization'
+            }))
+            results.push(...orgResults)
+          }
+        } catch (orgsError) {
+          console.error('Error searching organizations:', orgsError)
+        }
+      }
+      
+      // Search project files
+      if (user?.id && myProjects && myProjects.length > 0) {
+        try {
+          const projectIds = myProjects.map(p => p.id)
+          const { data: files, error: filesError } = await supabase
+            .from('project_files')
+            .select('id, file_name, project_id')
+            .in('project_id', projectIds)
+            .ilike('file_name', `%${query}%`)
+            .limit(10)
+          
+          if (!filesError && files) {
+            const fileResults = files.map(file => ({
+              id: file.id,
+              name: file.file_name,
+              description: `Project file`,
+              type: 'file',
+              project_id: file.project_id
+            }))
+            results.push(...fileResults)
+          }
+        } catch (filesError) {
+          console.error('Error searching files:', filesError)
+        }
+      }
+      
+      // Search pages/features - Join Project page
+      const joinProjectKeywords = ['join', 'project', 'join project', 'request access', 'project key', 'team member']
+      if (joinProjectKeywords.some(keyword => searchLower.includes(keyword))) {
+        results.push({
+          id: 'join-project',
+          name: 'Join a Project',
+          description: 'Enter a project key to request access and join a project team',
+          type: 'page',
+          route: '/join-project'
+        })
       }
       
       setDashboardSearchResults(results)
@@ -2456,7 +2657,7 @@ const renderAIView = () => {
                     <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
                   <div className="hidden sm:block">
-                    <h2 className="text-lg font-bold group-hover:text-purple-400 transition-colors">Welcome, {user?.name || user?.email}!</h2>
+                    <h2 className="text-lg font-bold group-hover:text-purple-400 transition-colors">{user?.name || user?.email}!</h2>
                   </div>
                 </div>
               </div>
@@ -2608,7 +2809,7 @@ const renderAIView = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 type="text"
-                placeholder="Search projects, deals, updates..."
+                placeholder="Search projects, deals, updates, messages, contracts, jobs, tasks, users, organizations, files..."
                 value={dashboardSearchQuery}
                 onChange={(e) => setDashboardSearchQuery(e.target.value)}
                 className="pl-10 bg-gray-800/30 border-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
@@ -2636,9 +2837,22 @@ const renderAIView = () => {
           {/* Search Results */}
           {dashboardSearchResults.length > 0 && (
             <div className="mt-4 p-3 bg-gray-800/30 border border-gray-700 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-300 mb-2">
-                Found {dashboardSearchResults.length} result{dashboardSearchResults.length !== 1 ? 's' : ''}
-              </h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-300">
+                  Found {dashboardSearchResults.length} result{dashboardSearchResults.length !== 1 ? 's' : ''}
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDashboardSearchQuery('')
+                    setDashboardSearchResults([])
+                  }}
+                  className="h-6 w-6 p-0 text-gray-400 hover:text-white hover:bg-gray-700/50"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {dashboardSearchResults.map((result, index) => (
                   <div
@@ -2651,12 +2865,37 @@ const renderAIView = () => {
                         router.push(`/deals/${result.id}`)
                       } else if (result.type === 'update') {
                         router.push(`/updates/${result.id}`)
+                      } else if (result.type === 'message') {
+                        router.push(`/messages/${result.id}`)
+                      } else if (result.type === 'contract') {
+                        router.push(`/contract-library`)
+                      } else if (result.type === 'job') {
+                        router.push(`/open-roles/${result.id}`)
+                      } else if (result.type === 'task') {
+                        router.push(`/task/${result.id}`)
+                      } else if (result.type === 'user') {
+                        router.push(`/profile/${result.id}`)
+                      } else if (result.type === 'organization') {
+                        router.push(`/myorganizations`)
+                      } else if (result.type === 'file' && result.project_id) {
+                        router.push(`/projectfiles/${result.project_id}`)
+                      } else if (result.type === 'page' && result.route) {
+                        router.push(result.route)
                       }
                     }}
                   >
                     <div className={`w-2 h-2 rounded-full ${
                       result.type === 'project' ? 'bg-blue-400' :
                       result.type === 'deal' ? 'bg-green-400' :
+                      result.type === 'update' ? 'bg-purple-400' :
+                      result.type === 'message' ? 'bg-yellow-400' :
+                      result.type === 'contract' ? 'bg-teal-400' :
+                      result.type === 'job' ? 'bg-orange-400' :
+                      result.type === 'task' ? 'bg-pink-400' :
+                      result.type === 'user' ? 'bg-cyan-400' :
+                      result.type === 'organization' ? 'bg-violet-400' :
+                      result.type === 'file' ? 'bg-gray-400' :
+                      result.type === 'page' ? 'bg-indigo-400' :
                       'bg-purple-400'
                     }`} />
                     <div className="flex-1 min-w-0">

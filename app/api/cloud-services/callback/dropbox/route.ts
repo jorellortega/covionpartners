@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   console.log('🔍 Dropbox callback hit!');
@@ -32,9 +33,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=invalid_state`);
     }
 
-    const supabase = createClient();
+    // Use authenticated Supabase client
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+
+    // Verify the user matches the state (security check)
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user || user.id !== userId) {
+      console.error('🔍 User mismatch or not authenticated:', { 
+        stateUserId: userId, 
+        authUserId: user?.id,
+        authError 
+      });
+      return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=unauthorized`);
+    }
 
     // Exchange code for tokens
+    const redirectUri = process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:3000/api/cloud-services/callback/dropbox'
+      : `${process.env.NEXT_PUBLIC_SITE_URL}/api/cloud-services/callback/dropbox`;
+
+    console.log('🔍 Exchanging code for tokens with redirect_uri:', redirectUri);
+    
     const tokenResponse = await fetch('https://api.dropboxapi.com/oauth2/token', {
       method: 'POST',
       headers: {
@@ -45,21 +65,21 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.DROPBOX_CLIENT_SECRET!,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: process.env.NODE_ENV === 'development' 
-          ? 'http://localhost:3000/api/cloud-services/callback/dropbox'
-          : `${process.env.NEXT_PUBLIC_SITE_URL}/api/cloud-services/callback/dropbox`,
+        redirect_uri: redirectUri,
       }),
     });
 
     if (!tokenResponse.ok) {
-      console.error('Token exchange failed:', await tokenResponse.text());
+      const errorText = await tokenResponse.text();
+      console.error('🔍 Token exchange failed:', tokenResponse.status, errorText);
       return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=token_exchange_failed`);
     }
 
     const tokens = await tokenResponse.json();
+    console.log('🔍 Token exchange successful, access_token length:', tokens.access_token?.length);
 
     // Get user info from Dropbox
-    console.log('🔍 Getting user info from Dropbox with token:', tokens.access_token?.substring(0, 10) + '...');
+    console.log('🔍 Getting user info from Dropbox...');
     
     const userInfoResponse = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
       method: 'POST',
@@ -77,9 +97,13 @@ export async function GET(request: NextRequest) {
     }
 
     const userInfo = await userInfoResponse.json();
-    console.log('🔍 User info received:', userInfo);
+    console.log('🔍 User info received:', {
+      account_id: userInfo.account_id,
+      email: userInfo.email,
+      display_name: userInfo.name?.display_name
+    });
 
-    // Prepare account info (with fallback if user info is incomplete)
+    // Prepare account info
     const accountInfo = {
       name: userInfo.name?.display_name || 'Dropbox User',
       email: userInfo.email || 'unknown@dropbox.com',
@@ -88,27 +112,47 @@ export async function GET(request: NextRequest) {
 
     console.log('🔍 Prepared account info:', accountInfo);
 
-    // Update the cloud service connection
-    const { error: updateError } = await supabase
-      .from('cloud_services')
-      .update({
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        account_info: accountInfo,
-        is_active: true,
-        last_sync: new Date().toISOString(),
-      })
-      .eq('user_id', userId)
-      .eq('service_id', serviceId);
+    // Use UPSERT to handle both insert and update cases
+    const connectionData = {
+      user_id: userId,
+      service_id: serviceId,
+      service_name: 'Dropbox',
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token || null,
+      account_info: accountInfo,
+      scopes: ['files.metadata.write', 'files.content.write', 'files.content.read', 'account_info.read'],
+      is_active: true,
+      last_sync: new Date().toISOString(),
+    };
 
-    if (updateError) {
-      console.error('Error updating connection:', updateError);
+    console.log('🔍 Upserting connection data...');
+    
+    const { data: connection, error: upsertError } = await supabase
+      .from('cloud_services')
+      .upsert(connectionData, {
+        onConflict: 'user_id,service_id',
+        ignoreDuplicates: false,
+      })
+      .select()
+      .single();
+
+    if (upsertError) {
+      console.error('🔍 Error upserting connection:', upsertError);
       return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=update_failed`);
     }
 
-    return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?success=connected`);
+    console.log('🔍 Connection saved successfully:', {
+      id: connection?.id,
+      service_id: connection?.service_id,
+      is_active: connection?.is_active
+    });
+
+    const redirectUrl = `${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?success=connected`;
+    console.log('🔍 Redirecting to:', redirectUrl);
+    
+    return NextResponse.redirect(redirectUrl);
   } catch (error) {
-    console.error('Unexpected error in Dropbox callback:', error);
+    console.error('🔍 Unexpected error in Dropbox callback:', error);
     return NextResponse.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.NEXT_PUBLIC_SITE_URL}/cloud-services?error=unexpected_error`);
   }
 }

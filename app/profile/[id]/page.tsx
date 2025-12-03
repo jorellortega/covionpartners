@@ -223,6 +223,18 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   // 1. Add state for organization
   const [organization, setOrganization] = useState<{ id: string, name: string, slug: string } | null>(null)
   const [manageProjectsExpanded, setManageProjectsExpanded] = useState(false)
+  // Stats state
+  const [stats, setStats] = useState({
+    projects: 0,
+    deals: 0,
+    tasks: 0,
+    skills: 0,
+    years: 0,
+    profileCompletion: 0,
+    professionalism: 0,
+    projectsFunded: 0,
+    funded: 0
+  })
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -333,6 +345,75 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
         setNicknameValue(transformedData.nickname || "")
         setCompanyValue(transformedData.company || "")
         setLocationValue(transformedData.location || "")
+
+        // Fetch stats for this user
+        // Projects count (owned by user)
+        const { count: projectsCount } = await supabase
+          .from('projects')
+          .select('*', { count: 'exact', head: true })
+          .eq('owner_id', id)
+        
+        // Deals count (initiated by user)
+        const { count: dealsCount } = await supabase
+          .from('deals')
+          .select('*', { count: 'exact', head: true })
+          .eq('initiator_id', id)
+        
+        // Tasks count (assigned to user)
+        const { count: tasksCount } = await supabase
+          .from('tasks')
+          .select('*', { count: 'exact', head: true })
+          .eq('assigned_to', id)
+        
+        // Skills count (from profile)
+        const skillsCount = transformedData.skills?.length || 0
+        
+        // Years (calculate from account creation or first experience)
+        const accountCreatedAt = userData?.created_at || new Date().toISOString()
+        const yearsSinceAccount = Math.floor((new Date().getTime() - new Date(accountCreatedAt).getTime()) / (1000 * 60 * 60 * 24 * 365))
+        const yearsFromExperience = transformedData.experience?.length > 0 
+          ? transformedData.experience.reduce((max, exp) => {
+              const years = exp.period ? parseInt(exp.period.split('-')[0]) || 0 : 0
+              return Math.max(max, new Date().getFullYear() - years)
+            }, 0)
+          : 0
+        const years = Math.max(yearsSinceAccount, yearsFromExperience)
+        
+        // Profile completion percentage
+        const profileFields = [
+          transformedData.name,
+          transformedData.role,
+          transformedData.bio,
+          transformedData.email,
+          transformedData.location,
+          transformedData.company,
+          transformedData.avatar_url && transformedData.avatar_url !== '/placeholder-avatar.jpg',
+          transformedData.skills?.length > 0,
+          transformedData.experience?.length > 0
+        ]
+        const completedFields = profileFields.filter(Boolean).length
+        const profileCompletion = Math.round((completedFields / profileFields.length) * 100)
+        
+        // Projects funded (count of projects user has funded/invested in)
+        const { count: projectsFundedCount } = await supabase
+          .from('public_supports')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', id)
+        
+        // Funded projects (projects that received funding from this user)
+        const fundedCount = projectsFundedCount || 0
+
+        setStats({
+          projects: projectsCount || 0,
+          deals: dealsCount || 0,
+          tasks: tasksCount || 0,
+          skills: skillsCount,
+          years: years || 0,
+          profileCompletion,
+          professionalism: profileCompletion, // Using profile completion as professionalism
+          projectsFunded: projectsFundedCount || 0,
+          funded: fundedCount
+        })
       } catch (err) {
         setError('Failed to load profile')
       } finally {
@@ -1645,17 +1726,17 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                       <div className="flex flex-row flex-wrap gap-2 justify-center items-center">
                         <Link href="/projects" className="flex items-center gap-1 bg-blue-900/30 hover:bg-blue-900/50 rounded-full px-3 py-1 shadow-sm min-w-[90px] transition-colors cursor-pointer">
                           <Briefcase className="w-4 h-4 text-blue-400" />
-                          <span className="font-bold text-blue-200 text-sm">4</span>
+                          <span className="font-bold text-blue-200 text-sm">{stats.projects}</span>
                           <span className="text-xs text-gray-400 ml-1">Projects</span>
                         </Link>
                         <Link href="/deals" className="flex items-center gap-1 bg-purple-900/30 hover:bg-purple-900/50 rounded-full px-3 py-1 shadow-sm min-w-[90px] transition-colors cursor-pointer">
                           <Handshake className="w-4 h-4 text-purple-400" />
-                          <span className="font-bold text-purple-200 text-sm">7</span>
+                          <span className="font-bold text-purple-200 text-sm">{stats.deals}</span>
                           <span className="text-xs text-gray-400 ml-1">Deals</span>
                         </Link>
                         <Link href="/workmode" className="flex items-center gap-1 bg-green-900/30 hover:bg-green-900/50 rounded-full px-3 py-1 shadow-sm min-w-[110px] transition-colors cursor-pointer">
                           <CheckCircle className="w-4 h-4 text-green-400" />
-                          <span className="font-bold text-green-200 text-sm">15</span>
+                          <span className="font-bold text-green-200 text-sm">{stats.tasks}</span>
                           <span className="text-xs text-gray-400 ml-1">Tasks</span>
                         </Link>
                         <div 
@@ -1663,32 +1744,32 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                           className="flex items-center gap-1 bg-yellow-900/30 hover:bg-yellow-900/50 rounded-full px-3 py-1 shadow-sm min-w-[90px] transition-colors cursor-pointer"
                         >
                           <Star className="w-4 h-4 text-yellow-400" />
-                          <span className="font-bold text-yellow-200 text-sm">6</span>
+                          <span className="font-bold text-yellow-200 text-sm">{stats.skills}</span>
                           <span className="text-xs text-gray-400 ml-1">Skills</span>
                         </div>
                         <div className="flex items-center gap-1 bg-gray-900/30 rounded-full px-3 py-1 shadow-sm min-w-[90px]">
                           <Award className="w-4 h-4 text-gray-500" />
-                          <span className="font-bold text-gray-500 text-sm">2</span>
+                          <span className="font-bold text-gray-500 text-sm">{stats.years}</span>
                           <span className="text-xs text-gray-500 ml-1">Years</span>
                         </div>
                         <Link href="/setup-checklist" className="flex items-center gap-1 bg-cyan-900/30 hover:bg-cyan-900/50 rounded-full px-3 py-1 shadow-sm min-w-[110px] transition-colors cursor-pointer">
                           <UserCheck className="w-4 h-4 text-cyan-400" />
-                          <span className="font-bold text-cyan-200 text-sm">98%</span>
+                          <span className="font-bold text-cyan-200 text-sm">{stats.profileCompletion}%</span>
                           <span className="text-xs text-gray-400 ml-1">Profile</span>
                         </Link>
                         <div className="flex items-center gap-1 bg-gray-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
                           <CheckCircle className="w-4 h-4 text-gray-500" />
-                          <span className="font-bold text-gray-500 text-sm">95%</span>
+                          <span className="font-bold text-gray-500 text-sm">{stats.professionalism}%</span>
                           <span className="text-xs text-gray-500 ml-1">Professionalism</span>
                         </div>
                         <div className="flex items-center gap-1 bg-gray-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
                           <DollarSign className="w-4 h-4 text-gray-500" />
-                          <span className="font-bold text-gray-500 text-sm">3</span>
+                          <span className="font-bold text-gray-500 text-sm">{stats.projectsFunded}</span>
                           <span className="text-xs text-gray-500 ml-1">Projects Funded</span>
                         </div>
                         <div className="flex items-center gap-1 bg-gray-900/30 rounded-full px-3 py-1 shadow-sm min-w-[120px]">
                           <TrendingUp className="w-4 h-4 text-gray-500" />
-                          <span className="font-bold text-gray-500 text-sm">2</span>
+                          <span className="font-bold text-gray-500 text-sm">{stats.funded}</span>
                           <span className="text-xs text-gray-500 ml-1">I Funded</span>
                         </div>
                       </div>

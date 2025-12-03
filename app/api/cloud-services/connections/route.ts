@@ -17,19 +17,43 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([]);
     }
 
-    // Get all active cloud service connections for the user
-    const { data: connections, error } = await supabase
+    // Get user's personal connections
+    const { data: userConnections, error: userError } = await supabase
       .from('cloud_services')
       .select('*')
       .eq('user_id', user.id)
+      .eq('connection_type', 'user')
       .eq('is_active', true);
 
-    if (error) {
-      console.error('Error fetching connections:', error);
+    if (userError) {
+      console.error('Error fetching user connections:', userError);
       return NextResponse.json({ error: 'Failed to fetch connections' }, { status: 500 });
     }
 
-    return NextResponse.json(connections || []);
+    // Get system connections (available to all users)
+    const { data: systemConnections, error: systemError } = await supabase
+      .from('cloud_services')
+      .select('*')
+      .eq('connection_type', 'system')
+      .is('user_id', null)
+      .eq('is_active', true);
+
+    if (systemError) {
+      console.error('Error fetching system connections:', systemError);
+      // Don't fail if system connections can't be fetched, just return user connections
+    }
+
+    // Combine user and system connections
+    // System connections are marked so frontend knows they're read-only
+    const allConnections = [
+      ...(userConnections || []),
+      ...(systemConnections || []).map(conn => ({
+        ...conn,
+        is_system: true, // Flag to indicate this is a system connection
+      })),
+    ];
+
+    return NextResponse.json(allConnections);
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

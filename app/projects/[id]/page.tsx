@@ -3358,7 +3358,6 @@ export default function ProjectDetails() {
                                   <div className="flex items-center gap-2 mb-2">
                                     <FileText className="w-4 h-4 text-gray-400" />
                                     <span className="text-xs text-gray-400">{file.custom_label || file.label_status || "draft"}</span>
-                                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => { setEditingLabel(file.id); setNewLabel(file.custom_label || ""); setNewLabelStatus(file.label_status || "draft"); }}><Pencil className="w-4 h-4" /></Button>
                                   </div>
                                   <div className="flex gap-2">
                                     <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-400" onClick={() => window.open(file.url, '_blank')} title="Download File"><Download className="w-4 h-4" /></Button>

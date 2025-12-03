@@ -39,6 +39,8 @@ export default function LoginPage() {
   const [activeTab, setActiveTab] = useState("login")
   const [resetEmailSent, setResetEmailSent] = useState(false)
   const [resetEmailCooldown, setResetEmailCooldown] = useState(0)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("")
 
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -60,9 +62,19 @@ export default function LoginPage() {
     }
   }, [resetEmailCooldown])
 
-  const handleForgotPassword = async () => {
-    if (!loginData.email) {
-      setError('Please enter your email address first')
+  const handleForgotPasswordClick = () => {
+    setShowForgotPassword(true)
+    setError(null)
+    setSuccess(null)
+  }
+
+  const handleForgotPassword = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault()
+    }
+
+    if (!forgotPasswordEmail) {
+      setError('Please enter your email address')
       return
     }
 
@@ -75,7 +87,7 @@ export default function LoginPage() {
       setIsLoading(true)
       setError(null)
       
-      const { error } = await supabase.auth.resetPasswordForEmail(loginData.email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
         redirectTo: window.location.origin + '/reset-password'
       })
       
@@ -196,78 +208,148 @@ export default function LoginPage() {
             </TabsList>
 
             <TabsContent value="login">
-              <div className="space-y-1 text-center mb-4 sm:mb-6">
-                <h1 className="text-xl sm:text-2xl font-bold gradient-text">Login</h1>
-                <p className="text-sm sm:text-base text-white/70">Enter your credentials to access your dashboard</p>
-              </div>
-
-              {error && activeTab === "login" && (
-                <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded mb-4 text-sm">{error}</div>
-              )}
-
-              {success && (
-                <div className="bg-green-500/20 border border-green-500 text-green-400 p-3 rounded mb-4 text-sm">
-                  {success}
-                </div>
-              )}
-
-              <form onSubmit={handleLoginSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email" className="text-white/90">
-                    Email
-                  </Label>
-                  <Input
-                    id="login-email"
-                    name="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={loginData.email}
-                    onChange={handleLoginChange}
-                    className="leonardo-input"
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="login-password" className="text-white/90">
-                      Password
-                    </Label>
-                    <button
-                      type="button"
-                      onClick={handleForgotPassword}
-                      disabled={resetEmailCooldown > 0 || isLoading}
-                      className="text-xs text-blue-300 hover:text-blue-200 transition-colors disabled:text-gray-500 disabled:cursor-not-allowed"
-                    >
-                      {resetEmailCooldown > 0 
-                        ? `Wait ${resetEmailCooldown}s` 
-                        : 'Forgot password?'
-                      }
-                    </button>
+              {!showForgotPassword ? (
+                <>
+                  <div className="space-y-1 text-center mb-4 sm:mb-6">
+                    <h1 className="text-xl sm:text-2xl font-bold gradient-text">Login</h1>
+                    <p className="text-sm sm:text-base text-white/70">Enter your credentials to access your dashboard</p>
                   </div>
-                  <Input
-                    id="login-password"
-                    name="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={loginData.password}
-                    onChange={handleLoginChange}
-                    className="leonardo-input"
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-                <Button type="submit" className="gradient-button w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <LoadingSpinner size={20} className="mr-2" />
-                  ) : (
-                    <>
-                      <LogIn className="w-4 h-4 mr-2" />
-                      Sign In
-                    </>
+
+                  {error && activeTab === "login" && (
+                    <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded mb-4 text-sm">{error}</div>
                   )}
-                </Button>
-              </form>
+
+                  {success && (
+                    <div className="bg-green-500/20 border border-green-500 text-green-400 p-3 rounded mb-4 text-sm">
+                      {success}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleLoginSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="login-email" className="text-white/90">
+                        Email
+                      </Label>
+                      <Input
+                        id="login-email"
+                        name="email"
+                        type="email"
+                        placeholder="your@email.com"
+                        value={loginData.email}
+                        onChange={handleLoginChange}
+                        className="leonardo-input"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="login-password" className="text-white/90">
+                          Password
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={handleForgotPasswordClick}
+                          disabled={isLoading}
+                          className="text-xs text-blue-300 hover:text-blue-200 transition-colors disabled:text-gray-500 disabled:cursor-not-allowed"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                      <Input
+                        id="login-password"
+                        name="password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={loginData.password}
+                        onChange={handleLoginChange}
+                        className="leonardo-input"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <Button type="submit" className="gradient-button w-full" disabled={isLoading}>
+                      {isLoading ? (
+                        <LoadingSpinner size={20} className="mr-2" />
+                      ) : (
+                        <>
+                          <LogIn className="w-4 h-4 mr-2" />
+                          Sign In
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1 text-center mb-4 sm:mb-6">
+                    <h1 className="text-xl sm:text-2xl font-bold gradient-text">Reset Password</h1>
+                    <p className="text-sm sm:text-base text-white/70">Enter your email address to receive a password reset link</p>
+                  </div>
+
+                  {error && activeTab === "login" && (
+                    <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded mb-4 text-sm">{error}</div>
+                  )}
+
+                  {success && (
+                    <div className="bg-green-500/20 border border-green-500 text-green-400 p-3 rounded mb-4 text-sm">
+                      {success}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="forgot-email" className="text-white/90">
+                        Email
+                      </Label>
+                      <Input
+                        id="forgot-email"
+                        name="email"
+                        type="email"
+                        placeholder="your@email.com"
+                        value={forgotPasswordEmail}
+                        onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                        className="leonardo-input"
+                        required
+                        disabled={isLoading || resetEmailCooldown > 0}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="flex-1" 
+                        onClick={() => {
+                          setShowForgotPassword(false)
+                          setForgotPasswordEmail("")
+                          setError(null)
+                          setSuccess(null)
+                        }}
+                        disabled={isLoading}
+                      >
+                        Back
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        className="gradient-button flex-1" 
+                        disabled={isLoading || resetEmailCooldown > 0}
+                      >
+                        {isLoading ? (
+                          <LoadingSpinner size={20} className="mr-2" />
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4 mr-2" />
+                            {resetEmailCooldown > 0 
+                              ? `Wait ${resetEmailCooldown}s` 
+                              : 'Send Reset Link'
+                            }
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </>
+              )}
             </TabsContent>
 
             <TabsContent value="signup">
