@@ -17,7 +17,8 @@ import {
   HardDrive,
   Loader2,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  FolderPlus
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -408,6 +409,12 @@ export default function TestCloudPage() {
     }
   };
 
+  const handleSetUploadFolder = (folder: DropboxFile) => {
+    if (folder['.tag'] !== 'folder') return;
+    setUploadPath(folder.path_display);
+    toast.success(`Upload destination set to: ${folder.path_display}`);
+  };
+
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return 'N/A';
     if (bytes < 1024) return `${bytes} B`;
@@ -540,6 +547,20 @@ export default function TestCloudPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
+                    setUploadPath(currentPath);
+                    toast.success(`Upload destination set to current folder: ${currentPath}`);
+                  }}
+                  disabled={loading || !systemConnected}
+                >
+                  <FolderPlus className="h-4 w-4 mr-2" />
+                  Use This Folder
+                </Button>
+              )}
+              {currentPath && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
                     const parentPath = currentPath.split('/').slice(0, -1).join('/') || '';
                     listFiles(parentPath);
                   }}
@@ -549,8 +570,15 @@ export default function TestCloudPage() {
               )}
             </div>
           </div>
-          <CardDescription>
-            Current Path: <code className="text-xs bg-muted px-1 py-0.5 rounded">{currentPath || '/'}</code>
+          <CardDescription className="flex items-center gap-4">
+            <span>
+              Current Path: <code className="text-xs bg-muted px-1 py-0.5 rounded">{currentPath || '/'}</code>
+            </span>
+            {uploadPath && (
+              <span>
+                Upload To: <code className="text-xs bg-blue-100 dark:bg-blue-900 px-1 py-0.5 rounded">{uploadPath}</code>
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -564,63 +592,85 @@ export default function TestCloudPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {files.map((file) => (
-                <div
-                  key={file.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    {file['.tag'] === 'folder' ? (
-                      <Folder className="h-5 w-5 text-blue-500" />
-                    ) : (
-                      <File className="h-5 w-5 text-gray-500" />
-                    )}
-                    <div className="flex-1">
-                      <div className="font-medium">{file.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {file['.tag'] === 'file' ? (
+              {files.map((file) => {
+                const isUploadDestination = file['.tag'] === 'folder' && uploadPath === file.path_display;
+                return (
+                  <div
+                    key={file.id}
+                    className={`flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors ${
+                      isUploadDestination ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      {file['.tag'] === 'folder' ? (
+                        <Folder className="h-5 w-5 text-blue-500" />
+                      ) : (
+                        <File className="h-5 w-5 text-gray-500" />
+                      )}
+                      <div className="flex-1">
+                        <div className="font-medium flex items-center gap-2">
+                          {file.name}
+                          {isUploadDestination && (
+                            <Badge variant="default" className="bg-blue-600">Upload Destination</Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {file['.tag'] === 'file' ? (
+                            <>
+                              {formatFileSize(file.size)} • Modified: {formatDate(file.client_modified)}
+                            </>
+                          ) : (
+                            'Folder'
+                          )}
+                        </div>
+                      </div>
+                      {file['.tag'] === 'folder' && !isUploadDestination && (
+                        <Badge variant="secondary">Folder</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {file['.tag'] === 'folder' && (
+                        <Button
+                          variant={isUploadDestination ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleSetUploadFolder(file)}
+                          disabled={loading || !systemConnected}
+                          className={isUploadDestination ? "bg-blue-600 hover:bg-blue-700" : ""}
+                        >
+                          <FolderPlus className="h-4 w-4 mr-1" />
+                          {isUploadDestination ? 'Selected' : 'Upload Here'}
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownload(file)}
+                        disabled={loading}
+                      >
+                        {file['.tag'] === 'folder' ? (
                           <>
-                            {formatFileSize(file.size)} • Modified: {formatDate(file.client_modified)}
+                            <Folder className="h-4 w-4 mr-1" />
+                            Open
                           </>
                         ) : (
-                          'Folder'
+                          <>
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
+                          </>
                         )}
-                      </div>
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(file)}
+                        disabled={loading || !systemConnected}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    {file['.tag'] === 'folder' && (
-                      <Badge variant="secondary">Folder</Badge>
-                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownload(file)}
-                      disabled={loading}
-                    >
-                      {file['.tag'] === 'folder' ? (
-                        <>
-                          <Folder className="h-4 w-4 mr-1" />
-                          Open
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-4 w-4 mr-1" />
-                          Download
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(file)}
-                      disabled={loading || !systemConnected}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
