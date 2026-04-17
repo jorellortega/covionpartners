@@ -1,11 +1,9 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { createSupabaseRouteHandlerClient } from '@/lib/supabase/route-handler'
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -50,8 +48,18 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if Stripe Connect onboarding is completed
-    if (!partnerAccess.partner_invitations.stripe_connect_onboarding_completed) {
+    // Connect onboarding: invitation row is optional; Manage Payments sets users.stripe_connect_account_id.
+    const { data: payProfile } = await supabase
+      .from('users')
+      .select('stripe_connect_account_id')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    const connectReady =
+      !!partnerAccess.partner_invitations.stripe_connect_onboarding_completed ||
+      !!payProfile?.stripe_connect_account_id
+
+    if (!connectReady) {
       return NextResponse.json(
         { 
           error: 'Stripe Connect onboarding required',

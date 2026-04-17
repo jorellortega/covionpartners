@@ -1167,19 +1167,22 @@ export default function PartnersSettingsPage() {
                 Create Invitation
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-gray-800 border-gray-700 max-w-2xl">
-              <DialogHeader>
-                <DialogTitle className="text-white text-2xl flex items-center gap-3">
-                  <div className="p-2 bg-purple-500/20 rounded-lg">
-                    <Key className="w-5 h-5 text-purple-400" />
-                  </div>
-                  Create Partner Invitation
-                </DialogTitle>
-                <DialogDescription className="text-gray-300 mt-2">
-                  Generate an invitation key for partners to access your organization's projects
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-6 mt-4">
+            <DialogContent className="bg-gray-800 border-gray-700 max-w-2xl max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
+              <div className="px-6 pt-6 pb-2 pr-14 shrink-0">
+                <DialogHeader>
+                  <DialogTitle className="text-white text-2xl flex items-center gap-3">
+                    <div className="p-2 bg-purple-500/20 rounded-lg">
+                      <Key className="w-5 h-5 text-purple-400" />
+                    </div>
+                    Create Partner Invitation
+                  </DialogTitle>
+                  <DialogDescription className="text-gray-300 mt-2">
+                    Generate an invitation key for partners to access your organization's projects
+                  </DialogDescription>
+                </DialogHeader>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-2">
+              <div className="space-y-6">
                 <div>
                   <Label className="text-white font-medium flex items-center gap-2">
                     <Info className="w-4 h-4 text-gray-400" />
@@ -1345,10 +1348,13 @@ export default function PartnersSettingsPage() {
                   </div>
                 </div>
               </div>
-              <DialogFooter className="mt-6">
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="border-gray-700">Cancel</Button>
-                <Button onClick={handleCreateInvitation} className="gradient-button">Create Invitation</Button>
-              </DialogFooter>
+              </div>
+              <div className="shrink-0 border-t border-gray-700 px-6 py-4 bg-gray-800/95">
+                <DialogFooter className="gap-2 sm:justify-end">
+                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="border-gray-700">Cancel</Button>
+                  <Button onClick={handleCreateInvitation} className="gradient-button">Create Invitation</Button>
+                </DialogFooter>
+              </div>
             </DialogContent>
           </Dialog>
         </div>

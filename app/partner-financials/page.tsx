@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -54,6 +55,7 @@ import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { sumOrganizationExpensesForMonth } from "@/lib/org-expenses-for-month"
 
 interface Organization {
   id: string
@@ -121,6 +123,8 @@ export default function PartnerFinancialsPage() {
   const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([])
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false)
   const [processingWithdrawal, setProcessingWithdrawal] = useState<string | null>(null)
+  /** True when user has partner_access but does not own any org (invited partner). */
+  const [hasPartnerAccessOnly, setHasPartnerAccessOnly] = useState(false)
 
   useEffect(() => {
     if (user && !authLoading) {
@@ -157,6 +161,14 @@ export default function PartnerFinancialsPage() {
       setOrganizations(data || [])
       if (data && data.length > 0) {
         setSelectedOrg(data[0].id)
+        setHasPartnerAccessOnly(false)
+      } else {
+        const { data: accessRow } = await supabase
+          .from("partner_access")
+          .select("id")
+          .eq("user_id", user.id)
+          .limit(1)
+        setHasPartnerAccessOnly(!!accessRow?.length)
       }
     } catch (error: any) {
       console.error('Error fetching organizations:', error)
@@ -288,16 +300,12 @@ export default function PartnerFinancialsPage() {
         // Total revenue = transaction revenue + manual revenue
         const revenue = transactionRevenue + manualRevenue
 
-        // Fetch expenses
-        const { data: expenseData } = await supabase
-          .from('expenses')
-          .select('amount')
-          .eq('organization_id', selectedOrg)
-          .in('status', ['Approved', 'Paid'])
-          .gte('created_at', startDateStr)
-          .lt('created_at', endDateStr)
-
-        const expenses = expenseData?.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0) || 0
+        const { total: expenses } = await sumOrganizationExpensesForMonth(
+          supabase,
+          selectedOrg,
+          year,
+          month
+        )
         const profit = revenue - expenses
         const roi = expenses > 0 ? ((profit / expenses) * 100) : null
 
@@ -405,24 +413,18 @@ export default function PartnerFinancialsPage() {
         ...(manualRevenueData || [])
       ]
 
-      // Fetch expenses
-      const { data: expenseData, error: expenseError } = await supabase
-        .from('expenses')
-        .select('amount')
-        .eq('organization_id', selectedOrg)
-        .in('status', ['Approved', 'Paid'])
-        .gte('created_at', startDateStr)
-        .lt('created_at', endDateStr)
-
-      if (expenseError) {
-        console.error('Error fetching expenses:', expenseError)
-      }
+      const { total: totalExpenses, rows: expenseRows } = await sumOrganizationExpensesForMonth(
+        supabase,
+        selectedOrg,
+        year,
+        month
+      )
+      const expenseData = expenseRows.map((r) => ({ amount: r.amount, id: r.id }))
 
       // Calculate total revenue from both sources
       const transactionRevenue = transactionRevenueData?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0
       const manualRevenue = manualRevenueData?.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0) || 0
       const totalRevenue = transactionRevenue + manualRevenue
-      const totalExpenses = expenseData?.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0) || 0
       const netProfit = totalRevenue - totalExpenses
       const roiPercentage = totalExpenses > 0 ? ((netProfit / totalExpenses) * 100) : null
 
@@ -713,14 +715,39 @@ export default function PartnerFinancialsPage() {
   }
 
   if (organizations.length === 0) {
+    const showPartnerMessage =
+      hasPartnerAccessOnly || user?.role === "partner"
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
-          <Card className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 border border-gray-700/50 shadow-xl">
-            <CardContent className="py-16 text-center">
+          <Card className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 border border-purple-500/20 shadow-xl">
+            <CardContent className="py-16 text-center px-4">
               <Building2 className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">No Organizations</h3>
-              <p className="text-gray-400">You don't own any organizations. Create an organization first to manage partner financials.</p>
+              {showPartnerMessage ? (
+                <>
+                  <h3 className="text-xl font-semibold text-white mb-3">This page is for organization owners</h3>
+                  <p className="text-gray-400 max-w-lg mx-auto leading-relaxed">
+                    <span className="text-gray-300">Partner Financials</span> is where the <strong>owner</strong> generates
+                    and sends monthly financial reports to partners. Accepting an invitation does not add an organization
+                    to your account here.
+                  </p>
+                  <p className="text-gray-500 text-sm mt-4 max-w-lg mx-auto">
+                    As a partner, open <span className="text-gray-400">Partners Overview</span> to see projects and any
+                    reports your organization has shared with you.
+                  </p>
+                  <Button asChild className="mt-8 gradient-button">
+                    <Link href="/partners-overview">Go to Partners Overview</Link>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-xl font-semibold text-white mb-2">No Organizations</h3>
+                  <p className="text-gray-400">
+                    You don&apos;t own any organizations. Create an organization first to manage partner financials.
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

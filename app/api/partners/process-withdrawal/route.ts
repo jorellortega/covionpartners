@@ -1,7 +1,6 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { createSupabaseRouteHandlerClient } from '@/lib/supabase/route-handler'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-03-31.basil',
@@ -9,8 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -33,14 +31,17 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get withdrawal request
+    // Get withdrawal request (org name for transaction labels / partner visibility)
     const { data: withdrawalRequest, error: requestError } = await supabase
       .from('partner_withdrawal_requests')
       .select(`
         *,
         partner_invitations!inner(
           organization_id,
-          organizations!inner(owner_id)
+          organizations!inner(
+            owner_id,
+            name
+          )
         )
       `)
       .eq('id', withdrawalRequestId)
@@ -191,26 +192,38 @@ export async function POST(request: Request) {
         // Don't fail the request since payment was processed
       }
 
-      // Record transaction
-      const { error: transactionError } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          amount: withdrawalRequest.amount,
-          type: 'payment',
-          status: 'completed',
-          metadata: {
-            withdrawal_request_id: withdrawalRequestId,
-            partner_invitation_id: withdrawalRequest.partner_invitation_id,
-            organization_id: withdrawalRequest.organization_id,
-            stripe_payment_intent_id: paymentIntent.id,
-            type: 'partner_withdrawal',
-          },
-        })
+      // Ledger row: owner is payer, partner is recipient (RLS + Manage Payments).
+      // Omit `metadata` unless the column exists — avoids PostgREST PGRST204 on insert.
+      const partnerUserId = withdrawalRequest.user_id as string
+      const baseLedger = {
+        user_id: user.id,
+        recipient_id: partnerUserId,
+        amount: withdrawalRequest.amount,
+        type: 'withdrawal',
+        status: 'completed',
+        project_id: null as string | null,
+        stripe_payment_intent_id: paymentIntent.id,
+      }
 
+      let { error: transactionError } = await supabase.from('transactions').insert(baseLedger as never)
       if (transactionError) {
-        console.error('Error recording transaction:', transactionError)
-        // Don't fail the request
+        const msg = transactionError.message ?? ''
+        if (msg.includes('recipient_id') || msg.includes('stripe_payment_intent_id') || msg.includes('PGRST204')) {
+          const { error: e2 } = await supabase.from('transactions').insert({
+            user_id: user.id,
+            amount: withdrawalRequest.amount,
+            type: 'withdrawal',
+            status: 'completed',
+            project_id: null,
+          })
+          if (e2) {
+            console.error('Error recording transaction:', transactionError, e2)
+          } else {
+            console.warn('[process-withdrawal] Apply migrations: recipient_id + stripe_payment_intent_id on transactions')
+          }
+        } else {
+          console.error('Error recording transaction:', transactionError)
+        }
       }
 
       return NextResponse.json({

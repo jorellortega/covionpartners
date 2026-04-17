@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -33,6 +34,9 @@ import {
   ExternalLink,
   ArrowDownToLine,
   Loader2,
+  CheckCircle,
+  Clock,
+  XCircle,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
@@ -209,6 +213,20 @@ export default function PartnersOverviewPage() {
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({})
   const [financialReports, setFinancialReports] = useState<any[]>([])
   const [loadingFinancialReports, setLoadingFinancialReports] = useState(false)
+  /** Best withdrawal row per financial report (partner's requests for this invitation). */
+  const [withdrawalByReportId, setWithdrawalByReportId] = useState<
+    Record<
+      string,
+      {
+        id: string
+        status: string
+        amount: number
+        processed_at: string | null
+        rejection_reason: string | null
+        created_at: string
+      }
+    >
+  >({})
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false)
   const [selectedReportForWithdrawal, setSelectedReportForWithdrawal] = useState<any>(null)
   const [withdrawalAmount, setWithdrawalAmount] = useState<string>("")
@@ -419,6 +437,70 @@ export default function PartnersOverviewPage() {
       setLoadingFinancialReports(false)
     }
   }, [])
+
+  const withdrawalStatusRank = (status: string) => {
+    if (status === 'completed') return 5
+    if (status === 'processing') return 4
+    if (status === 'approved') return 3
+    if (status === 'pending') return 2
+    if (status === 'rejected' || status === 'cancelled') return 1
+    return 0
+  }
+
+  const fetchWithdrawalRequestsForInvitation = useCallback(
+    async (invitationId: string) => {
+      if (!user?.id) return
+      try {
+        const { data, error } = await supabase
+          .from('partner_withdrawal_requests')
+          .select('id, financial_report_id, status, amount, processed_at, rejection_reason, created_at')
+          .eq('partner_invitation_id', invitationId)
+          .eq('user_id', user.id)
+          .not('financial_report_id', 'is', null)
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        const rows = data ?? []
+        const byReport: Record<string, (typeof rows)[number]> = {}
+        for (const row of rows) {
+          const fid = row.financial_report_id as string | null
+          if (!fid) continue
+          const cur = byReport[fid]
+          if (!cur) {
+            byReport[fid] = row
+            continue
+          }
+          const rNew = withdrawalStatusRank(row.status)
+          const rCur = withdrawalStatusRank(cur.status)
+          if (rNew > rCur) {
+            byReport[fid] = row
+          } else if (rNew === rCur && new Date(row.created_at) > new Date(cur.created_at)) {
+            byReport[fid] = row
+          }
+        }
+
+        setWithdrawalByReportId(
+          Object.fromEntries(
+            Object.entries(byReport).map(([k, v]) => [
+              k,
+              {
+                id: v.id,
+                status: v.status,
+                amount: typeof v.amount === 'string' ? parseFloat(v.amount) : Number(v.amount),
+                processed_at: v.processed_at,
+                rejection_reason: v.rejection_reason,
+                created_at: v.created_at,
+              },
+            ])
+          )
+        )
+      } catch (e) {
+        console.error('Error fetching withdrawal requests:', e)
+      }
+    },
+    [user?.id]
+  )
 
   const fetchProjectComments = useCallback(async (projectId: string, invitationId: string) => {
     const settings = partnerSettings[invitationId]
@@ -672,6 +754,15 @@ export default function PartnersOverviewPage() {
         
         setPartnerSettings(settingsMap)
 
+        // Profile Connect account (Manage Payments / onboarding) — payouts use this; invitation flags are often never set.
+        const { data: userPaymentProfile } = await supabase
+          .from('users')
+          .select('stripe_connect_account_id')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        const hasStripeConnectOnProfile = !!userPaymentProfile?.stripe_connect_account_id
+
         // Fetch Stripe Connect onboarding status for each invitation
         const onboardingStatusMap: Record<string, { completed: boolean; url?: string }> = {}
         for (const invId of invitationIds) {
@@ -683,7 +774,8 @@ export default function PartnersOverviewPage() {
           
           if (invitation) {
             onboardingStatusMap[invId] = {
-              completed: invitation.stripe_connect_onboarding_completed || false,
+              completed:
+                !!invitation.stripe_connect_onboarding_completed || hasStripeConnectOnProfile,
               url: invitation.stripe_connect_onboarding_url || 'https://connect.stripe.com/setup/e/acct_1SXGEs9jVu4EeqMr/o2uHo472w1Fx'
             }
           }
@@ -740,6 +832,7 @@ export default function PartnersOverviewPage() {
     }
     if (settings.can_see_monthly_reports) {
       fetchFinancialReports(invitationId)
+      fetchWithdrawalRequestsForInvitation(invitationId)
     }
   }, [
     selectedProject?.projects?.id,
@@ -750,7 +843,8 @@ export default function PartnersOverviewPage() {
     fetchProjectTeamMembers,
     fetchProjectComments,
     fetchPartnerNotes,
-    fetchFinancialReports
+    fetchFinancialReports,
+    fetchWithdrawalRequestsForInvitation,
   ])
 
   const handleAcceptInvitation = async () => {
@@ -766,95 +860,22 @@ export default function PartnersOverviewPage() {
 
     setIsSubmitting(true)
     try {
-      // Get the invitation
-      const { data: invitation, error: inviteError } = await supabase
-        .from('partner_invitations')
-        .select('*, organizations(*)')
-        .eq('invitation_key', invitationKey.trim())
-        .eq('status', 'pending')
-        .single()
-
-      if (inviteError || !invitation) {
-        throw new Error('Invalid or expired invitation key')
-      }
-
-      // Check expiration
-      if (invitation.expires_at && new Date(invitation.expires_at) < new Date()) {
-        throw new Error('This invitation has expired')
-      }
-
-      // Get projects for this organization that are assigned to this invitation
-      const { data: accessList, error: accessError } = await supabase
-        .from('partner_access')
-        .select('*')
-        .eq('partner_invitation_id', invitation.id)
-
-      if (accessError) throw accessError
-
-      // Update access to link to current user
-      if (accessList && accessList.length > 0) {
-        const { error: updateError } = await supabase
-          .from('partner_access')
-          .update({ user_id: user.id })
-          .eq('partner_invitation_id', invitation.id)
-          .is('user_id', null)
-
-        if (updateError) throw updateError
-      }
-
-      // Update invitation status
-      const { error: updateInviteError } = await supabase
-        .from('partner_invitations')
-        .update({ 
-          status: 'accepted',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', invitation.id)
-
-      if (updateInviteError) throw updateInviteError
-
-      // Get organization owner to notify them
-      const organization = invitation.organizations as any
-      if (organization?.owner_id) {
-        try {
-          // Get user info for notification
-          const { data: partnerUser } = await supabase
-            .from('users')
-            .select('id, name, email')
-            .eq('id', user.id)
-            .single()
-
-          const { error: notificationError } = await supabase
-            .from('notifications')
-            .insert({
-              user_id: organization.owner_id,
-              type: 'partner_invitation_accepted',
-              title: 'Partner Invitation Accepted',
-              content: `${partnerUser?.name || user.email || 'A partner'} has accepted your partner invitation`,
-              metadata: {
-                partner_invitation_id: invitation.id,
-                organization_id: invitation.organization_id,
-                organization_name: organization.name || 'Organization',
-                partner_user_id: user.id,
-                partner_name: partnerUser?.name || user.email || 'Partner',
-                partner_email: user.email || ''
-              },
-              read: false
-            })
-
-          if (notificationError) {
-            console.error('Error creating notification:', notificationError)
-            // Don't throw error, just log it so the main operation still succeeds
-          }
-        } catch (notifyError) {
-          console.error('Error creating notification:', notifyError)
-          // Don't throw error, just log it
-        }
+      // Server uses service role to update partner_access — RLS blocks invitees from reading
+      // rows with user_id NULL, so the old client-only flow often skipped linking user_id.
+      const res = await fetch('/api/partners/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ invitation_key: invitationKey.trim() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to accept invitation')
       }
 
       toast.success('Invitation accepted successfully!')
       setInvitationKey('')
-      fetchPartnerAccess()
+      await fetchPartnerAccess()
     } catch (error: any) {
       console.error('Error accepting invitation:', error)
       toast.error(error.message || 'Failed to accept invitation')
@@ -960,6 +981,9 @@ export default function PartnersOverviewPage() {
       setSelectedReportForWithdrawal(null)
       setWithdrawalAmount("")
       setWithdrawalNotes("")
+      if (selectedProject?.partner_invitation_id) {
+        void fetchWithdrawalRequestsForInvitation(selectedProject.partner_invitation_id)
+      }
     } catch (error: any) {
       console.error('Error requesting withdrawal:', error)
       toast.error(error.message || 'Failed to request withdrawal')
@@ -1650,6 +1674,13 @@ export default function PartnersOverviewPage() {
                         </div>
                         Financial Reports
                       </CardTitle>
+                      <CardDescription className="text-gray-400 text-sm mt-2 leading-relaxed">
+                        Visibility here only controls what you can see. Each report row is created when your organization runs{" "}
+                        <span className="text-gray-300">Partner Financials</span> and generates a monthly report for this
+                        partnership — it is not automatic. On each report, if your{" "}
+                        <span className="text-gray-300">profit share</span> for that month is positive and Stripe Connect is
+                        complete, a <span className="text-gray-300">Request withdrawal</span> action appears for that share.
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
                       {loadingFinancialReports ? (
@@ -1658,18 +1689,68 @@ export default function PartnersOverviewPage() {
                         </div>
                       ) : financialReports.length > 0 ? (
                         <div className="space-y-4">
-                          {financialReports.map((report) => (
+                          {financialReports.map((report) => {
+                            const wr = withdrawalByReportId[report.id]
+                            const isPaid = wr?.status === 'completed'
+                            const inFlight =
+                              wr &&
+                              ['pending', 'approved', 'processing'].includes(wr.status)
+                            return (
                             <div key={report.id} className="p-4 bg-black rounded-lg border border-black">
-                              <div className="flex items-center justify-between mb-4">
+                              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                                 <h3 className="text-white font-semibold text-lg">
                                   {formatMonth(report.report_month)}
                                 </h3>
-                                {report.sent_at && (
-                                  <span className="text-gray-400 text-xs">
-                                    Sent {new Date(report.sent_at).toLocaleDateString()}
-                                  </span>
-                                )}
+                                <div className="flex flex-wrap items-center gap-2 justify-end">
+                                  {wr && (
+                                    <>
+                                      {isPaid && (
+                                        <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 gap-1">
+                                          <CheckCircle className="w-3.5 h-3.5" />
+                                          Paid {formatCurrency(wr.amount)}
+                                          {wr.processed_at && (
+                                            <span className="opacity-80 font-normal">
+                                              · {new Date(wr.processed_at).toLocaleDateString()}
+                                            </span>
+                                          )}
+                                        </Badge>
+                                      )}
+                                      {wr.status === 'pending' && (
+                                        <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/40 gap-1">
+                                          <Clock className="w-3.5 h-3.5" />
+                                          Withdrawal pending approval
+                                        </Badge>
+                                      )}
+                                      {wr.status === 'approved' && (
+                                        <Badge className="bg-sky-500/15 text-sky-400 border border-sky-500/40 gap-1">
+                                          <Clock className="w-3.5 h-3.5" />
+                                          Approved — payment processing
+                                        </Badge>
+                                      )}
+                                      {wr.status === 'processing' && (
+                                        <Badge className="bg-purple-500/15 text-purple-400 border border-purple-500/40 gap-1">
+                                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                          Processing
+                                        </Badge>
+                                      )}
+                                      {(wr.status === 'rejected' || wr.status === 'cancelled') && (
+                                        <Badge className="bg-red-500/15 text-red-400 border border-red-500/40 gap-1">
+                                          <XCircle className="w-3.5 h-3.5" />
+                                          {wr.status === 'rejected' ? 'Request declined' : 'Cancelled'}
+                                        </Badge>
+                                      )}
+                                    </>
+                                  )}
+                                  {report.sent_at && (
+                                    <span className="text-gray-400 text-xs">
+                                      Report sent {new Date(report.sent_at).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
+                              {wr?.status === 'rejected' && wr.rejection_reason && (
+                                <p className="text-gray-500 text-xs mb-3">{wr.rejection_reason}</p>
+                              )}
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 {partnerSettings[selectedProject.partner_invitation_id]?.can_see_revenue && (
                                   <div>
@@ -1748,7 +1829,35 @@ export default function PartnersOverviewPage() {
                                   </div>
                                   {report.partner_profit_share && report.partner_profit_share > 0 && (
                                     <div className="mt-4">
-                                      {stripeOnboardingStatus[selectedProject.partner_invitation_id]?.completed ? (
+                                      {isPaid ? (
+                                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                                          <p className="text-emerald-300 text-sm flex items-start gap-2">
+                                            <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                                            <span>
+                                              Your profit share for this report has been paid out. You can also confirm the
+                                              ledger entry under{" "}
+                                              <Link
+                                                href="/managepayments"
+                                                className="text-emerald-200 underline underline-offset-2 hover:text-white"
+                                              >
+                                                Manage Payments → Transactions
+                                              </Link>
+                                              .
+                                            </span>
+                                          </p>
+                                        </div>
+                                      ) : inFlight ? (
+                                        <div className="p-3 bg-gray-800/80 border border-gray-700 rounded-lg">
+                                          <p className="text-gray-400 text-sm">
+                                            {wr?.status === "pending" &&
+                                              "Your withdrawal request is waiting for the organization owner to approve it."}
+                                            {wr?.status === "approved" &&
+                                              "Approved — the owner is sending payment to your connected account."}
+                                            {wr?.status === "processing" &&
+                                              "Payment is being processed."}
+                                          </p>
+                                        </div>
+                                      ) : stripeOnboardingStatus[selectedProject.partner_invitation_id]?.completed ? (
                                         <Button
                                           onClick={() => openWithdrawalDialog(report)}
                                           className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
@@ -1790,13 +1899,19 @@ export default function PartnersOverviewPage() {
                                 </div>
                               )}
                             </div>
-                          ))}
+                          )
+                          })}
                         </div>
                       ) : (
-                        <div className="text-center py-12">
+                        <div className="text-center py-10 px-2">
                           <FileText className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                          <p className="text-gray-400">No financial reports available yet</p>
-                          <p className="text-gray-500 text-sm mt-1">Reports will appear here once sent by the organization</p>
+                          <p className="text-gray-300 font-medium">No reports in the system for this partnership yet</p>
+                          <p className="text-gray-500 text-sm mt-2 max-w-md mx-auto">
+                            The org owner must open{" "}
+                            <span className="text-gray-400">Partner Financials</span>, choose this organization and your
+                            invitation, then use <span className="text-gray-400">Generate</span> for a month. After that,
+                            saved reports show up here (sending is optional for visibility).
+                          </p>
                         </div>
                       )}
                     </CardContent>
@@ -2003,8 +2118,13 @@ export default function PartnersOverviewPage() {
               <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                 <p className="text-sm text-blue-400">
                   <Info className="w-4 h-4 inline mr-2" />
-                  Your withdrawal request will be sent to the organization owner for approval. 
-                  Once approved, funds will be transferred to your connected payment account.
+                  Your withdrawal request will be sent to the organization owner for approval.
+                  Once they process the payment, funds go to your Stripe Connect account; timing follows Stripe&apos;s payout schedule.
+                  After it is processed, the payout also appears under{" "}
+                  <Link href="/managepayments" className="text-blue-300 font-medium underline underline-offset-2 hover:text-blue-200">
+                    Manage Payments → Transactions
+                  </Link>{" "}
+                  on your account.
                 </p>
               </div>
             </div>

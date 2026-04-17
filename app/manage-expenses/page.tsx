@@ -54,6 +54,8 @@ import { toast } from "sonner"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { MonthPicker } from "@/components/ui/month-picker"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import Link from "next/link"
+import { REVENUE_CATEGORIES, REVENUE_SOURCES, PAYMENT_METHODS } from "@/lib/revenue-constants"
 
 interface Organization {
   id: string
@@ -130,41 +132,6 @@ const EXPENSE_CATEGORIES = [
 ]
 
 const EXPENSE_STATUSES = ["Pending", "Approved", "Rejected", "Paid", "Unpaid", "Overdue"]
-
-const REVENUE_CATEGORIES = [
-  "Sales",
-  "Services",
-  "Consulting",
-  "Investment",
-  "Licensing",
-  "Subscriptions",
-  "Advertising",
-  "Partnership",
-  "Other",
-]
-
-const REVENUE_SOURCES = [
-  "Client Payment",
-  "Product Sales",
-  "Service Revenue",
-  "Investment Income",
-  "Licensing Fee",
-  "Subscription",
-  "Advertising Revenue",
-  "Partnership Revenue",
-  "Other",
-]
-
-const PAYMENT_METHODS = [
-  "Cash",
-  "Bank Transfer",
-  "Check",
-  "Credit Card",
-  "PayPal",
-  "Stripe",
-  "Wire Transfer",
-  "Other",
-]
 
 const ASSET_CATEGORIES = [
   "Cash & Cash Equivalents",
@@ -880,7 +847,12 @@ export default function ManageExpensesPage() {
             </h1>
             <div className="h-1 w-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mx-auto md:mx-0"></div>
           </div>
-          <p className="text-gray-300 mt-3">Track and manage expenses and revenue for your organization</p>
+          <p className="text-gray-300 mt-3">
+            Track and manage expenses and revenue for your organization.{" "}
+            <Link href="/revenue" className="text-cyan-400 hover:text-cyan-300 underline-offset-4 hover:underline">
+              Open dedicated revenue page
+            </Link>
+          </p>
         </div>
 
         {/* Organization Selector */}

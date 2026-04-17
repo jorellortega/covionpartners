@@ -2,7 +2,8 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +16,25 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { DollarSign, Plus, Pencil, Trash2, Repeat, FileText, FileSpreadsheet, Save, ListPlus } from "lucide-react";
+import {
+  DollarSign,
+  Plus,
+  Pencil,
+  Trash2,
+  Repeat,
+  FileText,
+  FileSpreadsheet,
+  Save,
+  ListPlus,
+  CalendarDays,
+  ChevronRight,
+} from "lucide-react";
 import Link from 'next/link';
+import {
+  cleanExpenseSheetNotes,
+  groupExpensesIntoMonthlySheets,
+  formatYmLongLabel,
+} from "@/lib/expense-sheet";
 
 // Helper to parse YYYY-MM-DD as local date
 function parseLocalDate(dateString: string): Date | null {
@@ -138,12 +156,6 @@ function normalizeMonthlySheetRows(rows: unknown): MonthlySheetRow[] {
   }));
 }
 
-const EXPENSE_SHEET_TAG_RE = /\[Expense sheet: \d{4}-\d{2}\]\s*/g;
-
-function cleanImportedNotes(notes: string | null | undefined): string {
-  if (!notes) return "";
-  return notes.replace(EXPENSE_SHEET_TAG_RE, "").trim();
-}
 
 function formatAmountForSheetInput(v: unknown): string {
   if (v === null || v === undefined || v === "") return "";
@@ -162,7 +174,8 @@ function expenseMatchesSheetMonth(exp: any, ym: string): boolean {
   return false;
 }
 
-export default function BusinessExpensePage() {
+function BusinessExpensePageContent() {
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<string>("");
@@ -229,6 +242,11 @@ export default function BusinessExpensePage() {
   const sheetImportedExpenseIds = useMemo(
     () => new Set(sheetRows.map((r) => r.sourceExpenseId).filter(Boolean) as string[]),
     [sheetRows]
+  );
+
+  const monthlySheetGroups = useMemo(
+    () => groupExpensesIntoMonthlySheets(expenses),
+    [expenses]
   );
 
   useEffect(() => {
@@ -331,6 +349,14 @@ export default function BusinessExpensePage() {
     };
     fetchOrgs();
   }, [user]);
+
+  useEffect(() => {
+    const o = searchParams.get("org");
+    if (!o || organizations.length === 0) return;
+    if (organizations.some((org: { id: string }) => org.id === o)) {
+      setSelectedOrg(o);
+    }
+  }, [searchParams, organizations]);
 
   // Check access for the selected organization
   const selectedOrgObj = organizations.find(org => org.id === selectedOrg);
@@ -651,7 +677,7 @@ export default function BusinessExpensePage() {
       description: String(e.description ?? ""),
       amount: formatAmountForSheetInput(e.amount),
       category: String(e.category ?? ""),
-      notes: cleanImportedNotes(e.notes),
+      notes: cleanExpenseSheetNotes(e.notes),
       sourceExpenseId: e.id,
     }));
     setSheetRows((prev) => {
@@ -691,7 +717,7 @@ export default function BusinessExpensePage() {
               description: String(exp.description ?? ""),
               amount: formatAmountForSheetInput(exp.amount),
               category: String(exp.category ?? ""),
-              notes: cleanImportedNotes(exp.notes),
+              notes: cleanExpenseSheetNotes(exp.notes),
             }
           : r
       )
@@ -886,6 +912,42 @@ export default function BusinessExpensePage() {
                   </div>
                 </div>
               </div>
+
+              {monthlySheetGroups.length > 0 && (
+                <div className="mb-8">
+                  <h3 className="text-sm font-medium text-gray-200 mb-1">Monthly expense sheets</h3>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Open a saved sheet by month. Lines were created from the monthly grid and tagged for that
+                    calendar month.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {monthlySheetGroups.map((g) => (
+                      <Link
+                        key={g.ym}
+                        href={`/business-expense/${encodeURIComponent(g.ym)}?org=${encodeURIComponent(selectedOrg)}`}
+                        className="block rounded-lg border border-gray-800 bg-gray-950/80 hover:border-cyan-700/60 hover:bg-gray-900/60 transition-colors group"
+                      >
+                        <div className="p-4 flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 text-cyan-400/90 mb-1">
+                              <CalendarDays className="w-4 h-4 shrink-0" />
+                              <span className="font-semibold text-white truncate">
+                                {formatYmLongLabel(g.ym)}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 tabular-nums">
+                              {g.lineCount} line{g.lineCount === 1 ? "" : "s"} ·{" "}
+                              <span className="text-gray-300">${g.totalAmount.toFixed(2)}</span> total
+                            </p>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-cyan-500/80 shrink-0 mt-0.5" />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end flex-wrap gap-2 mb-4">
                 <Button
                   type="button"
@@ -1027,7 +1089,12 @@ export default function BusinessExpensePage() {
                                           </SelectItem>
                                         )}
                                       {expenses
-                                        .filter((e) => e.id)
+                                        .filter((e) => {
+                                          if (!e.id) return false;
+                                          // Hide expenses already chosen on another row; keep this row’s pick visible.
+                                          if (!sheetImportedExpenseIds.has(e.id)) return true;
+                                          return row.sourceExpenseId === e.id;
+                                        })
                                         .sort((a, b) => {
                                           const ta = new Date(a.created_at || 0).getTime();
                                           const tb = new Date(b.created_at || 0).getTime();
@@ -1967,5 +2034,19 @@ export default function BusinessExpensePage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function BusinessExpensePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center items-center min-h-screen text-gray-400">
+          <LoadingSpinner />
+        </div>
+      }
+    >
+      <BusinessExpensePageContent />
+    </Suspense>
   );
 } 

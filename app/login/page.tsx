@@ -150,11 +150,16 @@ export default function LoginPage() {
       // Navigate based on user role
       const userRole = data.user.user_metadata?.role || data.user.role
       console.log('User role:', userRole)
-      
-      // For now, always redirect to dashboard
-      console.log('Redirecting to dashboard')
-      router.push('/dashboard')
-      router.refresh() // Force a refresh to ensure the dashboard loads with the new session
+
+      const role = String(userRole || '').toLowerCase()
+      if (role === 'partner') {
+        console.log('Redirecting partner to partners-overview')
+        router.push('/partners-overview')
+      } else {
+        console.log('Redirecting to dashboard')
+        router.push('/dashboard')
+      }
+      router.refresh() // Force a refresh to ensure the next page loads with the new session
     } catch (err: any) {
       console.log('Login error:', err)
       setError(err.message || 'An error occurred during login')

@@ -54,6 +54,10 @@ export function useTransactions({ limit = 10, page = 1 }: UseTransactionsProps =
           throw new Error('No session found')
         }
 
+        const uid = session.user.id
+        // Outgoing (user_id) + incoming e.g. profit share (recipient_id)
+        const payerOrPayee = `user_id.eq.${uid},recipient_id.eq.${uid}`
+
         // Calculate offset based on page and limit
         const offset = (page - 1) * limit
 
@@ -70,7 +74,7 @@ export function useTransactions({ limit = 10, page = 1 }: UseTransactionsProps =
               name
             )
           `)
-          .eq('user_id', session.user.id)
+          .or(payerOrPayee)
           .order('created_at', { ascending: false })
           .range(offset, offset + limit - 1)
 
@@ -82,7 +86,7 @@ export function useTransactions({ limit = 10, page = 1 }: UseTransactionsProps =
         const { count, error: countError } = await supabase
           .from('transactions')
           .select('id', { count: 'exact' })
-          .eq('user_id', session.user.id)
+          .or(payerOrPayee)
 
         if (countError) {
           throw countError

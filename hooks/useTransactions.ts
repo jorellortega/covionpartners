@@ -53,12 +53,20 @@ export function useTransactions(options: UseTransactionsOptions = {}) {
   const query = useQuery<TransactionsResponse, Error>({
     queryKey: ['transactions', options],
     queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user?.id) {
+        return { transactions: [], total: 0, hasMore: false, currentPage: page }
+      }
+      const uid = session.user.id
+      const payerOrPayee = `user_id.eq.${uid},recipient_id.eq.${uid}`
+
       let query = supabase
         .from('transactions')
         .select(`
           *,
           project:projects(name)
         `, { count: 'exact' })
+        .or(payerOrPayee)
         
       // Apply filters
       if (status) {
