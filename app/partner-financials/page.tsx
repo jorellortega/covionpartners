@@ -49,6 +49,8 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Trash2,
+  Undo2,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
@@ -92,6 +94,10 @@ interface FinancialReport {
   balance: number
   sent_at: string | null
   created_at: string
+  partner_investment_amount?: number | null
+  partner_share_percentage?: number | null
+  partner_roi_percentage?: number | null
+  partner_profit_share?: number | null
 }
 
 interface MonthlyFinancialData {
@@ -119,6 +125,8 @@ export default function PartnerFinancialsPage() {
   const [isSendDialogOpen, setIsSendDialogOpen] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [sending, setSending] = useState(false)
+  /** Set while unsend / delete / regenerate runs for a specific report row */
+  const [reportActionId, setReportActionId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>("overview")
   const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([])
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false)
@@ -324,8 +332,11 @@ export default function PartnerFinancialsPage() {
     }
   }
 
-  const generateFinancialReport = async () => {
-    if (!selectedInvitation || !selectedOrg || !selectedMonth) {
+  const generateFinancialReport = async (monthOverride?: unknown) => {
+    // Ignore non-strings (e.g. React passes click events if onClick={generateFinancialReport})
+    const overrideStr = typeof monthOverride === 'string' ? monthOverride : ''
+    const monthSource = (overrideStr || selectedMonth || '').trim()
+    if (!selectedInvitation || !selectedOrg || !monthSource) {
       toast.error('Please select a partner and month')
       return
     }
@@ -334,7 +345,7 @@ export default function PartnerFinancialsPage() {
       setGenerating(true)
       
       // Validate and parse the month string (Format: YYYY-MM)
-      const monthStr = selectedMonth.trim()
+      const monthStr = monthSource
       const monthMatch = monthStr.match(/^(\d{4})-(\d{2})$/)
       
       if (!monthMatch) {
@@ -614,6 +625,63 @@ export default function PartnerFinancialsPage() {
       toast.error('Failed to send financial report')
     } finally {
       setSending(false)
+    }
+  }
+
+  const unsendFinancialReport = async (reportId: string) => {
+    try {
+      setReportActionId(reportId)
+      const { error } = await supabase
+        .from('partner_financial_reports')
+        .update({
+          sent_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', reportId)
+
+      if (error) throw error
+      toast.success('Report unsent. You can edit it by regenerating, then send again when ready.')
+      fetchFinancialReports()
+    } catch (error: any) {
+      console.error('Error unsending report:', error)
+      toast.error('Failed to unsend report')
+    } finally {
+      setReportActionId(null)
+    }
+  }
+
+  const deleteFinancialReport = async (reportId: string) => {
+    if (
+      !confirm(
+        'Delete this report permanently? This cannot be undone. Linked withdrawal requests will keep their amount but lose the report link.'
+      )
+    ) {
+      return
+    }
+    try {
+      setReportActionId(reportId)
+      const { error } = await supabase.from('partner_financial_reports').delete().eq('id', reportId)
+      if (error) throw error
+      toast.success('Report deleted')
+      fetchFinancialReports()
+      fetchWithdrawalRequests()
+    } catch (error: any) {
+      console.error('Error deleting report:', error)
+      toast.error('Failed to delete report')
+    } finally {
+      setReportActionId(null)
+    }
+  }
+
+  const regenerateReportFromRow = async (report: FinancialReport) => {
+    const raw = report.report_month
+    const dateStr = raw.includes('T') ? raw.split('T')[0] : raw.split(' ')[0]
+    const yyyymm = dateStr.slice(0, 7)
+    setReportActionId(report.id)
+    try {
+      await generateFinancialReport(yyyymm)
+    } finally {
+      setReportActionId(null)
     }
   }
 
@@ -974,7 +1042,7 @@ export default function PartnerFinancialsPage() {
                             Cancel
                           </Button>
                           <Button
-                            onClick={generateFinancialReport}
+                            onClick={() => void generateFinancialReport()}
                             disabled={!selectedMonth || generating}
                             className="gradient-button"
                           >
@@ -1013,7 +1081,7 @@ export default function PartnerFinancialsPage() {
                         <div>
                           <h3 className="text-white font-semibold mb-1">Generated Reports</h3>
                           <p className="text-sm text-gray-400">
-                            Financial reports you've generated will appear here. Click "Send Report" to notify your partner.
+                            As the organization owner, you can send, unsend, regenerate from live data, or delete reports below.
                           </p>
                         </div>
                       </div>
@@ -1027,30 +1095,82 @@ export default function PartnerFinancialsPage() {
                     financialReports.map((report) => (
                       <Card key={report.id} className="bg-[#141414] border border-black">
                         <CardHeader>
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                               <CardTitle className="text-white">{formatMonth(report.report_month)}</CardTitle>
                               <CardDescription className="text-gray-400">
                                 {report.sent_at ? `Sent on ${new Date(report.sent_at).toLocaleDateString()}` : 'Not sent yet'}
                               </CardDescription>
                             </div>
-                            {!report.sent_at && (
+                            <div className="flex flex-wrap gap-2 justify-end">
+                              {!report.sent_at && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => void sendFinancialReport(report.id)}
+                                  disabled={sending || reportActionId === report.id}
+                                  className="gradient-button"
+                                >
+                                  {sending ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <Send className="w-4 h-4 mr-2" />
+                                      Send report
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                              {report.sent_at && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-gray-600 text-gray-200"
+                                  disabled={reportActionId === report.id}
+                                  onClick={() => void unsendFinancialReport(report.id)}
+                                >
+                                  {reportActionId === report.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <Undo2 className="w-4 h-4 mr-2" />
+                                      Unsend
+                                    </>
+                                  )}
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
-                                onClick={() => sendFinancialReport(report.id)}
-                                disabled={sending}
-                                className="gradient-button"
+                                variant="outline"
+                                className="border-gray-600 text-gray-200"
+                                disabled={generating || reportActionId === report.id}
+                                onClick={() => void regenerateReportFromRow(report)}
                               >
-                                {sending ? (
+                                {reportActionId === report.id ? (
                                   <Loader2 className="w-4 h-4 animate-spin" />
                                 ) : (
                                   <>
-                                    <Send className="w-4 h-4 mr-2" />
-                                    Send Report
+                                    <RefreshCw className="w-4 h-4 mr-2" />
+                                    Regenerate
                                   </>
                                 )}
                               </Button>
-                            )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-red-500/40 text-red-400 hover:bg-red-950/30"
+                                disabled={reportActionId === report.id || sending}
+                                onClick={() => void deleteFinancialReport(report.id)}
+                              >
+                                {reportActionId === report.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete
+                                  </>
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent>

@@ -56,6 +56,7 @@ import { MonthPicker } from "@/components/ui/month-picker"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
 import { REVENUE_CATEGORIES, REVENUE_SOURCES, PAYMENT_METHODS } from "@/lib/revenue-constants"
+import { type PeriodMode, formatPeriodHint, getPeriodBounds } from "@/lib/period-bounds"
 
 interface Organization {
   id: string
@@ -176,6 +177,8 @@ export default function ManageExpensesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [monthFilter, setMonthFilter] = useState<string>("")
+  const [periodMode, setPeriodMode] = useState<PeriodMode>("month")
+  const [fullCalendarYear, setFullCalendarYear] = useState(() => new Date().getFullYear())
   const [activeTab, setActiveTab] = useState<"expenses" | "revenue" | "balance-sheet">("expenses")
   
   const [newExpense, setNewExpense] = useState({
@@ -229,7 +232,7 @@ export default function ManageExpensesPage() {
       fetchManualRevenue()
       fetchBalanceSheetItems()
     }
-  }, [selectedOrg, monthFilter])
+  }, [selectedOrg, monthFilter, periodMode, fullCalendarYear])
 
   const fetchOrganizations = async () => {
     if (!user?.id) return
@@ -263,14 +266,9 @@ export default function ManageExpensesPage() {
         .eq("organization_id", selectedOrg)
         .order("created_at", { ascending: false })
 
-      // Apply month filter if selected
-      if (monthFilter) {
-        const [year, month] = monthFilter.split("-").map(Number)
-        const startDate = new Date(year, month - 1, 1)
-        const endDate = new Date(year, month, 1)
-        query = query
-          .gte("created_at", startDate.toISOString())
-          .lt("created_at", endDate.toISOString())
+      const bounds = getPeriodBounds(periodMode, monthFilter, fullCalendarYear)
+      if (bounds) {
+        query = query.gte("created_at", bounds.start).lt("created_at", bounds.end)
       }
 
       const { data, error } = await query
@@ -302,17 +300,7 @@ export default function ManageExpensesPage() {
         return
       }
 
-      // Build date range for month filter
-      let startDateStr: string | undefined
-      let endDateStr: string | undefined
-
-      if (monthFilter) {
-        const [year, month] = monthFilter.split("-").map(Number)
-        const startDate = new Date(year, month - 1, 1)
-        const endDate = new Date(year, month, 1)
-        startDateStr = startDate.toISOString()
-        endDateStr = endDate.toISOString()
-      }
+      const bounds = getPeriodBounds(periodMode, monthFilter, fullCalendarYear)
 
       // Fetch revenue (transactions with positive amounts) for organization's projects
       let query = supabase
@@ -322,8 +310,8 @@ export default function ManageExpensesPage() {
         .in("project_id", projectIds)
         .gt("amount", 0)
 
-      if (startDateStr && endDateStr) {
-        query = query.gte("created_at", startDateStr).lt("created_at", endDateStr)
+      if (bounds) {
+        query = query.gte("created_at", bounds.start).lt("created_at", bounds.end)
       }
 
       const { data: revenueData, error } = await query
@@ -352,14 +340,9 @@ export default function ManageExpensesPage() {
         .eq("organization_id", selectedOrg)
         .order("created_at", { ascending: false })
 
-      // Apply month filter if selected
-      if (monthFilter) {
-        const [year, month] = monthFilter.split("-").map(Number)
-        const startDate = new Date(year, month - 1, 1)
-        const endDate = new Date(year, month, 1)
-        query = query
-          .gte("created_at", startDate.toISOString())
-          .lt("created_at", endDate.toISOString())
+      const bounds = getPeriodBounds(periodMode, monthFilter, fullCalendarYear)
+      if (bounds) {
+        query = query.gte("created_at", bounds.start).lt("created_at", bounds.end)
       }
 
       const { data, error } = await query
@@ -840,19 +823,49 @@ export default function ManageExpensesPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8 text-center md:text-left">
-          <div className="inline-block mb-3">
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-white via-purple-200 to-purple-400 bg-clip-text text-transparent mb-2">
-              Manage Expenses & Revenue
-            </h1>
-            <div className="h-1 w-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mx-auto md:mx-0"></div>
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
+          <div className="text-center md:text-left flex-1 min-w-0">
+            <div className="inline-block mb-3">
+              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-white via-purple-200 to-purple-400 bg-clip-text text-transparent mb-2">
+                Manage Expenses & Revenue
+              </h1>
+              <div className="h-1 w-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mx-auto md:mx-0"></div>
+            </div>
+            <p className="text-gray-300 mt-3">
+              Track and manage expenses and revenue for your organization.
+            </p>
           </div>
-          <p className="text-gray-300 mt-3">
-            Track and manage expenses and revenue for your organization.{" "}
-            <Link href="/revenue" className="text-cyan-400 hover:text-cyan-300 underline-offset-4 hover:underline">
-              Open dedicated revenue page
-            </Link>
-          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 shrink-0 mx-auto md:mx-0 md:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-purple-500/40 bg-gray-900/50 text-white hover:bg-purple-950/50 hover:text-white"
+              onClick={() => setActiveTab("expenses")}
+            >
+              <TrendingDown className="h-4 w-4 text-red-400" />
+              Expenses
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="border-purple-500/40 bg-gray-900/50 text-white hover:bg-purple-950/50 hover:text-white"
+            >
+              <Link href="/revenue" className="inline-flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-green-400" />
+                Full revenue page
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="border-purple-500/40 bg-gray-900/50 text-white hover:bg-purple-950/50 hover:text-white"
+            >
+              <Link href="/partner-financials" className="inline-flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-purple-400" />
+                Partner financials
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {/* Organization Selector */}
@@ -895,6 +908,9 @@ export default function ManageExpensesPage() {
                     {formatCurrency(grossRevenue)}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
+                    {formatPeriodHint(periodMode, monthFilter, fullCalendarYear)}
+                  </p>
+                  <p className="text-xs text-gray-600 mt-2">
                     {formatCurrency(transactionRevenue)} from transactions + {formatCurrency(manualRevenueTotal)} manual
                   </p>
                 </CardContent>
@@ -988,57 +1004,117 @@ export default function ManageExpensesPage() {
                 {/* Filters and Actions */}
                 <Card className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 border border-purple-500/20 shadow-xl">
                   <CardContent className="pt-6">
-                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                      <div className="flex flex-wrap gap-4 flex-1">
-                        <div className="flex-1 min-w-[200px]">
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                            <Input
-                              placeholder="Search expenses..."
-                              value={searchQuery}
-                              onChange={(e) => setSearchQuery(e.target.value)}
-                              className="pl-10 bg-gray-900 border-gray-700 text-white"
-                            />
+                    <div className="space-y-3">
+                      <div className="flex flex-col xl:flex-row gap-4 xl:items-end xl:justify-between">
+                        <div className="flex flex-col gap-4 flex-1 min-w-0">
+                          <div className="flex flex-wrap gap-4 items-end">
+                            <div className="flex-1 min-w-[200px]">
+                              <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                                <Input
+                                  placeholder="Search expenses..."
+                                  value={searchQuery}
+                                  onChange={(e) => setSearchQuery(e.target.value)}
+                                  className="pl-10 bg-gray-900 border-gray-700 text-white h-11"
+                                />
+                              </div>
+                            </div>
+                            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                              <SelectTrigger className="w-[150px] bg-gray-900 border-gray-700 text-white h-11">
+                                <SelectValue placeholder="Status" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-gray-800 border-gray-700">
+                                <SelectItem value="all">All Status</SelectItem>
+                                {EXPENSE_STATUSES.map((status) => (
+                                  <SelectItem key={status} value={status} className="text-white">
+                                    {status}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                              <SelectTrigger className="w-[180px] bg-gray-900 border-gray-700 text-white h-11">
+                                <SelectValue placeholder="Category" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-gray-800 border-gray-700">
+                                <SelectItem value="all">All Categories</SelectItem>
+                                {EXPENSE_CATEGORIES.map((cat) => (
+                                  <SelectItem key={cat} value={cat} className="text-white">
+                                    {cat}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex flex-wrap gap-4 items-end">
+                            <div className="space-y-2 w-full sm:w-[220px]">
+                              <Label className="text-gray-300">Period</Label>
+                              <Select
+                                value={periodMode}
+                                onValueChange={(v) => setPeriodMode(v as PeriodMode)}
+                              >
+                                <SelectTrigger className="bg-gray-900 border-gray-700 text-white h-11">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-gray-800 border-gray-700">
+                                  <SelectItem value="month" className="text-white">
+                                    Single month
+                                  </SelectItem>
+                                  <SelectItem value="ytd" className="text-white">
+                                    Year to date
+                                  </SelectItem>
+                                  <SelectItem value="full_year" className="text-white">
+                                    Full calendar year
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {periodMode === "month" && (
+                              <div className="space-y-2 w-full sm:w-[220px]">
+                                <Label className="text-gray-300">Month</Label>
+                                <MonthPicker
+                                  value={monthFilter}
+                                  onValueChange={setMonthFilter}
+                                  placeholder="Pick a month (optional)"
+                                  className="bg-gray-900 border-gray-700 text-white"
+                                />
+                              </div>
+                            )}
+                            {periodMode === "full_year" && (
+                              <div className="space-y-2 w-full sm:w-[140px]">
+                                <Label className="text-gray-300">Year</Label>
+                                <Select
+                                  value={String(fullCalendarYear)}
+                                  onValueChange={(v) => setFullCalendarYear(parseInt(v, 10))}
+                                >
+                                  <SelectTrigger className="bg-gray-900 border-gray-700 text-white h-11">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-gray-800 border-gray-700 max-h-60">
+                                    {Array.from({ length: 16 }, (_, i) => {
+                                      const y = new Date().getFullYear() - 10 + i
+                                      return (
+                                        <SelectItem key={y} value={String(y)} className="text-white">
+                                          {y}
+                                        </SelectItem>
+                                      )
+                                    })}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                          <SelectTrigger className="w-[150px] bg-gray-900 border-gray-700 text-white">
-                            <SelectValue placeholder="Status" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-gray-800 border-gray-700">
-                            <SelectItem value="all">All Status</SelectItem>
-                            {EXPENSE_STATUSES.map((status) => (
-                              <SelectItem key={status} value={status} className="text-white">
-                                {status}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                          <SelectTrigger className="w-[180px] bg-gray-900 border-gray-700 text-white">
-                            <SelectValue placeholder="Category" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-gray-800 border-gray-700">
-                            <SelectItem value="all">All Categories</SelectItem>
-                            {EXPENSE_CATEGORIES.map((cat) => (
-                              <SelectItem key={cat} value={cat} className="text-white">
-                                {cat}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <div className="w-[200px]">
-                          <MonthPicker
-                            value={monthFilter}
-                            onValueChange={setMonthFilter}
-                            placeholder="Filter by month"
-                            className="bg-gray-900 border-gray-700 text-white"
-                          />
-                        </div>
-                      </div>
-                      <Dialog open={isAddExpenseDialogOpen} onOpenChange={setIsAddExpenseDialogOpen}>
+                        <div className="space-y-2 shrink-0 w-full xl:w-auto">
+                          <Label
+                            className="text-transparent select-none pointer-events-none"
+                            aria-hidden
+                          >
+                            Action
+                          </Label>
+                          <Dialog open={isAddExpenseDialogOpen} onOpenChange={setIsAddExpenseDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button className="gradient-button">
+                          <Button className="gradient-button h-11 w-full xl:w-auto">
                             <Plus className="w-4 h-4 mr-2" />
                             Add Expense
                           </Button>
@@ -1251,7 +1327,20 @@ export default function ManageExpensesPage() {
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
-                </div>
+                        </div>
+                      </div>
+                      {periodMode === "month" && (
+                        <p className="text-xs text-gray-500">Leave empty to include all dates</p>
+                      )}
+                      {periodMode === "full_year" && (
+                        <p className="text-xs text-gray-500">Full calendar year: Jan 1 – Dec 31</p>
+                      )}
+                      {periodMode === "ytd" && (
+                        <p className="text-sm text-gray-400">
+                          Jan 1 through today (current calendar year)
+                        </p>
+                      )}
+                    </div>
               </CardContent>
             </Card>
 
@@ -1346,20 +1435,76 @@ export default function ManageExpensesPage() {
                 {/* Revenue Filters and Actions */}
                 <Card className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 border border-purple-500/20 shadow-xl">
                   <CardContent className="pt-6">
-                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                      <div className="flex flex-wrap gap-4 flex-1">
-                        <div className="w-[200px]">
-                          <MonthPicker
-                            value={monthFilter}
-                            onValueChange={setMonthFilter}
-                            placeholder="Filter by month"
-                            className="bg-gray-900 border-gray-700 text-white"
-                          />
+                    <div className="space-y-3">
+                      <div className="flex flex-col lg:flex-row gap-4 lg:items-end lg:justify-between">
+                        <div className="flex flex-wrap gap-4 items-end flex-1 min-w-0">
+                          <div className="space-y-2 w-full sm:w-[220px]">
+                            <Label className="text-gray-300">Period</Label>
+                            <Select
+                              value={periodMode}
+                              onValueChange={(v) => setPeriodMode(v as PeriodMode)}
+                            >
+                              <SelectTrigger className="bg-gray-900 border-gray-700 text-white h-11">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-gray-800 border-gray-700">
+                                <SelectItem value="month" className="text-white">
+                                  Single month
+                                </SelectItem>
+                                <SelectItem value="ytd" className="text-white">
+                                  Year to date
+                                </SelectItem>
+                                <SelectItem value="full_year" className="text-white">
+                                  Full calendar year
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {periodMode === "month" && (
+                            <div className="space-y-2 w-full sm:w-[220px]">
+                              <Label className="text-gray-300">Month</Label>
+                              <MonthPicker
+                                value={monthFilter}
+                                onValueChange={setMonthFilter}
+                                placeholder="Pick a month (optional)"
+                                className="bg-gray-900 border-gray-700 text-white"
+                              />
+                            </div>
+                          )}
+                          {periodMode === "full_year" && (
+                            <div className="space-y-2 w-full sm:w-[140px]">
+                              <Label className="text-gray-300">Year</Label>
+                              <Select
+                                value={String(fullCalendarYear)}
+                                onValueChange={(v) => setFullCalendarYear(parseInt(v, 10))}
+                              >
+                                <SelectTrigger className="bg-gray-900 border-gray-700 text-white h-11">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-gray-800 border-gray-700 max-h-60">
+                                  {Array.from({ length: 16 }, (_, i) => {
+                                    const y = new Date().getFullYear() - 10 + i
+                                    return (
+                                      <SelectItem key={y} value={String(y)} className="text-white">
+                                        {y}
+                                      </SelectItem>
+                                    )
+                                  })}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <Dialog open={isAddRevenueDialogOpen} onOpenChange={setIsAddRevenueDialogOpen}>
+                        <div className="space-y-2 shrink-0 w-full lg:w-auto">
+                          <Label
+                            className="text-transparent select-none pointer-events-none"
+                            aria-hidden
+                          >
+                            Action
+                          </Label>
+                          <Dialog open={isAddRevenueDialogOpen} onOpenChange={setIsAddRevenueDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button className="gradient-button">
+                          <Button className="gradient-button h-11 w-full lg:w-auto">
                             <Plus className="w-4 h-4 mr-2" />
                             Add Revenue
                           </Button>
@@ -1523,6 +1668,19 @@ export default function ManageExpensesPage() {
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
+                        </div>
+                      </div>
+                      {periodMode === "month" && (
+                        <p className="text-xs text-gray-500">Leave empty to include all dates</p>
+                      )}
+                      {periodMode === "full_year" && (
+                        <p className="text-xs text-gray-500">Full calendar year: Jan 1 – Dec 31</p>
+                      )}
+                      {periodMode === "ytd" && (
+                        <p className="text-sm text-gray-400">
+                          Jan 1 through today (current calendar year)
+                        </p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
