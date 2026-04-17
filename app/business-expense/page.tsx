@@ -2,11 +2,12 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { DollarSign, Plus, Pencil, Trash2, Repeat, FileText } from "lucide-react";
+import { DollarSign, Plus, Pencil, Trash2, Repeat, FileText, FileSpreadsheet, Save, ListPlus } from "lucide-react";
 import Link from 'next/link';
 
 // Helper to parse YYYY-MM-DD as local date
@@ -34,6 +35,130 @@ function shouldBeRedAndUnverify(expense: any) {
   const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   if (expense.recurrence === 'Monthly' && diffDays <= 14 && diffDays >= 0) return true;
   if (expense.recurrence === 'Yearly' && diffDays <= 60 && diffDays >= 0) return true;
+  return false;
+}
+
+/** YYYY-MM → last calendar day of that month as YYYY-MM-DD */
+function lastDayOfCalendarMonth(ym: string): string | null {
+  const m = ym.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  if (month < 1 || month > 12) return null;
+  const last = new Date(year, month, 0);
+  const d = String(last.getDate()).padStart(2, "0");
+  return `${year}-${String(month).padStart(2, "0")}-${d}`;
+}
+
+function expenseSheetTag(ym: string) {
+  return `[Expense sheet: ${ym}]`;
+}
+
+function newSheetRowId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return `row-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => {
+  const value = String(i + 1).padStart(2, "0");
+  const d = new Date(2000, i, 1);
+  return { value, label: d.toLocaleString("en-US", { month: "long" }) };
+});
+
+function yearOptions(): number[] {
+  const y = new Date().getFullYear();
+  const out: number[] = [];
+  for (let i = y - 10; i <= y + 5; i++) out.push(i);
+  return out;
+}
+
+function parseSheetYm(ym: string): { year: string; month: string } {
+  const m = ym.match(/^(\d{4})-(\d{2})$/);
+  if (m) return { year: m[1], month: m[2] };
+  const d = new Date();
+  return {
+    year: String(d.getFullYear()),
+    month: String(d.getMonth() + 1).padStart(2, "0"),
+  };
+}
+
+type MonthlySheetRow = {
+  id: string;
+  description: string;
+  amount: string;
+  category: string;
+  notes: string;
+  /** When set, this row was copied from an existing org expense (for deduping imports). */
+  sourceExpenseId?: string;
+};
+
+type MonthlySheetDraft = {
+  sheetMonth: string;
+  sheetRows: MonthlySheetRow[];
+  sheetStatus: string;
+  updatedAt: string;
+};
+
+const monthlySheetDraftKey = (orgId: string) =>
+  `covion-monthly-expense-sheet-draft:${orgId}`;
+
+function readMonthlySheetDraft(orgId: string): MonthlySheetDraft | null {
+  if (typeof window === "undefined" || !orgId) return null;
+  try {
+    const raw = localStorage.getItem(monthlySheetDraftKey(orgId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as MonthlySheetDraft;
+    if (!parsed.sheetMonth || !Array.isArray(parsed.sheetRows)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeMonthlySheetDraft(orgId: string, draft: MonthlySheetDraft) {
+  localStorage.setItem(monthlySheetDraftKey(orgId), JSON.stringify(draft));
+}
+
+function removeMonthlySheetDraft(orgId: string) {
+  localStorage.removeItem(monthlySheetDraftKey(orgId));
+}
+
+function normalizeMonthlySheetRows(rows: unknown): MonthlySheetRow[] {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return [{ id: newSheetRowId(), description: "", amount: "", category: "", notes: "" }];
+  }
+  return rows.map((r: any) => ({
+    id: typeof r?.id === "string" && r.id ? r.id : newSheetRowId(),
+    description: String(r?.description ?? ""),
+    amount: String(r?.amount ?? ""),
+    category: String(r?.category ?? ""),
+    notes: String(r?.notes ?? ""),
+    sourceExpenseId:
+      typeof r?.sourceExpenseId === "string" && r.sourceExpenseId ? r.sourceExpenseId : undefined,
+  }));
+}
+
+const EXPENSE_SHEET_TAG_RE = /\[Expense sheet: \d{4}-\d{2}\]\s*/g;
+
+function cleanImportedNotes(notes: string | null | undefined): string {
+  if (!notes) return "";
+  return notes.replace(EXPENSE_SHEET_TAG_RE, "").trim();
+}
+
+function formatAmountForSheetInput(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "";
+  const n = Number(v);
+  if (Number.isFinite(n)) return String(n);
+  return String(v);
+}
+
+/** Match saved expenses to a calendar month (due date, created date, or prior sheet tag in notes). */
+function expenseMatchesSheetMonth(exp: any, ym: string): boolean {
+  if (!ym.match(/^\d{4}-\d{2}$/)) return false;
+  if (exp.due_date && String(exp.due_date).slice(0, 7) === ym) return true;
+  if (exp.created_at && String(exp.created_at).slice(0, 7) === ym) return true;
+  const n = exp.notes;
+  if (typeof n === "string" && n.includes(`[Expense sheet: ${ym}]`)) return true;
   return false;
 }
 
@@ -71,6 +196,52 @@ export default function BusinessExpensePage() {
   // Extract unique categories from expenses
   const uniqueCategories = Array.from(new Set(expenses.map((e: any) => e.category).filter(Boolean)));
   const [useNewCategory, setUseNewCategory] = useState(false);
+
+  const [showMonthlySheet, setShowMonthlySheet] = useState(false);
+  const [sheetMonth, setSheetMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [sheetRows, setSheetRows] = useState<MonthlySheetRow[]>([
+    { id: newSheetRowId(), description: "", amount: "", category: "", notes: "" },
+  ]);
+  const [sheetStatus, setSheetStatus] = useState("Pending");
+  const [savingSheet, setSavingSheet] = useState(false);
+  const [hasSheetDraft, setHasSheetDraft] = useState(false);
+  const [sheetDraftSavedAt, setSheetDraftSavedAt] = useState<string | null>(null);
+  const [showImportFromExisting, setShowImportFromExisting] = useState(false);
+  const [importScope, setImportScope] = useState<"sheet_month" | "all">("sheet_month");
+  const [selectedImportIds, setSelectedImportIds] = useState<string[]>([]);
+  const monthlySheetTableRef = useRef<HTMLDivElement>(null);
+
+  const importCandidateExpenses = useMemo(() => {
+    const list =
+      importScope === "sheet_month"
+        ? expenses.filter((e) => expenseMatchesSheetMonth(e, sheetMonth))
+        : [...expenses];
+    return list.sort((a, b) => {
+      const ta = new Date(a.created_at || 0).getTime();
+      const tb = new Date(b.created_at || 0).getTime();
+      return tb - ta;
+    });
+  }, [expenses, sheetMonth, importScope]);
+
+  const sheetImportedExpenseIds = useMemo(
+    () => new Set(sheetRows.map((r) => r.sourceExpenseId).filter(Boolean) as string[]),
+    [sheetRows]
+  );
+
+  useEffect(() => {
+    setSelectedImportIds([]);
+  }, [importScope]);
+
+  useEffect(() => {
+    if (!selectedOrg) {
+      setHasSheetDraft(false);
+      return;
+    }
+    setHasSheetDraft(!!readMonthlySheetDraft(selectedOrg));
+  }, [selectedOrg]);
 
   useEffect(() => {
     if (!user) return;
@@ -396,6 +567,231 @@ export default function BusinessExpensePage() {
     }
   };
 
+  const openMonthlySheet = () => {
+    if (!selectedOrg) {
+      toast.error("Select an organization first");
+      return;
+    }
+    const draft = readMonthlySheetDraft(selectedOrg);
+    if (draft) {
+      const ym = /^\d{4}-\d{2}$/.test(draft.sheetMonth)
+        ? draft.sheetMonth
+        : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+      setSheetMonth(ym);
+      setSheetRows(normalizeMonthlySheetRows(draft.sheetRows));
+      setSheetStatus(draft.sheetStatus || "Pending");
+      setSheetDraftSavedAt(draft.updatedAt || null);
+      toast.info("Loaded your saved draft — finish and save, or discard to start over.");
+    } else {
+      const d = new Date();
+      setSheetMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+      setSheetRows([{ id: newSheetRowId(), description: "", amount: "", category: "", notes: "" }]);
+      setSheetStatus("Pending");
+      setSheetDraftSavedAt(null);
+    }
+    setShowMonthlySheet(true);
+  };
+
+  const saveMonthlySheetDraft = () => {
+    if (!selectedOrg) {
+      toast.error("Select an organization");
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    const draft: MonthlySheetDraft = {
+      sheetMonth,
+      sheetRows,
+      sheetStatus,
+      updatedAt,
+    };
+    writeMonthlySheetDraft(selectedOrg, draft);
+    setHasSheetDraft(true);
+    setSheetDraftSavedAt(updatedAt);
+    toast.success("Draft saved on this device — open this sheet anytime to keep editing.");
+  };
+
+  const discardMonthlySheetDraft = () => {
+    if (!selectedOrg) return;
+    removeMonthlySheetDraft(selectedOrg);
+    setHasSheetDraft(false);
+    setSheetDraftSavedAt(null);
+    const d = new Date();
+    setSheetMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+    setSheetRows([{ id: newSheetRowId(), description: "", amount: "", category: "", notes: "" }]);
+    setSheetStatus("Pending");
+    toast.success("Draft discarded — you can start a new sheet.");
+  };
+
+  const openImportFromSaved = () => {
+    setSelectedImportIds([]);
+    setShowImportFromExisting(true);
+  };
+
+  const toggleImportSelection = (id: string) => {
+    setSelectedImportIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllImportable = () => {
+    const ids = importCandidateExpenses
+      .filter((e) => e.id && !sheetImportedExpenseIds.has(e.id))
+      .map((e) => e.id as string);
+    setSelectedImportIds(ids);
+  };
+
+  const applyImportFromOrg = () => {
+    const picked = expenses.filter((e) => selectedImportIds.includes(e.id));
+    if (picked.length === 0) {
+      toast.error("Select at least one expense to import");
+      return;
+    }
+    const newRows: MonthlySheetRow[] = picked.map((e) => ({
+      id: newSheetRowId(),
+      description: String(e.description ?? ""),
+      amount: formatAmountForSheetInput(e.amount),
+      category: String(e.category ?? ""),
+      notes: cleanImportedNotes(e.notes),
+      sourceExpenseId: e.id,
+    }));
+    setSheetRows((prev) => {
+      const onlyEmpty =
+        prev.length === 1 &&
+        !String(prev[0].description || "").trim() &&
+        !String(prev[0].amount || "").trim();
+      if (onlyEmpty) return newRows.length ? newRows : prev;
+      return [...prev, ...newRows];
+    });
+    setShowImportFromExisting(false);
+    setSelectedImportIds([]);
+    requestAnimationFrame(() => {
+      monthlySheetTableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    toast.success(
+      `Added ${picked.length} line(s). Imported rows are highlighted with an “Imported” badge — edit or remove in the sheet.`
+    );
+  };
+
+  /** Fill this sheet row from a saved org expense — data appears in the same line’s fields. */
+  const onRowSourceChange = (rowId: string, value: string) => {
+    if (value === "__manual__") {
+      setSheetRows((prev) =>
+        prev.map((r) => (r.id === rowId ? { ...r, sourceExpenseId: undefined } : r))
+      );
+      return;
+    }
+    const exp = expenses.find((e) => e.id === value);
+    if (!exp) return;
+    setSheetRows((prev) =>
+      prev.map((r) =>
+        r.id === rowId
+          ? {
+              ...r,
+              sourceExpenseId: exp.id,
+              description: String(exp.description ?? ""),
+              amount: formatAmountForSheetInput(exp.amount),
+              category: String(exp.category ?? ""),
+              notes: cleanImportedNotes(exp.notes),
+            }
+          : r
+      )
+    );
+    toast.message("Row filled from saved expense — edit the cells above if needed.");
+  };
+
+  const addSheetLine = () => {
+    setSheetRows((prev) => [
+      ...prev,
+      { id: newSheetRowId(), description: "", amount: "", category: "", notes: "" },
+    ]);
+  };
+
+  const removeSheetLine = (id: string) => {
+    setSheetRows((prev) => (prev.length <= 1 ? prev : prev.filter((r) => r.id !== id)));
+  };
+
+  const sheetTotal = sheetRows.reduce((sum, r) => {
+    const n = parseFloat(r.amount);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+
+  const handleSaveMonthlySheet = async () => {
+    if (!selectedOrg || !user) {
+      toast.error("Select an organization");
+      return;
+    }
+    const lastDay = lastDayOfCalendarMonth(sheetMonth);
+    if (!lastDay) {
+      toast.error("Pick a valid month");
+      return;
+    }
+    const tag = expenseSheetTag(sheetMonth);
+    const lines = sheetRows
+      .map((r) => ({
+        ...r,
+        description: r.description.trim(),
+        amountNum: parseFloat(r.amount),
+      }))
+      .filter(
+        (r) =>
+          r.description.length > 0 &&
+          Number.isFinite(r.amountNum) &&
+          !Number.isNaN(r.amountNum) &&
+          r.amountNum > 0
+      );
+
+    if (lines.length === 0) {
+      toast.error("Add at least one line with a description and a positive amount");
+      return;
+    }
+
+    setSavingSheet(true);
+    try {
+      const createdAt = `${sheetMonth}-01T12:00:00.000Z`;
+      const now = new Date().toISOString();
+      const payload = lines.map((r) => {
+        const cat = (r.category || "General").trim() || "General";
+        const noteExtra = r.notes.trim();
+        return {
+          organization_id: selectedOrg,
+          user_id: user.id,
+          description: r.description,
+          amount: r.amountNum,
+          category: cat,
+          status: sheetStatus,
+          due_date: lastDay,
+          receipt_url: null,
+          notes: noteExtra ? `${tag} ${noteExtra}` : tag,
+          recurrence: "One-time",
+          is_recurring: false,
+          next_payment_date: null,
+          verified: false,
+          payment_account: "",
+          created_at: createdAt,
+          updated_at: now,
+        };
+      });
+
+      const { data, error } = await supabase.from("expenses").insert(payload).select();
+      if (error) throw error;
+      if (data?.length) setExpenses((prev) => [...data, ...prev]);
+      if (selectedOrg) {
+        removeMonthlySheetDraft(selectedOrg);
+        setHasSheetDraft(false);
+        setSheetDraftSavedAt(null);
+      }
+      toast.success(`Saved ${data?.length ?? lines.length} expense(s) for ${sheetMonth}`);
+      setShowMonthlySheet(false);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save monthly expense sheet");
+    } finally {
+      setSavingSheet(false);
+    }
+  };
+
+  const sheetYmParsed = parseSheetYm(sheetMonth);
+
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
       <div className="leonardo-card border-gray-800 mb-8">
@@ -490,7 +886,448 @@ export default function BusinessExpensePage() {
                   </div>
                 </div>
               </div>
-              <div className="flex justify-end mb-4">
+              <div className="flex justify-end flex-wrap gap-2 mb-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-cyan-600/60 text-cyan-200 hover:bg-cyan-950/50"
+                  onClick={openMonthlySheet}
+                >
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  Create monthly expense
+                  {hasSheetDraft && (
+                    <Badge variant="secondary" className="ml-2 bg-amber-900/60 text-amber-200 border-amber-700/50">
+                      Draft saved
+                    </Badge>
+                  )}
+                </Button>
+                <Dialog open={showMonthlySheet} onOpenChange={setShowMonthlySheet}>
+                  <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto border-gray-800 bg-gray-950 text-white">
+                    <DialogHeader>
+                      <DialogTitle>Monthly expense sheet</DialogTitle>
+                      <DialogDescription className="text-gray-400">
+                        Choose the calendar month, then add rows like a spreadsheet. Each row becomes one expense
+                        booked for that month (due date = last day of the month). This is separate from recurring
+                        subscriptions. Use <span className="text-cyan-400/90">Save draft</span> to park your work in
+                        this browser and finish later — drafts load automatically when you open this dialog. You can
+                        also <span className="text-cyan-400/90">import from saved expenses</span> already on this page.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-gray-300">Expense month</Label>
+                          <p className="text-xs text-gray-500 mt-0.5 mb-2">
+                            Choose the calendar month for this sheet.
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Select
+                              value={sheetYmParsed.month}
+                              onValueChange={(mo) =>
+                                setSheetMonth(`${sheetYmParsed.year}-${mo}`)
+                              }
+                            >
+                              <SelectTrigger
+                                id="sheet_month_name"
+                                className="w-full leonardo-input text-white"
+                              >
+                                <SelectValue placeholder="Month" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {MONTH_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select
+                              value={sheetYmParsed.year}
+                              onValueChange={(yr) =>
+                                setSheetMonth(`${yr}-${sheetYmParsed.month}`)
+                              }
+                            >
+                              <SelectTrigger className="w-full leonardo-input text-white">
+                                <SelectValue placeholder="Year" />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-[220px]">
+                                {yearOptions().map((yy) => (
+                                  <SelectItem key={yy} value={String(yy)}>
+                                    {yy}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-gray-300">Status (all lines)</Label>
+                          <Select value={sheetStatus} onValueChange={setSheetStatus}>
+                            <SelectTrigger className="w-full leonardo-input text-white mt-1">
+                              <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Pending">Pending</SelectItem>
+                              <SelectItem value="Paid">Paid</SelectItem>
+                              <SelectItem value="Unpaid">Unpaid</SelectItem>
+                              <SelectItem value="Overdue">Overdue</SelectItem>
+                              <SelectItem value="Partially Paid">Partially Paid</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Use the <span className="text-violet-300">Source</span> column on each row to load a saved
+                        expense into that line — description, amount, category, and notes fill in right here. Edit or
+                        clear as needed. Rows loaded from saved expenses are tinted violet.
+                      </p>
+                      <div
+                        ref={monthlySheetTableRef}
+                        className="rounded-md border border-gray-800 overflow-x-auto scroll-mt-4"
+                      >
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-800 text-left text-gray-400">
+                              <th className="px-2 py-2 font-medium w-10 text-center">#</th>
+                              <th className="px-2 py-2 font-medium min-w-[220px]">Source</th>
+                              <th className="px-2 py-2 font-medium min-w-[140px]">Description</th>
+                              <th className="px-2 py-2 font-medium w-28">Amount</th>
+                              <th className="px-2 py-2 font-medium min-w-[120px]">Category</th>
+                              <th className="px-2 py-2 font-medium min-w-[100px]">Notes</th>
+                              <th className="px-2 py-2 w-10" />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sheetRows.map((row, rowIndex) => (
+                              <tr
+                                key={row.id}
+                                className={`border-b border-gray-800/80 ${
+                                  row.sourceExpenseId ? "bg-violet-950/30 border-l-2 border-l-violet-500/70" : ""
+                                }`}
+                              >
+                                <td className="px-2 py-2 align-top text-center text-gray-500 text-xs tabular-nums">
+                                  {rowIndex + 1}
+                                </td>
+                                <td className="px-2 py-1 align-top min-w-[220px]">
+                                  <Select
+                                    value={row.sourceExpenseId ?? "__manual__"}
+                                    onValueChange={(val) => onRowSourceChange(row.id, val)}
+                                  >
+                                    <SelectTrigger className="h-auto min-h-9 leonardo-input text-white text-left text-xs py-1.5">
+                                      <SelectValue placeholder="Load saved expense into this row" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-64">
+                                      <SelectItem value="__manual__" className="text-gray-300">
+                                        Manual — type in the row below
+                                      </SelectItem>
+                                      {row.sourceExpenseId &&
+                                        !expenses.some((e) => e.id === row.sourceExpenseId) && (
+                                          <SelectItem value={row.sourceExpenseId} className="text-amber-500/90 text-xs">
+                                            Linked expense no longer in list — change source or edit row
+                                          </SelectItem>
+                                        )}
+                                      {expenses
+                                        .filter((e) => e.id)
+                                        .sort((a, b) => {
+                                          const ta = new Date(a.created_at || 0).getTime();
+                                          const tb = new Date(b.created_at || 0).getTime();
+                                          return tb - ta;
+                                        })
+                                        .map((exp) => {
+                                          const label = `${String(exp.description || "Expense").slice(0, 80)}${String(exp.description || "").length > 80 ? "…" : ""} · $${Number(exp.amount || 0).toFixed(2)}`;
+                                          return (
+                                            <SelectItem key={exp.id} value={exp.id} className="text-xs">
+                                              <span className="line-clamp-2" title={label}>
+                                                {label}
+                                              </span>
+                                            </SelectItem>
+                                          );
+                                        })}
+                                    </SelectContent>
+                                  </Select>
+                                  {row.sourceExpenseId && expenses.some((e) => e.id === row.sourceExpenseId) && (
+                                    <p className="text-[10px] text-violet-400/90 mt-1">Filled from saved · editable</p>
+                                  )}
+                                </td>
+                                <td className="px-2 py-1 align-top">
+                                  <Input
+                                    placeholder="e.g. Software"
+                                    value={row.description}
+                                    onChange={(e) =>
+                                      setSheetRows((prev) =>
+                                        prev.map((r) =>
+                                          r.id === row.id ? { ...r, description: e.target.value } : r
+                                        )
+                                      )
+                                    }
+                                    className="leonardo-input text-white h-9"
+                                  />
+                                </td>
+                                <td className="px-2 py-1 align-top">
+                                  <div className="flex items-center bg-gray-900 border border-gray-700 rounded px-2 h-9">
+                                    <span className="text-gray-500 mr-1 text-xs">$</span>
+                                    <input
+                                      className="bg-transparent outline-none w-full text-white text-sm py-1"
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      placeholder="0"
+                                      value={row.amount}
+                                      onChange={(e) =>
+                                        setSheetRows((prev) =>
+                                          prev.map((r) =>
+                                            r.id === row.id ? { ...r, amount: e.target.value } : r
+                                          )
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                </td>
+                                <td className="px-2 py-1 align-top">
+                                  <Select
+                                    value={row.category ? row.category : "__general__"}
+                                    onValueChange={(val) =>
+                                      setSheetRows((prev) =>
+                                        prev.map((r) =>
+                                          r.id === row.id
+                                            ? { ...r, category: val === "__general__" ? "" : val }
+                                            : r
+                                        )
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger className="h-9 leonardo-input text-white">
+                                      <SelectValue placeholder="Category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="__general__">General</SelectItem>
+                                      {row.category &&
+                                        !uniqueCategories.includes(row.category) &&
+                                        row.category !== "General" && (
+                                          <SelectItem value={row.category}>{row.category}</SelectItem>
+                                        )}
+                                      {uniqueCategories.map((cat) => (
+                                        <SelectItem key={cat} value={cat}>
+                                          {cat}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </td>
+                                <td className="px-2 py-1 align-top">
+                                  <Input
+                                    placeholder="Optional"
+                                    value={row.notes}
+                                    onChange={(e) =>
+                                      setSheetRows((prev) =>
+                                        prev.map((r) =>
+                                          r.id === row.id ? { ...r, notes: e.target.value } : r
+                                        )
+                                      )
+                                    }
+                                    className="leonardo-input text-white h-9"
+                                  />
+                                </td>
+                                <td className="px-1 py-1 align-top">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9 text-gray-500 hover:text-red-400"
+                                    onClick={() => removeSheetLine(row.id)}
+                                    title="Remove line"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" variant="secondary" onClick={addSheetLine} className="bg-gray-800">
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add line
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="border-violet-600/50 text-violet-200 hover:bg-violet-950/40"
+                            onClick={() =>
+                              showImportFromExisting
+                                ? setShowImportFromExisting(false)
+                                : openImportFromSaved()
+                            }
+                          >
+                            <ListPlus className="w-4 h-4 mr-2" />
+                            {showImportFromExisting ? "Hide bulk import" : "Bulk import (many rows)"}
+                          </Button>
+                        </div>
+                        <p className="text-sm text-gray-400">
+                          Sheet total:{" "}
+                          <span className="text-white font-semibold">${sheetTotal.toFixed(2)}</span>
+                        </p>
+                      </div>
+                      {showImportFromExisting && (
+                        <div className="rounded-lg border border-cyan-900/50 bg-gray-900/70 p-4 space-y-3">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium text-white">Bulk import</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Add several saved expenses as new rows at once. To fill one line at a time, use the{" "}
+                                <span className="text-violet-300">Source</span> dropdown on each row in the table above.
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-400 shrink-0"
+                              onClick={() => setShowImportFromExisting(false)}
+                            >
+                              Close
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Label className="text-gray-400 text-xs shrink-0">Show:</Label>
+                            <Select
+                              value={importScope}
+                              onValueChange={(v) => setImportScope(v as "sheet_month" | "all")}
+                            >
+                              <SelectTrigger className="w-[min(100%,280px)] leonardo-input text-white h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="sheet_month">
+                                  Only expenses for {sheetMonth} (due / created / sheet tag)
+                                </SelectItem>
+                                <SelectItem value="all">All organization expenses on this page</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="border-gray-600"
+                              onClick={selectAllImportable}
+                            >
+                              Select all in list
+                            </Button>
+                          </div>
+                          <div className="max-h-52 overflow-y-auto rounded border border-gray-800">
+                            {importCandidateExpenses.length === 0 ? (
+                              <p className="text-sm text-gray-500 p-4">
+                                No matching expenses. Try &quot;All organization expenses&quot; or add expenses on
+                                this page first.
+                              </p>
+                            ) : (
+                              <table className="min-w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-gray-800 text-gray-400 text-left">
+                                    <th className="w-10 p-2" />
+                                    <th className="p-2">Description</th>
+                                    <th className="p-2 w-24">Amount</th>
+                                    <th className="p-2 min-w-[100px]">Category</th>
+                                    <th className="p-2 w-28">Date</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {importCandidateExpenses.map((exp) => {
+                                    const onSheet = sheetImportedExpenseIds.has(exp.id);
+                                    const disabled = onSheet;
+                                    return (
+                                      <tr key={exp.id} className="border-b border-gray-800/80">
+                                        <td className="p-2 align-middle">
+                                          <Checkbox
+                                            checked={selectedImportIds.includes(exp.id)}
+                                            disabled={disabled}
+                                            onCheckedChange={() => {
+                                              if (!disabled) toggleImportSelection(exp.id);
+                                            }}
+                                            aria-label={`Select ${exp.description}`}
+                                          />
+                                        </td>
+                                        <td className="p-2 text-gray-200">
+                                          {exp.description}
+                                          {onSheet && (
+                                            <span className="block text-[10px] text-amber-500/90 mt-0.5">
+                                              On sheet — edit/remove in grid above
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td className="p-2 text-gray-300">
+                                          ${Number(exp.amount || 0).toFixed(2)}
+                                        </td>
+                                        <td className="p-2 text-gray-400">{exp.category || "—"}</td>
+                                        <td className="p-2 text-gray-500 text-xs whitespace-nowrap">
+                                          {exp.due_date
+                                            ? String(exp.due_date).slice(0, 10)
+                                            : exp.created_at
+                                              ? String(exp.created_at).slice(0, 10)
+                                              : "—"}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2 justify-end">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="bg-cyan-900/40 text-cyan-100 hover:bg-cyan-900/60"
+                              onClick={applyImportFromOrg}
+                              disabled={selectedImportIds.length === 0}
+                            >
+                              Add selected to sheet ({selectedImportIds.length})
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      <div className="rounded-md border border-gray-800 bg-gray-900/40 p-3 space-y-2">
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="border-gray-600 text-gray-200"
+                            onClick={saveMonthlySheetDraft}
+                          >
+                            <Save className="w-4 h-4 mr-2" />
+                            Save draft
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="text-gray-400 hover:text-red-300"
+                            onClick={discardMonthlySheetDraft}
+                          >
+                            Discard draft
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Drafts stay on this browser only (not synced to your account or other devices).
+                        </p>
+                        {sheetDraftSavedAt && (
+                          <p className="text-xs text-cyan-500/90">
+                            Last saved: {new Date(sheetDraftSavedAt).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        className="w-full bg-cyan-700 hover:bg-cyan-600 text-white"
+                        onClick={handleSaveMonthlySheet}
+                        disabled={savingSheet}
+                      >
+                        {savingSheet ? "Saving…" : `Save ${sheetMonth} sheet to expenses`}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <Dialog open={showAdd} onOpenChange={setShowAdd}>
                   <DialogTrigger asChild>
                     <Button variant="default" className="bg-cyan-700 text-white"><Plus className="w-4 h-4 mr-2" /> Add Expense</Button>
