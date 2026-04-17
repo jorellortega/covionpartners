@@ -1,14 +1,12 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { isValidStripeCustomerId } from '@/lib/stripe-customer-id';
+import { createSupabaseRouteHandlerClient } from '@/lib/supabase/route-handler';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: Request) {
-  // Correct cookies usage for Next.js 14/15
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  const supabase = await createSupabaseRouteHandlerClient();
 
   // Check session
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -44,8 +42,8 @@ export async function POST(req: Request) {
 
     let stripeCustomerId = userData?.stripe_customer_id;
 
-    // If no Stripe customer ID exists, create one
-    if (!stripeCustomerId) {
+    // If missing or invalid (e.g. literal "NULL" in DB), create a real Stripe Customer
+    if (!isValidStripeCustomerId(stripeCustomerId)) {
       console.log('Creating new Stripe customer for user:', user.id);
       const customer = await stripe.customers.create({
         email: user.email,

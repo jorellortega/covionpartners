@@ -1,25 +1,30 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Home, CreditCard, Wallet, DollarSign, Plus, ArrowRight, Calendar, RefreshCw, Loader2, LinkIcon, ShieldCheck, Receipt, Banknote, ArrowLeft, Settings, Building } from "lucide-react"
+import { Home, CreditCard, Wallet, DollarSign, Plus, ArrowRight, Calendar, RefreshCw, Loader2, LinkIcon, ShieldCheck, Receipt, Banknote, ArrowLeft, Settings, Building, ChevronDown } from "lucide-react"
 import Link from "next/link"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { loadStripe } from "@stripe/stripe-js/pure"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import type { Appearance } from '@stripe/stripe-js'
 import SavedPaymentsList from '../components/payments/SavedPaymentsList'
 import PaymentForm from '../components/payments/PaymentForm'
+import AchLinkPaymentMethod from '../components/payments/AchLinkPaymentMethod'
 import { useTransactions, Transaction } from "../hooks/useTransactions"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { isValidStripeCustomerId } from "@/lib/stripe-customer-id"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 // Mock data for payment methods and transactions
 const mockPaymentMethods = [
@@ -128,8 +133,32 @@ export default function ManagePaymentsPage() {
   const [pendingBalance, setPendingBalance] = useState<number | null>(null)
   const [userData, setUserData] = useState<{ 
     stripe_customer_id: string | null,
-    stripe_connect_account_id: string | null 
+    stripe_connect_account_id: string | null
+    role?: string | null
   } | null>(null)
+  const [platformStripe, setPlatformStripe] = useState<{
+    available: number
+    pending: number
+    topups: Array<{
+      id: string
+      amount: number
+      currency: string
+      status: string
+      description: string | null
+      created: number
+      failure_code: string | null
+      failure_message: string | null
+    }>
+  } | null>(null)
+  const [platformStripeLoading, setPlatformStripeLoading] = useState(false)
+  const [topupAmount, setTopupAmount] = useState('')
+  const [topupDescription, setTopupDescription] = useState('')
+  const [topupSubmitting, setTopupSubmitting] = useState(false)
+  const [prefundFunding, setPrefundFunding] = useState<'bank' | 'card'>('bank')
+  const [prefundCardOptions, setPrefundCardOptions] = useState<Array<{ id: string; brand: string; last4: string }>>([])
+  const [prefundCardId, setPrefundCardId] = useState('')
+  const [prefundBankDetailsOpen, setPrefundBankDetailsOpen] = useState(false)
+  const [prefundCardDetailsOpen, setPrefundCardDetailsOpen] = useState(false)
   const [bankForm, setBankForm] = useState({
     account_holder_name: '',
     account_holder_type: 'individual',
@@ -159,6 +188,8 @@ export default function ManagePaymentsPage() {
   const [stripeSummary, setStripeSummary] = useState<any>(null);
   const [payoutDetails, setPayoutDetails] = useState<any>(null);
   const [showStripeSummary, setShowStripeSummary] = useState(false);
+
+  const hasValidStripeCustomer = isValidStripeCustomerId(userData?.stripe_customer_id)
 
   // Add Stripe Elements appearance configuration
   const appearance: Appearance = {
@@ -217,6 +248,12 @@ export default function ManagePaymentsPage() {
   }, [router, supabase])
 
   useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#ach-for-pay") {
+      setCurrentTab("payment-methods")
+    }
+  }, [])
+
+  useEffect(() => {
     fetch("/api/stripe/connect/account-status")
       .then(res => res.json())
       .then(data => setStripeStatus(data));
@@ -243,18 +280,13 @@ export default function ManagePaymentsPage() {
     const fetchAllTransactions = async () => {
       setAllTransactionsLoading(true);
       try {
-        // 1. Fetch your own DB transactions
-        const dbRes = await fetch('/api/your-transactions-endpoint'); // Replace with your actual endpoint
-        const dbData = await dbRes.json();
-        const dbTransactions = dbData.transactions || [];
-
-        // 2. Fetch Stripe transactions
         const stripeRes = await fetch('/api/stripe/transactions', { credentials: 'include' });
         const stripeData = await stripeRes.json();
-        const stripeTransactions = stripeData.transactions || [];
+        const stripeTransactions = Array.isArray(stripeData.transactions) ? stripeData.transactions : [];
 
-        // 3. Merge and sort by date (descending)
-        const merged = [...dbTransactions, ...stripeTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const merged = [...stripeTransactions].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
         setAllTransactions(merged);
       } catch (err) {
         setAllTransactions([]);
@@ -324,7 +356,7 @@ export default function ManagePaymentsPage() {
 
       const { data, error } = await supabase
         .from('users')
-        .select('stripe_customer_id, stripe_connect_account_id')
+        .select('stripe_customer_id, stripe_connect_account_id, role')
         .eq('id', user.id)
         .single()
 
@@ -341,6 +373,113 @@ export default function ManagePaymentsPage() {
     }
   }
 
+  const fetchPlatformStripe = useCallback(async (showLoading = true) => {
+    if (showLoading) setPlatformStripeLoading(true)
+    try {
+      const res = await fetch('/api/stripe/platform-topup', { credentials: 'include' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to load platform balance')
+      setPlatformStripe(data)
+    } catch {
+      setPlatformStripe(null)
+    } finally {
+      if (showLoading) setPlatformStripeLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (userData?.role !== 'admin' && userData?.role !== 'ceo') return
+    fetchPlatformStripe(true)
+  }, [userData?.role, fetchPlatformStripe])
+
+  useEffect(() => {
+    if (userData?.role !== 'admin' && userData?.role !== 'ceo') return
+    const loadCards = async () => {
+      try {
+        const res = await fetch('/api/payment-methods/list', { credentials: 'include' })
+        const data = await res.json()
+        const list = (data.paymentMethods || []).map(
+          (pm: { id: string; card?: { brand?: string; last4?: string } }) => ({
+            id: pm.id,
+            brand: pm.card?.brand ?? 'Card',
+            last4: pm.card?.last4 ?? '',
+          })
+        )
+        setPrefundCardOptions(list)
+        setPrefundCardId((prev) => (prev && list.some((c: { id: string }) => c.id === prev) ? prev : ''))
+      } catch {
+        setPrefundCardOptions([])
+      }
+    }
+    loadCards()
+  }, [userData?.role, hasValidStripeCustomer, userData?.stripe_customer_id])
+
+  const handlePlatformTopup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const n = parseFloat(topupAmount)
+    if (!Number.isFinite(n) || n <= 0) {
+      toast.error('Enter a valid amount')
+      return
+    }
+    if (prefundFunding === 'card') {
+      if (!hasValidStripeCustomer) {
+        toast.error('Activate Payment Methods (Stripe customer) before using a card.')
+        return
+      }
+      if (!prefundCardId) {
+        toast.error('Select a saved card, or add one under Payment Methods.')
+        return
+      }
+    }
+    setTopupSubmitting(true)
+    try {
+      const res = await fetch('/api/stripe/platform-topup', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amountUsd: n,
+          description: topupDescription.trim() || undefined,
+          funding: prefundFunding,
+          ...(prefundFunding === 'card' ? { paymentMethodId: prefundCardId } : {}),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Request failed')
+
+      if (data.requiresAction && data.clientSecret) {
+        const stripe = await stripePromise
+        if (!stripe) throw new Error('Stripe could not load')
+        const { error: confirmErr } = await stripe.confirmCardPayment(data.clientSecret)
+        if (confirmErr) throw new Error(confirmErr.message)
+        toast.success('Payment confirmed. Funds will appear in your platform balance after processing.')
+        setTopupAmount('')
+        setTopupDescription('')
+        await fetchPlatformStripe(false)
+        return
+      }
+
+      if (data.success && data.funding === 'bank' && data.topup) {
+        toast.success(
+          `Bank top-up: $${Number(data.topup.amount).toFixed(2)} — status: ${data.topup.status}`
+        )
+      } else if (data.success && data.funding === 'card' && data.paymentIntent) {
+        toast.success(
+          `Card charged: $${Number(data.paymentIntent.amount).toFixed(2)} (net will settle to platform balance minus Stripe fees)`
+        )
+      } else {
+        throw new Error('Unexpected response')
+      }
+      setTopupAmount('')
+      setTopupDescription('')
+      await fetchPlatformStripe(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Top-up failed')
+    } finally {
+      setTopupSubmitting(false)
+    }
+  }
+
   const handleCreateCustomerId = async () => {
     if (!session?.user) return
 
@@ -348,22 +487,29 @@ export default function ManagePaymentsPage() {
       setProcessingAction('creating-customer')
       const response = await fetch('/api/payment-methods/create-customer', {
         method: 'POST',
+        credentials: 'include',
       })
 
+      const data = await response.json().catch(() => ({}))
       if (!response.ok) {
-        throw new Error('Failed to create customer')
+        throw new Error(
+          typeof data.error === 'string' ? data.error : `Failed to create customer (${response.status})`
+        )
       }
 
-      const data = await response.json()
+      if (!data.customerId || typeof data.customerId !== 'string') {
+        throw new Error('No customer id returned from server')
+      }
       setUserData(prev => ({ 
         ...prev, 
         stripe_customer_id: data.customerId,
-        stripe_connect_account_id: prev?.stripe_connect_account_id || null 
+        stripe_connect_account_id: prev?.stripe_connect_account_id || null,
+        role: prev?.role,
       }))
-      toast.success('Stripe customer ID created successfully')
+      toast.success('Stripe customer created. Add a card below to use Pay.')
     } catch (error) {
       console.error('Error creating customer:', error)
-      toast.error('Failed to create Stripe customer ID')
+      toast.error(error instanceof Error ? error.message : 'Failed to create Stripe customer ID')
     } finally {
       setProcessingAction(null)
     }
@@ -724,13 +870,13 @@ export default function ManagePaymentsPage() {
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <code className="px-2 py-1 bg-gray-900 rounded text-sm">
-                        {userData?.stripe_customer_id ? 'Payment Methods Active' : 'Payment Methods Inactive'}
+                        {hasValidStripeCustomer ? 'Payment Methods Active' : 'Payment Methods Inactive'}
                       </code>
-                      {userData?.stripe_customer_id && (
+                      {hasValidStripeCustomer && (
                         <ShieldCheck className="w-4 h-4 text-green-500" />
                       )}
                     </div>
-                    {!userData?.stripe_customer_id && (
+                    {!hasValidStripeCustomer && (
                       <Button
                         onClick={handleCreateCustomerId}
                         disabled={processingAction === 'creating-customer'}
@@ -798,6 +944,340 @@ export default function ManagePaymentsPage() {
           </Card>
         </div>
 
+        {(userData?.role === 'admin' || userData?.role === 'ceo') && (
+          <Card className="leonardo-card border-amber-800/40 mb-8">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Building className="w-5 h-5 text-amber-400" />
+                Platform Stripe balance
+              </CardTitle>
+              <CardDescription className="text-gray-400">
+                This is your Covion <span className="text-gray-300">platform</span> Stripe balance (Connect transfers, refunds, etc.).{' '}
+                <strong className="text-gray-300">Bank top-up</strong> uses Stripe&apos;s Top-up product and debits your{' '}
+                <em>verified platform bank account</em> from{' '}
+                <a
+                  href="https://dashboard.stripe.com/balance/overview"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-300 hover:underline"
+                >
+                  Dashboard → Balance
+                </a>
+                —not a card.{' '}
+                <strong className="text-gray-300">Card</strong> charges a saved card and credits the platform balance after Stripe processing fees.{' '}
+                <a
+                  href="https://docs.stripe.com/connect/top-ups"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-300 hover:underline"
+                >
+                  Top-ups docs
+                </a>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {platformStripeLoading && !platformStripe ? (
+                <div className="flex items-center gap-2 text-gray-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading platform balance…
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-8">
+                    <div>
+                      <p className="text-sm text-gray-500">Available (USD)</p>
+                      <p className="text-2xl font-bold text-white">
+                        ${platformStripe ? platformStripe.available.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Pending (USD)</p>
+                      <p className="text-2xl font-bold text-amber-200/90">
+                        ${platformStripe ? platformStripe.pending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handlePlatformTopup} className="space-y-4 max-w-lg">
+                    <div className="rounded-lg border border-gray-800 bg-gray-900/40 overflow-hidden">
+                      <div className="px-3 py-2 border-b border-gray-800">
+                        <Label className="text-gray-300">Funding source</Label>
+                      </div>
+
+                      <div className="p-3 space-y-3">
+                      <RadioGroup
+                        value={prefundFunding}
+                        onValueChange={(v) => setPrefundFunding(v as 'bank' | 'card')}
+                        className="grid gap-3"
+                      >
+                        <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-3 space-y-2">
+                          <div className="flex items-start gap-3">
+                            <RadioGroupItem value="bank" id="prefund-bank" className="mt-1 shrink-0" />
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <div>
+                                <Label htmlFor="prefund-bank" className="font-medium text-white cursor-pointer">
+                                  Bank account (Stripe top-up)
+                                </Label>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  ACH / wire / transfer from the bank you verified for your platform in Stripe. Creates a Top-up object.
+                                </p>
+                              </div>
+                              <Collapsible open={prefundBankDetailsOpen} onOpenChange={setPrefundBankDetailsOpen}>
+                                <CollapsibleTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 rounded-md border border-gray-800/80 bg-gray-950/50 px-2 py-1.5 text-left text-xs text-gray-400 hover:bg-gray-900/70 hover:text-gray-200 transition-colors"
+                                  >
+                                    <ChevronDown
+                                      className={cn(
+                                        'h-3.5 w-3.5 shrink-0 text-gray-500 transition-transform duration-200',
+                                        prefundBankDetailsOpen && 'rotate-180'
+                                      )}
+                                    />
+                                    <Building className="h-3.5 w-3.5 shrink-0 text-blue-400" aria-hidden />
+                                    <span className="truncate text-gray-200">
+                                      {stripeSummary?.payout_destination?.last4
+                                        ? `Payout ••••${stripeSummary.payout_destination.last4}`
+                                        : 'No payout bank linked'}
+                                    </span>
+                                    <span className="ml-auto text-[10px] uppercase tracking-wide text-gray-500 shrink-0">
+                                      {prefundBankDetailsOpen ? 'Hide' : 'More'}
+                                    </span>
+                                  </button>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="pt-2">
+                                  <div className="rounded-md border border-gray-800 bg-gray-950/60 px-2.5 py-2 text-xs space-y-2">
+                                    <p className="text-gray-500">
+                                      Same as <span className="text-gray-400">Payout Settings</span> — where Stripe sends your proceeds.
+                                    </p>
+                                    {stripeSummary?.payout_destination?.last4 ? (
+                                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded border border-gray-800 bg-gray-900/50 px-2 py-1.5">
+                                        <div>
+                                          <span className="font-semibold text-white">
+                                            {stripeSummary.payout_destination.bank_name
+                                              ? `${stripeSummary.payout_destination.bank_name} Bank`
+                                              : 'Bank account'}
+                                          </span>
+                                          <span className="text-gray-400 ml-2">•••• {stripeSummary.payout_destination.last4}</span>
+                                          <span className="text-gray-500 ml-2">USD</span>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className="text-blue-400 hover:underline self-start sm:self-auto text-xs"
+                                          onClick={async () => {
+                                            const res = await fetch('/api/stripe/connect/express-dashboard-link')
+                                            const data = await res.json()
+                                            if (data.url) window.open(data.url, '_blank')
+                                          }}
+                                        >
+                                          Edit in Stripe
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <p className="text-gray-500">
+                                        No Connect payout bank yet.{' '}
+                                        <button type="button" className="text-blue-400 hover:underline" onClick={() => setCurrentTab('payout-settings')}>
+                                          Payout Settings
+                                        </button>
+                                      </p>
+                                    )}
+                                    <p className="text-gray-600 leading-relaxed">
+                                      Platform <em>top-ups</em> debit the funding bank in{' '}
+                                      <a
+                                        href="https://dashboard.stripe.com/balance/overview"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-amber-400/90 hover:underline"
+                                      >
+                                        Stripe → Balance
+                                      </a>
+                                      ; that may differ from this Connect payout account.
+                                    </p>
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-3 space-y-2">
+                          <div className="flex items-start gap-3">
+                            <RadioGroupItem value="card" id="prefund-card" className="mt-1 shrink-0" />
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <div>
+                                <Label htmlFor="prefund-card" className="font-medium text-white cursor-pointer">
+                                  Saved card
+                                </Label>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  Charges a card saved on your account (Payment Methods tab). Minimum $0.50. 3D Secure may open in your browser.
+                                </p>
+                              </div>
+                              <Collapsible open={prefundCardDetailsOpen} onOpenChange={setPrefundCardDetailsOpen}>
+                                <CollapsibleTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 rounded-md border border-gray-800/80 bg-gray-950/50 px-2 py-1.5 text-left text-xs text-gray-400 hover:bg-gray-900/70 hover:text-gray-200 transition-colors"
+                                  >
+                                    <ChevronDown
+                                      className={cn(
+                                        'h-3.5 w-3.5 shrink-0 text-gray-500 transition-transform duration-200',
+                                        prefundCardDetailsOpen && 'rotate-180'
+                                      )}
+                                    />
+                                    <CreditCard className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden />
+                                    <span className="text-gray-200">
+                                      {prefundCardOptions.length === 0
+                                        ? 'No cards on file'
+                                        : `${prefundCardOptions.length} card${prefundCardOptions.length === 1 ? '' : 's'} on file`}
+                                    </span>
+                                    <span className="ml-auto text-[10px] uppercase tracking-wide text-gray-500 shrink-0">
+                                      {prefundCardDetailsOpen ? 'Hide' : 'More'}
+                                    </span>
+                                  </button>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="pt-2">
+                                  <div className="rounded-md border border-gray-800 bg-gray-950/60 px-2.5 py-2 text-xs space-y-2">
+                                    <p className="text-gray-500">
+                                      Same cards as{' '}
+                                      <button type="button" className="text-gray-400 hover:underline" onClick={() => setCurrentTab('payment-methods')}>
+                                        Payment Methods
+                                      </button>
+                                      .
+                                    </p>
+                                    {prefundCardOptions.length > 0 ? (
+                                      <ul className="space-y-1">
+                                        {prefundCardOptions.map((c) => (
+                                          <li
+                                            key={c.id}
+                                            className="flex items-center gap-2 rounded border border-gray-800 bg-gray-900/50 px-2 py-1.5 text-gray-200"
+                                          >
+                                            <span className="font-medium capitalize">{c.brand}</span>
+                                            <span className="text-gray-500">•••• {c.last4}</span>
+                                            {prefundFunding === 'card' && prefundCardId === c.id && (
+                                              <span className="text-[10px] text-amber-400/90 ml-auto">Selected below</span>
+                                            )}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <p className="text-gray-500">
+                                        Add a card in{' '}
+                                        <button type="button" className="text-blue-400 hover:underline" onClick={() => setCurrentTab('payment-methods')}>
+                                          Payment Methods
+                                        </button>
+                                        .
+                                      </p>
+                                    )}
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            </div>
+                          </div>
+                        </div>
+                      </RadioGroup>
+                      </div>
+                    </div>
+
+                    {prefundFunding === 'card' && (
+                      <div className="space-y-2">
+                        <Label htmlFor="prefund-card-select">Card on file</Label>
+                        {prefundCardOptions.length === 0 ? (
+                          <p className="text-sm text-amber-400/90">
+                            No saved cards. Activate Payment Methods above, then add a card in the Payment Methods tab.
+                          </p>
+                        ) : (
+                          <Select value={prefundCardId || undefined} onValueChange={setPrefundCardId}>
+                            <SelectTrigger id="prefund-card-select" className="bg-gray-900 border-gray-700">
+                              <SelectValue placeholder="Select a card" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {prefundCardOptions.map((c) => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.brand.toUpperCase()} •••• {c.last4}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="topup-amount">Amount to add (USD)</Label>
+                      <Input
+                        id="topup-amount"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={topupAmount}
+                        onChange={(e) => setTopupAmount(e.target.value)}
+                        className="bg-gray-900 border-gray-700"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="topup-desc">Note (optional)</Label>
+                      <Input
+                        id="topup-desc"
+                        type="text"
+                        placeholder="e.g. Weekly prefund"
+                        value={topupDescription}
+                        onChange={(e) => setTopupDescription(e.target.value)}
+                        className="bg-gray-900 border-gray-700"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      className="gradient-button"
+                      disabled={topupSubmitting || (prefundFunding === 'card' && prefundCardOptions.length === 0)}
+                    >
+                      {topupSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Processing…
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          {prefundFunding === 'bank' ? 'Add funds (bank top-up)' : 'Charge card & add to balance'}
+                        </>
+                      )}
+                    </Button>
+                  </form>
+
+                  {platformStripe?.topups?.length ? (
+                    <div>
+                      <p className="text-sm font-medium text-gray-400 mb-2">Recent top-ups</p>
+                      <ul className="space-y-2 text-sm border border-gray-800 rounded-lg divide-y divide-gray-800 max-h-48 overflow-y-auto">
+                        {platformStripe.topups.map((t) => (
+                          <li key={t.id} className="px-3 py-2 flex flex-wrap justify-between gap-2">
+                            <span className="text-gray-300">
+                              ${t.amount.toFixed(2)} {t.currency.toUpperCase()}
+                            </span>
+                            <span className={cn(
+                              'capitalize',
+                              t.status === 'succeeded' ? 'text-emerald-400' :
+                              t.status === 'failed' ? 'text-red-400' : 'text-amber-400'
+                            )}>
+                              {t.status}
+                            </span>
+                            <span className="text-gray-500 w-full sm:w-auto sm:text-right">
+                              {format(new Date(t.created * 1000), 'MMM d, yyyy h:mm a')}
+                            </span>
+                            {t.failure_message && (
+                              <span className="text-red-400 text-xs w-full">{t.failure_message}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Main Content Tabs */}
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
           <TabsList className="bg-gray-900 border-gray-800 overflow-x-auto whitespace-nowrap -mx-4 px-4 scrollbar-hide">
@@ -835,6 +1315,25 @@ export default function ManagePaymentsPage() {
                 <Elements stripe={stripePromise}>
                   <PaymentForm />
                       </Elements>
+              </CardContent>
+            </Card>
+
+            <Card id="ach-for-pay" className="leonardo-card border-gray-800 mt-6 scroll-mt-24">
+              <CardHeader>
+                <CardTitle>Link bank for Pay (ACH)</CardTitle>
+                <CardDescription>
+                  Adds a US bank account to your Stripe <span className="text-gray-300">customer</span> so it
+                  appears on Send Payment → Bank. This is separate from your Connect payout bank.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AchLinkPaymentMethod
+                  stripePromise={stripePromise}
+                  onSuccess={() => {
+                    fetchPaymentMethods()
+                    toast.success('Bank linked. Refresh Send Payment to see it under Bank (ACH).')
+                  }}
+                />
               </CardContent>
             </Card>
           </TabsContent>

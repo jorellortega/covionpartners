@@ -196,3 +196,6 @@ export async function ensureUserFolderStructure(
   return result !== null;
 }
 
+
+
+

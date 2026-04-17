@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createSupabaseRouteHandlerClient } from '@/lib/supabase/route-handler'
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
@@ -8,7 +7,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 })
 
 export async function GET() {
-  const supabase = createRouteHandlerClient({ cookies })
+  const supabase = await createSupabaseRouteHandlerClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

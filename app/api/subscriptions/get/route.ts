@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createSupabaseRouteHandlerClient } from '@/lib/supabase/route-handler';
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
@@ -7,9 +6,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function GET() {
   try {
-    // Use correct cookies/session handling
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await createSupabaseRouteHandlerClient();
 
     // Get authenticated user session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -65,9 +62,7 @@ export async function GET() {
     });
   } catch (err) {
     console.error('Error fetching subscription:', err);
-    return NextResponse.json(
-      { error: 'Failed to fetch subscription' },
-      { status: 500 }
-    );
+    // Avoid 500 on stale subscription_id or Stripe errors — page can load without subscription block
+    return NextResponse.json({ subscription: null });
   }
 } 

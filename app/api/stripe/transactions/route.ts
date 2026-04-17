@@ -1,21 +1,16 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { createSupabaseRouteHandlerClient } from '@/lib/supabase/route-handler';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-03-31.basil',
+});
 
 export async function GET() {
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  const supabase = await createSupabaseRouteHandlerClient();
 
-  // Check session
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError || !session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const user = session.user;
-  if (!user) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -52,7 +47,7 @@ export async function GET() {
         currency: inv.currency,
         status: inv.status,
         date: new Date((inv.status_transitions?.paid_at || inv.created) * 1000).toISOString(),
-        description: inv.lines.data[0]?.description || 'Subscription Invoice',
+        description: inv.lines?.data?.[0]?.description || 'Subscription Invoice',
         source: 'stripe',
       }));
 
@@ -71,7 +66,9 @@ export async function GET() {
     // Merge and deduplicate (avoid double-counting charges that are linked to invoices)
     const allTxs = [
       ...invoiceTxs,
-      ...chargeTxs.filter(ch => !invoices.data.some(inv => (inv as any).charge === ch.id))
+      ...chargeTxs.filter(ch =>
+        !invoices.data.some(inv => (inv as { charge?: string | null }).charge === ch.id)
+      )
     ];
 
     return NextResponse.json({ transactions: allTxs });

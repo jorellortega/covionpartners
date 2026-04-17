@@ -2,6 +2,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { isValidStripeCustomerId } from '@/lib/stripe-customer-id'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-03-31.basil',
@@ -115,7 +116,7 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single()
 
-    if (senderError || !sender?.stripe_customer_id) {
+    if (senderError || !isValidStripeCustomerId(sender?.stripe_customer_id)) {
       return NextResponse.json(
         { error: 'Please add a payment method first' },
         { status: 400 }
@@ -179,6 +180,9 @@ export async function POST(request: Request) {
     )
   }
 }
+
+
+
 
 
 

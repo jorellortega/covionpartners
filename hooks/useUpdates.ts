@@ -73,13 +73,22 @@ export function useUpdates() {
 
         console.log('Test query result:', { testData, testError })
 
-        // Get projects where user is owner or team member
-        const { data: userProjects } = await supabase
+        // Get projects where user is owner
+        const { data: ownedProjects } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('owner_id', user.id)
+
+        // Get projects where user is a team member
+        const { data: teamMemberships } = await supabase
           .from('team_members')
           .select('project_id')
           .eq('user_id', user.id)
 
-        const teamProjectIds = userProjects?.map(p => p.project_id) || []
+        // Combine owned and team member project IDs
+        const ownedProjectIds = ownedProjects?.map(p => p.id) || []
+        const teamProjectIds = teamMemberships?.map(p => p.project_id) || []
+        const allProjectIds = [...new Set([...ownedProjectIds, ...teamProjectIds])]
 
         // Build the query (no join)
         let query = supabase
@@ -95,12 +104,19 @@ export function useUpdates() {
 
         // If user is not admin, apply filtering
         if (user.role !== 'admin' && user.role !== 'ceo') {
-          query = query.or(
-            // Show non-project updates (global updates) that are either public or match user's role
-            `and(project_id.is.null,or(target_roles.is.null,target_roles.cs.{${user.role}})),` +
-            // Show project updates only for projects user is a member of
-            `and(project_id.in.(${teamProjectIds.join(',')}),or(target_roles.is.null,target_roles.cs.{${user.role}}))`
-          )
+          if (allProjectIds.length === 0) {
+            // User has no projects - only show global updates
+            query = query.or(
+              `and(project_id.is.null,or(target_roles.is.null,target_roles.cs.{${user.role}}))`
+            )
+          } else {
+            query = query.or(
+              // Show non-project updates (global updates) that are either public or match user's role
+              `and(project_id.is.null,or(target_roles.is.null,target_roles.cs.{${user.role}})),` +
+              // Show project updates only for projects user owns or is a member of
+              `and(project_id.in.(${allProjectIds.join(',')}),or(target_roles.is.null,target_roles.cs.{${user.role}}))`
+            )
+          }
         }
 
         const { data, error: fetchError } = await query
@@ -230,13 +246,22 @@ export function useUpdates() {
           console.log('Refreshing updates...')
           console.log('Current user:', user)
           
-          // Get projects where user is owner or team member
-          const { data: userProjects } = await supabase
+          // Get projects where user is owner
+          const { data: ownedProjects } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('owner_id', user.id)
+
+          // Get projects where user is a team member
+          const { data: teamMemberships } = await supabase
             .from('team_members')
             .select('project_id')
             .eq('user_id', user.id)
 
-          const teamProjectIds = userProjects?.map(p => p.project_id) || []
+          // Combine owned and team member project IDs
+          const ownedProjectIds = ownedProjects?.map(p => p.id) || []
+          const teamProjectIds = teamMemberships?.map(p => p.project_id) || []
+          const allProjectIds = [...new Set([...ownedProjectIds, ...teamProjectIds])]
           
           let query = supabase
             .from('updates')
@@ -251,12 +276,19 @@ export function useUpdates() {
 
           // If user is not admin, apply filtering
           if (user.role !== 'admin' && user.role !== 'ceo') {
-            query = query.or(
-              // Show non-project updates (global updates) that are either public or match user's role
-              `and(project_id.is.null,or(target_roles.is.null,target_roles.cs.{${user.role}})),` +
-              // Show project updates only for projects user is a member of
-              `and(project_id.in.(${teamProjectIds.join(',')}),or(target_roles.is.null,target_roles.cs.{${user.role}}))`
-            )
+            if (allProjectIds.length === 0) {
+              // User has no projects - only show global updates
+              query = query.or(
+                `and(project_id.is.null,or(target_roles.is.null,target_roles.cs.{${user.role}}))`
+              )
+            } else {
+              query = query.or(
+                // Show non-project updates (global updates) that are either public or match user's role
+                `and(project_id.is.null,or(target_roles.is.null,target_roles.cs.{${user.role}})),` +
+                // Show project updates only for projects user owns or is a member of
+                `and(project_id.in.(${allProjectIds.join(',')}),or(target_roles.is.null,target_roles.cs.{${user.role}}))`
+              )
+            }
           }
 
           const { data, error: fetchError } = await query

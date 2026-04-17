@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createSupabaseRouteHandlerClient } from '@/lib/supabase/route-handler'
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
@@ -9,7 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function GET() {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = await createSupabaseRouteHandlerClient()
     
     // Get the user's session
     const { data: { session } } = await supabase.auth.getSession()

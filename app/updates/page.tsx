@@ -203,8 +203,46 @@ export default function UpdatesPage() {
           }
         })
         
-        console.log('Processed join requests:', parsedData)
-        setJoinRequests(parsedData)
+        // Collect unique user IDs from join requests (requester IDs are in metadata)
+        const userIds = new Set<string>()
+        parsedData.forEach(request => {
+          const requestUserId = request.metadata?.user_id
+          if (requestUserId) {
+            userIds.add(requestUserId)
+          }
+        })
+        
+        // Fetch user information for all requesters
+        let usersMap = new Map()
+        if (userIds.size > 0) {
+          const { data: usersData, error: usersError } = await supabase
+            .from('users')
+            .select('id, name, email')
+            .in('id', Array.from(userIds))
+          
+          if (!usersError && usersData) {
+            usersMap = new Map(usersData.map(u => [u.id, u]))
+          }
+        }
+        
+        // Enhance join requests with user information
+        const enrichedData = parsedData.map(request => {
+          const requestUserId = request.metadata?.user_id
+          const userInfo = requestUserId ? usersMap.get(requestUserId) : null
+          
+          return {
+            ...request,
+            metadata: {
+              ...request.metadata,
+              user_id: requestUserId,
+              user_name: userInfo?.name || request.metadata?.user_name || 'Unknown User',
+              user_email: userInfo?.email || request.metadata?.user_email || 'No email provided'
+            }
+          }
+        })
+        
+        console.log('Processed join requests:', enrichedData)
+        setJoinRequests(enrichedData)
       } catch (err: any) {
         console.error('Error fetching join requests:', err)
         console.error('Error details:', err.message || 'Unknown error')
@@ -1536,9 +1574,9 @@ export default function UpdatesPage() {
                           <p className="font-medium">{request.content}</p>
                           
                           <div className="text-sm text-gray-500">
-                            <p>From: {request.metadata.user_name || 'Unknown User'}</p>
-                            <p>Email: {request.metadata.user_email || 'No email provided'}</p>
-                            <p>Project: {request.metadata.project_name}</p>
+                            <p>From: {request.metadata?.user_name || 'Unknown User'}</p>
+                            <p>Email: {request.metadata?.user_email || 'No email provided'}</p>
+                            <p>Project: {request.metadata?.project_name || 'Unknown Project'}</p>
                             <p>Date: {new Date(request.created_at).toLocaleString()}</p>
                           </div>
                           

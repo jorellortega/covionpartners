@@ -1,7 +1,7 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { isValidStripeCustomerId } from '@/lib/stripe-customer-id'
+import { createSupabaseRouteHandlerClient } from '@/lib/supabase/route-handler'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-03-31.basil',
@@ -9,12 +9,21 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST() {
   try {
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { data: row } = await supabase
+      .from('users')
+      .select('stripe_customer_id')
+      .eq('id', user.id)
+      .single()
+
+    if (isValidStripeCustomerId(row?.stripe_customer_id)) {
+      return NextResponse.json({ customerId: row.stripe_customer_id })
     }
 
     // Create a new customer in Stripe

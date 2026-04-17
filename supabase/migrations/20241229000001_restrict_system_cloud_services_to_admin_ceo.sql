@@ -58,3 +58,6 @@ CREATE POLICY "Users can delete their own cloud services" ON cloud_services
         )
     );
 
+
+
+
