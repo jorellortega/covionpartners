@@ -112,6 +112,7 @@ interface ProjectComment {
   content: string
   created_at: string
   updated_at: string
+  partner_invitation_id?: string | null
   user: {
     id: string
     name: string | null
@@ -128,6 +129,11 @@ interface PublicProject {
   progress?: number
   visibility: string
   project_key?: string | null
+}
+
+/** Isolates comment state per partner invitation + project (same project, different partners). */
+function commentThreadKey(invitationId: string, projectId: string) {
+  return `${invitationId}:${projectId}`
 }
 
 interface PartnerNote {
@@ -195,13 +201,16 @@ function MyPartnersContent() {
     }
   }, [user, authLoading])
 
-  const fetchProjectComments = useCallback(async (projectId: string) => {
-    setLoadingComments(prev => ({ ...prev, [projectId]: true }))
+  const fetchProjectComments = useCallback(async (projectId: string, invitationId: string) => {
+    if (!invitationId) return
+    const tKey = commentThreadKey(invitationId, projectId)
+    setLoadingComments(prev => ({ ...prev, [tKey]: true }))
     try {
       const { data: commentsData, error: commentsError } = await supabase
         .from('project_comments')
         .select('*')
         .eq('project_id', projectId)
+        .eq('partner_invitation_id', invitationId)
         .order('created_at', { ascending: false })
         .limit(20)
 
@@ -234,14 +243,14 @@ function MyPartnersContent() {
         // Reverse to show oldest first (newest near input)
         const reversedComments = commentsWithUsers.reverse()
 
-        setProjectComments(prev => ({ ...prev, [projectId]: reversedComments }))
+        setProjectComments(prev => ({ ...prev, [tKey]: reversedComments }))
       } else {
-        setProjectComments(prev => ({ ...prev, [projectId]: [] }))
+        setProjectComments(prev => ({ ...prev, [tKey]: [] }))
       }
     } catch (error) {
       console.error('Error fetching comments:', error)
     } finally {
-      setLoadingComments(prev => ({ ...prev, [projectId]: false }))
+      setLoadingComments(prev => ({ ...prev, [tKey]: false }))
     }
   }, [])
 
@@ -505,20 +514,21 @@ function MyPartnersContent() {
       fetchPartnerNotes(selectedPartner.invitationId)
       selectedPartner.access.forEach((access) => {
         if (access.projects?.id) {
-          fetchProjectComments(access.projects.id)
+          fetchProjectComments(access.projects.id, selectedPartner.invitationId)
         }
       })
     }
   }, [selectedPartner, fetchProjectComments, fetchPartnerNotes])
 
-  const handleEnhanceComment = async (projectId: string) => {
-    const currentMessage = newComment[projectId]?.trim()
+  const handleEnhanceComment = async (projectId: string, invitationId: string) => {
+    const tKey = commentThreadKey(invitationId, projectId)
+    const currentMessage = newComment[tKey]?.trim()
     if (!currentMessage) {
       toast.error('Please enter a message to enhance')
       return
     }
 
-    setEnhancingComment(prev => ({ ...prev, [projectId]: true }))
+    setEnhancingComment(prev => ({ ...prev, [tKey]: true }))
     try {
       const response = await fetch('/api/enhance-comment', {
         method: 'POST',
@@ -532,20 +542,21 @@ function MyPartnersContent() {
       }
 
       const data = await response.json()
-      setNewComment(prev => ({ ...prev, [projectId]: data.message }))
+      setNewComment(prev => ({ ...prev, [tKey]: data.message }))
       toast.success('Comment enhanced with AI')
     } catch (error: any) {
       console.error('Comment enhancement error:', error)
       toast.error(error?.message || 'Failed to enhance comment')
     } finally {
-      setEnhancingComment(prev => ({ ...prev, [projectId]: false }))
+      setEnhancingComment(prev => ({ ...prev, [tKey]: false }))
     }
   }
 
-  const handleAddComment = async (projectId: string) => {
-    if (!user?.id || !newComment[projectId]?.trim()) return
+  const handleAddComment = async (projectId: string, invitationId: string) => {
+    if (!user?.id || !invitationId || !newComment[commentThreadKey(invitationId, projectId)]?.trim()) return
 
-    const commentContent = newComment[projectId].trim()
+    const tKey = commentThreadKey(invitationId, projectId)
+    const commentContent = newComment[tKey].trim()
     const tempId = `temp-${Date.now()}`
     
     // Optimistically add comment to state
@@ -556,6 +567,7 @@ function MyPartnersContent() {
       content: commentContent,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      partner_invitation_id: invitationId,
       user: {
         id: user.id,
         name: user.name || null,
@@ -566,9 +578,9 @@ function MyPartnersContent() {
 
     setProjectComments(prev => ({
       ...prev,
-      [projectId]: [...(prev[projectId] || []), optimisticComment]
+      [tKey]: [...(prev[tKey] || []), optimisticComment]
     }))
-    setNewComment(prev => ({ ...prev, [projectId]: '' }))
+    setNewComment(prev => ({ ...prev, [tKey]: '' }))
 
     try {
       const { data, error } = await supabase
@@ -576,7 +588,8 @@ function MyPartnersContent() {
         .insert({
           project_id: projectId,
           user_id: user.id,
-          content: commentContent
+          content: commentContent,
+          partner_invitation_id: invitationId,
         })
         .select()
         .single()
@@ -591,7 +604,7 @@ function MyPartnersContent() {
         }
         setProjectComments(prev => ({
           ...prev,
-          [projectId]: (prev[projectId] || []).map(c => c.id === tempId ? realComment : c)
+          [tKey]: (prev[tKey] || []).map(c => c.id === tempId ? realComment : c)
         }))
 
         // Create notification for the partner when organization owner comments
@@ -636,24 +649,25 @@ function MyPartnersContent() {
       // Revert optimistic update on error
       setProjectComments(prev => ({
         ...prev,
-        [projectId]: (prev[projectId] || []).filter(c => c.id !== tempId)
+        [tKey]: (prev[tKey] || []).filter(c => c.id !== tempId)
       }))
-      setNewComment(prev => ({ ...prev, [projectId]: commentContent }))
+      setNewComment(prev => ({ ...prev, [tKey]: commentContent }))
       console.error('Error adding comment:', error)
       toast.error(error.message || 'Failed to add comment')
     }
   }
 
-  const handleDeleteComment = async (commentId: string, projectId: string) => {
+  const handleDeleteComment = async (commentId: string, projectId: string, invitationId: string) => {
     if (!user?.id) return
 
+    const tKey = commentThreadKey(invitationId, projectId)
     // Find the comment to restore if deletion fails
-    const commentToDelete = projectComments[projectId]?.find(c => c.id === commentId)
+    const commentToDelete = projectComments[tKey]?.find(c => c.id === commentId)
     
     // Optimistically remove comment from state
     setProjectComments(prev => ({
       ...prev,
-      [projectId]: (prev[projectId] || []).filter(c => c.id !== commentId)
+      [tKey]: (prev[tKey] || []).filter(c => c.id !== commentId)
     }))
 
     try {
@@ -670,7 +684,7 @@ function MyPartnersContent() {
       if (commentToDelete) {
         setProjectComments(prev => ({
           ...prev,
-          [projectId]: [...(prev[projectId] || []), commentToDelete]
+          [tKey]: [...(prev[tKey] || []), commentToDelete]
         }))
       }
       console.error('Error deleting comment:', error)
@@ -696,18 +710,19 @@ function MyPartnersContent() {
     })
   }
 
-  const handleSaveEdit = async (commentId: string, projectId: string) => {
+  const handleSaveEdit = async (commentId: string, projectId: string, invitationId: string) => {
     if (!user?.id || !editCommentContent[commentId]?.trim()) return
 
+    const tKey = commentThreadKey(invitationId, projectId)
     const newContent = editCommentContent[commentId].trim()
-    const originalComment = projectComments[projectId]?.find(c => c.id === commentId)
+    const originalComment = projectComments[tKey]?.find(c => c.id === commentId)
     
     if (!originalComment) return
 
     // Optimistically update comment in state
     setProjectComments(prev => ({
       ...prev,
-      [projectId]: (prev[projectId] || []).map(c => 
+      [tKey]: (prev[tKey] || []).map(c => 
         c.id === commentId 
           ? { ...c, content: newContent, updated_at: new Date().toISOString() }
           : c
@@ -734,7 +749,7 @@ function MyPartnersContent() {
       if (originalComment) {
         setProjectComments(prev => ({
           ...prev,
-          [projectId]: (prev[projectId] || []).map(c => 
+          [tKey]: (prev[tKey] || []).map(c => 
             c.id === commentId ? originalComment : c
           )
         }))
@@ -1511,8 +1526,9 @@ function MyPartnersContent() {
                     const project = access.projects
                     if (!project) return null
 
-                    const comments = projectComments[project.id] || []
-                    const isCommentsExpanded = expandedComments[project.id] ?? true
+                    const threadKey = commentThreadKey(selectedPartner.invitationId, project.id)
+                    const comments = projectComments[threadKey] || []
+                    const isCommentsExpanded = expandedComments[threadKey] ?? true
 
                     return (
                       <Card key={access.id} className="bg-[#141414] border border-black shadow-xl hover:shadow-2xl transition-all duration-300">
@@ -1551,7 +1567,7 @@ function MyPartnersContent() {
                           <div className="space-y-4">
                             <div 
                               className="flex items-center justify-between cursor-pointer pb-3 border-b border-black/50"
-                              onClick={() => setExpandedComments(prev => ({ ...prev, [project.id]: !(prev[project.id] ?? true) }))}
+                              onClick={() => setExpandedComments(prev => ({ ...prev, [threadKey]: !(prev[threadKey] ?? true) }))}
                             >
                               <CardTitle className="text-lg text-white flex items-center gap-3">
                                 <div className="p-2 bg-blue-500/20 rounded-lg">
@@ -1567,7 +1583,7 @@ function MyPartnersContent() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  setExpandedComments(prev => ({ ...prev, [project.id]: !(prev[project.id] ?? true) }))
+                                  setExpandedComments(prev => ({ ...prev, [threadKey]: !(prev[threadKey] ?? true) }))
                                 }}
                                 className="p-1 hover:bg-black/50 rounded transition-colors"
                                 aria-label={isCommentsExpanded ? "Collapse" : "Expand"}
@@ -1584,7 +1600,7 @@ function MyPartnersContent() {
                               <>
                                 {/* Comments List */}
                                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                                  {loadingComments[project.id] ? (
+                                  {loadingComments[threadKey] ? (
                                     <div className="flex justify-center py-8">
                                       <LoadingSpinner />
                                     </div>
@@ -1639,7 +1655,7 @@ function MyPartnersContent() {
                                                     )}
                                                     <button
                                                       type="button"
-                                                      onClick={() => handleDeleteComment(comment.id, project.id)}
+                                                      onClick={() => handleDeleteComment(comment.id, project.id, selectedPartner.invitationId)}
                                                       className="p-1.5 hover:bg-red-500/20 rounded transition-colors text-gray-400 hover:text-red-400"
                                                       title="Delete comment"
                                                     >
@@ -1656,7 +1672,7 @@ function MyPartnersContent() {
                                                     onKeyPress={(e) => {
                                                       if (e.key === 'Enter' && !e.shiftKey) {
                                                         e.preventDefault()
-                                                        handleSaveEdit(comment.id, project.id)
+                                                        handleSaveEdit(comment.id, project.id, selectedPartner.invitationId)
                                                       } else if (e.key === 'Escape') {
                                                         e.preventDefault()
                                                         handleCancelEdit(comment.id)
@@ -1668,7 +1684,7 @@ function MyPartnersContent() {
                                                   <div className="flex items-center gap-2">
                                                     <Button
                                                       size="sm"
-                                                      onClick={() => handleSaveEdit(comment.id, project.id)}
+                                                      onClick={() => handleSaveEdit(comment.id, project.id, selectedPartner.invitationId)}
                                                       disabled={!editCommentContent[comment.id]?.trim()}
                                                       className="gradient-button h-8 px-3"
                                                     >
@@ -1711,25 +1727,25 @@ function MyPartnersContent() {
                                     <div className="relative flex-1">
                                       <Input
                                         placeholder="Add a comment..."
-                                        value={newComment[project.id] || ''}
-                                        onChange={(e) => setNewComment(prev => ({ ...prev, [project.id]: e.target.value }))}
+                                        value={newComment[threadKey] || ''}
+                                        onChange={(e) => setNewComment(prev => ({ ...prev, [threadKey]: e.target.value }))}
                                         onKeyPress={(e) => {
                                           if (e.key === 'Enter' && !e.shiftKey) {
                                             e.preventDefault()
-                                            handleAddComment(project.id)
+                                            handleAddComment(project.id, selectedPartner.invitationId)
                                           }
                                         }}
                                         className="bg-black border-black text-white placeholder:text-gray-500 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 pr-10"
                                       />
-                                      {newComment[project.id]?.trim() && (
+                                      {newComment[threadKey]?.trim() && (
                                         <button
                                           type="button"
-                                          onClick={() => handleEnhanceComment(project.id)}
-                                          disabled={enhancingComment[project.id]}
+                                          onClick={() => handleEnhanceComment(project.id, selectedPartner.invitationId)}
+                                          disabled={enhancingComment[threadKey]}
                                           className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                           title="Enhance with AI"
                                         >
-                                          {enhancingComment[project.id] ? (
+                                          {enhancingComment[threadKey] ? (
                                             <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
                                           ) : (
                                             <Sparkles className="w-4 h-4 text-purple-400" />
@@ -1738,8 +1754,8 @@ function MyPartnersContent() {
                                       )}
                                     </div>
                                     <Button
-                                      onClick={() => handleAddComment(project.id)}
-                                      disabled={!newComment[project.id]?.trim()}
+                                      onClick={() => handleAddComment(project.id, selectedPartner.invitationId)}
+                                      disabled={!newComment[threadKey]?.trim()}
                                       className="gradient-button px-4"
                                     >
                                       <Send className="w-4 h-4" />

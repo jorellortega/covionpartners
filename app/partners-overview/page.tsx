@@ -152,6 +152,7 @@ interface ProjectComment {
   content: string
   created_at: string
   updated_at: string
+  partner_invitation_id?: string | null
   user: {
     id: string
     name: string | null
@@ -509,11 +510,12 @@ export default function PartnersOverviewPage() {
 
     setLoadingComments(prev => ({ ...prev, [projectId]: true }))
     try {
-      // Fetch comments (get newest first, then reverse to show oldest first with newest near input)
+      // Only this partnership's thread (same project may have separate threads per invitation)
       const { data: commentsData, error: commentsError } = await supabase
         .from('project_comments')
         .select('*')
         .eq('project_id', projectId)
+        .eq('partner_invitation_id', invitationId)
         .order('created_at', { ascending: false })
         .limit(10)
 
@@ -558,8 +560,8 @@ export default function PartnersOverviewPage() {
     }
   }, [partnerSettings])
 
-  const handleAddComment = async (projectId: string) => {
-    if (!user?.id || !newComment[projectId]?.trim()) return
+  const handleAddComment = async (projectId: string, invitationId: string) => {
+    if (!user?.id || !newComment[projectId]?.trim() || !invitationId) return
 
     const commentContent = newComment[projectId].trim()
     const tempId = `temp-${Date.now()}`
@@ -592,7 +594,8 @@ export default function PartnersOverviewPage() {
         .insert({
           project_id: projectId,
           user_id: user.id,
-          content: commentContent
+          content: commentContent,
+          partner_invitation_id: invitationId,
         })
         .select()
         .single()
@@ -927,6 +930,36 @@ export default function PartnersOverviewPage() {
       return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
     } catch {
       return 'Invalid date'
+    }
+  }
+
+  /** Month name large, year separate for smaller styling (same parsing as formatMonth). */
+  const formatMonthParts = (
+    monthStr: string | Date
+  ): { month: string; year: string } | null => {
+    try {
+      let date: Date
+      if (monthStr instanceof Date) {
+        date = monthStr
+      } else if (typeof monthStr === 'string') {
+        const dateStr = monthStr.includes('T') ? monthStr.split('T')[0] : monthStr.split(' ')[0]
+        const parts = dateStr.split('-')
+        if (parts.length >= 2) {
+          const year = parseInt(parts[0], 10)
+          const month = parseInt(parts[1], 10)
+          date = new Date(year, month - 1, 1)
+        } else {
+          return null
+        }
+      } else {
+        return null
+      }
+      return {
+        month: date.toLocaleDateString('en-US', { month: 'long' }),
+        year: date.toLocaleDateString('en-US', { year: 'numeric' }),
+      }
+    } catch {
+      return null
     }
   }
 
@@ -1579,6 +1612,9 @@ export default function PartnersOverviewPage() {
                         </div>
                         Project Comments
                       </CardTitle>
+                      <CardDescription className="text-gray-400 text-sm">
+                        Comments here are only for your partnership on this project—not shared with other partners.
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
                       {loadingComments[selectedProject.projects.id] ? (
@@ -1644,13 +1680,13 @@ export default function PartnersOverviewPage() {
                                   onKeyPress={(e) => {
                                     if (e.key === 'Enter' && !e.shiftKey) {
                                       e.preventDefault()
-                                      handleAddComment(selectedProject.projects.id)
+                                      handleAddComment(selectedProject.projects.id, selectedProject.partner_invitation_id)
                                     }
                                   }}
                                   className="bg-black border-black text-white placeholder:text-gray-500 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20"
                                 />
                                 <Button
-                                  onClick={() => handleAddComment(selectedProject.projects.id)}
+                                  onClick={() => handleAddComment(selectedProject.projects.id, selectedProject.partner_invitation_id)}
                                   disabled={!newComment[selectedProject.projects.id]?.trim()}
                                   className="gradient-button px-4"
                                 >
@@ -1679,7 +1715,7 @@ export default function PartnersOverviewPage() {
                         <span className="text-gray-300">Partner Financials</span> and generates a monthly report for this
                         partnership — it is not automatic. On each report, if your{" "}
                         <span className="text-gray-300">profit share</span> for that month is positive and Stripe Connect is
-                        complete, a <span className="text-gray-300">Request withdrawal</span> action appears for that share.
+                        complete, a <span className="text-gray-300">Withdrawal</span> action appears for that share.
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
@@ -1695,11 +1731,25 @@ export default function PartnersOverviewPage() {
                             const inFlight =
                               wr &&
                               ['pending', 'approved', 'processing'].includes(wr.status)
+                            const monthParts = formatMonthParts(report.report_month)
                             return (
                             <div key={report.id} className="p-4 bg-black rounded-lg border border-black">
                               <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                                <h3 className="text-white font-semibold text-lg">
-                                  {formatMonth(report.report_month)}
+                                <h3 className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
+                                  {monthParts ? (
+                                    <>
+                                      <span className="text-2xl md:text-3xl font-bold tracking-tight text-white bg-gradient-to-r from-white via-purple-100 to-purple-300 bg-clip-text text-transparent">
+                                        {monthParts.month}
+                                      </span>
+                                      <span className="text-sm md:text-base font-medium text-gray-500 tabular-nums">
+                                        {monthParts.year}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-2xl md:text-3xl font-bold tracking-tight text-gray-500">
+                                      {formatMonth(report.report_month)}
+                                    </span>
+                                  )}
                                 </h3>
                                 <div className="flex flex-wrap items-center gap-2 justify-end">
                                   {wr && (
@@ -1793,26 +1843,26 @@ export default function PartnersOverviewPage() {
                                 <div className="mt-4 pt-4 border-t border-gray-700">
                                   <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
                                     <Wallet className="w-4 h-4 text-purple-400" />
-                                    Your Investment Details
+                                    Partner terms & this report
                                   </h4>
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {report.partner_investment_amount && report.partner_investment_amount > 0 && (
                                       <div>
-                                        <div className="text-sm text-gray-400 mb-1">Your Investment</div>
+                                        <div className="text-sm text-gray-400 mb-1">Investment (invitation)</div>
                                         <div className="text-lg font-bold text-blue-400">
                                           {formatCurrency(report.partner_investment_amount)}
                                         </div>
                                       </div>
                                     )}
                                     <div>
-                                      <div className="text-sm text-gray-400 mb-1">Your Share</div>
+                                      <div className="text-sm text-gray-400 mb-1">Share % (invitation)</div>
                                       <div className="text-lg font-bold text-purple-400">
                                         {report.partner_share_percentage.toFixed(2)}%
                                       </div>
                                     </div>
                                     {report.partner_profit_share !== null && report.partner_profit_share !== undefined && (
                                       <div>
-                                        <div className="text-sm text-gray-400 mb-1">Your Profit Share</div>
+                                        <div className="text-sm text-gray-400 mb-1">Profit share (this report)</div>
                                         <div className={`text-lg font-bold ${report.partner_profit_share >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                           {formatCurrency(report.partner_profit_share)}
                                         </div>
@@ -1820,7 +1870,7 @@ export default function PartnersOverviewPage() {
                                     )}
                                     {partnerSettings[selectedProject.partner_invitation_id]?.can_see_roi && report.partner_roi_percentage !== null && (
                                       <div>
-                                        <div className="text-sm text-gray-400 mb-1">Your ROI</div>
+                                        <div className="text-sm text-gray-400 mb-1">ROI (this report)</div>
                                         <div className={`text-lg font-bold ${report.partner_roi_percentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                           {report.partner_roi_percentage.toFixed(2)}%
                                         </div>
@@ -1863,7 +1913,7 @@ export default function PartnersOverviewPage() {
                                           className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
                                         >
                                           <ArrowDownToLine className="w-4 h-4 mr-2" />
-                                          Request Withdrawal
+                                          Withdrawal
                                         </Button>
                                       ) : (
                                         <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
@@ -2067,7 +2117,7 @@ export default function PartnersOverviewPage() {
       <Dialog open={withdrawalDialogOpen} onOpenChange={setWithdrawalDialogOpen}>
         <DialogContent className="bg-[#1a1a1a] border border-gray-800 text-white">
           <DialogHeader>
-            <DialogTitle className="text-xl text-white">Request Withdrawal</DialogTitle>
+            <DialogTitle className="text-xl text-white">Withdrawal</DialogTitle>
             <DialogDescription className="text-gray-400">
               Request to withdraw your profit share from this financial report
             </DialogDescription>

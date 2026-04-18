@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -52,12 +52,7 @@ import {
   RefreshCw,
   FolderKanban,
   Wallet,
-  MessageSquare,
   Send,
-  ChevronDown,
-  ChevronUp,
-  Sparkles,
-  Loader2,
   BarChart3,
   ArrowRight,
 } from "lucide-react"
@@ -153,25 +148,6 @@ interface Project {
   organization_id?: string
 }
 
-interface ProjectComment {
-  id: string
-  project_id: string
-  user_id: string
-  content: string
-  created_at: string
-  updated_at: string
-  user: {
-    id: string
-    name: string | null
-    email: string
-    avatar_url: string | null
-  }
-  project?: {
-    id: string
-    name: string
-  }
-}
-
 export default function PartnersSettingsPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
@@ -210,85 +186,11 @@ export default function PartnersSettingsPage() {
     investment_type: 'equity',
     partnership_type: 'none',
   })
-  const [projectComments, setProjectComments] = useState<Record<string, ProjectComment[]>>({})
-  const [loadingComments, setLoadingComments] = useState<Record<string, boolean>>({})
-  const [newComment, setNewComment] = useState<Record<string, string>>({})
-  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({})
-  const [enhancingComment, setEnhancingComment] = useState<Record<string, boolean>>({})
-
   useEffect(() => {
     if (user && !authLoading) {
       fetchOrganizations()
     }
   }, [user, authLoading])
-
-  const fetchCommentsForInvitation = useCallback(async (invitationId: string, access: PartnerAccess[]) => {
-    if (!access || access.length === 0) return
-
-    setLoadingComments(prev => ({ ...prev, [invitationId]: true }))
-    try {
-      const projectIds = access.map(a => a.project_id).filter((id): id is string => !!id)
-      
-      if (projectIds.length === 0) {
-        setProjectComments(prev => ({ ...prev, [invitationId]: [] }))
-        return
-      }
-
-      // Fetch comments for all projects (get newest first, then reverse to show oldest first with newest near input)
-      const { data: commentsData, error: commentsError } = await supabase
-        .from('project_comments')
-        .select('*')
-        .in('project_id', projectIds)
-        .order('created_at', { ascending: false })
-        .limit(20)
-
-      if (commentsError) throw commentsError
-
-      // Fetch user details for each comment
-      if (commentsData && commentsData.length > 0) {
-        const userIds = [...new Set(commentsData.map(c => c.user_id))]
-        const { data: usersData, error: usersError } = await supabase
-          .from('users')
-          .select('id, name, email, avatar_url')
-          .in('id', userIds)
-
-        if (usersError) {
-          console.warn('Could not fetch user details:', usersError.message)
-        }
-
-        // Create a map of project IDs to project names
-        const projectMap = new Map(access.map(a => [a.project_id, a.projects?.name || 'Unknown Project']))
-
-        const commentsWithUsers: ProjectComment[] = commentsData.map((comment) => {
-          const userDetail = usersData?.find(u => u.id === comment.user_id)
-          return {
-            ...comment,
-            user: userDetail || {
-              id: comment.user_id,
-              name: 'Unknown User',
-              email: 'Unknown',
-              avatar_url: null
-            },
-            project: {
-              id: comment.project_id,
-              name: projectMap.get(comment.project_id) || 'Unknown Project'
-            }
-          }
-        })
-
-        // Reverse to show oldest first (newest near input)
-        const reversedComments = commentsWithUsers.reverse()
-
-        setProjectComments(prev => ({ ...prev, [invitationId]: reversedComments }))
-      } else {
-        setProjectComments(prev => ({ ...prev, [invitationId]: [] }))
-      }
-    } catch (error) {
-      console.error('Error fetching comments:', error)
-    } finally {
-      setLoadingComments(prev => ({ ...prev, [invitationId]: false }))
-    }
-  }, [])
 
   useEffect(() => {
     if (selectedOrg) {
@@ -296,18 +198,6 @@ export default function PartnersSettingsPage() {
       fetchProjects()
     }
   }, [selectedOrg])
-
-  // Fetch comments when partnerAccess is updated
-  useEffect(() => {
-    if (invitations.length > 0 && Object.keys(partnerAccess).length > 0) {
-      invitations.forEach((invitation) => {
-        const access = partnerAccess[invitation.id] || []
-        if (access.length > 0) {
-          fetchCommentsForInvitation(invitation.id, access)
-        }
-      })
-    }
-  }, [invitations.length, partnerAccess, fetchCommentsForInvitation])
 
   const fetchOrganizations = async () => {
     if (!user?.id) return
@@ -664,24 +554,29 @@ export default function PartnersSettingsPage() {
     }
   }
 
-  const handleDeleteInvitation = async (invitationId: string) => {
-    if (!confirm('Are you sure you want to delete this invitation? This will revoke partner access.')) {
+  const handleDeleteInvitation = async (invitation: PartnerInvitation) => {
+    const acceptedWarning =
+      invitation.status === 'accepted'
+        ? ' The partner will lose access. Project links, settings, financial reports, withdrawals, and other records tied to this invitation will be removed.'
+        : ''
+    if (
+      !confirm(
+        `Permanently delete this invitation?${acceptedWarning} This cannot be undone.`
+      )
+    ) {
       return
     }
 
     try {
-      const { error } = await supabase
-        .from('partner_invitations')
-        .update({ status: 'revoked' })
-        .eq('id', invitationId)
+      const { error } = await supabase.from('partner_invitations').delete().eq('id', invitation.id)
 
       if (error) throw error
 
-      toast.success('Invitation revoked')
+      toast.success('Invitation deleted')
       fetchInvitations()
     } catch (error: any) {
       console.error('Error deleting invitation:', error)
-      toast.error('Failed to revoke invitation')
+      toast.error(error.message || 'Failed to delete invitation')
     }
   }
 
@@ -931,159 +826,6 @@ export default function PartnersSettingsPage() {
     } catch (error: any) {
       console.error('Error removing project:', error)
       toast.error('Failed to remove project')
-    }
-  }
-
-  const handleAddComment = async (projectId: string, invitationId: string) => {
-    if (!user?.id || !newComment[projectId]?.trim()) return
-
-    const commentContent = newComment[projectId].trim()
-    const tempId = `temp-${Date.now()}`
-    const access = partnerAccess[invitationId] || []
-    const projectMap = new Map(access.map(a => [a.project_id, a.projects?.name || 'Unknown Project']))
-    
-    // Optimistically add comment to state
-    const optimisticComment: ProjectComment = {
-      id: tempId,
-      project_id: projectId,
-      user_id: user.id,
-      content: commentContent,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      user: {
-        id: user.id,
-        name: user.name || null,
-        email: user.email || '',
-        avatar_url: user.avatar_url || null
-      },
-      project: {
-        id: projectId,
-        name: projectMap.get(projectId) || 'Unknown Project'
-      }
-    }
-
-    setProjectComments(prev => ({
-      ...prev,
-      [invitationId]: [...(prev[invitationId] || []), optimisticComment]
-    }))
-    setNewComment(prev => ({ ...prev, [projectId]: '' }))
-
-    try {
-      const { data, error } = await supabase
-        .from('project_comments')
-        .insert({
-          project_id: projectId,
-          user_id: user.id,
-          content: commentContent
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      // Replace optimistic comment with real one
-      if (data) {
-        const realComment: ProjectComment = {
-          ...data,
-          user: optimisticComment.user,
-          project: optimisticComment.project
-        }
-        setProjectComments(prev => ({
-          ...prev,
-          [invitationId]: (prev[invitationId] || []).map(c => c.id === tempId ? realComment : c)
-        }))
-      }
-
-      toast.success('Comment added successfully')
-    } catch (error: any) {
-      // Revert optimistic update on error
-      setProjectComments(prev => ({
-        ...prev,
-        [invitationId]: (prev[invitationId] || []).filter(c => c.id !== tempId)
-      }))
-      setNewComment(prev => ({ ...prev, [projectId]: commentContent }))
-      console.error('Error adding comment:', error)
-      toast.error(error.message || 'Failed to add comment')
-    }
-  }
-
-  const handleDeleteComment = async (commentId: string, invitationId: string) => {
-    if (!user?.id) return
-
-    // Find the comment to restore if deletion fails
-    const commentToDelete = projectComments[invitationId]?.find(c => c.id === commentId)
-    
-    // Optimistically remove comment from state
-    setProjectComments(prev => ({
-      ...prev,
-      [invitationId]: (prev[invitationId] || []).filter(c => c.id !== commentId)
-    }))
-
-    try {
-      const { error } = await supabase
-        .from('project_comments')
-        .delete()
-        .eq('id', commentId)
-
-      if (error) throw error
-
-      toast.success('Comment deleted successfully')
-    } catch (error: any) {
-      // Revert optimistic update on error
-      if (commentToDelete) {
-        setProjectComments(prev => ({
-          ...prev,
-          [invitationId]: [...(prev[invitationId] || []), commentToDelete]
-        }))
-      }
-      console.error('Error deleting comment:', error)
-      toast.error('Failed to delete comment')
-    }
-  }
-
-  const handleEnhanceComment = async (projectId: string) => {
-    const currentMessage = newComment[projectId]?.trim()
-    if (!currentMessage) {
-      toast.error('Please enter a message to enhance')
-      return
-    }
-
-    setEnhancingComment(prev => ({ ...prev, [projectId]: true }))
-    try {
-      const response = await fetch('/api/enhance-comment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: currentMessage })
-      })
-
-      if (!response.ok) {
-        const { error } = await response.json()
-        throw new Error(error || 'Enhancement failed')
-      }
-
-      const data = await response.json()
-      setNewComment(prev => ({ ...prev, [projectId]: data.message }))
-      toast.success('Comment enhanced with AI')
-    } catch (error: any) {
-      console.error('Comment enhancement error:', error)
-      toast.error(error?.message || 'Failed to enhance comment')
-    } finally {
-      setEnhancingComment(prev => ({ ...prev, [projectId]: false }))
-    }
-  }
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A'
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    } catch {
-      return 'Invalid date'
     }
   }
 
@@ -1552,11 +1294,11 @@ export default function PartnersSettingsPage() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleDeleteInvitation(invitation.id)}
+                      onClick={() => handleDeleteInvitation(invitation)}
                       className="hover:bg-red-600/20"
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
-                      Revoke
+                      Delete
                     </Button>
                   </div>
 
@@ -1578,166 +1320,6 @@ export default function PartnersSettingsPage() {
                   )}
                 </CardContent>
               </Card>
-
-              {/* Project Comments Card - Separate Card */}
-              {settings?.can_see_updates && assignedProjects.length > 0 && (
-                <Card className="bg-[#141414] border border-black shadow-xl">
-                  <CardHeader className="border-b border-black">
-                    <div 
-                      className="flex items-center justify-between cursor-pointer"
-                      onClick={() => setExpandedComments(prev => ({ ...prev, [invitation.id]: !(prev[invitation.id] ?? true) }))}
-                    >
-                      <CardTitle className="text-white flex items-center gap-3">
-                        <div className="p-2 bg-blue-500/20 rounded-lg">
-                          <MessageSquare className="w-5 h-5 text-blue-400" />
-                        </div>
-                        Project Comments
-                        {projectComments[invitation.id] && projectComments[invitation.id].length > 0 && (
-                          <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-xs">
-                            {projectComments[invitation.id].length}
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setExpandedComments(prev => ({ ...prev, [invitation.id]: !(prev[invitation.id] ?? true) }))
-                        }}
-                        className="p-1 hover:bg-black/50 rounded transition-colors"
-                        aria-label={(expandedComments[invitation.id] ?? true) ? "Collapse" : "Expand"}
-                      >
-                        {(expandedComments[invitation.id] ?? true) ? (
-                          <ChevronUp className="w-5 h-5 text-gray-400" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5 text-gray-400" />
-                        )}
-                      </button>
-                    </div>
-                  </CardHeader>
-                  
-                  {(expandedComments[invitation.id] ?? true) && (
-                    <CardContent className="pt-6">
-                      <div className="space-y-4">
-                        {loadingComments[invitation.id] ? (
-                          <div className="flex justify-center py-8">
-                            <LoadingSpinner />
-                          </div>
-                        ) : (
-                          <>
-                            {/* Comments List */}
-                            <div className="space-y-3 max-h-96 overflow-y-auto">
-                              {projectComments[invitation.id]?.length > 0 ? (
-                                projectComments[invitation.id].map((comment) => (
-                                  <div 
-                                    key={comment.id} 
-                                    className="p-4 bg-black rounded-lg border border-black hover:bg-[#0a0a0a] transition-all duration-300"
-                                  >
-                                    <div className="flex items-start gap-3">
-                                      <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                                        {comment.user.avatar_url ? (
-                                          <img 
-                                            src={comment.user.avatar_url} 
-                                            alt={comment.user.name || 'User'} 
-                                            className="w-8 h-8 rounded-full"
-                                          />
-                                        ) : (
-                                          <span className="text-purple-400 font-semibold text-xs">
-                                            {(comment.user.name || comment.user.email || 'U')[0].toUpperCase()}
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                          <p className="text-white font-semibold text-sm">
-                                            {comment.user.name || 'Unknown User'}
-                                          </p>
-                                          {comment.project && (
-                                            <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-xs">
-                                              {comment.project.name}
-                                            </Badge>
-                                          )}
-                                          <span className="text-gray-500 text-xs">
-                                            {formatDate(comment.created_at)}
-                                          </span>
-                                        </div>
-                                        <p className="text-gray-300 text-sm leading-relaxed">
-                                          {comment.content}
-                                        </p>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteComment(comment.id, invitation.id)}
-                                        className="p-1.5 hover:bg-red-500/20 rounded transition-colors text-gray-400 hover:text-red-400 flex-shrink-0"
-                                        title="Delete comment"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="text-center py-8">
-                                  <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                                  <p className="text-gray-400">No comments yet</p>
-                                  <p className="text-gray-500 text-sm mt-1">Comments from partners will appear here</p>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Add Comment Forms for each project */}
-                            {assignedProjects.map((project) => (
-                              <div key={project.id} className="pt-3 border-t border-black/50">
-                                <div className="mb-2">
-                                  <Label className="text-gray-400 text-xs font-medium">Reply to {project.name}</Label>
-                                </div>
-                                <div className="flex gap-2">
-                                  <div className="flex-1 relative">
-                                    <Input
-                                      placeholder={`Add a comment on ${project.name}...`}
-                                      value={newComment[project.id] || ''}
-                                      onChange={(e) => setNewComment(prev => ({ ...prev, [project.id]: e.target.value }))}
-                                      onKeyPress={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-                                          e.preventDefault()
-                                          handleAddComment(project.id, invitation.id)
-                                        }
-                                      }}
-                                      className="bg-black border-black text-white placeholder:text-gray-500 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 text-sm pr-10"
-                                    />
-                                    {newComment[project.id]?.trim() && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleEnhanceComment(project.id)}
-                                        disabled={enhancingComment[project.id]}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-purple-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title="Enhance with AI"
-                                      >
-                                        {enhancingComment[project.id] ? (
-                                          <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
-                                        ) : (
-                                          <Sparkles className="w-4 h-4 text-purple-400" />
-                                        )}
-                                      </button>
-                                    )}
-                                  </div>
-                                  <Button
-                                    onClick={() => handleAddComment(project.id, invitation.id)}
-                                    disabled={!newComment[project.id]?.trim() || enhancingComment[project.id]}
-                                    className="gradient-button px-4"
-                                    size="sm"
-                                  >
-                                    <Send className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </>
-                        )}
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-              )}
               </div>
             )
           })}

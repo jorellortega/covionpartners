@@ -1206,29 +1206,29 @@ export default function PartnerFinancialsPage() {
                             <div className="pt-4 border-t border-gray-700">
                               <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
                                 <TrendingUp className="w-4 h-4 text-purple-400" />
-                                Partner-Specific Metrics
+                                Partner terms & this report
                               </h4>
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                 <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
-                                  <div className="text-sm text-gray-400 mb-1">Investment Amount</div>
+                                  <div className="text-sm text-gray-400 mb-1">Investment (invitation)</div>
                                   <div className="text-xl font-bold text-purple-400">
                                     {formatCurrency(report.partner_investment_amount)}
                                   </div>
                                 </div>
                                 <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
-                                  <div className="text-sm text-gray-400 mb-1">Share Percentage</div>
+                                  <div className="text-sm text-gray-400 mb-1">Share % (invitation)</div>
                                   <div className="text-xl font-bold text-purple-400">
                                     {report.partner_share_percentage ? `${report.partner_share_percentage.toFixed(2)}%` : 'N/A'}
                                   </div>
                                 </div>
                                 <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/20">
-                                  <div className="text-sm text-gray-400 mb-1">Your Profit Share</div>
+                                  <div className="text-sm text-gray-400 mb-1">Profit share (this report)</div>
                                   <div className="text-xl font-bold text-green-400">
                                     {formatCurrency(report.partner_profit_share || 0)}
                                   </div>
                                 </div>
                                 <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
-                                  <div className="text-sm text-gray-400 mb-1">Your ROI</div>
+                                  <div className="text-sm text-gray-400 mb-1">ROI (this report)</div>
                                   <div className="text-xl font-bold text-purple-400">
                                     {report.partner_roi_percentage !== null ? `${report.partner_roi_percentage.toFixed(2)}%` : 'N/A'}
                                   </div>
