@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -55,6 +56,8 @@ import {
   Send,
   BarChart3,
   ArrowRight,
+  ListTodo,
+  ExternalLink,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
@@ -148,6 +151,22 @@ interface Project {
   organization_id?: string
 }
 
+interface PartnerTodo {
+  id: string
+  partner_invitation_id: string
+  title: string
+  description: string | null
+  status: 'pending' | 'completed'
+  due_date: string | null
+  contract_id: string | null
+  created_by: string
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+  /** Joined from Contract Library when present */
+  contracts?: { id: string; title: string; status: string } | null
+}
+
 export default function PartnersSettingsPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
@@ -186,6 +205,19 @@ export default function PartnersSettingsPage() {
     investment_type: 'equity',
     partnership_type: 'none',
   })
+  const [partnerTodosByInvitation, setPartnerTodosByInvitation] = useState<
+    Record<string, PartnerTodo[]>
+  >({})
+  const [isTodoDialogOpen, setIsTodoDialogOpen] = useState(false)
+  const [todoDialogInvitationId, setTodoDialogInvitationId] = useState<string | null>(null)
+  const [newTodoTitle, setNewTodoTitle] = useState('')
+  const [newTodoDescription, setNewTodoDescription] = useState('')
+  const [newTodoDueDate, setNewTodoDueDate] = useState('')
+  const [newTodoContractId, setNewTodoContractId] = useState('')
+  const [libraryContracts, setLibraryContracts] = useState<{ id: string; title: string; status: string }[]>([])
+  const [loadingLibraryContracts, setLoadingLibraryContracts] = useState(false)
+  const [savingTodo, setSavingTodo] = useState(false)
+
   useEffect(() => {
     if (user && !authLoading) {
       fetchOrganizations()
@@ -198,6 +230,34 @@ export default function PartnersSettingsPage() {
       fetchProjects()
     }
   }, [selectedOrg])
+
+  useEffect(() => {
+    if (!isTodoDialogOpen || !selectedOrg) return
+    let cancelled = false
+    setLoadingLibraryContracts(true)
+    fetch(`/api/contracts?organization_id=${selectedOrg}&status=all&category=all`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && Array.isArray(data.contracts)) {
+          setLibraryContracts(
+            data.contracts.map((c: { id: string; title: string; status: string }) => ({
+              id: c.id,
+              title: c.title,
+              status: c.status,
+            }))
+          )
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLibraryContracts([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLibraryContracts(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isTodoDialogOpen, selectedOrg])
 
   const fetchOrganizations = async () => {
     if (!user?.id) return
@@ -378,6 +438,30 @@ export default function PartnersSettingsPage() {
         })
         
         setPartnerAccess(accessMap)
+      }
+
+      if (data && data.length > 0) {
+        const invIds = data.map((inv) => inv.id)
+        const todoMap: Record<string, PartnerTodo[]> = {}
+        invIds.forEach((id) => {
+          todoMap[id] = []
+        })
+        const { data: todoRows, error: todoErr } = await supabase
+          .from('partner_todos')
+          .select('*, contracts(id, title, status)')
+          .in('partner_invitation_id', invIds)
+          .order('created_at', { ascending: false })
+        if (todoErr) {
+          console.error('Error fetching partner todos:', todoErr)
+        } else if (todoRows) {
+          ;(todoRows as PartnerTodo[]).forEach((row) => {
+            if (!todoMap[row.partner_invitation_id]) todoMap[row.partner_invitation_id] = []
+            todoMap[row.partner_invitation_id].push(row)
+          })
+        }
+        setPartnerTodosByInvitation(todoMap)
+      } else {
+        setPartnerTodosByInvitation({})
       }
     } catch (error: any) {
       console.error('🔍 DEBUG: Error fetching invitations - FULL ERROR:', {
@@ -577,6 +661,64 @@ export default function PartnersSettingsPage() {
     } catch (error: any) {
       console.error('Error deleting invitation:', error)
       toast.error(error.message || 'Failed to delete invitation')
+    }
+  }
+
+  const openAddPartnerTodo = (invitationId: string) => {
+    setTodoDialogInvitationId(invitationId)
+    setNewTodoTitle('')
+    setNewTodoDescription('')
+    setNewTodoDueDate('')
+    setNewTodoContractId('')
+    setIsTodoDialogOpen(true)
+  }
+
+  const handleCreatePartnerTodo = async () => {
+    if (!user?.id || !todoDialogInvitationId || !newTodoTitle.trim()) {
+      toast.error('Please enter a title for the to-do')
+      return
+    }
+    if (
+      newTodoContractId &&
+      !libraryContracts.some((c) => c.id === newTodoContractId)
+    ) {
+      toast.error('Invalid contract selection')
+      return
+    }
+    setSavingTodo(true)
+    try {
+      const { error } = await supabase.from('partner_todos').insert({
+        partner_invitation_id: todoDialogInvitationId,
+        title: newTodoTitle.trim(),
+        description: newTodoDescription.trim() || null,
+        due_date: newTodoDueDate ? new Date(newTodoDueDate).toISOString() : null,
+        contract_id: newTodoContractId || null,
+        created_by: user.id,
+        status: 'pending',
+      })
+      if (error) throw error
+      toast.success('To-do added — your partner will see it on Partners Overview')
+      setIsTodoDialogOpen(false)
+      setTodoDialogInvitationId(null)
+      fetchInvitations()
+    } catch (e: any) {
+      console.error('Error creating partner todo:', e)
+      toast.error(e.message || 'Failed to add to-do')
+    } finally {
+      setSavingTodo(false)
+    }
+  }
+
+  const handleDeletePartnerTodo = async (todoId: string) => {
+    if (!confirm('Remove this to-do?')) return
+    try {
+      const { error } = await supabase.from('partner_todos').delete().eq('id', todoId)
+      if (error) throw error
+      toast.success('To-do removed')
+      fetchInvitations()
+    } catch (e: any) {
+      console.error('Error deleting partner todo:', e)
+      toast.error(e.message || 'Failed to remove to-do')
     }
   }
 
@@ -1318,6 +1460,83 @@ export default function PartnersSettingsPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Partner to-dos (owner assigns; partner completes on Partners Overview) */}
+                  <div className="mt-6 pt-4 border-t border-black">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                      <p className="text-sm text-gray-400 font-medium flex items-center gap-2">
+                        <ListTodo className="w-4 h-4 text-amber-400" />
+                        Partner to-dos
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openAddPartnerTodo(invitation.id)}
+                        className="border-amber-500/40 text-amber-200 hover:bg-amber-500/10"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add to-do
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-3">
+                      Examples: sign a contract, upload documents, complete onboarding. Your partner sees these on{" "}
+                      <span className="text-gray-400">Partners Overview</span> and can check them off when done.
+                    </p>
+                    {(partnerTodosByInvitation[invitation.id] || []).length === 0 ? (
+                      <p className="text-sm text-gray-600 py-2">No to-dos yet.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {(partnerTodosByInvitation[invitation.id] || []).map((todo) => (
+                          <li
+                            key={todo.id}
+                            className="flex items-start justify-between gap-3 p-3 rounded-lg bg-black/80 border border-black"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-sm font-medium ${todo.status === 'completed' ? 'text-gray-500 line-through' : 'text-white'}`}>
+                                {todo.title}
+                              </p>
+                              {todo.description && (
+                                <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap">{todo.description}</p>
+                              )}
+                              {(todo.contract_id || todo.contracts?.id) && (
+                                <Link
+                                  href={`/contract-library/${todo.contract_id || todo.contracts?.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 mt-2"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                                  Open in Contract Library
+                                  {todo.contracts?.title ? (
+                                    <span className="text-gray-400 truncate max-w-[200px]">— {todo.contracts.title}</span>
+                                  ) : null}
+                                </Link>
+                              )}
+                              <div className="flex flex-wrap gap-2 mt-1.5 text-[11px] text-gray-600">
+                                <span className={todo.status === 'completed' ? 'text-emerald-500/90' : 'text-amber-500/80'}>
+                                  {todo.status === 'completed' ? 'Completed' : 'Pending'}
+                                </span>
+                                {todo.due_date && (
+                                  <span>Due {new Date(todo.due_date).toLocaleDateString()}</span>
+                                )}
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-500 hover:text-red-400 shrink-0"
+                              onClick={() => handleDeletePartnerTodo(todo.id)}
+                              title="Remove to-do"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
               </div>
@@ -1334,6 +1553,100 @@ export default function PartnersSettingsPage() {
             </Card>
           )}
         </div>
+
+        <Dialog
+          open={isTodoDialogOpen}
+          onOpenChange={(open) => {
+            setIsTodoDialogOpen(open)
+            if (!open) setTodoDialogInvitationId(null)
+          }}
+        >
+          <DialogContent className="bg-[#141414] border-black max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-white flex items-center gap-2">
+                <ListTodo className="w-5 h-5 text-amber-400" />
+                Add partner to-do
+              </DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Your partner will see this on Partners Overview and can mark it complete.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-2">
+              <div>
+                <Label className="text-gray-300">Title</Label>
+                <Input
+                  value={newTodoTitle}
+                  onChange={(e) => setNewTodoTitle(e.target.value)}
+                  placeholder="e.g. Sign the partnership agreement"
+                  className="mt-1.5 bg-black border-black text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-gray-300">Details (optional)</Label>
+                <Textarea
+                  value={newTodoDescription}
+                  onChange={(e) => setNewTodoDescription(e.target.value)}
+                  placeholder="Any instructions or links…"
+                  className="mt-1.5 bg-black border-black text-white min-h-[88px]"
+                />
+              </div>
+              <div>
+                <Label className="text-gray-300">Due date (optional)</Label>
+                <Input
+                  type="datetime-local"
+                  value={newTodoDueDate}
+                  onChange={(e) => setNewTodoDueDate(e.target.value)}
+                  className="mt-1.5 bg-black border-black text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-gray-300">Attach contract (optional)</Label>
+                <Select
+                  value={newTodoContractId || '__none__'}
+                  onValueChange={(v) => setNewTodoContractId(v === '__none__' ? '' : v)}
+                  disabled={loadingLibraryContracts}
+                >
+                  <SelectTrigger className="mt-1.5 bg-black border-black text-white">
+                    <SelectValue
+                      placeholder={loadingLibraryContracts ? 'Loading library…' : 'Choose from Contract Library'}
+                    />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a1a] border-gray-700 max-h-64">
+                    <SelectItem value="__none__" className="text-gray-300">
+                      None
+                    </SelectItem>
+                    {libraryContracts.map((c) => (
+                      <SelectItem key={c.id} value={c.id} className="text-gray-200">
+                        {c.title} ({c.status})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1.5">
+                  Picks a document from your{" "}
+                  <Link href="/contract-library" className="text-purple-400 hover:underline">
+                    Contract Library
+                  </Link>
+                  . Your partner will get an <strong className="text-gray-400 font-medium">Open contract</strong> link on
+                  Partners Overview.
+                </p>
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                className="border-gray-700"
+                onClick={() => setIsTodoDialogOpen(false)}
+                disabled={savingTodo}
+              >
+                Cancel
+              </Button>
+              <Button className="gradient-button" onClick={() => void handleCreatePartnerTodo()} disabled={savingTodo}>
+                {savingTodo ? 'Saving…' : 'Add to-do'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Settings Dialog */}
         <Dialog open={isSettingsDialogOpen} onOpenChange={setIsSettingsDialogOpen}>

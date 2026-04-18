@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Card,
   CardContent,
@@ -37,6 +38,7 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  ListTodo,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
@@ -171,6 +173,21 @@ interface PublicProject {
   project_key?: string | null
 }
 
+interface PartnerTodo {
+  id: string
+  partner_invitation_id: string
+  title: string
+  description: string | null
+  status: 'pending' | 'completed'
+  due_date: string | null
+  contract_id: string | null
+  created_by: string
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+  contracts?: { id: string; title: string; status: string } | null
+}
+
 interface PartnerNote {
   id: string
   partner_invitation_id: string
@@ -212,6 +229,9 @@ export default function PartnersOverviewPage() {
   const [partnerNotes, setPartnerNotes] = useState<Record<string, PartnerNote[]>>({})
   const [loadingNotes, setLoadingNotes] = useState<Record<string, boolean>>({})
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({})
+  const [partnerTodos, setPartnerTodos] = useState<Record<string, PartnerTodo[]>>({})
+  const [loadingPartnerTodos, setLoadingPartnerTodos] = useState<Record<string, boolean>>({})
+  const [updatingPartnerTodoId, setUpdatingPartnerTodoId] = useState<string | null>(null)
   const [financialReports, setFinancialReports] = useState<any[]>([])
   const [loadingFinancialReports, setLoadingFinancialReports] = useState(false)
   /** Best withdrawal row per financial report (partner's requests for this invitation). */
@@ -412,6 +432,53 @@ export default function PartnersOverviewPage() {
       setLoadingNotes(prev => ({ ...prev, [invitationId]: false }))
     }
   }, [])
+
+  const fetchPartnerTodos = useCallback(async (invitationId: string) => {
+    setLoadingPartnerTodos((prev) => ({ ...prev, [invitationId]: true }))
+    try {
+      const { data, error } = await supabase
+        .from('partner_todos')
+        .select('*, contracts(id, title, status)')
+        .eq('partner_invitation_id', invitationId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setPartnerTodos((prev) => ({ ...prev, [invitationId]: (data as PartnerTodo[]) || [] }))
+    } catch (e) {
+      console.error('Error fetching partner todos:', e)
+    } finally {
+      setLoadingPartnerTodos((prev) => ({ ...prev, [invitationId]: false }))
+    }
+  }, [])
+
+  const handleTogglePartnerTodo = async (todo: PartnerTodo, invitationId: string, completed: boolean) => {
+    setUpdatingPartnerTodoId(todo.id)
+    const nextStatus = completed ? 'completed' : 'pending'
+    try {
+      const { error } = await supabase
+        .from('partner_todos')
+        .update({
+          status: nextStatus,
+          completed_at: completed ? new Date().toISOString() : null,
+        })
+        .eq('id', todo.id)
+
+      if (error) throw error
+      setPartnerTodos((prev) => ({
+        ...prev,
+        [invitationId]: (prev[invitationId] || []).map((t) =>
+          t.id === todo.id
+            ? { ...t, status: nextStatus, completed_at: completed ? new Date().toISOString() : null }
+            : t
+        ),
+      }))
+    } catch (e: any) {
+      console.error('Error updating partner todo:', e)
+      toast.error(e.message || 'Could not update to-do')
+    } finally {
+      setUpdatingPartnerTodoId(null)
+    }
+  }
 
   const fetchFinancialReports = useCallback(async (invitationId: string) => {
     setLoadingFinancialReports(true)
@@ -826,6 +893,7 @@ export default function PartnersOverviewPage() {
       fetchProjectUpdates(project.id, invitationId)
       fetchProjectComments(project.id, invitationId)
       fetchPartnerNotes(invitationId)
+      fetchPartnerTodos(invitationId)
     }
     if (settings.can_see_expenses) {
       fetchProjectExpenses(project.id, invitationId)
@@ -846,6 +914,7 @@ export default function PartnersOverviewPage() {
     fetchProjectTeamMembers,
     fetchProjectComments,
     fetchPartnerNotes,
+    fetchPartnerTodos,
     fetchFinancialReports,
     fetchWithdrawalRequestsForInvitation,
   ])
@@ -1336,6 +1405,90 @@ export default function PartnersOverviewPage() {
                           <FileText className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                           <p className="text-gray-400">No updates available</p>
                         </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Partner to-dos (from organization owner) */}
+                {partnerSettings[selectedProject.partner_invitation_id]?.can_see_updates && (
+                  <Card className="bg-[#141414] border border-black shadow-xl hover:shadow-2xl transition-all duration-300">
+                    <CardHeader className="border-b border-black">
+                      <CardTitle className="text-xl text-white flex items-center gap-3">
+                        <div className="p-2 bg-amber-500/20 rounded-lg">
+                          <ListTodo className="w-5 h-5 text-amber-400" />
+                        </div>
+                        To-dos
+                      </CardTitle>
+                      <CardDescription className="text-gray-400 text-sm">
+                        Action items your organization assigned to you (e.g. sign a contract). Check off when done.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      {loadingPartnerTodos[selectedProject.partner_invitation_id] ? (
+                        <div className="flex justify-center py-10">
+                          <LoadingSpinner />
+                        </div>
+                      ) : (partnerTodos[selectedProject.partner_invitation_id] || []).length === 0 ? (
+                        <p className="text-gray-500 text-sm text-center py-6">No to-dos right now.</p>
+                      ) : (
+                        <ul className="space-y-3">
+                          {(partnerTodos[selectedProject.partner_invitation_id] || []).map((todo) => {
+                            const busy = updatingPartnerTodoId === todo.id
+                            const checked = todo.status === 'completed'
+                            return (
+                              <li
+                                key={todo.id}
+                                className="flex items-start gap-3 p-3 rounded-lg bg-black border border-black"
+                              >
+                                <Checkbox
+                                  id={`todo-${todo.id}`}
+                                  checked={checked}
+                                  disabled={busy}
+                                  onCheckedChange={(v) =>
+                                    handleTogglePartnerTodo(
+                                      todo,
+                                      selectedProject.partner_invitation_id,
+                                      v === true
+                                    )
+                                  }
+                                  className="mt-0.5 border-gray-600 data-[state=checked]:bg-emerald-600"
+                                />
+                                <label htmlFor={`todo-${todo.id}`} className="flex-1 min-w-0 cursor-pointer">
+                                  <span
+                                    className={`text-sm font-medium block ${checked ? 'text-gray-500 line-through' : 'text-white'}`}
+                                  >
+                                    {todo.title}
+                                  </span>
+                                  {todo.description && (
+                                    <span className="text-xs text-gray-500 mt-1 block whitespace-pre-wrap">
+                                      {todo.description}
+                                    </span>
+                                  )}
+                                  {todo.due_date && (
+                                    <span className="text-[11px] text-gray-600 mt-1 block">
+                                      Due {new Date(todo.due_date).toLocaleString()}
+                                    </span>
+                                  )}
+                                  {(todo.contract_id || todo.contracts?.id) && (
+                                    <Link
+                                      href={`/contract-library/${todo.contract_id || todo.contracts?.id}`}
+                                      className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 mt-2 font-medium"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                                      Open contract
+                                      {todo.contracts?.title ? (
+                                        <span className="text-gray-500 font-normal truncate max-w-[220px]">
+                                          — {todo.contracts.title}
+                                        </span>
+                                      ) : null}
+                                    </Link>
+                                  )}
+                                </label>
+                              </li>
+                            )
+                          })}
+                        </ul>
                       )}
                     </CardContent>
                   </Card>
