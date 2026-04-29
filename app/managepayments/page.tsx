@@ -185,6 +185,10 @@ export default function ManagePaymentsPage() {
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [allTransactions, setAllTransactions] = useState<any[]>([]);
   const [allTransactionsLoading, setAllTransactionsLoading] = useState(true);
+  const [retryingPaymentIntentId, setRetryingPaymentIntentId] = useState<string | null>(null);
+  const [retryPmChoice, setRetryPmChoice] = useState<Record<string, string>>({});
+  /** Set when /api/stripe/transactions returns info (e.g. no payer profile on this login). */
+  const [transactionListNotice, setTransactionListNotice] = useState<string | null>(null);
   const [stripeSummary, setStripeSummary] = useState<any>(null);
   const [payoutDetails, setPayoutDetails] = useState<any>(null);
   const [showStripeSummary, setShowStripeSummary] = useState(false);
@@ -276,26 +280,66 @@ export default function ManagePaymentsPage() {
     fetchSubscription();
   }, []);
 
-  useEffect(() => {
-    const fetchAllTransactions = async () => {
-      setAllTransactionsLoading(true);
-      try {
-        const stripeRes = await fetch('/api/stripe/transactions', { credentials: 'include' });
-        const stripeData = await stripeRes.json();
-        const stripeTransactions = Array.isArray(stripeData.transactions) ? stripeData.transactions : [];
-
-        const merged = [...stripeTransactions].sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-        setAllTransactions(merged);
-      } catch (err) {
+  const fetchAllTransactions = useCallback(async () => {
+    setAllTransactionsLoading(true);
+    setTransactionListNotice(null);
+    try {
+      const stripeRes = await fetch('/api/stripe/transactions', { credentials: 'include' });
+      const stripeData = await stripeRes.json().catch(() => ({}));
+      if (!stripeRes.ok) {
         setAllTransactions([]);
-      } finally {
-        setAllTransactionsLoading(false);
+        setTransactionListNotice(
+          typeof stripeData.error === 'string'
+            ? stripeData.error
+            : 'Could not load transactions. Try again in a moment.'
+        );
+        return;
       }
-    };
-    fetchAllTransactions();
+      if (stripeData.info === 'no_stripe_customer') {
+        setAllTransactions([]);
+        setTransactionListNotice(
+          'This login does not have a Stripe payer profile (Activate Payment Methods). Charges and incomplete partner withdrawals are listed on the account that pays them—usually the organization owner—not on every member role.'
+        );
+        return;
+      }
+      if (stripeData.info === 'stripe_customer_empty') {
+        setAllTransactions([]);
+        setTransactionListNotice(
+          'No card or bank charges are recorded on this Stripe customer yet. Partner withdrawals you pay (and Retry) only appear for the organization owner’s login. Incoming partner share still appears below when you have Covion Banking (Connect) activity.'
+        );
+        return;
+      }
+      if (stripeData.info === 'connect_only_empty') {
+        setAllTransactions([]);
+        setTransactionListNotice(
+          'No activity on your Covion Banking (Connect) account yet. Pending balance can take a short time to show as line items after a payout.'
+        );
+        return;
+      }
+      if (stripeData.info === 'no_activity') {
+        setAllTransactions([]);
+        setTransactionListNotice(
+          'No transactions yet on your payer profile or Connect account.'
+        );
+        return;
+      }
+      const stripeTransactions = Array.isArray(stripeData.transactions) ? stripeData.transactions : [];
+
+      const merged = [...stripeTransactions].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      setAllTransactions(merged);
+    } catch {
+      setAllTransactions([]);
+      setTransactionListNotice('Could not load transactions.');
+    } finally {
+      setAllTransactionsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchAllTransactions();
+  }, [fetchAllTransactions]);
 
   useEffect(() => {
     // Fetch Stripe payout summary
@@ -327,6 +371,70 @@ export default function ManagePaymentsPage() {
       toast.error('Failed to load payment methods')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const getPaymentMethodIdForRetry = (paymentIntentId: string) => {
+    if (retryPmChoice[paymentIntentId]) return retryPmChoice[paymentIntentId]
+    const def = paymentMethods.find((m) => m.isDefault)?.id || paymentMethods[0]?.id
+    return def
+  }
+
+  const handleRetryPaymentIntent = async (paymentIntentId: string) => {
+    if (paymentMethods.length === 0) {
+      toast.error('Save a card or bank account under Payment Methods, then retry.')
+      return
+    }
+    setRetryingPaymentIntentId(paymentIntentId)
+    try {
+      const pm = getPaymentMethodIdForRetry(paymentIntentId)
+      const res = await fetch('/api/stripe/retry-payment-intent', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentIntentId,
+          ...(pm ? { paymentMethodId: pm } : {}),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+
+      let finalStatus: string | undefined = data.status
+
+      if (data.requiresAction && data.clientSecret) {
+        const stripe = await stripePromise
+        if (!stripe) throw new Error('Stripe could not load')
+        const { error: cErr } = await stripe.confirmCardPayment(data.clientSecret)
+        if (cErr) throw new Error(cErr.message)
+        const syncRes = await fetch('/api/stripe/retry-payment-intent', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentIntentId, applyCompletion: true }),
+        })
+        const syncData = await syncRes.json().catch(() => ({}))
+        if (!syncRes.ok) {
+          throw new Error(
+            typeof syncData.error === 'string'
+              ? syncData.error
+              : 'Payment succeeded but withdrawal status could not be updated. Check Partner Financials.'
+          )
+        }
+        finalStatus = typeof syncData.status === 'string' ? syncData.status : finalStatus
+      } else if (!res.ok) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Retry failed')
+      }
+
+      toast.success(
+        finalStatus === 'processing'
+          ? 'Payment is processing; bank debits can take a few days.'
+          : 'Payment completed.'
+      )
+      await fetchAllTransactions()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Retry failed')
+    } finally {
+      setRetryingPaymentIntentId(null)
     }
   }
 
@@ -678,6 +786,8 @@ export default function ManagePaymentsPage() {
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'completed':
+      case 'paid':
+      case 'succeeded':
         return 'bg-emerald-500/10 text-emerald-500'
       case 'pending':
         return 'bg-yellow-500/10 text-yellow-500'
@@ -685,9 +795,33 @@ export default function ManagePaymentsPage() {
         return 'bg-red-500/10 text-red-500'
       case 'processing':
         return 'bg-blue-500/10 text-blue-500'
+      case 'incomplete':
+        return 'bg-amber-500/15 text-amber-400'
+      case 'canceled':
+      case 'cancelled':
+        return 'bg-gray-600/20 text-gray-400'
+      case 'needs_authentication':
+        return 'bg-orange-500/15 text-orange-400'
       default:
         return 'bg-gray-500/10 text-gray-500'
     }
+  }
+
+  const formatTransactionStatusLabel = (status: string) => {
+    const key = status.toLowerCase().replace(/\s+/g, '_')
+    const labels: Record<string, string> = {
+      incomplete: 'Incomplete',
+      needs_authentication: 'Authentication required',
+      processing: 'Processing',
+      completed: 'Completed',
+      succeeded: 'Succeeded',
+      pending: 'Pending',
+      failed: 'Failed',
+      canceled: 'Canceled',
+      cancelled: 'Canceled',
+      paid: 'Paid',
+    }
+    return labels[key] ?? status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')
   }
 
   const getTransactionIcon = (type: string) => {
@@ -1343,7 +1477,11 @@ export default function ManagePaymentsPage() {
             <Card className="leonardo-card border-gray-800">
               <CardHeader>
                 <CardTitle>Recent Transactions</CardTitle>
-                <CardDescription>View your payment history</CardDescription>
+                <CardDescription>
+                  Card and bank charges on your payer profile, plus money moving through Covion Banking (Stripe
+                  Connect)—including pending partner payouts. Incomplete withdrawals you pay can be retried with a
+                  saved card when they appear under your payer profile.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -1352,46 +1490,114 @@ export default function ManagePaymentsPage() {
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
                     </div>
                   ) : !allTransactions.length ? (
-                    <div className="text-center py-12">
-                      <p className="text-gray-400">No transactions found</p>
+                    <div className="text-center py-12 space-y-3 px-2">
+                      {transactionListNotice ? (
+                        <p className="text-amber-200/90 text-sm max-w-lg mx-auto leading-relaxed">
+                          {transactionListNotice}
+                        </p>
+                      ) : (
+                        <p className="text-gray-400">No transactions found</p>
+                      )}
                     </div>
                   ) : (
                     <>
                       <div className="space-y-4">
-                        {allTransactions.map((transaction) => (
+                        {allTransactions.map((transaction) => {
+                          const showRetry =
+                            transaction.source === 'stripe' &&
+                            transaction.type === 'payment_intent' &&
+                            (transaction.status === 'incomplete' ||
+                              transaction.status === 'needs_authentication')
+                          const defaultPmId =
+                            paymentMethods.find((m) => m.isDefault)?.id || paymentMethods[0]?.id
+                          return (
                           <div
                             key={transaction.id}
                             className="bg-gray-900/50 rounded-lg p-4 hover:bg-gray-900/70 transition-all"
                           >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                              <div className="flex items-center gap-4 min-w-0">
                                 {getTransactionIcon(transaction.type)}
-                                <div>
-                                  <h3 className="text-white font-medium">
+                                <div className="min-w-0">
+                                  <h3 className="text-white font-medium break-words">
                                     {transaction.project?.name || transaction.description || 'Transaction'}
                                   </h3>
                                   <p className="text-sm text-gray-400">
                                     {format(new Date(transaction.date || transaction.created_at), 'M/d/yyyy')}
                                   </p>
+                                  {transaction.source === 'stripe_connect' && (
+                                    <p className="text-xs text-gray-500 mt-1">Covion Banking (Connect)</p>
+                                  )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-4">
+                              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:justify-end lg:shrink-0">
                                 <span className={cn(
-                                  "text-xl font-medium",
+                                  "text-xl font-medium sm:text-right",
                                   transaction.type === 'refund' ? 'text-red-500' : 'text-emerald-500'
                                 )}>
-                                  {formatAmount(transaction.amount, transaction.type)}
+                                  {formatAmount(
+                                    transaction.amount,
+                                    transaction.type === 'connect_incoming' ? 'charge' : transaction.type
+                                  )}
                                 </span>
                                 <span className={cn(
-                                  "px-3 py-1 rounded-full text-xs font-medium",
+                                  "px-3 py-1 rounded-full text-xs font-medium w-fit",
                                   getStatusColor(transaction.status)
                                 )}>
-                                  {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                                  {formatTransactionStatusLabel(transaction.status)}
                                 </span>
+                                {showRetry && paymentMethods.length === 0 && (
+                                  <p className="text-xs text-amber-400/90 max-w-xs">
+                                    Save a card or bank in the Payment Methods tab, then retry.
+                                  </p>
+                                )}
+                                {showRetry && paymentMethods.length > 0 && (
+                                  <div className="flex flex-col gap-2 w-full sm:w-auto sm:min-w-[200px]">
+                                    {paymentMethods.length > 1 && defaultPmId && (
+                                      <Select
+                                        value={retryPmChoice[transaction.id] || defaultPmId}
+                                        onValueChange={(v) =>
+                                          setRetryPmChoice((prev) => ({ ...prev, [transaction.id]: v }))
+                                        }
+                                      >
+                                        <SelectTrigger className="bg-gray-950 border-gray-700 h-9 text-sm">
+                                          <SelectValue placeholder="Card to charge" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {paymentMethods.map((m) => (
+                                            <SelectItem key={m.id} value={m.id}>
+                                              {m.card
+                                                ? `${m.card.brand} •••• ${m.card.last4}`
+                                                : m.type}{' '}
+                                              {m.isDefault ? '(default)' : ''}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    )}
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      className="gradient-button w-full sm:w-auto"
+                                      disabled={retryingPaymentIntentId === transaction.id}
+                                      onClick={() => handleRetryPaymentIntent(transaction.id)}
+                                    >
+                                      {retryingPaymentIntentId === transaction.id ? (
+                                        <>
+                                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                          Processing…
+                                        </>
+                                      ) : (
+                                        'Retry with saved method'
+                                      )}
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </>
                   )}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/route-handler'
+import { resolvePaymentMethodIdForCustomer } from '@/lib/stripe-resolve-payment-method'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-03-31.basil',
@@ -152,16 +153,33 @@ export async function POST(request: Request) {
         )
       }
 
+      const resolvedPm = await resolvePaymentMethodIdForCustomer(stripe, ownerUser.stripe_customer_id)
+      if (!resolvedPm) {
+        return NextResponse.json(
+          {
+            error:
+              'No saved card or bank account on file. Add one under Manage Payments, then process the withdrawal again.',
+          },
+          { status: 400 }
+        )
+      }
+
+      const pmRecord = await stripe.paymentMethods.retrieve(resolvedPm.id)
+      if (pmRecord.customer !== ownerUser.stripe_customer_id) {
+        return NextResponse.json({ error: 'Payment method does not belong to your account' }, { status: 400 })
+      }
+
       // Calculate platform fee (2%)
       const platformFee = Math.round(withdrawalRequest.amount * 100 * 0.02)
-      const transferAmount = Math.round(withdrawalRequest.amount * 100) - platformFee
 
-      // Create a transfer to the partner's Stripe Connect account
-      // Using Payment Intent with destination charge pattern
+      // Destination charge: charge owner's saved PM, route net to partner Connect account (same pattern as /api/payments/create).
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(withdrawalRequest.amount * 100),
         currency: 'usd',
         customer: ownerUser.stripe_customer_id,
+        payment_method: resolvedPm.id,
+        off_session: true,
+        confirm: true,
         application_fee_amount: platformFee,
         transfer_data: {
           destination: partnerUser.stripe_connect_account_id,
@@ -175,11 +193,37 @@ export async function POST(request: Request) {
         },
       })
 
-      // Update withdrawal request with transfer ID and mark as completed
+      if (paymentIntent.status === 'requires_action') {
+        return NextResponse.json(
+          {
+            error:
+              'Your bank requires extra verification for this payment (for example 3D Secure). After confirming, try processing the withdrawal again.',
+            requiresAction: true,
+            clientSecret: paymentIntent.client_secret,
+            paymentIntentId: paymentIntent.id,
+          },
+          { status: 409 }
+        )
+      }
+
+      if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing') {
+        return NextResponse.json(
+          {
+            error: `Payment could not be completed (status: ${paymentIntent.status}).`,
+          },
+          { status: 400 }
+        )
+      }
+
+      const payoutSettled = paymentIntent.status === 'succeeded'
+      const withdrawalRowStatus = payoutSettled ? 'completed' : 'processing'
+      const ledgerStatus = payoutSettled ? 'completed' : 'pending'
+
+      // Update withdrawal request with PaymentIntent id; ACH may remain processing until cleared.
       const { error: updateError } = await supabase
         .from('partner_withdrawal_requests')
         .update({
-          status: 'completed',
+          status: withdrawalRowStatus,
           stripe_transfer_id: paymentIntent.id,
           processed_by: user.id,
           processed_at: new Date().toISOString(),
@@ -200,7 +244,7 @@ export async function POST(request: Request) {
         recipient_id: partnerUserId,
         amount: withdrawalRequest.amount,
         type: 'withdrawal',
-        status: 'completed',
+        status: ledgerStatus,
         project_id: null as string | null,
         stripe_payment_intent_id: paymentIntent.id,
       }
@@ -213,7 +257,7 @@ export async function POST(request: Request) {
             user_id: user.id,
             amount: withdrawalRequest.amount,
             type: 'withdrawal',
-            status: 'completed',
+            status: ledgerStatus,
             project_id: null,
           })
           if (e2) {
@@ -229,7 +273,11 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         paymentIntentId: paymentIntent.id,
-        message: 'Withdrawal processed successfully',
+        paymentStatus: paymentIntent.status,
+        message:
+          paymentIntent.status === 'processing'
+            ? 'Withdrawal initiated; bank debit is processing and may take a few days to complete.'
+            : 'Withdrawal processed successfully',
       })
     }
 
